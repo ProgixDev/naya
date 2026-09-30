@@ -1,5 +1,5 @@
 import { forwardRef, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
 import { Check, ChevronDown } from 'lucide-react-native';
 import { colors, radius } from '@naya/tokens';
 import { COUNTRIES, formatNational, type Country } from '@naya/domain';
@@ -15,10 +15,11 @@ export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
   leading?: ReactNode;
   trailing?: ReactNode;
   testID?: string;
+  inputStyle?: StyleProp<TextStyle>;
 }
 
 /** Label above, 52-pt field, helper or error under it. Errors are announced and never only colour. */
-export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField({ label, error, helper, leading, trailing, onFocus, onBlur, editable = true, testID, ...input }, ref) {
+export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField({ label, error, helper, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, ...input }, ref) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 6 }}>
@@ -43,7 +44,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
             setFocused(false);
             onBlur?.(e);
           }}
-          style={styles.input}
+          style={[styles.input, inputStyle]}
           maxFontSizeMultiplier={1.5}
           {...input}
         />

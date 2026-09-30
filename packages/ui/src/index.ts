@@ -23,3 +23,5 @@ export * from './core/useSingleFlight';
 export * from './features/uploads';
 export * from './features/auth';
 export * from './features/DevLauncher';
+export * from './features/support';
+export * from './features/capture';
