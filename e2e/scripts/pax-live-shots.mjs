@@ -1,8 +1,8 @@
 // Captures the passenger live-ride states against the demo API (driver actions via API).
 import { chromium } from '@playwright/test';
 
-const WEB = process.env.PASSENGER_URL ?? 'http://localhost:8083';
-const API = process.env.API_URL ?? 'http://localhost:4011';
+const WEB = process.env.PASSENGER_URL ?? 'http://localhost:8081';
+const API = process.env.API_URL ?? 'http://localhost:4010';
 const W = Number(process.argv[2] ?? 390);
 const OUT = new URL(`../../docs/screens/passenger/${W === 390 ? '' : `${W}/`}`, import.meta.url).pathname;
 const j = (r) => r.json();

@@ -4,8 +4,8 @@ import { chromium } from '@playwright/test';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); if (i < 0) return d; const v = args[i + 1]; args.splice(i, 2); return v; };
-const API = opt('--api', 'http://localhost:4012');
-const APP = opt('--app', 'http://localhost:8084');
+const API = opt('--api', 'http://localhost:4010');
+const APP = opt('--app', 'http://localhost:8082');
 const OUT = opt('--out', '../docs/screens/driver');
 const W = Number(opt('--w', '390'));
 const H = Number(opt('--h', '844'));
