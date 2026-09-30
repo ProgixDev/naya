@@ -13,3 +13,4 @@ playwright-report/
 _handoff/
 .DS_Store
 *.log
+.playwright-mcp/

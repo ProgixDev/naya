@@ -525,7 +525,17 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
-  packages/api: {}
+  packages/api:
+    dependencies:
+      '@naya/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@tanstack/react-query':
+        specifier: ^5
+        version: 5.104.0(react@19.2.3)
+      react:
+        specifier: '*'
+        version: 19.2.3
 
   packages/assets: {}
 
@@ -544,7 +554,17 @@ importers:
 
   packages/tokens: {}
 
-  packages/ui: {}
+  packages/ui:
+    dependencies:
+      '@naya/assets':
+        specifier: workspace:*
+        version: link:../assets
+      '@naya/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@naya/tokens':
+        specifier: workspace:*
+        version: link:../tokens
 
   services/demo-api:
     dependencies:
