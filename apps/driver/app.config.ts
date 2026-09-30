@@ -18,7 +18,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'ma.naya.chauffeuse',
-    adaptiveIcon: { backgroundColor: '#6B3657', foregroundImage: './assets/android-icon-foreground.png', monochromeImage: './assets/android-icon-monochrome.png' },
+    adaptiveIcon: { backgroundColor: '#FFFFFF', foregroundImage: './assets/android-icon-foreground.png', monochromeImage: './assets/android-icon-monochrome.png' },
     predictiveBackGestureEnabled: false,
     // Without a key the app uses the tile-based fallback map (see src/features/map).
     ...(googleMapsKey ? { config: { googleMaps: { apiKey: googleMapsKey } } } : {}),
