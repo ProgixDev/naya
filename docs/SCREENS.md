@@ -1,89 +1,91 @@
 # Screen coverage
 
-Every frame of `project-manifest.json` (47 main screens, 263 scenario frames) mapped to the route that implements it. Variants are **states of one screen**, driven by server data; the 29 offer countdown frames (`D07-timer-*`) are one live timer computed from the authoritative `expiresAt`, not 29 routes.
+47 main screens (16 passenger, 18 driver, 13 admin) and the 263 scenario frames of Figma file `nOuWsQ5MA8CdU5HsSGoXwP` are implemented as **state-driven routes** — one route per screen, whose states come from server data (ride status, offer deadline, case status, transfer status…) rather than 263 duplicated routes. The 30 countdown frames (`D07-timer-*`) are one real timer against the server deadline.
 
-Captures: `docs/screens/passenger/` (390 pt, 375 pt subset), `docs/screens/driver/` (390 pt, plus 375/430 samples), `docs/screens/admin/` (1440 and 1024 px). Native iOS captures: `docs/screens/ios/`.
+Captures: `docs/screens/passenger/` (390 pt + `375/`), `docs/screens/driver/` (390 pt + 375/430 samples), `docs/screens/admin/` (1440 and 1024), `docs/screens/native/` (iOS 27 simulator). Contact sheets are in each folder's `sheets/`.
 
-## Passenger (P01–P16)
+Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: covered by `services/demo-api/test/scenarios.test.ts`.
 
-| Screen | Figma node | Route | States covered (Figma variants) | Captures |
-|---|---|---|---|---|
-| P01 | `8:2` | `(auth)/welcome` | slide 2 `13:680`, slide 3 `13:709` | P01-onboarding |
-| P02 | `8:180` | `(auth)/phone` | consent `13:738`, keyboard `13:747`, error `13:776` | P02-phone |
-| P03 | `8:217` | `(auth)/otp` | error `13:808`, expired `13:840`, resent `13:872` | E2E |
-| P04 | `8:250` | `(verify)/identity · capture/[item] · review` | selfie `13:904`, capture `13:996`, preview `13:1054`, permission `13:1096`, document `13:1128`, unreadable `13:1214`, review `13:1246` | P04-identity |
-| P05 | `8:295` | `(verify)/verification-status` | approved `13:1308`, more `13:1335`, rejected `13:1367` | P05-more, P05-pending, P05-rejected |
-| P06 | `8:339` | `(app)/(tabs)/index` | permission `13:1399`, zone `13:1431`, network `13:1463`, city `13:1495`, casa `13:1524`, reduced `35:6932`, opaque `35:7077` | P06-city, P06-home, P06-permission |
-| P07 | `8:461` | `(app)/route` | add `13:1556`, reordered `13:1625`, no-stop `13:1681`, map `13:1713` | P07-map, P07-out-of-zone, P07-route |
-| P08 | `8:539` | `(app)/quote` | price `13:1778`, payment `13:1817`, electronic `13:1849`, dynamic `13:1908`, casa `13:1939`, schedule `13:1969`, price-dynamic `46:2073` | P08-dynamic, P08-price, P08-quote, P08-schedule |
-| P09 | `8:642` | `(app)/ride (searching / no_driver)` | none `13:1993`, long `13:2025`, cancel `13:2057`, cancelled `13:2065`, electronic `35:6796`, dynamic `35:6864` | P09-long, P09-none, P09-searching |
-| P10 | `8:708` | `(app)/ride (assigned / arrived / in trip)` | contact `13:2097`, cancel `13:2109`, arrived `13:2121`, trip `13:2214`, driver-cancel `13:2273`, stale `13:2305`, electronic `46:2106`, arrived-electronic `46:2188`, trip-electronic `46:2264`, dynamic `46:2334`, arrived-dynamic `46:2416`, trip-dynamic `46:2492` | P10-approaching, P10-arrived, P10-cancel, P10-contact, P10-driver-cancel, P10-stale, P10-trip |
-| P11 | `8:864` | `(app)/receipt/[id]` | payment `13:2337`, rating `13:2346`, rated `13:2368`, cancelled `13:2400`, pending `13:2432`, failed `13:2464`, electronic `13:2496`, dynamic `46:2562` | P11-cash-pending, P11-failed, P11-pending, P11-receipt-card, P11-receipt |
-| P12 | `8:927` | `(app)/(tabs)/trips · scheduled/[id]` | history `13:2539`, detail `13:2601`, cancel `13:2615`, empty `13:2623` | P12-trips |
-| P13 | `8:992` | `(app)/(tabs)/account · places · preferences` | address `13:2655`, settings `13:2684`, notifications `13:2723` | P13-account, P13-places, P13-preferences |
-| P14 | `8:1085` | `(app)/payments · card/new` | card `13:2755` | P14-card, P14-payments |
-| P15 | `8:1141` | `(app)/help · help/[topic]` | — | P15-help |
-| P16 | `8:1202` | `(app)/support · support/new · support/[id]` | attachment `13:2770`, status `13:2811`, reply `13:2843` | P16-new, P16-support |
+## Passenger (apps/passenger)
 
-## Driver (D01–D18)
+| Figma | Frames covered | Route | Evidence |
+|---|---|---|---|
+| P01 `8:2` | P01b, P01c | `(auth)/welcome` | capture, E2E |
+| P02 `8:180` | P02-consent, -keyboard, -error | `(auth)/phone` | capture, E2E S01 |
+| P03 `8:217` | P03-error, -expired, -resent | `(auth)/otp` | E2E S01, API (OTP) |
+| P04 `8:250` | P04-selfie, -capture, -preview, -permission, -document, -unreadable, -review | `(verify)/identity`, `(verify)/capture/[item]`, `(verify)/review` | capture, E2E S01/S02 |
+| P05 `8:295` | P05-approved, -more, -rejected | `(verify)/verification-status` | capture, E2E S01/S02, cross-role S01 |
+| P06 `8:339` | P06-permission, -zone, -network, -city, -casa, -reduced, -opaque | `(app)/(tabs)/index` | capture, E2E S07 |
+| P07 `8:461` | P07-add, -reordered, -no-stop, -map | `(app)/route` | capture, E2E S03/S07 |
+| P08 `8:539` | P08-price, -payment, -electronic, -dynamic, -casa, -schedule, -price-dynamic | `(app)/quote` | capture, E2E S03/S05/S06 |
+| P09 `8:642` | P09-none, -long, -cancel, -cancelled, -electronic, -dynamic | `(app)/ride` (searching / no_driver) | capture, E2E S07 |
+| P10 `8:708` | P10-contact, -cancel, -arrived, -trip, -driver-cancel, -stale, -electronic, -dynamic variants | `(app)/ride` | capture, E2E S03/S08/S09/S16 |
+| P11 `8:864` | P11-payment, -rating, -rated, -cancelled, -pending, -failed, -electronic, -dynamic | `(app)/receipt/[id]` | capture, E2E S03/S04/S08/S16 |
+| P12 `8:927` | P12-history, -detail, -cancel, -empty | `(app)/(tabs)/trips`, `(app)/scheduled/[id]` | capture, E2E S05/S14 |
+| P13 `8:992` | P13-address, -settings, -notifications | `(app)/(tabs)/account`, `(app)/places`, `(app)/preferences` | capture, E2E |
+| P14 `8:1085` | P14-card | `(app)/payments`, `(app)/card/new` | capture, E2E |
+| P15 `8:1141` | — | `(app)/help`, `(app)/help/[topic]` | capture |
+| P16 `8:1202` | P16-attachment, -status, -reply | `(app)/support`, `support/new`, `support/[id]` | capture, E2E S14 |
 
-| Screen | Figma node | Route | States covered (Figma variants) | Captures |
-|---|---|---|---|---|
-| D01 | `9:2` | `(auth)/welcome` | slide 2 `14:653` | D01-welcome, D01b-wallet |
-| D02 | `9:119` | `(auth)/phone` | consent `14:682` | D02-phone |
-| D03 | `9:150` | `(auth)/otp` | error `14:690` | D03-otp |
-| D04 | `9:180` | `docs/start · identity · vehicle · capture/[item]` | permit `14:722`, car `14:854`, insurance `14:929`, photos `14:1004`, capture `14:1079`, camera `14:1121`, review `14:1179` | D04-car, D04-hub, D04-identity, D04-new, D04-permit |
-| D05 | `9:238` | `docs/status` | more `14:1253`, refused `14:1285`, approved `14:1317` | D05-approved, D05-more, D05-vehicle-pending |
-| D06 | `9:291` | `(app)/(tabs)/index` | online `14:1358`, debt `14:1437`, gps `14:1469`, docs `14:1501`, restored `14:2410`, opaque `35:7649`, reduced `35:7745`, casa `48:3362` | D06-debt, D06-docs, D06-gps, D06-offline, D06-online, D06-restored |
-| D07 | `9:418` | `(app)/offer` | 10 `14:1533`, expired `14:1613`, declined `14:1645`, withdrawn `14:1677`; timer-29…1 (28 frames) → live countdown | D07-offer |
-| D08 | `9:501` | `(app)/ride (pickup / arrived)` | arrived `14:1709`, contact `14:1770`, cancel `14:1782`, cancelled `14:1794` | D08-arrived, D08-cancel, D08-contact, D08-pickup |
-| D09 | `9:580` | `(app)/ride (in trip / stops)` | stale `14:1826`, stop `14:1858` | D09-stop, D09-trip |
-| D10 | `9:651` | `(app)/ride-end/[id]` | cash `14:1916`, electronic `14:1952`, pending `14:1987`, failed `14:2019` | D10-cash-confirmed, D10-cash, D10-electronic, D10-pending |
-| D11 | `9:711` | `(app)/(tabs)/earnings` | filter `14:2051`, empty `14:2096` | D11-earnings |
-| D12 | `9:784` | `(app)/(tabs)/wallet` | negative `14:2176`, zero `14:2209`, near `14:2240`, after `14:2604`, recharged `47:1957`, after-recharged `64:3660` | D12-after, D12-definition, D12-wallet |
-| D13 | `9:849` | `(app)/ledger · ledger/[id]` | detail `14:2128`, cash `14:2138`, filter `14:2147`, withdrawal `14:2596`, withdrawal-recharged `64:3652` | D13-filter, D13-ledger |
-| D14 | `9:882` | `(app)/recharge · recharge/sandbox/[id] · recharge/[id]` | debt `14:2271`, provider `14:2305`, pending `14:2316`, failed `14:2348`, success `14:2380`, provider-normal `47:1852`, pending-normal `47:1863`, failed-normal `47:1895`, success-normal `47:1927` | D14-debt, D14-pending, D14-provider, D14-success |
-| D15 | `9:923` | `(app)/withdraw · withdraw/[id]` | pending `14:2489`, success `14:2522`, failed `14:2557`, insufficient `14:2666`, recharged `64:3496`, pending-recharged `64:3545`, success-recharged `64:3578`, failed-recharged `64:3613` | D15-insufficient-empty, D15-insufficient, D15-pending, D15-success, D15-withdraw |
-| D16 | `9:983` | `(app)/rides · rides/[id]` | empty `14:2698` | D16-detail, D16-history |
-| D17 | `9:1030` | `(app)/(tabs)/account · profile/vehicle · profile/preferences` | settings `14:2730` | D17-account, D17-settings, D17-vehicle |
-| D18 | `9:1133` | `(app)/support · support/new · support/[id]` | form `14:2742`, status `14:2774`, reply `14:2806` | D18-form, D18-list |
+## Driver (apps/driver)
 
-## Admin (A00–A13)
+| Figma | Frames covered | Route | Evidence |
+|---|---|---|---|
+| D01 `9:2` | D01b | `(auth)/welcome` | capture |
+| D02 `9:119` | D02-consent | `(auth)/phone` | capture |
+| D03 `9:150` | D03-error | `(auth)/otp` | capture, API |
+| D04 `9:180` | D04-permit, -car, -insurance, -photos, -capture, -camera, -review | `(onboard)/documents`, `docs/start`, `docs/identity`, `docs/vehicle`, `docs/capture/[item]` | capture, E2E S10 |
+| D05 `9:238` | D05-more, -refused, -approved | `docs/status` (person and vehicle independent) | capture, E2E S10 |
+| D06 `9:291` | D06-online, -debt, -gps, -docs, -restored, -casa, -opaque, -reduced | `(app)/(tabs)/index` | capture, E2E S11/S12 |
+| D07 `9:418` | D07-10, -expired, -declined, -withdrawn, D07-timer-29…1 | `(app)/offer` | capture, E2E S11, API S11 (deadline, race) |
+| D08 `9:501` | D08-arrived, -contact, -cancel, -cancelled | `(app)/ride` | capture, E2E S09 |
+| D09 `9:580` | D09-stale, -stop | `(app)/ride` | capture, E2E S03 |
+| D10 `9:651` | D10-cash, -electronic, -pending, -failed | `(app)/ride-end/[id]` | capture, E2E S03/S04 |
+| D11 `9:711` | D11-filter, -empty | `(app)/(tabs)/earnings` | capture, cross-role S03+S04 |
+| D12 `9:784` | D12-negative, -zero, -near, -after, -recharged, -after-recharged | `(app)/(tabs)/wallet` | capture, E2E S12/S13 |
+| D13 `9:849` | D13-detail, -cash, -filter, -withdrawal, -withdrawal-recharged | `(app)/ledger`, `(app)/ledger/[id]` | capture, E2E |
+| D14 `9:882` | D14-debt, -provider, -pending, -failed, -success, -normal variants | `(app)/recharge`, `recharge/sandbox/[id]`, `recharge/[id]` | capture, E2E S12/S16 |
+| D15 `9:923` | D15-pending, -success, -failed, -insufficient, -recharged variants | `(app)/withdraw`, `withdraw/[id]` | capture, E2E S13/S16 |
+| D16 `9:983` | D16-empty | `(app)/rides`, `(app)/rides/[id]` | capture |
+| D17 `9:1030` | D17-settings | `(app)/(tabs)/account`, `profile/vehicle`, `profile/preferences` | capture |
+| D18 `9:1133` | D18-form, -status, -reply | `(app)/support`, `support/new`, `support/[id]` | capture |
 
-| Screen | Figma node | Route | States covered (Figma variants) | Captures |
-|---|---|---|---|---|
-| A00 | `—` | `/connexion · permission gate` | session `15:3557`, denied `15:3639` | A00-denied-1440, A00-session-1440 |
-| A01 | `10:2` | `/` | — | A01-overview-1024, A01-overview-1440 |
-| A02 | `10:210` | `/personnes` | search `15:3539`, filter `15:3548` | A02-people-1024, A02-people-1440 |
-| A03 | `10:350` | `/personnes/:id` | — | A03-person-1024, A03-person-1440 |
-| A04 | `10:553` | `/verifications` | — | A04-verifications-1024, A04-verifications-1440 |
-| A05 | `10:680` | `/verifications/:id` | vehicle `15:1819`, confirm `15:1980`, vehicle-confirm `15:1990`, more `15:1999`, reject `15:2008`, done `15:2017`, vehicle-done `15:2100`, more-done `15:2183`, rejected `15:2265`, document `15:2347` | A05-case-1024, A05-case-1440, A05-confirm-1440, A05-done-1440, A05-more-1440, A05-reject-1440, A05-vehicle-1024, A05-vehicle-1440 |
-| A06 | `10:870` | `/courses (+ planifiées)` | — | A06-rides-1024, A06-rides-1440 |
-| A07 | `10:1010` | `/courses/:id` | electronic `15:2354` | A07-ride-1024, A07-ride-1440 |
-| A08 | `10:1194` | `/support · /support/:id` | confirm `15:2438`, resolved `15:2447` | A08-support-1024, A08-support-1440, A08-ticket-1024, A08-ticket-1440 |
-| A09 | `10:1291` | `/finance` | wallet `15:2530`, transaction `15:2619`, failed `15:2704`, correction `15:2789`, correction-confirm `15:2799`, corrected `15:2809` | A09-corrected-1440, A09-correction-confirm-1440, A09-finance-1024, A09-finance-1440 |
-| A10 | `10:1447` | `/villes` | add `15:2892`, zone `15:2902`, zone-done `15:2911`, future `15:2994` | A10-add-1440, A10-cities-1024, A10-cities-1440 |
-| A11 | `10:1573` | `/villes/:id/regles` | casa `15:1700`, confirm `15:3076`, dynamic `15:3088`, policy `15:3098`, saved `15:3109`, confirm-casa `62:3580`, saved-casa `62:3592`, dynamic-casa `62:3768`, policy-casa `62:3778` | A11-confirm-1440, A11-rules-1024, A11-rules-1440, A11-rules-casa-1024, A11-rules-casa-1440, A11-saved-1440 |
-| A12 | `10:1710` | `/paiements` | edit `15:3193`, saved `15:3204`, casa `62:3789`, edit-casa `62:3946`, saved-casa `62:3957` | A12-edit-1440, A12-providers-1024, A12-providers-1440 |
-| A13 | `10:1863` | `/audit` | detail `15:3287`, config `15:3371`, correction `15:3455`, config-casa `62:3680` | A13-audit-1024, A13-audit-1440, A13-detail-1440 |
+## Admin (apps/admin)
 
-## Scenario paths
+| Figma | Frames covered | Route | Evidence |
+|---|---|---|---|
+| A00 | A00-session, A00-denied | `/connexion`, permission gate | capture, E2E |
+| A01 `10:2` | — | `/` | capture, cross-role |
+| A02 `10:210` | A02-search, -filter | `/personnes` | capture |
+| A03 `10:350` | — | `/personnes/:id` | capture |
+| A04 `10:553` | — | `/verifications` | capture, E2E |
+| A05 `10:680` | A05-vehicle, -confirm, -vehicle-confirm, -more, -reject, -done, -vehicle-done, -more-done, -rejected, -document | `/verifications/:id` | capture, E2E S01/S02/S10 |
+| A06 `10:870` | — | `/courses` (rides + scheduled) | capture |
+| A07 `10:1010` | A07-electronic | `/courses/:id` | capture, cross-role |
+| A08 `10:1194` | A08-confirm, -resolved | `/support`, `/support/:id` | capture, E2E S14 |
+| A09 `10:1291` | A09-wallet, -transaction, -failed, -correction, -correction-confirm, -corrected | `/finance` | capture, E2E |
+| A10 `10:1447` | A10-add, -zone, -zone-done, -future | `/villes` | capture, E2E S15 |
+| A11 `10:1573` | A11-casa, -confirm(-casa), -dynamic(-casa), -policy(-casa), -saved(-casa) | `/villes/:id/regles` | capture, E2E S06/S15 |
+| A12 `10:1710` | A12-edit, -saved, -casa variants | `/paiements` | capture, E2E |
+| A13 `10:1863` | A13-detail, -config, -correction, -config-casa | `/audit` | capture, E2E |
 
-| Scenario | Figma path | Automated test |
+## Scenario index (S01–S16)
+
+| Scenario | API test | UI E2E |
 |---|---|---|
-| S01 | P01 → P02 → P03 → P04 → P04-selfie → P04-capture → P04-preview → P04-document → P04-review → P05 | API `scenarios.test.ts` · passenger-flows S01 · admin-verifications S01 |
-| S02 | P05-more → P04-document → P04-review → P05 | API · passenger-flows S02 (×2) · admin-verifications S02 |
-| S03 | P06 → P07 → P08 → P09 → P10 → P10-arrived → P10-trip → P11 | API · passenger-flows S03 · driver-flows S11 full trip |
-| S04 | P08-electronic → P09-electronic → P10-electronic → P10-arrived-electronic → P10-trip-electronic → P11-electronic | API · passenger-flows S04 |
-| S05 | P08 → P08-schedule → P12 → P12-detail → P12-cancel → P12-empty | API · passenger-flows S05 |
-| S06 | P08-dynamic → P09-dynamic → P10-dynamic → P10-arrived-dynamic → P10-trip-dynamic → P11-dynamic | API · passenger-flows S06 · admin-operations S06 |
-| S07 | P06-permission → P07 → P08 | API · passenger-flows S07 |
-| S08 | P10 → P10-cancel → P11-cancelled | API · passenger-flows S08 |
-| S09 | D08 → D08-cancel → D08-cancelled | API · passenger-flows S09 · driver-flows S09 |
-| S10 | D01 → D02 → D03 → D04 → D04-permit → D04-car → D04-insurance → D04-photos → D04-review → D05 | API · driver-flows S10 · admin-verifications S10 |
-| S11 | D06 → D06-online → D07 → D07-declined → D06-online | API (expiry, refusal, withdrawal, race) · driver-flows S11 (×4) |
-| S12 | D06-debt → D14-debt → D14-provider → D14-pending → D14-success → D06-restored | API · driver-flows S12 |
-| S13 | D15 → D15-pending → D15-success → D13-withdrawal → D12-after | API (×4) · driver-flows S13 (×2) |
-| S14 | P12-history → P11 → P15 → P16 → P16-status → P16-reply | API · passenger-flows S14 · admin-operations S14 |
-| S15 | A10 → A10-add → A11-casa → A11-confirm-casa → A11-saved-casa → A13-config-casa | API · admin-operations S15 |
-| S16 | D15 → D15-pending → D15-failed → D15 | API (×2) · passenger-flows S16 · driver-flows S13/S16, S16 |
+| S01 registration and manual approval | ✓ | passenger, admin, cross-role |
+| S02 correction / refusal and resubmission | ✓ | passenger, admin |
+| S03 immediate cash ride with Agdal stop | ✓ | passenger, driver, cross-role |
+| S04 electronic payment and debt compensation | ✓ | passenger, cross-role |
+| S05 scheduled booking, modification, cancellation | ✓ | passenger |
+| S06 dynamic price disclosure and rule configuration | ✓ | passenger, admin |
+| S07 GPS denied, manual pickup, out-of-zone, no availability | ✓ | passenger |
+| S08 passenger cancellation with disclosed fee | ✓ | passenger |
+| S09 driver cancellation and passenger recovery | ✓ | passenger, driver |
+| S10 independent driver and vehicle approvals | ✓ | driver, admin |
+| S11 offer acceptance, refusal, expiry, withdrawal | ✓ | driver |
+| S12 debt threshold and recharge recovery | ✓ | driver |
+| S13 withdrawal reservation, success, failure | ✓ | driver |
+| S14 history, support ticket, reply, admin resolution | ✓ | passenger, admin |
+| S15 future city with distinct rules and audit | ✓ | admin |
+| S16 stale tracking and pending/failed payment, recharge, withdrawal | ✓ | passenger, driver |

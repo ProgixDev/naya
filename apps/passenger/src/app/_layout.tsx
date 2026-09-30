@@ -1,6 +1,6 @@
 import '../../global.css';
 import { Stack } from 'expo-router';
-import { AppProviders, ErrorState } from '@naya/ui';
+import { AppProviders, DevNavigator, ErrorState } from '@naya/ui';
 import { View } from 'react-native';
 import { colors } from '@naya/tokens';
 import { useSession } from '@/lib/session';
@@ -35,6 +35,7 @@ export default function RootLayout() {
   return (
     <AppProviders session={useSession}>
       <RootNavigator />
+      <DevNavigator app="passenger" session={useSession} />
     </AppProviders>
   );
 }

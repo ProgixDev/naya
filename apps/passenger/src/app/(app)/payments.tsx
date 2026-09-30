@@ -32,8 +32,8 @@ export default function Payments() {
               <ListRow
                 key={m.id}
                 testID={`method-${m.last4 ?? 'cash'}`}
-                title={m.label}
-                subtitle={m.isDefault ? 'Moyen préféré' : !m.availableInCity ? `Indisponible à ${me.data?.city.name ?? 'votre ville'}` : m.kind === 'card' ? `Expire ${String(m.expMonth).padStart(2, '0')}/${m.expYear}` : 'Réglé à la chauffeuse en fin de trajet'}
+                title={m.kind === 'card' ? `Carte •••• ${m.last4}` : m.label}
+                subtitle={[m.kind === 'card' ? m.label.replace(/\s*•••• \d{4}$/, '') : null, m.isDefault ? 'Moyen préféré' : !m.availableInCity ? `Indisponible à ${me.data?.city.name ?? 'votre ville'}` : m.kind === 'card' ? `Expire ${String(m.expMonth).padStart(2, '0')}/${m.expYear}` : 'Réglé à la chauffeuse en fin de trajet'].filter(Boolean).join(' · ')}
                 leading={m.kind === 'card' ? <CreditCard size={20} color={colors.ink} /> : <Banknote size={20} color={colors.ink} />}
                 trailing={
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

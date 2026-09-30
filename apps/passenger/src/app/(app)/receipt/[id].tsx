@@ -69,7 +69,7 @@ export default function Receipt() {
       <View style={{ gap: 16, marginTop: 12 }}>
         <Card>
           <View style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, rowGap: 6 }}>
               <Text variant="heading">{cancelled ? 'Course annulée' : 'Course terminée'}</Text>
               {(cancelled ? fee : main) ? <StatusPill tone={state.tone} label={PAYMENT_STATUS_LABELS[(cancelled ? fee : main)!.status]} /> : null}
             </View>

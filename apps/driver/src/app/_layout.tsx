@@ -2,7 +2,7 @@ import '../../global.css';
 import '@/lib/backgroundLocation';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
-import { AppProviders, ErrorState } from '@naya/ui';
+import { AppProviders, DevNavigator, ErrorState } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import { useSession } from '@/lib/session';
 import { isSubmitted, useCases } from '@/lib/queries';
@@ -44,6 +44,7 @@ export default function RootLayout() {
   return (
     <AppProviders session={useSession}>
       <RootNavigator />
+      <DevNavigator app="driver" session={useSession} />
     </AppProviders>
   );
 }

@@ -32,10 +32,10 @@ export default function Welcome() {
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width));
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }} testID="onboarding">
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter, height: 56 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter, minHeight: 56, gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 }}>
           <BrandMark mark="lockup" height={26} />
-          <Text variant="caption" tone="muted" weight="semibold">
+          <Text variant="caption" tone="muted" weight="semibold" numberOfLines={1} maxFontSizeMultiplier={1.2} style={{ flexShrink: 1 }}>
             Chauffeuse
           </Text>
           {DEMO_MODE ? (

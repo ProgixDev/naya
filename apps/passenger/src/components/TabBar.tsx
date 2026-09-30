@@ -1,5 +1,5 @@
 import { useEffect, useState, type ComponentProps } from 'react';
-import { View, type LayoutChangeEvent } from 'react-native';
+import { View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import type { Tabs } from 'expo-router';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -63,7 +63,9 @@ export function CapsuleTabBar({ state, navigation }: TabBarProps) {
 }
 
 /** Space reserved at the bottom of tab screens so content clears the floating bar. */
+/** Space reserved under tab content so the floating bar never covers the last row (grows with Dynamic Type). */
 export function useTabBarSpace() {
   const insets = useSafeAreaInsets();
-  return Math.max(insets.bottom, 12) + 64 + 16;
+  const { fontScale } = useWindowDimensions();
+  return Math.max(insets.bottom, 12) + Math.round(64 + 16 * Math.max(0, Math.min(fontScale, 1.6) - 1)) + 24;
 }

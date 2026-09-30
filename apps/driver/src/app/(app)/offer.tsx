@@ -104,8 +104,8 @@ export default function OfferScreen() {
         interactive={false}
       />
       <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 14, ...shadow.float }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ gap: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <View style={{ gap: 2, flex: 1 }}>
             <Text variant="heading" accessibilityRole="header">
               Nouvelle course
             </Text>
@@ -113,16 +113,16 @@ export default function OfferScreen() {
               Prise en charge à {formatDuration(offer.pickupEtaSeconds)} · {formatDistance(offer.pickupDistanceMeters)} de vous
             </Text>
           </View>
-          <View testID="offer-countdown">
+          <View testID="offer-countdown" style={{ flexShrink: 0 }}>
             <CountdownRing seconds={seconds} total={30} />
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, rowGap: 6 }}>
           <View testID="offer-fare">
             <Money amount={offer.fare} variant="display" />
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.background, borderRadius: 999, paddingHorizontal: 12, height: 32 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.background, borderRadius: 999, paddingHorizontal: 12, minHeight: 32, paddingVertical: 4 }}>
             {offer.paymentKind === 'cash' ? <Banknote size={16} color={colors.ink} /> : <CreditCard size={16} color={colors.ink} />}
             <Text variant="caption" weight="semibold">
               {offer.paymentKind === 'cash' ? 'Espèces' : 'Carte'}

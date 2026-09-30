@@ -78,6 +78,36 @@ cd apps/driver && npx expo run:ios
 
 On a physical device on the same network, the apps reach the API through the Metro host automatically; otherwise set `EXPO_PUBLIC_API_URL`.
 
+## Native builds
+
+Development builds (native modules included) — `npx expo run:ios` / `run:android` in each app, or EAS:
+
+```bash
+cd apps/passenger
+npx eas-cli@latest build --profile development      # dev client (simulator build on iOS)
+npx eas-cli@latest build --profile preview          # internal distribution
+npx eas-cli@latest build --profile production
+```
+
+Local iOS Simulator review build (what the captures in `docs/screens/native/` come from):
+
+```bash
+cd apps/passenger && npx expo prebuild --platform ios && (cd ios && pod install)
+# review flags are read at bundle time from a git-ignored env file:
+printf 'EXPO_PUBLIC_REVIEW=1\nEXPO_PUBLIC_API_URL=http://localhost:4010\n' > .env.production.local
+xcodebuild -workspace ios/Naya.xcworkspace -scheme Naya -configuration Release \
+  -destination 'platform=iOS Simulator,name=<device>' ONLY_ACTIVE_ARCH=YES \
+  COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGN_IDENTITY=- build
+node e2e/scripts/native-tour.mjs passenger docs/screens/native/390 <udid>
+```
+
+Notes learned on this machine:
+- Simulator builds must be **signed** (ad hoc `-` is enough). An unsigned build has no keychain entitlement, so `expo-secure-store` cannot save the session and sign-in silently fails.
+- Release bundling does not inherit the shell's `EXPO_PUBLIC_*` variables; use `.env.production.local`.
+- `npx expo prebuild` resets the CocoaPods integration: run `pod install` again afterwards. React Native writes codegen into `ios/build/generated`, so do not delete `ios/build` without re-running `pod install`.
+- A two-architecture Release build needs ~6 GB of derived data; a single-architecture build with indexing off needs ~2.7 GB.
+- `EXPO_PUBLIC_REVIEW=1` enables a development-only navigation hook (`/dev/navigate` on the demo API) used to capture screens without tapping. It is inert in any other build.
+
 ## Demo data
 
 ```bash

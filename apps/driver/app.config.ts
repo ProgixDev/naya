@@ -27,8 +27,10 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
   extra: { googleMapsConfigured: !!googleMapsKey },
   plugins: [
+    // iOS 27 requires the UIScene life cycle; see plugins/with-scene-lifecycle.js.
+    '../../plugins/with-scene-lifecycle',
     'expo-router',
-    'expo-secure-store',
+    ['expo-secure-store', { faceIDPermission: 'Naya utilise Face ID uniquement si vous choisissez de protéger l’accès à votre compte.' }],
     'expo-web-browser',
     ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 120, backgroundColor: '#FAF4F7' }],
     'expo-font',

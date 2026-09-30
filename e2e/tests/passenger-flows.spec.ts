@@ -284,7 +284,8 @@ test.describe('passenger', () => {
     await tid(page, 'card-exp').fill('1230');
     await tid(page, 'card-cvc').fill('123');
     await tid(page, 'save-card').click();
-    await expect(page.getByText('Carte de démonstration •••• 0077')).toBeVisible();
+    await expect(page.getByText('Carte •••• 0077')).toBeVisible();
+    await expect(page.getByText(/Carte de démonstration · Expire/).last()).toBeVisible();
     await page.goto(URLS.passenger + '/places');
     await tid(page, 'add-place').click();
     await page.getByText('Autre', { exact: true }).click();
