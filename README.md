@@ -44,6 +44,8 @@ docs/             FINANCE.md, INTEGRATIONS.md, DESIGN.md, SCREENS.md, screenshot
 | react-hook-form / zod | 7.89 / 4.6.5 | |
 | Hono (demo API) | 4.13 | |
 | Playwright | 1.63 | |
+| React Router (admin) | 7.18.4 | v8 requires React ≥ 19.2.7; the monorepo stays on SDK 57's React 19.2.3 |
+| Vite (admin) | 8.3 | |
 | pnpm | 12.8.1 (hoisted `nodeLinker` for React Native) | |
 
 Native versions were installed with `npx expo install` so they match SDK 57's `bundledNativeModules.json`. `npx expo-doctor` passes 21/21 checks on both apps and `npx expo install --check` reports no mismatches.
@@ -143,6 +145,24 @@ pnpm test                                   # domain unit tests + API scenario t
 pnpm --filter @naya/e2e install-browsers    # once
 pnpm e2e                                    # Playwright against running servers (see e2e/playwright.config.ts)
 ```
+
+## Verification (30 September 2026)
+
+| Check | Result |
+|---|---|
+| Typecheck (`tsc --noEmit`) — domain, api, tokens, ui, demo-api, passenger, driver, admin | all clean |
+| Domain unit tests (`packages/domain`) — money, pricing, every wallet invariant, state machines | **36 / 36** |
+| API scenario tests (`services/demo-api`) — S01–S16, races, OTP, permissions, idempotency, audit chain | **36 / 36** |
+| Playwright E2E — passenger (13), driver (10), admin (11), cross-role (2) on the real apps | **36 / 36** |
+| `expo-doctor` (both apps) / `expo install --check` / `pnpm peers check` | 21/21 checks · no mismatches · no peer issues |
+| `vite build` (admin) | succeeds |
+| iOS 27 Simulator Release builds (passenger, driver) | build, launch and run against the demo API |
+| Native captures | `docs/screens/native/390` (both apps), `390-large-text` (both, accessibility-large), `390-reduced` (Reduce Transparency/Motion), `375` (both apps), `430` (passenger subset — the run stopped when the disk filled) |
+| Android | **not run** — no Android SDK/emulator on the build machine. Android-specific code paths (Google Maps key, 48-pt edges, tile fallback) are implemented but unverified on device. |
+
+Cross-role E2E runs the passenger, driver and admin apps side by side: the driver accepts the passenger's request in her own UI, the Agdal stop is completed, cash and card settlements reconcile to 170 = 100 cash + 70 wallet, and the admin sees the same ride and ledger. It found and fixed two defects that single-app tests missed (a duplicated tab navigator after the receipt; a single-use quote reused from cache).
+
+Not verified here: physical devices, background location with the screen locked, push delivery to a closed app, camera capture on device (the simulator and web use photo import), and any live provider.
 
 ## Documentation
 

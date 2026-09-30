@@ -12,3 +12,7 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - lucide-react@1.49.0
+
+# The RN CLI plugin's optional peer resolved to 0.87.1; keep it on the SDK 57 React Native line.
+overrides:
+  '@react-native/metro-config': 0.86.3
