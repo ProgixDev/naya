@@ -1,0 +1,26 @@
+{
+  "name": "@naya/demo-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "seed": "tsx src/cli.ts seed",
+    "reset": "tsx src/cli.ts reset",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@naya/domain": "workspace:*",
+    "@hono/node-server": "^1.19.0",
+    "hono": "^4.10.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

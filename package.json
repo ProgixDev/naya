@@ -1,0 +1,19 @@
+{
+  "name": "naya",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@12.8.1",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "api": "pnpm --filter @naya/demo-api dev",
+    "demo:seed": "pnpm --filter @naya/demo-api seed",
+    "demo:reset": "pnpm --filter @naya/demo-api reset",
+    "passenger": "pnpm --filter @naya/passenger start",
+    "driver": "pnpm --filter @naya/driver start",
+    "admin": "pnpm --filter @naya/admin dev",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r --if-present test",
+    "e2e": "pnpm --filter @naya/e2e test",
+    "doctor": "pnpm --filter @naya/passenger doctor && pnpm --filter @naya/driver doctor"
+  }
+}

@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'services/*'
+
+# React Native tooling (Metro, CocoaPods and Gradle autolinking) expects a flat node_modules.
+nodeLinker: hoisted
+
+allowBuilds:
+  esbuild: true

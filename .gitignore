@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+web-build/
+ios/
+android/
+*.tsbuildinfo
+.env
+.env.local
+services/demo-api/.data/
+test-results/
+playwright-report/
+_handoff/
+.DS_Store
+*.log
