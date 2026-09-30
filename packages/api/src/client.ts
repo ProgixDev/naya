@@ -192,7 +192,7 @@ export interface AdminRideRow {
 
 export interface AdminRideDetail {
   ride: Ride;
-  offers: DriverOffer[];
+  offers: (DriverOffer & { driverName: string })[];
   payments: Payment[];
   ledger: LedgerEntry[];
   tickets: SupportTicket[];

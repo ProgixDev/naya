@@ -13,21 +13,30 @@ function RootNavigator() {
   const signedIn = status === 'signedIn';
   const { identity, isLoading, isError, refetch } = useIdentityCase();
   const verified = identity?.status === 'approved';
-  if (signedIn && isLoading) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
-  if (signedIn && isError && !identity) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.background }}><ErrorState onRetry={() => refetch()} /></View>;
+  // The navigator stays mounted while the account loads so deep links survive; an opaque
+  // cover hides the screen until the verification guard is known.
+  const loading = signedIn && isLoading;
+  const failed = signedIn && isError && !identity;
   return (
+    <>
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
-      <Stack.Protected guard={signedIn && !verified}>
+      <Stack.Protected guard={signedIn && !loading && !verified}>
         <Stack.Screen name="(verify)" />
       </Stack.Protected>
-      <Stack.Protected guard={signedIn && verified}>
+      <Stack.Protected guard={signedIn && (loading || verified)}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
       <Stack.Screen name="dev" options={{ presentation: 'modal' }} />
     </Stack>
+    {loading || failed ? (
+      <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'center', backgroundColor: colors.background }}>
+        {failed ? <ErrorState onRetry={() => refetch()} /> : null}
+      </View>
+    ) : null}
+    </>
   );
 }
 

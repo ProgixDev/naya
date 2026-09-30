@@ -77,7 +77,7 @@ export function RidePage() {
                 empty={<EmptyState title="Aucune proposition envoyée" />}
                 columns={[
                   { key: 'id', header: 'Proposition', render: (o) => o.id },
-                  { key: 'd', header: 'Chauffeuse', render: (o) => o.driverId },
+                  { key: 'd', header: 'Chauffeuse', render: (o) => o.driverName },
                   { key: 'at', header: 'Envoyée', render: (o) => fmtDateTime(o.createdAt) },
                   { key: 'exp', header: 'Expire', render: (o) => fmtDateTime(o.expiresAt) },
                   { key: 's', header: 'Issue', render: (o) => <div className="flex flex-col items-start gap-1"><OfferBadge status={o.status} />{o.declineReason ? <span className="text-[12px] text-muted">{o.declineReason}</span> : null}</div> },

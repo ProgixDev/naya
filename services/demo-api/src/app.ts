@@ -765,7 +765,7 @@ export function createApp(ctx: Ctx) {
     const canFinance = admin.permissions.includes('finance.read');
     return c.json({
       ride: withTracking(s, ride, now()),
-      offers: s.offers.filter((o) => o.rideId === ride.id),
+      offers: s.offers.filter((o) => o.rideId === ride.id).map((o) => ({ ...o, driverName: (() => { const u = s.users.find((x) => x.id === o.driverId); return u ? `${u.firstName} ${u.lastName}` : o.driverId; })() })),
       payments: s.payments.filter((p) => p.rideId === ride.id),
       ledger: canFinance ? s.ledger.filter((e) => e.rideId === ride.id) : [],
       tickets: s.tickets.filter((t) => t.rideId === ride.id),

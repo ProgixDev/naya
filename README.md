@@ -141,7 +141,7 @@ All people, documents, vehicles and events are fictional. Documents are "SPÉCIM
 ## Tests
 
 ```bash
-pnpm test                                   # domain unit tests + API scenario tests (S01–S16)
+pnpm test                                   # domain unit tests, API scenario tests (S01–S16), component interaction tests
 pnpm --filter @naya/e2e install-browsers    # once
 pnpm e2e                                    # Playwright against running servers (see e2e/playwright.config.ts)
 ```
@@ -153,7 +153,8 @@ pnpm e2e                                    # Playwright against running servers
 | Typecheck (`tsc --noEmit`) — domain, api, tokens, ui, demo-api, passenger, driver, admin | all clean |
 | Domain unit tests (`packages/domain`) — money, pricing, every wallet invariant, state machines | **36 / 36** |
 | API scenario tests (`services/demo-api`) — S01–S16, races, OTP, permissions, idempotency, audit chain | **36 / 36** |
-| Playwright E2E — passenger (13), driver (10), admin (11), cross-role (2) on the real apps | **36 / 36** |
+| Component interaction tests (`apps/passenger`, jest-expo + Testing Library) — buttons, OTP paste, pills, segmented control, fare disclosure, wallet figures, countdown, deadline hook, single-flight | **14 / 14** |
+| Playwright E2E — passenger (15), driver (11), admin (11), cross-role (2) on the real apps, incl. cold deep links | **39 / 39** |
 | `expo-doctor` (both apps) / `expo install --check` / `pnpm peers check` | 21/21 checks · no mismatches · no peer issues |
 | `vite build` (admin) | succeeds |
 | iOS 27 Simulator Release builds (passenger, driver) | build, launch and run against the demo API |

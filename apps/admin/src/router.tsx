@@ -1,23 +1,39 @@
-import { type ReactNode } from 'react';
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate, useLocation } from 'react-router';
 import { useAuth } from './lib/auth';
 import { Layout, RequirePermission } from './components/Layout';
 import { LoginPage } from './pages/Login';
-import { OverviewPage } from './pages/Overview';
-import { VerificationsPage } from './pages/Verifications';
-import { CaseReviewPage } from './pages/CaseReview';
-import { PeoplePage } from './pages/People';
-import { PersonPage } from './pages/Person';
-import { RidesPage } from './pages/Rides';
-import { RidePage } from './pages/Ride';
-import { SupportPage } from './pages/Support';
-import { TicketPage } from './pages/Ticket';
-import { FinancePage } from './pages/Finance';
-import { CitiesPage } from './pages/Cities';
-import { RulesPage } from './pages/Rules';
-import { ProvidersPage } from './pages/Providers';
-import { AuditPage } from './pages/Audit';
-import { NotFoundPage } from './pages/NotFound';
+
+
+/** Pages load on demand: the sign-in screen stays in the initial bundle, everything else is split per route. */
+const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
+const OverviewPage = page(() => import('./pages/Overview'), 'OverviewPage');
+const VerificationsPage = page(() => import('./pages/Verifications'), 'VerificationsPage');
+const CaseReviewPage = page(() => import('./pages/CaseReview'), 'CaseReviewPage');
+const PeoplePage = page(() => import('./pages/People'), 'PeoplePage');
+const PersonPage = page(() => import('./pages/Person'), 'PersonPage');
+const RidesPage = page(() => import('./pages/Rides'), 'RidesPage');
+const RidePage = page(() => import('./pages/Ride'), 'RidePage');
+const SupportPage = page(() => import('./pages/Support'), 'SupportPage');
+const TicketPage = page(() => import('./pages/Ticket'), 'TicketPage');
+const FinancePage = page(() => import('./pages/Finance'), 'FinancePage');
+const CitiesPage = page(() => import('./pages/Cities'), 'CitiesPage');
+const RulesPage = page(() => import('./pages/Rules'), 'RulesPage');
+const ProvidersPage = page(() => import('./pages/Providers'), 'ProvidersPage');
+const AuditPage = page(() => import('./pages/Audit'), 'AuditPage');
+const NotFoundPage = page(() => import('./pages/NotFound'), 'NotFoundPage');
+
+function PageFallback() {
+  return (
+    <div className="flex flex-col gap-4 p-2" aria-busy="true" aria-label="Chargement">
+      <div className="h-8 w-64 animate-pulse rounded-lg bg-selected motion-reduce:animate-none" />
+      <div className="h-40 animate-pulse rounded-card bg-selected/70 motion-reduce:animate-none" />
+      <div className="h-64 animate-pulse rounded-card bg-selected/50 motion-reduce:animate-none" />
+    </div>
+  );
+}
+
+const S = (el: ReactNode) => <Suspense fallback={<PageFallback />}>{el}</Suspense>;
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { admin } = useAuth();
@@ -43,21 +59,21 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RequireAuth><Layout /></RequireAuth>,
     children: [
-      { index: true, element: <OverviewPage /> },
-      { path: 'verifications', element: gate('people.read', 'Vérifications', <VerificationsPage />) },
-      { path: 'verifications/:id', element: gate('people.read', 'Examen du dossier', <CaseReviewPage />) },
-      { path: 'personnes', element: gate('people.read', 'Personnes & véhicules', <PeoplePage />) },
-      { path: 'personnes/:id', element: gate('people.read', 'Profil', <PersonPage />) },
-      { path: 'courses', element: gate('rides.read', 'Courses', <RidesPage />) },
-      { path: 'courses/:id', element: gate('rides.read', 'Détail de course', <RidePage />) },
-      { path: 'support', element: gate('support.resolve', 'Support', <SupportPage />) },
-      { path: 'support/:id', element: gate('support.resolve', 'Demande', <TicketPage />) },
-      { path: 'finance', element: gate('finance.read', 'Finance', <FinancePage />) },
-      { path: 'villes', element: <CitiesPage /> },
-      { path: 'villes/:id/regles', element: <RulesPage /> },
-      { path: 'paiements', element: <ProvidersPage /> },
-      { path: 'audit', element: gate('audit.read', 'Journal d’audit', <AuditPage />) },
-      { path: '*', element: <NotFoundPage /> },
+      { index: true, element: S(<OverviewPage />) },
+      { path: 'verifications', element: gate('people.read', 'Vérifications', S(<VerificationsPage />)) },
+      { path: 'verifications/:id', element: gate('people.read', 'Examen du dossier', S(<CaseReviewPage />)) },
+      { path: 'personnes', element: gate('people.read', 'Personnes & véhicules', S(<PeoplePage />)) },
+      { path: 'personnes/:id', element: gate('people.read', 'Profil', S(<PersonPage />)) },
+      { path: 'courses', element: gate('rides.read', 'Courses', S(<RidesPage />)) },
+      { path: 'courses/:id', element: gate('rides.read', 'Détail de course', S(<RidePage />)) },
+      { path: 'support', element: gate('support.resolve', 'Support', S(<SupportPage />)) },
+      { path: 'support/:id', element: gate('support.resolve', 'Demande', S(<TicketPage />)) },
+      { path: 'finance', element: gate('finance.read', 'Finance', S(<FinancePage />)) },
+      { path: 'villes', element: S(<CitiesPage />) },
+      { path: 'villes/:id/regles', element: S(<RulesPage />) },
+      { path: 'paiements', element: S(<ProvidersPage />) },
+      { path: 'audit', element: gate('audit.read', 'Journal d’audit', S(<AuditPage />)) },
+      { path: '*', element: S(<NotFoundPage />) },
     ],
   },
 ]);

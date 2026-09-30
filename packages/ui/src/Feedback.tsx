@@ -31,7 +31,9 @@ export interface StatusBannerProps {
 export function StatusBanner({ tone = 'info', title, message, action, icon, style, testID }: StatusBannerProps) {
   const t = toneStyle[tone];
   return (
-    <View testID={testID} accessibilityRole="alert" style={[styles.banner, { backgroundColor: t.bg }, style]}>
+    // One accessibility element so it is announced as a single alert — unless it holds an
+    // action, which must stay separately reachable.
+    <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.banner, { backgroundColor: t.bg }, style]}>
       <View style={{ paddingTop: 1 }}>{icon ?? <t.Icon size={20} color={t.fg} />}</View>
       <View style={{ flex: 1, gap: 4 }}>
         <Text variant="label" weight="semibold" style={{ color: tone === 'neutral' ? colors.ink : t.fg }}>

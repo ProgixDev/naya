@@ -10,14 +10,27 @@ import { newIdempotencyKey } from '@naya/api';
  */
 export function useSingleFlight<TData, TVars>(fn: (vars: TVars, key: string) => Promise<TData>, options: Omit<UseMutationOptions<TData, Error, TVars>, 'mutationFn'> = {}) {
   const key = useRef(newIdempotencyKey());
-  const mutation = useMutation<TData, Error, TVars>({ ...options, mutationFn: (vars) => fn(vars, key.current) });
+  // A ref, not `mutation.isPending`: two taps in the same frame both see the render-time
+  // `isPending === false`, so only a synchronous flag guarantees a single request.
+  const inFlight = useRef(false);
+  const mutation = useMutation<TData, Error, TVars>({
+    ...options,
+    mutationFn: async (vars) => {
+      try {
+        return await fn(vars, key.current);
+      } finally {
+        inFlight.current = false;
+      }
+    },
+  });
   const run = useCallback(
     (vars: TVars) => {
-      if (mutation.isPending) return;
+      if (inFlight.current) return;
+      inFlight.current = true;
       mutation.mutate(vars);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mutation.isPending, mutation.mutate],
+    [mutation.mutate],
   );
   const reset = useCallback(() => {
     key.current = newIdempotencyKey();
