@@ -19,14 +19,13 @@ export function useApi(): ApiClient {
  * `expiresAt`, so returning to the screen shows the true remaining time.
  */
 export function useDeadline(expiresAt: string | null | undefined, intervalMs = 250) {
-  const compute = () => (expiresAt ? Math.max(0, Date.parse(expiresAt) - serverClock.now()) : 0);
-  const [remainingMs, setRemaining] = useState(compute);
+  const [, setTick] = useState(0);
   useEffect(() => {
-    setRemaining(compute());
     if (!expiresAt) return;
-    const id = setInterval(() => setRemaining(compute()), intervalMs);
+    const id = setInterval(() => setTick((t) => t + 1), intervalMs);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expiresAt, intervalMs]);
+  // Derived on every render from the deadline, so a new deadline is never briefly "expired".
+  const remainingMs = expiresAt ? Math.max(0, Date.parse(expiresAt) - serverClock.now()) : 0;
   return { remainingMs, seconds: Math.ceil(remainingMs / 1000), expired: !!expiresAt && remainingMs <= 0 };
 }

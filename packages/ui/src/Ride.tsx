@@ -57,12 +57,13 @@ const roleLabel: Record<StopRole, string> = { pickup: 'Départ', stop: 'Arrêt',
 
 export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMoveUp, onMoveDown, isLast, done, testID }: RouteStopRowProps) {
   const marker = role === 'pickup' ? <View style={[styles.dot, { borderColor: colors.accent }]} /> : role === 'destination' ? <MapPin size={18} color={colors.accent} fill={colors.selected} /> : <View style={[styles.square, done && { backgroundColor: colors.success, borderColor: colors.success }]} />;
-  const content = (
-    <View style={styles.stopRow}>
-      <View style={styles.rail}>
-        {marker}
-        {!isLast ? <View style={styles.line} /> : null}
-      </View>
+  const rail = (
+    <View style={styles.rail}>
+      {marker}
+      {!isLast ? <View style={styles.line} /> : null}
+    </View>
+  );
+  const body = (
       <View style={{ flex: 1, paddingVertical: 10, gap: 2 }}>
         <Text variant="micro" tone="muted" weight="semibold">
           {roleLabel[role]}
@@ -77,6 +78,9 @@ export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMo
           </Text>
         ) : null}
       </View>
+  );
+  const actions = (
+    <>
       {onMoveUp || onMoveDown ? (
         <View style={{ flexDirection: 'row' }}>
           {onMoveUp ? <IconButton variant="plain" size={36} icon={<GripVertical size={18} color={colors.muted} />} accessibilityLabel={`Monter ${place?.label ?? 'l’arrêt'}`} onPress={onMoveUp} /> : null}
@@ -84,13 +88,25 @@ export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMo
         </View>
       ) : null}
       {onRemove ? <IconButton variant="plain" size={36} icon={<Trash2 size={18} color={colors.danger} />} accessibilityLabel={`Retirer ${place?.label ?? 'cet arrêt'}`} onPress={onRemove} /> : null}
+    </>
+  );
+  const content = (
+    <View style={styles.stopRow}>
+      {rail}
+      {body}
+      {actions}
     </View>
   );
   if (!onPress) return <View testID={testID}>{content}</View>;
+  // The row body is the pressable; reorder/remove controls stay siblings (no nested buttons).
   return (
-    <PressableScale testID={testID} onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={`${roleLabel[role]} : ${place?.label ?? placeholder ?? 'à choisir'}`}>
-      {content}
-    </PressableScale>
+    <View style={styles.stopRow}>
+      <PressableScale testID={testID} onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={`${roleLabel[role]} : ${place?.label ?? placeholder ?? 'à choisir'}`} style={[styles.stopRow, { flex: 1 }]}>
+        {rail}
+        {body}
+      </PressableScale>
+      {actions}
+    </View>
   );
 }
 

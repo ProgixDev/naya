@@ -41,7 +41,9 @@ function AccountBoundary({ session, children }: { session: SessionStore; childre
   const [prev, setPrev] = useState(accountId);
   useEffect(() => {
     if (prev !== accountId) {
-      qc.removeQueries({ queryKey: qk.root });
+      // Clear only when leaving an account (sign-out or switch). Clearing on sign-in would
+      // race the new account's first queries.
+      if (prev !== null) qc.removeQueries({ queryKey: qk.root });
       setPrev(accountId);
     }
   }, [accountId, prev, qc]);

@@ -934,6 +934,19 @@ export function createApp(ctx: Ctx) {
       ),
     );
     app.get('/dev/provider-jobs', (c) => c.json(S().providerJobs.filter((j) => !j.delivered)));
+    /**
+     * Review-capture hook: a development build polls this to navigate itself (and optionally
+     * sign in as a demo account), so native screenshots can be taken without tapping.
+     */
+    const navQueue = new Map<string, { id: number; route: string; phone: string | null }>();
+    let navSeq = 0;
+    app.post('/dev/navigate', async (c) => {
+      const { app: target, route, phone = null } = (await c.req.json()) as { app: 'passenger' | 'driver'; route: string; phone?: string | null };
+      const cmd = { id: ++navSeq, route, phone };
+      navQueue.set(target, cmd);
+      return c.json(cmd);
+    });
+    app.get('/dev/navigate', (c) => c.json(navQueue.get(c.req.query('app') ?? '') ?? null));
   }
 
   return app;

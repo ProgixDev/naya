@@ -232,7 +232,8 @@ const styles = StyleSheet.create({
   field: { flexDirection: 'row', alignItems: 'center', minHeight: 52, borderRadius: radius.field, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, gap: 10 },
   focused: { borderColor: colors.accent, borderWidth: 2 },
   errorBorder: { borderColor: colors.danger, borderWidth: 2 },
-  input: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink, paddingVertical: 12, minHeight: 48, fontVariant: ['tabular-nums'] },
+  // outlineStyle: the field draws its own focus ring; the browser's inner outline is removed on web.
+  input: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink, paddingVertical: 12, minHeight: 48, fontVariant: ['tabular-nums'], ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null) },
   country: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 10, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.line, height: 32 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: { position: 'absolute', left: 12, right: 12, bottom: 24, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 4 },

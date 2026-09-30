@@ -14,3 +14,4 @@ _handoff/
 .DS_Store
 *.log
 .playwright-mcp/
+test-results-*/

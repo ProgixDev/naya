@@ -25,3 +25,4 @@ export * from './features/auth';
 export * from './features/DevLauncher';
 export * from './features/support';
 export * from './features/capture';
+export * from './core/DevNavigator';

@@ -47,8 +47,8 @@ export interface ListRowProps {
 }
 
 export function ListRow({ title, subtitle, leading, trailing, value, onPress, chevron = !!onPress, destructive, testID, numericValue, accessibilityHint }: ListRowProps) {
-  const body = (
-    <View style={[styles.row, { minHeight: subtitle ? 60 : 52 }]}>
+  const main = (
+    <>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={{ flex: 1, gap: 2, paddingVertical: 10 }}>
         <Text variant="label" tone={destructive ? 'danger' : 'ink'}>
@@ -61,15 +61,29 @@ export function ListRow({ title, subtitle, leading, trailing, value, onPress, ch
           {value}
         </Text>
       ) : null}
-      {trailing}
-      {chevron ? <ChevronRight size={20} color={colors.muted} /> : null}
-    </View>
+    </>
   );
-  if (!onPress) return <View testID={testID}>{body}</View>;
+  const chev = chevron ? <ChevronRight size={20} color={colors.muted} /> : null;
+  if (!onPress) {
+    return (
+      <View testID={testID} style={[styles.row, { minHeight: subtitle ? 60 : 52 }]}>
+        {main}
+        {trailing}
+        {chev}
+      </View>
+    );
+  }
+  // Trailing controls are siblings of the pressable area, never nested inside it
+  // (nested buttons are invalid on the web and confuse screen readers).
   return (
-    <PressableScale testID={testID} onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={[title, subtitle, value].filter(Boolean).join(', ')} accessibilityHint={accessibilityHint}>
-      {body}
-    </PressableScale>
+    <View style={[styles.row, { minHeight: subtitle ? 60 : 52, paddingRight: trailing ? 16 : 0 }]}>
+      <PressableScale testID={testID} onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={[title, subtitle, value].filter(Boolean).join(', ')} accessibilityHint={accessibilityHint} style={[styles.rowPress, { minHeight: subtitle ? 60 : 52, paddingRight: trailing ? 0 : 16 }]}>
+        {main}
+        {trailing ? null : chev}
+      </PressableScale>
+      {trailing}
+      {trailing ? chev : null}
+    </View>
   );
 }
 
@@ -93,6 +107,7 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 const styles = StyleSheet.create({
   group: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
+  rowPress: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: -16, paddingLeft: 16 },
   leading: { alignItems: 'center', justifyContent: 'center' },
   hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginLeft: 16 },
 });
