@@ -57,6 +57,8 @@ export default function QuoteScreen() {
     queryFn: () => api.quotes.create(cityId, stops!),
     enabled: !!stops,
     staleTime: Infinity,
+    // A quote is single-use: never reuse one from an earlier booking of the same trip.
+    gcTime: 0,
     retry: false,
   });
   const methods = usePaymentMethods();
@@ -97,6 +99,7 @@ export default function QuoteScreen() {
       onSuccess: (r) => {
         haptic.success();
         draft.reset();
+        qc.removeQueries({ queryKey: ['naya', a, 'quote'] });
         qc.invalidateQueries({ queryKey: qk.activeRide(a) });
         qc.invalidateQueries({ queryKey: qk.scheduled(a) });
         if (r.kind === 'ride') router.replace('/ride');
@@ -107,7 +110,7 @@ export default function QuoteScreen() {
       },
       onError: (e) => {
         haptic.error();
-        if (isApiError(e) && e.code === 'QUOTE_EXPIRED') {
+        if (isApiError(e) && (e.code === 'QUOTE_EXPIRED' || (e.code === 'CONFLICT' && /devis/.test(e.message)))) {
           quote.refetch();
           book.reset();
         }

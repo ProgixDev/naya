@@ -62,10 +62,10 @@ export default function Receipt() {
   const cancelled = ride.status === 'cancelled';
   const state = paymentState(ride, cancelled ? fee : main);
   const when = ride.completedAt ?? ride.cancellation?.at ?? ride.requestedAt;
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const back = () => (router.canGoBack() ? router.back() : router.dismissTo('/'));
 
   return (
-    <Screen testID="receipt" header={<Header title="Votre reçu" subtitle={`${ride.id} · ${formatDateTime(when)}`} onBack={back} />} footer={<Button label="Terminé" full size="major" variant={ride.rating || cancelled ? 'primary' : 'secondary'} onPress={() => router.replace('/')} testID="receipt-done" />}>
+    <Screen testID="receipt" header={<Header title="Votre reçu" subtitle={`${ride.id} · ${formatDateTime(when)}`} onBack={back} />} footer={<Button label="Terminé" full size="major" variant={ride.rating || cancelled ? 'primary' : 'secondary'} onPress={() => router.dismissTo('/')} testID="receipt-done" />}>
       <View style={{ gap: 16, marginTop: 12 }}>
         <Card>
           <View style={{ gap: 6 }}>

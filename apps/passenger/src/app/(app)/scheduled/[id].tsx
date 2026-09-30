@@ -57,7 +57,7 @@ export default function ScheduledDetail() {
   return (
     <Screen
       testID="scheduled-detail"
-      header={<Header title={open ? 'Réservation enregistrée' : SCHEDULED_STATUS_LABELS[b.status]} subtitle={b.id} onBack={() => (router.canGoBack() ? router.back() : router.replace('/trips'))} />}
+      header={<Header title={open ? 'Réservation enregistrée' : SCHEDULED_STATUS_LABELS[b.status]} subtitle={b.id} onBack={() => (router.canGoBack() ? router.back() : router.dismissTo('/trips'))} />}
       footer={
         open ? (
           <>
