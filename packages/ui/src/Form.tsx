@@ -36,7 +36,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
     t.value = reduceMotion ? (floated ? 1 : 0) : withTiming(floated ? 1 : 0, { duration: 160 });
   }, [floated, reduceMotion, t]);
   const labelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(t.value, [0, 1], [0, -11]) }, { scale: interpolate(t.value, [0, 1], [1, 0.76]) }],
+    transform: [{ translateY: interpolate(t.value, [0, 1], [0, -12]) }, { scale: interpolate(t.value, [0, 1], [1, 0.76]) }],
   }));
   const radius = multiline ? 24 : 28;
   return (
@@ -71,7 +71,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
               setFocused(false);
               onBlur?.(e);
             }}
-            style={[styles.input, { paddingTop: multiline ? 4 : 16 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null, inputStyle]}
+            style={[styles.input, multiline ? { paddingTop: 4 } : styles.inputSingle, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null, inputStyle]}
             maxFontSizeMultiplier={1.5}
             {...input}
           />
@@ -315,6 +315,8 @@ const styles = StyleSheet.create({
   errorBorder: { borderColor: colors.danger, borderWidth: 1.5 },
   // outlineStyle: the field draws its own focus ring; the browser's inner outline is removed on web.
   input: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink, paddingVertical: 12, minHeight: 48, fontVariant: ['tabular-nums'], ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null) },
+  // Single line: the value sits 8 pt below centre so the floated label has its own row.
+  inputSingle: { height: 54, minHeight: 0, paddingTop: 20, paddingBottom: 4 },
   country: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 32, borderRadius: 16, backgroundColor: colors.mauveSoft, marginLeft: -8 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: { position: 'absolute', left: 12, right: 12, bottom: 24, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 4 },

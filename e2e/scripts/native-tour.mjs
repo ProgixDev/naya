@@ -83,6 +83,8 @@ if (app === 'passenger') {
   shot('05-pending');
   await nav('/', P.imane, 7);
   shot('05-more');
+  await nav('/identity', '+212677001122', 7);
+  shot('03-identity');
 }
 
 if (app === 'driver') {

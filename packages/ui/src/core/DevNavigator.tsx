@@ -26,7 +26,7 @@ export function DevNavigator({ app, session }: { app: 'passenger' | 'driver'; se
           const current = session.getState();
           await api.auth.requestOtp(cmd.phone, app).catch(() => undefined);
           const r = await api.auth.verifyOtp(cmd.phone, app, '123456');
-          if (current.accountId !== r.user.id) qc.removeQueries({ queryKey: qk.root });
+          if (current.accountId !== r.user.id) qc.resetQueries({ queryKey: qk.root });
           await session.getState().signIn(r.token, r.user.id);
           await new Promise((ok) => setTimeout(ok, 1200));
         } else if (cmd.route === '__signout') {
