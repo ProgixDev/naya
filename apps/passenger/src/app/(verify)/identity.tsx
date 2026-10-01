@@ -5,11 +5,10 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { aspect, illustrations } from '@naya/assets';
 import { identityDetailsSchema } from '@naya/domain';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { Button, FormField, Header, Illustration, Pill, Screen, StatusBanner, Text, haptic, toast } from '@naya/ui';
+import { Button, FieldRow, FormField, Header, Screen, SegmentedControl, StatusBanner, Text, haptic, toast } from '@naya/ui';
 import { useAccountId, useIdentityCase } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 
@@ -70,34 +69,33 @@ export default function IdentityDetails() {
   return (
     <Screen
       keyboard
-      header={<Header title="Votre dossier d’identité" subtitle="1 sur 4 · Informations personnelles" right={<Button label="Se déconnecter" variant="ghost" size="compact" onPress={() => useSession.getState().signOut()} />} />}
-      footer={<Button label="Continuer vers le selfie" size="major" full loading={save.isPending} onPress={handleSubmit((f) => save.mutate(f))} testID="identity-continue" />}
+      header={
+        <Header
+          title="Vos informations"
+          subtitle="Comme sur votre pièce d’identité."
+          progress={{ step: 1, total: 4 }}
+          right={<Button label="Se déconnecter" variant="secondary" size="compact" onPress={() => useSession.getState().signOut()} />}
+        />
+      }
+      footer={<Button label="Continuer" size="major" full loading={save.isPending} onPress={handleSubmit((f) => save.mutate(f))} testID="identity-continue" />}
     >
-      <View style={{ gap: 18, marginTop: 8 }}>
-        <Illustration source={illustrations.passengerIdentity} aspect={aspect.illustration} width="72%" />
-        <StatusBanner tone="neutral" title="Un examen humain" message="Votre selfie et votre pièce sont examinés par l’équipe Naya avant l’activation du compte. Nous ne déduisons rien de votre apparence." />
-        <Controller control={control} name="firstName" render={({ field, fieldState }) => <FormField label="Prénom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="given-name" textContentType="givenName" testID="first-name" helper="Tel qu’il figure sur votre pièce." />} />
-        <Controller control={control} name="lastName" render={({ field, fieldState }) => <FormField label="Nom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="family-name" textContentType="familyName" testID="last-name" />} />
+      <View style={{ gap: 12, marginTop: 12 }}>
+        <StatusBanner compact tone="neutral" title="Vérifié par une personne de l’équipe Naya" />
+        <FieldRow>
+          <Controller control={control} name="firstName" render={({ field, fieldState }) => <FormField label="Prénom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="given-name" textContentType="givenName" returnKeyType="next" testID="first-name" />} />
+          <Controller control={control} name="lastName" render={({ field, fieldState }) => <FormField label="Nom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="family-name" textContentType="familyName" returnKeyType="next" testID="last-name" />} />
+        </FieldRow>
         <Controller control={control} name="birthDate" render={({ field, fieldState }) => <FormField label="Date de naissance" value={field.value} onChangeText={(v) => field.onChange(maskDate(v))} onBlur={field.onBlur} error={fieldState.error?.message} keyboardType="number-pad" placeholder="JJ/MM/AAAA" testID="birth-date" />} />
         <Controller
           control={control}
           name="documentType"
           render={({ field }) => (
-            <View style={{ gap: 8 }}>
-              <Text variant="caption" weight="semibold">
-                Type de pièce
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup">
-                {DOCS.map((d) => (
-                  <Pill key={d.value} label={d.label} selected={field.value === d.value} onPress={() => field.onChange(d.value)} testID={`doc-${d.value}`} />
-                ))}
-              </View>
-            </View>
+            <SegmentedControl testID="doc-type" options={DOCS.map((d) => ({ value: d.value, label: d.label }))} value={field.value} onChange={(v) => field.onChange(v)} />
           )}
         />
         <Controller control={control} name="documentNumber" render={({ field, fieldState }) => <FormField label="Numéro de la pièce" value={field.value} onChangeText={(v) => field.onChange(v.toUpperCase())} onBlur={field.onBlur} error={fieldState.error?.message} autoCapitalize="characters" autoCorrect={false} testID="doc-number" />} />
         {formState.isSubmitted && !formState.isValid ? (
-          <Text variant="caption" tone="danger" accessibilityRole="alert">
+          <Text variant="caption" tone="danger" accessibilityRole="alert" style={{ marginLeft: 18 }}>
             Corrigez les champs signalés pour continuer.
           </Text>
         ) : null}

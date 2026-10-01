@@ -19,6 +19,8 @@ const toneStyle: Record<BannerTone, { bg: string; fg: string; Icon: typeof Info 
 
 export interface StatusBannerProps {
   tone?: BannerTone;
+  /** Compact one-line pill for reassurance notes ("Examen humain · données chiffrées"). */
+  compact?: boolean;
   title: string;
   message?: string;
   action?: { label: string; onPress: () => void };
@@ -28,8 +30,19 @@ export interface StatusBannerProps {
 }
 
 /** States are icons plus words; problems always keep a sentence explaining the cause. */
-export function StatusBanner({ tone = 'info', title, message, action, icon, style, testID }: StatusBannerProps) {
+export function StatusBanner({ tone = 'info', title, message, action, icon, style, testID, compact }: StatusBannerProps) {
   const t = toneStyle[tone];
+  if (compact) {
+    return (
+      <View testID={testID} accessible accessibilityRole="text" accessibilityLabel={[title, message].filter(Boolean).join('. ')} style={[styles.note, { backgroundColor: t.bg }, style]}>
+        {icon ?? <t.Icon size={16} color={t.fg} />}
+        <Text variant="caption" weight="medium" style={{ flex: 1, color: tone === 'neutral' ? colors.ink : t.fg }} numberOfLines={2}>
+          {title}
+          {message ? <Text variant="caption" tone="muted">{` · ${message}`}</Text> : null}
+        </Text>
+      </View>
+    );
+  }
   return (
     // One accessibility element so it is announced as a single alert — unless it holds an
     // action, which must stay separately reachable.
@@ -136,7 +149,8 @@ export function SkeletonList({ rows = 4 }: { rows?: number }) {
 }
 
 const styles = StyleSheet.create({
-  banner: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.row + 4 },
+  banner: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.row + 6 },
+  note: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, alignSelf: 'stretch' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, borderRadius: 999 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   empty: { alignItems: 'center', gap: 10, paddingVertical: 32, paddingHorizontal: 16 },

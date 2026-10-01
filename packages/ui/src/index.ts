@@ -26,3 +26,5 @@ export * from './features/DevLauncher';
 export * from './features/support';
 export * from './features/capture';
 export * from './core/DevNavigator';
+export * from './Material';
+export * from './Progress';

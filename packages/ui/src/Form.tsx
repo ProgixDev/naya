@@ -1,14 +1,16 @@
-import { forwardRef, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Children, forwardRef, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Modal, Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
 import { Check, ChevronDown } from 'lucide-react-native';
 import { colors, radius } from '@naya/tokens';
 import { COUNTRIES, formatNational, type Country } from '@naya/domain';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
-import { hitSlopFor } from './a11y';
+import { hitSlopFor, useA11yPrefs } from './a11y';
 import { haptic } from './haptics';
 
 export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
+  /** Shown inside the pill as the placeholder, then floats to the top-left. */
   label: string;
   error?: string | null;
   helper?: string;
@@ -18,50 +20,129 @@ export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
   inputStyle?: StyleProp<TextStyle>;
 }
 
-/** Label above, 52-pt field, helper or error under it. Errors are announced and never only colour. */
-export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField({ label, error, helper, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, ...input }, ref) {
+/**
+ * Pill input: 56 pt, white, label inside (floats up on focus or value), one line of
+ * error under it. Multiline fields keep the language with a 24-pt radius.
+ */
+export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField(
+  { label, error, helper, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, value, multiline, placeholder, ...input },
+  ref,
+) {
+  const { reduceMotion } = useA11yPrefs();
   const [focused, setFocused] = useState(false);
+  const floated = focused || !!value || !!leading;
+  const t = useSharedValue(floated ? 1 : 0);
+  useEffect(() => {
+    t.value = reduceMotion ? (floated ? 1 : 0) : withTiming(floated ? 1 : 0, { duration: 160 });
+  }, [floated, reduceMotion, t]);
+  const labelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(t.value, [0, 1], [0, -11]) }, { scale: interpolate(t.value, [0, 1], [1, 0.76]) }],
+  }));
+  const radius = multiline ? 24 : 28;
   return (
     <View style={{ gap: 6 }}>
-      <Text variant="caption" weight="semibold" tone="ink" nativeID={`${testID ?? label}-label`}>
-        {label}
-      </Text>
-      <View style={[styles.field, focused && styles.focused, !!error && styles.errorBorder, !editable && { backgroundColor: colors.disabledFill }]}>
+      <Pressable
+        onPress={() => (ref && typeof ref === 'object' ? ref.current?.focus() : undefined)}
+        style={[styles.field, { borderRadius: radius, minHeight: multiline ? 120 : 56, alignItems: multiline ? 'flex-start' : 'center' }, focused && styles.focused, !!error && styles.errorBorder, !editable && { backgroundColor: colors.disabledFill }]}
+        accessible={false}
+      >
         {leading}
-        <TextInput
-          ref={ref}
-          testID={testID}
-          editable={editable}
-          placeholderTextColor={colors.disabledText}
-          accessibilityLabel={label}
-          accessibilityLabelledBy={`${testID ?? label}-label`}
-          accessibilityHint={error ?? helper}
-          onFocus={(e) => {
-            setFocused(true);
-            onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setFocused(false);
-            onBlur?.(e);
-          }}
-          style={[styles.input, inputStyle]}
-          maxFontSizeMultiplier={1.5}
-          {...input}
-        />
+        <View style={{ flex: 1, justifyContent: 'center', alignSelf: 'stretch', paddingTop: multiline ? 22 : 0 }}>
+          <Animated.View pointerEvents="none" style={[styles.labelWrap, multiline ? { top: 10 } : null, labelStyle]}>
+            <Text variant="label" tone={error ? 'danger' : 'muted'} numberOfLines={1} nativeID={`${testID ?? label}-label`}>
+              {label}
+            </Text>
+          </Animated.View>
+          <TextInput
+            ref={ref}
+            testID={testID}
+            value={value}
+            editable={editable}
+            multiline={multiline}
+            placeholder={floated ? placeholder : undefined}
+            placeholderTextColor={colors.disabledText}
+            accessibilityLabel={label}
+            accessibilityHint={error ?? helper}
+            onFocus={(e) => {
+              setFocused(true);
+              onFocus?.(e);
+            }}
+            onBlur={(e) => {
+              setFocused(false);
+              onBlur?.(e);
+            }}
+            style={[styles.input, { paddingTop: multiline ? 4 : 16 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null, inputStyle]}
+            maxFontSizeMultiplier={1.5}
+            {...input}
+          />
+        </View>
         {trailing}
-      </View>
+      </Pressable>
       {error ? (
-        <Text variant="caption" tone="danger" accessibilityLiveRegion="polite" accessibilityRole="alert">
+        <Text variant="caption" tone="danger" accessibilityLiveRegion="polite" accessibilityRole="alert" style={{ marginLeft: 18 }}>
           {error}
         </Text>
-      ) : helper ? (
-        <Text variant="caption" tone="muted">
+      ) : helper && focused ? (
+        <Text variant="caption" tone="muted" style={{ marginLeft: 18 }}>
           {helper}
         </Text>
       ) : null}
     </View>
   );
 });
+
+/** Two fields side by side (e.g. Prénom · Nom). Stacks at large text sizes. */
+export function FieldRow({ children }: { children: ReactNode }) {
+  const { largeText } = useA11yPrefs();
+  return <View style={{ flexDirection: largeText ? 'column' : 'row', gap: 10 }}>{Children.map(children, (c) => <View style={{ flex: largeText ? undefined : 1 }}>{c}</View>)}</View>;
+}
+
+const pad2 = (s: string) => s.padStart(2, '0');
+/** "JJ/MM/AAAA" typed with digits only → ISO "AAAA-MM-JJ" (or partial while typing). */
+export function maskDate(digits: string) {
+  const d = digits.replace(/\D/g, '').slice(0, 8);
+  return [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean).join(' / ');
+}
+export function isoFromDigits(digits: string): string | null {
+  const d = digits.replace(/\D/g, '');
+  if (d.length !== 8) return null;
+  return `${d.slice(4, 8)}-${pad2(d.slice(2, 4))}-${pad2(d.slice(0, 2))}`;
+}
+export const digitsFromIso = (iso: string | null | undefined) => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8, 10)}${iso.slice(5, 7)}${iso.slice(0, 4)}` : '');
+
+export interface DateFieldProps {
+  label: string;
+  /** ISO date or '' */
+  value: string;
+  onChange: (iso: string) => void;
+  error?: string | null;
+  testID?: string;
+}
+
+/** Date of birth as one pill with a JJ / MM / AAAA mask and the number pad. */
+export function DateField({ label, value, onChange, error, testID }: DateFieldProps) {
+  const [digits, setDigits] = useState(() => digitsFromIso(value));
+  useEffect(() => {
+    if (value && digitsFromIso(value) !== digits) setDigits(digitsFromIso(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <FormField
+      label={label}
+      testID={testID}
+      value={maskDate(digits)}
+      placeholder="JJ / MM / AAAA"
+      keyboardType="number-pad"
+      onChangeText={(t) => {
+        const d = t.replace(/\D/g, '').slice(0, 8);
+        setDigits(d);
+        onChange(isoFromDigits(d) ?? d);
+      }}
+      error={error}
+      maxLength={14}
+    />
+  );
+}
 
 export interface PhoneFieldProps {
   value: string;
@@ -91,7 +172,6 @@ export function PhoneField({ value, onChangeText, country, onCountryChange, erro
         autoFocus={autoFocus}
         returnKeyType="done"
         onSubmitEditing={onSubmitEditing}
-        helper="Nous vous envoyons un code à 6 chiffres par SMS."
         leading={
           <PressableScale onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`Indicatif ${country.name} ${country.dial}. Changer de pays`} style={styles.country} hitSlop={hitSlopFor(36)}>
             <Text variant="label" weight="semibold" numeric>
@@ -229,16 +309,17 @@ export function Pill({ label, selected, onPress, icon, testID, disabled }: PillP
 }
 
 const styles = StyleSheet.create({
-  field: { flexDirection: 'row', alignItems: 'center', minHeight: 52, borderRadius: radius.field, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, gap: 10 },
-  focused: { borderColor: colors.accent, borderWidth: 2 },
-  errorBorder: { borderColor: colors.danger, borderWidth: 2 },
+  field: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', paddingHorizontal: 20, gap: 10, shadowColor: colors.ink, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  labelWrap: { position: 'absolute', left: 0, right: 0, transformOrigin: 'left center' },
+  focused: { borderColor: colors.accent, borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.16, shadowRadius: 12 },
+  errorBorder: { borderColor: colors.danger, borderWidth: 1.5 },
   // outlineStyle: the field draws its own focus ring; the browser's inner outline is removed on web.
   input: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink, paddingVertical: 12, minHeight: 48, fontVariant: ['tabular-nums'], ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null) },
-  country: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 10, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.line, height: 32 },
+  country: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 32, borderRadius: 16, backgroundColor: colors.mauveSoft, marginLeft: -8 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: { position: 'absolute', left: 12, right: 12, bottom: 24, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 4 },
   countryRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 12 },
-  box: { flex: 1, maxWidth: 52, height: 56, borderRadius: radius.field, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  box: { flex: 1, maxWidth: 52, height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignItems: 'center', justifyContent: 'center', shadowColor: colors.ink, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   hiddenInput: { position: 'absolute', opacity: 0.011, height: 1, width: 1 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, alignSelf: 'flex-start' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.8)', borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignSelf: 'flex-start', shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
 });

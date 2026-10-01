@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, control, shadow } from '@naya/tokens';
+import { colors, control } from '@naya/tokens';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
 import { Glass } from './Glass';
+import { FrostLayers, GlossLayers, frostOutline, frostShadow, glossShadow } from './Material';
 import { hitSlopFor } from './a11y';
 import { haptic } from './haptics';
 
@@ -32,25 +32,18 @@ export interface ButtonProps {
 const heights: Record<Size, number> = { major: control.major, standard: control.standard, compact: control.compact };
 
 /**
- * One component for every pill button. Loading keeps the button's width (label stays in
- * layout, hidden) so nothing jumps; disabled is a neutral grey, not a paler plum.
+ * One component for every pill button. Primary = glossy plum (the one action per screen);
+ * secondary/tonal = frosted glass; ghost = text. Loading keeps the width (label stays in
+ * layout, hidden); disabled is a neutral grey, never a paler plum.
  */
 export function Button({ label, onPress, variant = 'primary', size = 'standard', loading, loadingLabel, disabled, disabledReason, icon, full, style, accessibilityHint, testID }: ButtonProps) {
   const [focused, setFocused] = useState(false);
   const inactive = disabled || loading;
   const h = heights[size];
-  const textTone = disabled ? 'disabled' : variant === 'primary' || variant === 'danger' ? 'inverse' : variant === 'secondary' || variant === 'ghost' || variant === 'tonal' ? 'accent' : 'ink';
-  const fill: ViewStyle = disabled
-    ? { backgroundColor: colors.disabledFill }
-    : variant === 'danger'
-      ? { backgroundColor: colors.danger }
-      : variant === 'secondary'
-        ? { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }
-        : variant === 'tonal'
-          ? { backgroundColor: colors.mauveSoft }
-          : variant === 'ghost'
-            ? { backgroundColor: 'transparent' }
-            : {};
+  const r = h / 2;
+  const gloss = !disabled && (variant === 'primary' || variant === 'danger');
+  const frost = !disabled && (variant === 'secondary' || variant === 'tonal');
+  const textTone = disabled ? 'disabled' : gloss ? 'inverse' : variant === 'ghost' ? 'accent' : 'accent';
   const content = (
     <View style={[styles.row, { height: h, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
       <View style={[styles.row, { opacity: loading ? 0 : 1, gap: 8 }]}>
@@ -59,7 +52,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
           {label}
         </Text>
       </View>
-      {loading ? <ActivityIndicator style={StyleSheet.absoluteFill} color={variant === 'primary' || variant === 'danger' ? colors.inverse : colors.accent} /> : null}
+      {loading ? <ActivityIndicator style={StyleSheet.absoluteFill} color={gloss ? colors.inverse : colors.accent} /> : null}
     </View>
   );
   return (
@@ -81,16 +74,16 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
         accessibilityState={{ disabled: !!inactive, busy: !!loading }}
         style={[
           styles.pill,
-          { minHeight: h },
-          fill,
-          variant === 'primary' && !disabled ? shadow.button : null,
+          { minHeight: h, borderRadius: r },
+          disabled ? { backgroundColor: colors.disabledFill } : null,
+          gloss ? glossShadow(variant === 'danger' ? 'danger' : 'accent') : null,
+          frost ? frostShadow : null,
+          frost && variant === 'secondary' ? frostOutline : null,
           focused ? styles.focus : null,
         ]}
       >
-        {variant === 'primary' && !disabled ? (
-          <LinearGradient colors={['#7E4568', colors.accent, '#5A2A4A']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
-        ) : null}
-        {variant === 'primary' && !disabled ? <View pointerEvents="none" style={styles.highlight} /> : null}
+        {gloss ? <GlossLayers tone={variant === 'danger' ? 'danger' : 'accent'} radius={r} /> : null}
+        {frost ? <FrostLayers radius={r} tint={variant === 'tonal' ? 'mauve' : 'white'} /> : null}
         {content}
       </PressableScale>
       {disabled && disabledReason ? (
@@ -151,7 +144,10 @@ export function IconButton({ icon, accessibilityLabel, onPress, label, variant =
         {icon}
       </Glass>
     ) : (
-      <View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }, variant === 'solid' ? { backgroundColor: colors.surface, ...shadow.card } : variant === 'tonal' ? { backgroundColor: colors.mauveSoft } : null]}>{icon}</View>
+      <View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }, variant === 'solid' ? [frostShadow, frostOutline] : null]}>
+        {variant === 'solid' || variant === 'tonal' ? <FrostLayers radius={size / 2} tint={variant === 'tonal' ? 'mauve' : 'white'} /> : null}
+        {icon}
+      </View>
     );
   return (
     <PressableScale testID={testID} onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={accessibilityLabel} hitSlop={hitSlopFor(size)} style={{ alignItems: 'center', opacity: disabled ? 0.45 : 1 }}>
@@ -180,5 +176,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   disc: { alignItems: 'center', justifyContent: 'center' },
   focus: { borderWidth: 2, borderColor: colors.info },
-  highlight: { position: 'absolute', left: 1, right: 1, top: 1, height: '50%', borderTopLeftRadius: 999, borderTopRightRadius: 999, backgroundColor: 'rgba(255,255,255,0.09)' },
 });

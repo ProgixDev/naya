@@ -49,6 +49,7 @@ export const fonts = {
 /** Type scale (size / line height). Figma styles: Mobile/Titre 30/36, Section/Racine 21/26, Section/Détail 18/24, Texte/Corps 16/22, Texte/Action 15/20, Texte/Secondaire 13/18. */
 export const type = {
   hero: { size: 30, line: 36, font: fonts.semibold, tracking: -0.4 },
+  screen: { size: 26, line: 31, font: fonts.semibold, tracking: -0.4 }, // task-screen titles
   display: { size: 40, line: 46, font: fonts.semibold, tracking: -0.8 }, // money hero
   title: { size: 21, line: 26, font: fonts.semibold, tracking: -0.2 },
   heading: { size: 18, line: 24, font: fonts.semibold, tracking: -0.1 },
@@ -68,7 +69,7 @@ export const gutter = 20;
 export const radius = { row: 12, card: 20, sheet: 28, pill: 999, field: 14 } as const;
 
 /** Control heights: standard 44, compact 36 (44 touch target via hitSlop), major booking/driver actions 54. */
-export const control = { major: 54, standard: 44, compact: 36, chip: 32, touch: 44, touchAndroid: 48 } as const;
+export const control = { major: 50, standard: 44, compact: 36, chip: 32, field: 56, touch: 44, touchAndroid: 48 } as const;
 
 export const shadow = {
   float: { shadowColor: '#2E202C', shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
