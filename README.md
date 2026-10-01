@@ -158,7 +158,7 @@ pnpm e2e                                    # Playwright against running servers
 | `expo-doctor` (both apps) / `expo install --check` / `pnpm peers check` | 21/21 checks · no mismatches · no peer issues |
 | `vite build` (admin) | succeeds |
 | iOS 27 Simulator Release builds (passenger, driver) | build, launch and run against the demo API |
-| Native captures | `docs/screens/native/390` (both apps), `390-large-text` (both, accessibility-large), `390-reduced` (Reduce Transparency/Motion), `375` (both apps), `430` (passenger subset — the run stopped when the disk filled) |
+| Native captures | `docs/screens/native/390` (both apps), `390-large-text` (both, accessibility-large), `390-reduced` (Reduce Transparency/Motion), `375` (both apps), `402` (both apps, iPhone 18 Pro), `430` (both apps) |
 | Android | **not run** — no Android SDK/emulator on the build machine. Android-specific code paths (Google Maps key, 48-pt edges, tile fallback) are implemented but unverified on device. |
 
 Cross-role E2E runs the passenger, driver and admin apps side by side: the driver accepts the passenger's request in her own UI, the Agdal stop is completed, cash and card settlements reconcile to 170 = 100 cash + 70 wallet, and the admin sees the same ride and ledger. It found and fixed two defects that single-app tests missed (a duplicated tab navigator after the receipt; a single-use quote reused from cache).
