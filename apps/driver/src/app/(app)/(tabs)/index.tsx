@@ -9,7 +9,7 @@ import { useApi } from '@naya/api/react';
 import { formatMoney, type LatLng } from '@naya/domain';
 import { startOfTodayUtc } from '@/lib/time';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Button, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
+import { Avatar, avatarFor, Button, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
 import { useAccountId, useDriverStatus, useMe } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
 import { useForegroundLocation } from '@/lib/location';
@@ -100,10 +100,10 @@ export default function Dashboard() {
           </PressableScale>
         ) : null}
         <View style={{ flex: 1 }} />
-        <IconButton icon={<Text variant="label" weight="semibold" tone="accent">{firstName.charAt(0) || 'N'}</Text>} accessibilityLabel="Mon compte" onPress={() => router.navigate('/account')} />
+        <PressableScale onPress={() => router.navigate('/account')} accessibilityRole="button" accessibilityLabel="Mon compte"><Avatar name={firstName || 'Naya'} source={avatarFor(firstName)} size={44} /></PressableScale>
       </View>
 
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: TAB_BAR_SPACE + insets.bottom - 8, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 16, gap: 12, ...shadow.float }}>
+      <View style={{ position: 'absolute', left: 16, right: 16, bottom: TAB_BAR_SPACE + insets.bottom - 8, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 16, ...shadow.float }}>
         {status.isLoading ? (
           <View style={{ gap: 12 }}>
             <Skeleton width="50%" height={18} />
@@ -112,10 +112,14 @@ export default function Dashboard() {
           </View>
         ) : d ? (
           <>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <Text variant="title">{firstName ? `Bonjour ${firstName}` : 'Votre journée'}</Text>
+              <Text variant="micro" tone="muted">{d.city.name}</Text>
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 }} accessible accessibilityLabel={online ? 'Vous êtes en ligne' : 'Vous êtes hors ligne'}>
               <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: online ? colors.success : colors.surface, borderWidth: 2, borderColor: online ? colors.success : colors.ink }} />
               <View style={{ flex: 1 }}>
-                <Text variant="heading" testID="online-state">
+                <Text variant="label" weight="semibold" testID="online-state">
                   {online ? 'Vous êtes en ligne' : 'Vous êtes hors ligne'}
                 </Text>
                 <Text variant="micro" tone="muted" numberOfLines={1}>

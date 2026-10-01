@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { colors } from '@naya/tokens';
+import { colors, motion } from '@naya/tokens';
 import { useA11yPrefs } from '@naya/ui';
 import { CapsuleTabBar } from '@/components/TabBar';
 
@@ -8,7 +8,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={(props) => <CapsuleTabBar {...props} />}
-      screenOptions={{ headerShown: false, animation: reduceMotion ? 'none' : 'fade', sceneStyle: { backgroundColor: colors.background } }}
+      screenOptions={{ headerShown: false, animation: reduceMotion ? 'none' : 'fade', transitionSpec: { animation: 'timing', config: { duration: reduceMotion ? 0 : motion.tabFade } }, sceneStyle: { backgroundColor: colors.background } }}
     >
       <Tabs.Screen name="index" options={{ title: 'Accueil' }} />
       <Tabs.Screen name="trips" options={{ title: 'Trajets' }} />

@@ -40,7 +40,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
   const labelStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(t.value, [0, 1], [0, -12]) }, { scale: interpolate(t.value, [0, 1], [1, 0.76]) }],
   }));
-  const radius = multiline ? 24 : 28;
+  const radius = multiline ? 22 : 18;
   return (
     <View style={{ gap: 6 }}>
       <Pressable
@@ -161,6 +161,7 @@ export interface PhoneFieldProps {
 /** International phone entry, +212 first; digits grouped as the user types. */
 export function PhoneField({ value, onChangeText, country, onCountryChange, error, onSubmitEditing, autoFocus }: PhoneFieldProps) {
   const [open, setOpen] = useState(false);
+  const { reduceMotion } = useA11yPrefs();
   return (
     <>
       <FormField
@@ -185,7 +186,7 @@ export function PhoneField({ value, onChangeText, country, onCountryChange, erro
           </PressableScale>
         }
       />
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} transparent animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.scrim} onPress={() => setOpen(false)} accessibilityLabel="Fermer la liste des pays" />
         <View style={styles.sheet}>
           <Text variant="heading" style={{ marginBottom: 8 }} accessibilityRole="header">
@@ -313,9 +314,9 @@ export function Pill({ label, selected, onPress, icon, testID, disabled }: PillP
 }
 
 const styles = StyleSheet.create({
-  field: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', paddingHorizontal: 20, gap: 10, shadowColor: colors.ink, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  field: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', paddingHorizontal: 20, gap: 10, shadowColor: colors.ink, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
   labelWrap: { position: 'absolute', left: 0, right: 0, transformOrigin: 'left center' },
-  focused: { borderColor: colors.accent, borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.16, shadowRadius: 12 },
+  focused: { borderColor: colors.accent, borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.08, shadowRadius: 8 },
   errorBorder: { borderColor: colors.danger, borderWidth: 1.5 },
   // outlineStyle: the field draws its own focus ring; the browser's inner outline is removed on web.
   input: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink, paddingVertical: 12, minHeight: 48, fontVariant: ['tabular-nums'], ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null) },
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: { position: 'absolute', left: 12, right: 12, bottom: 24, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 4 },
   countryRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 12 },
-  box: { flex: 1, maxWidth: 52, height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignItems: 'center', justifyContent: 'center', shadowColor: colors.ink, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  box: { flex: 1, maxWidth: 52, height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignItems: 'center', justifyContent: 'center', shadowColor: colors.ink, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
   hiddenInput: { position: 'absolute', opacity: 0.011, height: 1, width: 1 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.8)', borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignSelf: 'flex-start', shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
 });

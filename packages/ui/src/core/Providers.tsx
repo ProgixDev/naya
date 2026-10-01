@@ -3,12 +3,13 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { QueryClientProvider, useQueryClient, onlineManager } from '@tanstack/react-query';
+import { QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { ApiProvider } from '@naya/api/react';
 import { createApiClient, qk, type ApiClient } from '@naya/api';
 import { colors } from '@naya/tokens';
+import { AccountBoundary } from './AccountBoundary';
 import { ToastHost } from '../Toast';
 import { StatusBanner } from '../Feedback';
 import { createQueryClient, wireQueryLifecycle } from './query';
@@ -32,22 +33,6 @@ export function useMakeClient(session: SessionStore): { api: ApiClient; queryCli
     return { api, queryClient };
   });
   return state;
-}
-
-/** Clears every account-scoped cache when the signed-in account changes or signs out. */
-function AccountBoundary({ session, children }: { session: SessionStore; children: ReactNode }) {
-  const qc = useQueryClient();
-  const accountId = session((s) => s.accountId);
-  const [prev, setPrev] = useState(accountId);
-  useEffect(() => {
-    if (prev !== accountId) {
-      // Clear only when leaving an account (sign-out or switch). Clearing on sign-in would
-      // race the new account's first queries.
-      if (prev !== null) qc.removeQueries({ queryKey: qk.root });
-      setPrev(accountId);
-    }
-  }, [accountId, prev, qc]);
-  return <>{children}</>;
 }
 
 function OfflineBanner() {

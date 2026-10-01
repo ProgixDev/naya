@@ -25,7 +25,7 @@ export function Header({ title, large = true, subtitle, onBack, onClose, right, 
   const insets = useSafeAreaInsets();
   const hasBar = onBack || onClose || right || (!large && title);
   return (
-    <View style={{ paddingTop: insets.top + 6, paddingHorizontal: gutter, paddingBottom: large && title ? 4 : 8, position: overlay ? 'absolute' : 'relative', left: 0, right: 0, zIndex: 10 }}>
+    <View style={{ paddingTop: insets.top + 6, paddingHorizontal: gutter, paddingBottom: large && title ? 18 : 8, position: overlay ? 'absolute' : 'relative', left: 0, right: 0, zIndex: 10 }}>
       {hasBar ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 12 }}>
           {onBack ? <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Retour" onPress={onBack} testID="header-back" /> : null}
@@ -46,7 +46,7 @@ export function Header({ title, large = true, subtitle, onBack, onClose, right, 
         </View>
       ) : null}
       {large && title ? (
-        <View style={{ marginTop: hasBar ? 6 : 4, gap: 4 }}>
+        <View style={{ marginTop: hasBar ? 14 : 12, gap: 6 }}>
           <Text variant="screen" accessibilityRole="header">
             {title}
           </Text>

@@ -49,13 +49,15 @@ export interface RouteStopRowProps {
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   isLast?: boolean;
+  /** Compact live-trip timeline: keep place names; full street addresses remain in the route editor. */
+  compact?: boolean;
   done?: boolean;
   testID?: string;
 }
 
 const roleLabel: Record<StopRole, string> = { pickup: 'Départ', stop: 'Arrêt', destination: 'Destination' };
 
-export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMoveUp, onMoveDown, isLast, done, testID }: RouteStopRowProps) {
+export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMoveUp, onMoveDown, isLast, done, compact = false, testID }: RouteStopRowProps) {
   const marker = role === 'pickup' ? <View style={[styles.dot, { borderColor: colors.accent }]} /> : role === 'destination' ? <MapPin size={18} color={colors.accent} fill={colors.selected} /> : <View style={[styles.square, done && { backgroundColor: colors.success, borderColor: colors.success }]} />;
   const rail = (
     <View style={styles.rail}>
@@ -64,7 +66,7 @@ export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMo
     </View>
   );
   const body = (
-      <View style={{ flex: 1, paddingVertical: 10, gap: 2 }}>
+      <View style={{ flex: 1, paddingVertical: compact ? 6 : 10, gap: 2 }}>
         <Text variant="micro" tone="muted" weight="semibold">
           {roleLabel[role]}
           {done ? ' · effectué' : ''}
@@ -72,7 +74,7 @@ export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMo
         <Text variant="label" tone={place ? 'ink' : 'muted'} numberOfLines={1}>
           {place?.label ?? placeholder ?? 'Choisir une adresse'}
         </Text>
-        {place?.address ? (
+        {place?.address && !compact ? (
           <Text variant="caption" tone="muted" numberOfLines={1}>
             {place.address}
           </Text>

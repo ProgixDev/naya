@@ -5,19 +5,19 @@
  */
 export const colors = {
   // Figma variables
-  background: '#FAF4F7', // --naya-surface-base (pearl)
+  background: '#F8F7F9', // quiet pearl; plum is reserved for actions and artwork
   surface: '#FFFFFF', // --naya-surface-critical (legible surface for money and decisions)
-  selected: '#EBDCE6', // --naya-surface-selected
-  ink: '#2E202C', // --naya-text-primary
-  muted: '#756775', // --naya-text-muted (4.9:1 on pearl)
+  selected: '#EDE3EA',
+  ink: '#29232D',
+  muted: '#716977',
   inverse: '#FFFFFF', // --naya-text-inverse
   accent: '#6B3657', // --naya-action-primary (deep plum)
-  line: '#DCCED8', // --naya-line-subtle
+  line: '#E7E2E8',
   // Derived
   accentPressed: '#56294A',
   accentDeep: '#3F1B34', // gradient end of the plum wallet card
   mauve: '#B98AA8', // restrained mauve for secondary emphasis and map routes
-  mauveSoft: '#F3E9EF', // tinted fill for secondary pills
+  mauveSoft: '#F1EBF0',
   elevated: '#FFFFFF',
   glass: 'rgba(255,255,255,0.72)',
   glassBorder: 'rgba(255,255,255,0.9)',
@@ -48,9 +48,9 @@ export const fonts = {
 
 /** Type scale (size / line height). Figma styles: Mobile/Titre 30/36, Section/Racine 21/26, Section/Détail 18/24, Texte/Corps 16/22, Texte/Action 15/20, Texte/Secondaire 13/18. */
 export const type = {
-  hero: { size: 30, line: 36, font: fonts.semibold, tracking: -0.4 },
-  screen: { size: 26, line: 31, font: fonts.semibold, tracking: -0.4 }, // task-screen titles
-  display: { size: 40, line: 46, font: fonts.semibold, tracking: -0.8 }, // money hero
+  hero: { size: 34, line: 39, font: fonts.semibold, tracking: -1.1 },
+  screen: { size: 30, line: 36, font: fonts.semibold, tracking: -0.8 },
+  display: { size: 44, line: 52, font: fonts.semibold, tracking: -1.3 },
   title: { size: 21, line: 26, font: fonts.semibold, tracking: -0.2 },
   heading: { size: 18, line: 24, font: fonts.semibold, tracking: -0.1 },
   body: { size: 16, line: 22, font: fonts.regular, tracking: 0 },
@@ -66,21 +66,23 @@ export type TypeToken = keyof typeof type;
 export const space = { 0: 0, 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32, 10: 40, 12: 48 } as const;
 export const gutter = 20;
 
-export const radius = { row: 12, card: 20, sheet: 28, pill: 999, field: 14 } as const;
+export const radius = { row: 16, card: 22, sheet: 32, pill: 999, field: 18 } as const;
 
 /** Control heights: standard 44, compact 36 (44 touch target via hitSlop), major booking/driver actions 54. */
 export const control = { major: 50, standard: 44, compact: 36, chip: 32, field: 56, touch: 44, touchAndroid: 48 } as const;
 
 export const shadow = {
-  float: { shadowColor: '#2E202C', shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  float: { shadowColor: '#2E202C', shadowOpacity: 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
   card: { shadowColor: '#2E202C', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  button: { shadowColor: '#6B3657', shadowOpacity: 0.28, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  button: { shadowColor: '#6B3657', shadowOpacity: 0.14, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
 } as const;
 
 export const motion = {
-  press: { scale: 0.96, damping: 18, stiffness: 320 },
+  press: { scale: 0.985, in: 90, out: 140 },
   fast: 140,
   base: 220,
-  sheet: { damping: 26, stiffness: 260, mass: 0.9 },
+  sheet: { open: 260, close: 200, settle: 220 },
   tabFade: 180,
+  navigation: 250,
+  easeOut: [0.2, 0.8, 0.2, 1],
 } as const;

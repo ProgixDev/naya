@@ -1,7 +1,8 @@
+import { useStackMotion } from '@naya/ui';
 import '../../global.css';
 import { Stack } from 'expo-router';
 import { AppProviders, DevNavigator, ErrorState } from '@naya/ui';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { colors } from '@naya/tokens';
 import { useSession } from '@/lib/session';
 import { useIdentityCase } from '@/lib/queries';
@@ -9,6 +10,7 @@ import { useIdentityCase } from '@/lib/queries';
 export { ErrorBoundary } from 'expo-router';
 
 function RootNavigator() {
+  const stackMotion = useStackMotion();
   const status = useSession((s) => s.status);
   const signedIn = status === 'signedIn';
   const { identity, isLoading, isError, refetch } = useIdentityCase();
@@ -19,7 +21,7 @@ function RootNavigator() {
   const failed = signedIn && isError && !identity;
   return (
     <>
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack screenOptions={{ ...stackMotion, headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
@@ -33,7 +35,7 @@ function RootNavigator() {
     </Stack>
     {loading || failed ? (
       <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'center', backgroundColor: colors.background }}>
-        {failed ? <ErrorState onRetry={() => refetch()} /> : null}
+        {failed ? <ErrorState onRetry={() => refetch()} /> : <ActivityIndicator color={colors.accent} accessibilityLabel="Chargement de votre espace" />}
       </View>
     ) : null}
     </>

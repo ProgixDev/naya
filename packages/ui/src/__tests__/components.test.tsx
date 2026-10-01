@@ -3,7 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { computeFare, mad, RABAT_RULES } from '@naya/domain';
-import { serverClock } from '@naya/api';
+import { create } from 'zustand';
+import { AccountBoundary } from '../core/AccountBoundary';
+import type { SessionStore } from '../core/session';
+import { qk, serverClock } from '@naya/api';
 import { useDeadline } from '@naya/api/react';
 import { Button } from '../Button';
 import { OTPField, Pill } from '../Form';
@@ -161,5 +164,24 @@ describe('useSingleFlight (financial and booking actions)', () => {
     expect(fn).toHaveBeenCalledTimes(2);
     expect(keys[0]).toBe(keys[1]);
     qc.clear();
+  });
+});
+
+
+describe('account cache isolation', () => {
+  it('removes the previous account without detaching the new account queries', async () => {
+    const client = new QueryClient();
+    const session = create(() => ({ accountId: 'salma' })) as unknown as SessionStore;
+    client.setQueryData(qk.me('salma'), { name: 'Salma' });
+    client.setQueryData(qk.me('imane'), { name: 'Imane' });
+    client.setQueryData(qk.cities(), ['Rabat']);
+    await render(<QueryClientProvider client={client}><AccountBoundary session={session}>{null}</AccountBoundary></QueryClientProvider>);
+    await act(() => session.setState({ accountId: 'imane' }));
+    expect(client.getQueryData(qk.me('salma'))).toBeUndefined();
+    expect(client.getQueryData(qk.me('imane'))).toEqual({ name: 'Imane' });
+    expect(client.getQueryData(qk.cities())).toEqual(['Rabat']);
+    await act(() => session.setState({ accountId: null }));
+    expect(client.getQueryData(qk.me('imane'))).toBeUndefined();
+    client.clear();
   });
 });

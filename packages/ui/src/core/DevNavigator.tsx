@@ -23,10 +23,14 @@ export function DevNavigator({ app, session }: { app: 'passenger' | 'driver'; se
         if (!cmd || cmd.id === last.current) return;
         last.current = cmd.id;
         if (cmd.phone) {
-          const current = session.getState();
+          // Quiesce the old account before the new session starts. A reset can invalidate
+          // its token; in-flight requests must not sign out the replacement session.
+          await qc.cancelQueries({ queryKey: qk.root });
+          await session.getState().signOut();
+          qc.removeQueries({ queryKey: qk.root });
+          await new Promise((ok) => setTimeout(ok, 300));
           await api.auth.requestOtp(cmd.phone, app).catch(() => undefined);
           const r = await api.auth.verifyOtp(cmd.phone, app, '123456');
-          if (current.accountId !== r.user.id) qc.resetQueries({ queryKey: qk.root });
           await session.getState().signIn(r.token, r.user.id);
           await new Promise((ok) => setTimeout(ok, 1200));
         } else if (cmd.route === '__signout') {

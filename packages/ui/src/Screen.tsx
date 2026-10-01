@@ -27,11 +27,11 @@ export function Screen({ children, header, footer, scroll = true, keyboard, padd
   const pad: ViewStyle = { paddingHorizontal: padded ? gutter : 0, paddingBottom: footer ? 24 : insets.bottom + 24 };
   const body = scroll ? (
     keyboard ? (
-      <KeyboardAwareScrollView bottomOffset={footer ? 96 : 24} keyboardShouldPersistTaps="handled" contentContainerStyle={[pad, contentStyle]} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView bounces={false} overScrollMode="never" bottomOffset={footer ? 96 : 24} keyboardShouldPersistTaps="handled" contentContainerStyle={[pad, contentStyle]} showsVerticalScrollIndicator={false}>
         {children}
       </KeyboardAwareScrollView>
     ) : (
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[pad, contentStyle]} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+      <ScrollView bounces={!!refreshControl} overScrollMode="never" keyboardShouldPersistTaps="handled" contentContainerStyle={[pad, contentStyle]} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
         {children}
       </ScrollView>
     )

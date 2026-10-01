@@ -16,11 +16,11 @@ export interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 /** Loading keeps the label in layout (hidden) so width never changes; disabled is neutral grey. */
 export function Button({ variant = 'primary', size = 'md', loading, icon, children, className, disabled, ...rest }: BtnProps) {
-  const base = 'relative inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.97] disabled:active:scale-100 whitespace-nowrap select-none';
+  const base = 'relative inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[transform,background-color,box-shadow] duration-150 active:scale-[0.985] disabled:active:scale-100 whitespace-nowrap select-none';
   const sizes = size === 'md' ? 'h-11 px-5 text-[15px]' : 'h-9 px-4 text-[14px]';
   const inactive = disabled || loading;
   const variants: Record<Variant, string> = {
-    primary: 'text-white bg-gradient-to-b from-[#7E4568] via-accent to-[#5A2A4A] shadow-button hover:brightness-[1.06]',
+    primary: 'text-white bg-gradient-to-b from-[#75415F] via-accent to-[#61304F] shadow-sm hover:brightness-[1.06]',
     secondary: 'bg-surface text-accent border border-line hover:bg-mauve-soft',
     ghost: 'text-accent hover:bg-mauve-soft',
     danger: 'bg-danger text-white hover:brightness-110',
@@ -39,7 +39,7 @@ export function Button({ variant = 'primary', size = 'md', loading, icon, childr
 
 export function IconButton({ label, children, className, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
   return (
-    <button type="button" aria-label={label} title={label} {...rest} className={cx('inline-flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-mauve-soft active:scale-95 transition', className)}>
+    <button type="button" aria-label={label} title={label} {...rest} className={cx('inline-flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-mauve-soft active:scale-[0.985] transition', className)}>
       {children}
     </button>
   );
@@ -69,7 +69,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: strin
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
         {eyebrow ? <div className="mb-1 text-[13px] text-muted">{eyebrow}</div> : null}
-        <h1 className="text-[28px] font-semibold leading-9 tracking-[-0.4px]">{title}</h1>
+        <h1 className="text-[32px] font-semibold leading-10 tracking-[-0.9px]">{title}</h1>
         {subtitle ? <p className="mt-1 text-[14px] text-muted">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -79,7 +79,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: strin
 
 export function Kpi({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: 'danger' | 'warning' | 'success' }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 border-l-2 border-line pl-4">
       <div className="text-[13px] text-muted">{label}</div>
       <div className={cx('mt-1 text-[28px] font-semibold leading-9 tabular tracking-[-0.4px]', tone === 'danger' && 'text-danger', tone === 'warning' && 'text-warning', tone === 'success' && 'text-success')}>{value}</div>
       {hint ? <div className="mt-1 text-[12px] text-muted">{hint}</div> : null}
@@ -205,7 +205,7 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, empty, caption
               return (
                 <th key={c.key} scope="col" className={cx('th', c.align === 'right' && 'text-right', c.className)} aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
                   {c.sort ? (
-                    <button type="button" className={cx('inline-flex items-center gap-1 uppercase hover:text-ink', c.align === 'right' && 'flex-row-reverse')} onClick={() => setSort({ key: c.key, dir: active && sort!.dir === 'desc' ? 'asc' : 'desc' })}>
+                    <button type="button" className={cx('inline-flex items-center gap-1 hover:text-ink', c.align === 'right' && 'flex-row-reverse')} onClick={() => setSort({ key: c.key, dir: active && sort!.dir === 'desc' ? 'asc' : 'desc' })}>
                       {c.header}
                       {active ? sort!.dir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />}
                     </button>

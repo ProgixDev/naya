@@ -7,7 +7,7 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { STATUS_LABELS } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Avatar, avatarFor, ConfirmDialog, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, Text, TextButton } from '@naya/ui';
+import { ProfileHero, Avatar, avatarFor, ConfirmDialog, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, Text, TextButton } from '@naya/ui';
 import { useCases, useMe } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { statusTone } from '@/components/Dossier';
@@ -34,26 +34,13 @@ export default function Account() {
   return (
     <Screen header={<Header title="Compte" />} contentStyle={{ paddingBottom: TAB_BAR_SPACE + 24 }} testID="account-screen">
       <View style={{ gap: 14, marginTop: 4 }}>
-        {u ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.surface, borderRadius: 24, padding: 14 }}>
-            <Avatar source={avatarFor(u.firstName)} name={u.firstName} size={52} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="heading">
-                {u.firstName} {u.lastName}
-              </Text>
-              <Text variant="caption" tone="muted" numeric>
-                {u.phone}
-                {u.ratingAverage ? ` · ${String(u.ratingAverage).replace('.', ',')} ★` : ''}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-        <ListGroup>
+        {u ? <ProfileHero name={`${u.firstName} ${u.lastName}`} detail={`${u.phone}${u.ratingAverage ? ` · ${String(u.ratingAverage).replace('.', ',')} ★` : ''}`} source={avatarFor(u.firstName)} status={person ? <StatusPill tone={statusTone(person.status)} label={STATUS_LABELS[person.status]} /> : undefined} /> : null}
+        <ListGroup label="Votre activité">
           <ListRow title="Chauffeuse" subtitle="Identité et permis" leading={<IconDisc size={36}><UserRound size={17} color={colors.accent} /></IconDisc>} trailing={person ? <StatusPill tone={statusTone(person.status)} label={STATUS_LABELS[person.status]} /> : null} onPress={() => router.push('/docs/status')} testID="account-person" />
           <ListRow title={v ? `${v.make} ${v.model}` : 'Véhicule'} subtitle={v ? `${v.plate} · ${v.color} · ${v.year}` : 'À déclarer'} leading={<IconDisc size={36}><Car size={17} color={colors.accent} /></IconDisc>} trailing={vehicle ? <StatusPill tone={statusTone(vehicle.status)} label={STATUS_LABELS[vehicle.status]} /> : null} onPress={() => router.push('/profile/vehicle')} testID="account-vehicle" />
           <ListRow title="Documents et dossier" subtitle="Vérifier ou corriger les pièces" leading={<IconDisc size={36}><FileText size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/docs/start')} testID="account-documents" />
         </ListGroup>
-        <ListGroup>
+        <ListGroup label="Vos essentiels">
           <ListRow title="Historique des courses" leading={<IconDisc size={36}><History size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/rides')} testID="account-rides" />
           <ListRow title="Préférences" subtitle="Notifications" leading={<IconDisc size={36}><Bell size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/profile/preferences')} testID="account-preferences" />
           <ListRow title="Aide et demandes" subtitle="Courses, paiements ou documents" leading={<IconDisc size={36}><LifeBuoy size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/support')} testID="account-support" />

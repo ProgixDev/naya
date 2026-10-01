@@ -45,10 +45,10 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
   const frost = !disabled && (variant === 'secondary' || variant === 'tonal');
   const textTone = disabled ? 'disabled' : gloss ? 'inverse' : variant === 'ghost' ? 'accent' : 'accent';
   const content = (
-    <View style={[styles.row, { height: h, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
-      <View style={[styles.row, { opacity: loading ? 0 : 1, gap: 8 }]}>
+    <View style={[styles.row, { minHeight: h, paddingVertical: 10, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
+      <View style={[styles.row, { opacity: loading ? 0 : 1, gap: 8, flexShrink: 1 }]}>
         {icon}
-        <Text variant="action" tone={textTone} numberOfLines={1} maxFontSizeMultiplier={1.4} style={size === 'major' ? { fontSize: 16 } : undefined}>
+        <Text variant="action" tone={textTone} maxFontSizeMultiplier={1.4} align="center" style={[{ flexShrink: 1 }, size === 'major' ? { fontSize: 16 } : undefined]}>
           {label}
         </Text>
       </View>

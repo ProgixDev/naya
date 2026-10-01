@@ -29,7 +29,10 @@ function shot(name) {
   execFileSync('xcrun', ['simctl', 'io', udid, 'screenshot', `${out}/${app}-${name}.png`], { stdio: 'ignore' });
   console.log('captured', name);
 }
-const reset = (scenario) => call('POST', '/dev/reset', { scenario });
+const reset = async (scenario) => {
+  await nav('__signout', null, 3);
+  return call('POST', '/dev/reset', { scenario });
+};
 const P = { salma: '+212612345678', nour: '+212623456789', imane: '+212634567890', rania: '+212645678901', amina: '+212661234567', khadija: '+212662345678', leila: '+212664567890' };
 const TRIP = [
   { id: 'rabat-gare', label: 'Gare Rabat Ville', address: 'Avenue Mohammed V, Rabat', location: { lat: 34.0166, lng: -6.8356 } },
@@ -48,7 +51,10 @@ async function book(card) {
 if (app === 'passenger') {
   await reset('first-ride');
   await nav('__signout', null, 3);
+  await nav('/welcome?preview=1', null, 5);
   shot('01-welcome');
+  await nav('/phone');
+  shot('02-phone');
   await nav('/', P.salma, 6);
   shot('06-home');
   await nav('/trips');
@@ -59,6 +65,10 @@ if (app === 'passenger') {
   shot('14-payments');
   await nav('/help');
   shot('15-help');
+  for (const [route, name] of [['/preferences', '13-preferences'], ['/places', '13-places'], ['/card/new', '14-card'], ['/support', '16-support']]) {
+    await nav(route);
+    shot(name);
+  }
   const ride = await book();
   await nav('/ride', null, 5);
   shot('09-searching');
@@ -90,12 +100,15 @@ if (app === 'passenger') {
 if (app === 'driver') {
   await reset('first-ride');
   await nav('__signout', null, 3);
+  await nav('/welcome?preview=1', null, 5);
   shot('01-welcome');
+  await nav('/phone');
+  shot('02-phone');
   await nav('/', P.amina, 7);
   shot('06-offline');
   const d = await token(P.amina, 'driver');
   await call('POST', '/driver/online', { online: true }, d);
-  await sleep(4);
+  await sleep(7);
   shot('06-online');
   const ride = await book();
   await sleep(5);
@@ -119,6 +132,10 @@ if (app === 'driver') {
   shot('11-earnings');
   await nav('/ledger', null, 5);
   shot('13-ledger');
+  for (const [route, name] of [['/account', '14-account'], ['/profile/vehicle', '14-vehicle'], ['/profile/preferences', '14-preferences'], ['/recharge', '12-recharge'], ['/withdraw', '12-withdraw'], ['/support', '15-support']]) {
+    await nav(route);
+    shot(name);
+  }
   await nav('/', P.leila, 7);
   shot('06-debt');
   await nav('/', P.khadija, 7);

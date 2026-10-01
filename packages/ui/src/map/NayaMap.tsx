@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Constants from 'expo-constants';
 import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
@@ -27,29 +27,35 @@ export function NayaMap(props: NayaMapProps) {
 
 function NativeMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, onCenterChange, onPress, interactive = true, bottomInset = 0, topInset = 0, testID }: NayaMapProps) {
   const ref = useRef<MapView>(null);
+  const [ready, setReady] = useState(false);
+  const [layout, setLayout] = useState('');
   const { reduceMotion } = useA11yPrefs();
   const fitKey = fitTo?.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join('|');
   const initial: Region = { latitude: center.lat, longitude: center.lng, latitudeDelta: deltaForZoom(zoom), longitudeDelta: deltaForZoom(zoom) };
 
   useEffect(() => {
+    if (!ready || !layout) return;
     if (fitTo && fitTo.length > 1) {
+      // mapPadding already reserves the overlay insets; adding them here again
+      // leaves too little map space and zooms short routes out to the whole region.
       ref.current?.fitToCoordinates(
         fitTo.map((p) => ({ latitude: p.lat, longitude: p.lng })),
-        { edgePadding: { top: topInset + 72, right: 48, bottom: bottomInset + 32, left: 48 }, animated: !reduceMotion },
+        { edgePadding: { top: 24, right: 40, bottom: 32, left: 40 }, animated: !reduceMotion },
       );
     } else {
       ref.current?.animateToRegion({ ...initial }, reduceMotion ? 0 : 400);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitKey, center.lat, center.lng, bottomInset]);
+  }, [ready, layout, fitKey, center.lat, center.lng, bottomInset, topInset, reduceMotion]);
 
   const driver = markers.find((m) => m.kind === 'driver');
   const driverPos = useAnimatedCoordinate(driver?.coordinate ?? null, reduceMotion);
 
   return (
-    <View testID={testID} style={StyleSheet.absoluteFill}>
+    <View testID={testID} style={StyleSheet.absoluteFill} onLayout={(e) => setLayout(`${Math.round(e.nativeEvent.layout.width)}x${Math.round(e.nativeEvent.layout.height)}`)}>
       <MapView
         ref={ref}
+        onMapReady={() => setReady(true)}
         style={StyleSheet.absoluteFill}
         initialRegion={initial}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}

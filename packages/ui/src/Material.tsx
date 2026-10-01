@@ -15,14 +15,14 @@ import { useGlassKind } from './Glass';
 const fill = StyleSheet.absoluteFill;
 
 export function GlossLayers({ tone, radius }: { tone: 'accent' | 'danger'; radius: number }) {
-  const stops = tone === 'danger' ? (['#BC4452', colors.danger, '#8C2733'] as const) : (['#8A4F74', colors.accent, '#552647'] as const);
+  const stops = tone === 'danger' ? (['#AF3C49', colors.danger, '#982D3A'] as const) : (['#794462', colors.accent, '#61304F'] as const);
   return (
     <View pointerEvents="none" style={[fill, { borderRadius: radius, overflow: 'hidden' }]}>
       <LinearGradient colors={stops} locations={[0, 0.5, 1]} style={fill} />
       {/* top inner highlight */}
-      <LinearGradient colors={['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0)']} locations={[0, 0.45, 0.6]} style={fill} />
+      <LinearGradient colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']} locations={[0, 0.45, 0.6]} style={fill} />
       {/* bottom inner shade */}
-      <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(20,0,14,0.16)']} locations={[0.55, 1]} style={fill} />
+      <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(20,0,14,0.04)']} locations={[0.55, 1]} style={fill} />
       <View style={[fill, { borderRadius: radius, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }]} />
     </View>
   );
@@ -30,10 +30,10 @@ export function GlossLayers({ tone, radius }: { tone: 'accent' | 'danger'; radiu
 
 export const glossShadow = (tone: 'accent' | 'danger'): ViewStyle => ({
   shadowColor: tone === 'danger' ? colors.danger : colors.accent,
-  shadowOpacity: 0.3,
-  shadowRadius: 14,
-  shadowOffset: { width: 0, height: 7 },
-  elevation: 5,
+  shadowOpacity: 0.14,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 3 },
+  elevation: 2,
 });
 
 export function FrostLayers({ radius, tint = 'white' }: { radius: number; tint?: 'white' | 'mauve' }) {

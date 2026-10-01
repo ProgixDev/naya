@@ -6,9 +6,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search } from 'lucide-react-native';
 import { isInService, isRideActive, PLACES, RIDE_STATUS_LABELS, type Place } from '@naya/domain';
 import { qk } from '@naya/api';
+import { cars, aspect } from '@naya/assets';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
+import { Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
 import { useAccountId, useActiveRide, useCities, useMe } from '@/lib/queries';
 import { useDraft } from '@/lib/draft';
 import { usePrefs } from '@/lib/prefs';
@@ -83,13 +84,13 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="home">
       <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={240} testID="home-map" />
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <GlassButton label={`${city?.name ?? 'Rabat'} · ${draft.pickupSource === 'gps' ? 'Ma position' : pickup.label.replace(/^Rabat · /, '')}`} icon={<MapPin size={18} color={colors.ink} />} onPress={() => setCityPicker(true)} testID="city-pill" accessibilityHint="Changer de ville" />
+        <GlassButton label={city?.name ?? 'Rabat'} icon={<MapPin size={18} color={colors.ink} />} onPress={() => setCityPicker(true)} testID="city-pill" accessibilityHint="Changer de ville" />
         <View style={{ flex: 1 }} />
         <PressableScale onPress={() => router.push('/(app)/(tabs)/account')} accessibilityRole="button" accessibilityLabel="Mon compte" hitSlop={8}>
           <Avatar name={user?.firstName ?? 'N'} size={44} source={avatarFor(user?.firstName ?? '')} />
         </PressableScale>
       </View>
-      <View style={{ position: 'absolute', right: gutter, bottom: tabSpace + 210 }}>
+      <View style={{ position: 'absolute', right: gutter, bottom: tabSpace + 266 }}>
         <IconButton icon={<LocateFixed size={22} color={colors.ink} />} accessibilityLabel="Utiliser ma position" onPress={() => (loc.status === 'granted' ? useMyPosition() : setExplainer(true))} testID="locate" />
       </View>
 
@@ -104,18 +105,22 @@ export default function Home() {
           </PressableScale>
         ) : null}
         <View style={styles.card}>
-          <Text variant="title" style={{ fontSize: 22, lineHeight: 27 }} accessibilityRole="header">
-            {user?.firstName ? `On y va, ${user.firstName} ?` : 'On y va ?'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text variant="caption" tone="muted">{user?.firstName ? `Bonjour ${user.firstName}` : 'Bienvenue chez Naya'}</Text>
+              <Text variant="title" style={{ fontSize: 25, lineHeight: 31, letterSpacing: -0.7 }} accessibilityRole="header">On y va ?</Text>
+            </View>
+            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={104} />
+          </View>
           {loc.status === 'denied' ? <StatusBanner tone="warning" title="Position non partagée" message="Placez votre point de départ sur la carte." action={{ label: 'Choisir sur la carte', onPress: () => router.push({ pathname: '/route', params: { pin: '1' } }) }} /> : null}
           {city && !canBookHere ? <StatusBanner compact tone="warning" title={`${city.name} en phase de test`} message="réservations réservées aux testeuses" /> : null}
           <PressableScale onPress={() => goTo(null)} accessibilityRole="search" accessibilityLabel="Où allez-vous ?" style={styles.search} testID="where-to" pressedScale={0.98}>
-            <Search size={20} color={colors.accent} />
-            <Text variant="bodyStrong" style={{ flex: 1 }}>
+            <Search size={20} color={colors.inverse} />
+            <Text variant="bodyStrong" tone="inverse" style={{ flex: 1 }}>
               Où allez-vous ?
             </Text>
             <View style={styles.go}>
-              <ArrowRight size={18} color={colors.inverse} />
+              <ArrowRight size={18} color={colors.accent} />
             </View>
           </PressableScale>
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -151,10 +156,10 @@ export default function Home() {
 /** Frosted shortcut pill: one tap to a saved place or to planning. */
 function QuickPill({ label, icon, onPress, testID, a11y }: { label: string; icon: React.ReactNode; onPress: () => void; testID: string; a11y: string }) {
   return (
-    <PressableScale onPress={onPress} testID={testID} accessibilityRole="button" accessibilityLabel={a11y} style={[styles.chip, frostOutline]} pressedScale={0.96}>
-      <FrostLayers radius={21} tint="mauve" />
+    <PressableScale onPress={onPress} testID={testID} accessibilityRole="button" accessibilityLabel={a11y} style={[styles.chip, frostOutline]} pressedScale={0.985}>
+      <FrostLayers radius={18} tint="white" />
       {/* Wrapped so the content paints above the absolutely positioned frost layers (web stacking). */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View style={{ alignItems: 'center', gap: 6 }}>
         {icon}
         <Text variant="caption" weight="semibold" numberOfLines={1}>
           {label}
@@ -165,9 +170,9 @@ function QuickPill({ label, icon, onPress, testID, a11y }: { label: string; icon
 }
 
 const styles = {
-  card: { backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 16, gap: 12, ...shadow.float },
+  card: { backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 16, ...shadow.float },
   activeCard: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, backgroundColor: colors.surface, borderRadius: 22, padding: 14, marginBottom: 8, ...shadow.card },
-  search: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, height: 56, borderRadius: 28, paddingLeft: 20, paddingRight: 8, backgroundColor: colors.background, borderWidth: 1, borderColor: 'rgba(46,32,44,0.06)' },
-  go: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.accent, alignItems: 'center' as const, justifyContent: 'center' as const },
-  chip: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6, height: 42, borderRadius: 21, paddingHorizontal: 10, overflow: 'hidden' as const },
+  search: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 56, borderRadius: 28, paddingLeft: 20, paddingRight: 8, paddingVertical: 8, backgroundColor: colors.accent },
+  go: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surface, alignItems: 'center' as const, justifyContent: 'center' as const },
+  chip: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const, minHeight: 62, borderRadius: 18, paddingHorizontal: 6, paddingVertical: 8, overflow: 'hidden' as const },
 };

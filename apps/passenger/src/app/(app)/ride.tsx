@@ -125,7 +125,7 @@ export default function RideScreen() {
       </View>
 
       <View style={{ maxHeight: '62%', marginTop: -28, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingBottom: insets.bottom + 12, ...shadow.float }}>
-        <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 18, paddingBottom: 10, gap: 12 }} showsVerticalScrollIndicator={false}>
+        <ScrollView bounces={false} overScrollMode="never" style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 18, paddingBottom: 10, gap: 12 }} showsVerticalScrollIndicator>
         <View style={{ gap: 4 }}>
           <Text variant="title" style={{ fontSize: 22, lineHeight: 28 }} accessibilityRole="header" accessibilityLiveRegion="polite" testID="ride-title">
             {title}
@@ -159,7 +159,7 @@ export default function RideScreen() {
         {ride.status === 'in_progress' ? (
           <View>
             {stops.map((s, i) => (
-              <RouteStopRow key={i} role={i === 0 ? 'pickup' : i === stops.length - 1 ? 'destination' : 'stop'} place={s} done={i > 0 && i <= ride.completedStops && i < stops.length - 1} isLast={i === stops.length - 1} />
+              <RouteStopRow compact key={i} role={i === 0 ? 'pickup' : i === stops.length - 1 ? 'destination' : 'stop'} place={s} done={i > 0 && i <= ride.completedStops && i < stops.length - 1} isLast={i === stops.length - 1} />
             ))}
           </View>
         ) : ride.status === 'searching' || ride.status === 'no_driver' ? (
@@ -172,7 +172,7 @@ export default function RideScreen() {
         {ride.status === 'in_progress' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <CheckCircle2 size={16} color={colors.success} />
-            <Text variant="caption" tone="muted">Trajet partagé avec l’équipe sécurité Naya jusqu’à l’arrivée.</Text>
+            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Trajet partagé avec l’équipe sécurité Naya jusqu’à l’arrivée.</Text>
           </View>
         ) : null}
         {ride.status === 'no_driver' ? (

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, Extrapolation } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { X } from 'lucide-react-native';
-import { colors, gutter, motion, radius, shadow } from '@naya/tokens';
+import { colors, gutter, radius, shadow } from '@naya/tokens';
+import { motionTiming } from './motion';
 import { Text } from './Text';
 import { Button, IconButton, TextButton } from './Button';
 import { useA11yPrefs } from './a11y';
@@ -35,13 +36,13 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, dis
     if (visible) {
       setMounted(true);
       y.value = height;
-      y.value = reduceMotion ? 0 : withSpring(0, motion.sheet);
+      y.value = reduceMotion ? 0 : withTiming(0, motionTiming.sheetOpen);
     } else if (mounted) {
-      y.value = reduceMotion ? height : withTiming(height, { duration: 200 }, (done) => done && runOnJS(setMounted)(false));
+      y.value = reduceMotion ? height : withTiming(height, motionTiming.sheetClose, (done) => done && runOnJS(setMounted)(false));
       if (reduceMotion) setMounted(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, reduceMotion]);
 
   const pan = Gesture.Pan()
     .enabled(dismissible)
@@ -51,7 +52,7 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, dis
     })
     .onEnd((e) => {
       if (e.translationY > 120 || e.velocityY > 900) runOnJS(onClose)();
-      else y.value = withSpring(0, motion.sheet);
+      else y.value = reduceMotion ? 0 : withTiming(0, motionTiming.sheetSettle);
     });
 
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
@@ -116,7 +117,7 @@ export function MapSheet({ children, snaps, initial = 0, onSnap, testID }: MapSh
 
   useEffect(() => {
     const target = maxH - points[Math.min(initial, points.length - 1)]!;
-    offset.value = reduceMotion ? target : withSpring(target, motion.sheet);
+    offset.value = reduceMotion ? target : withTiming(target, motionTiming.sheetSettle);
   }, [maxH, points, initial, offset, reduceMotion]);
 
   const snapTo = (i: number) => onSnap?.(i);
@@ -139,7 +140,7 @@ export function MapSheet({ children, snaps, initial = 0, onSnap, testID }: MapSh
           best = i;
         }
       });
-      offset.value = withSpring(maxH - points[best]!, motion.sheet);
+      offset.value = reduceMotion ? maxH - points[best]! : withTiming(maxH - points[best]!, motionTiming.sheetSettle);
       runOnJS(snapTo)(best);
     });
 
@@ -175,8 +176,9 @@ export interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ visible, title, message, children, confirmLabel, cancelLabel = 'Annuler', destructive, loading, onConfirm, onCancel, testID }: ConfirmDialogProps) {
+  const { reduceMotion } = useA11yPrefs();
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !loading && onCancel()}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} statusBarTranslucent onRequestClose={() => !loading && onCancel()}>
       <View style={styles.center}>
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={() => !loading && onCancel()} accessibilityLabel={cancelLabel} />
         <View testID={testID} accessibilityViewIsModal style={styles.dialog}>

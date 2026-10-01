@@ -1,7 +1,8 @@
+import { useStackMotion } from '@naya/ui';
 import '../../global.css';
 import '@/lib/backgroundLocation';
 import { Stack } from 'expo-router';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { AppProviders, DevNavigator, ErrorState } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import { useSession } from '@/lib/session';
@@ -10,6 +11,7 @@ import { isSubmitted, useCases } from '@/lib/queries';
 export { ErrorBoundary } from 'expo-router';
 
 function RootNavigator() {
+  const stackMotion = useStackMotion();
   const signedIn = useSession((s) => s.status === 'signedIn');
   const { person, vehicle, isLoading, isError, data, refetch } = useCases();
   // The navigator stays mounted while the account loads so a deep link (e.g. /wallet) is kept;
@@ -20,7 +22,7 @@ function RootNavigator() {
   const submitted = isSubmitted(person) && isSubmitted(vehicle);
   return (
     <>
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack screenOptions={{ ...stackMotion, headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
@@ -37,7 +39,7 @@ function RootNavigator() {
     </Stack>
     {loading || failed ? (
       <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'center', backgroundColor: colors.background }}>
-        {failed ? <ErrorState onRetry={() => refetch()} /> : null}
+        {failed ? <ErrorState onRetry={() => refetch()} /> : <ActivityIndicator color={colors.accent} accessibilityLabel="Chargement de votre espace" />}
       </View>
     ) : null}
     </>

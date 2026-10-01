@@ -32,7 +32,7 @@ export default function Ledger() {
   return (
     <Screen header={<Header title="Mouvements" subtitle="Opérations confirmées uniquement." onBack={() => router.back()} />} testID="ledger-screen">
       <View style={{ gap: 12, marginTop: 4 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -gutter, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: gutter, gap: 8, paddingVertical: 4 }} accessibilityRole="radiogroup">
+        <ScrollView bounces={false} overScrollMode="never" horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -gutter, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: gutter, gap: 8, paddingVertical: 4 }} accessibilityRole="radiogroup">
           {FILTERS.map((f) => (
             <Pill key={f.label} label={f.label} selected={type === f.value} onPress={() => setType(f.value)} testID={`ledger-filter-${f.value ?? 'all'}`} />
           ))}

@@ -21,7 +21,7 @@ export default function VehicleProfile() {
               <Text variant="heading">
                 {v.make} {v.model}
               </Text>
-              {vehicle ? <StatusPill tone={statusTone(vehicle.status)} label={STATUS_LABELS[vehicle.status]} /> : null}
+              {vehicle ? <View><StatusPill tone={statusTone(vehicle.status)} label={STATUS_LABELS[vehicle.status]} /></View> : null}
               <View style={{ alignSelf: 'stretch', marginTop: 6 }}>
                 <FigureLine label="Immatriculation" value={v.plate} />
                 <FigureLine label="Couleur" value={v.color} />

@@ -94,7 +94,7 @@ export function IconDisc({ children, tone = 'plain', size = 40 }: { children: Re
 
 export function Card({ children, style, padded = true, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; padded?: boolean; testID?: string }) {
   return (
-    <View testID={testID} style={[{ backgroundColor: colors.surface, borderRadius: radius.card, padding: padded ? 16 : 0, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }, style]}>
+    <View testID={testID} style={[{ backgroundColor: colors.surface, borderRadius: radius.card, padding: padded ? 20 : 0, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }, style]}>
       {children}
     </View>
   );
@@ -105,9 +105,9 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 }
 
 const styles = StyleSheet.create({
-  group: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  group: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(41,35,45,0.045)' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
   rowPress: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: -16, paddingLeft: 16 },
   leading: { alignItems: 'center', justifyContent: 'center' },
-  hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginLeft: 16 },
+  hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginHorizontal: 16 },
 });

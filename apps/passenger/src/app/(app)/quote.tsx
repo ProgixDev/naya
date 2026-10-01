@@ -138,7 +138,8 @@ export default function QuoteScreen() {
         </View>
       </View>
       <View style={{ flex: 1, marginTop: -28, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float }}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 18, paddingBottom: 12, gap: 12 }} showsVerticalScrollIndicator={false}>
+        <ScrollView bounces={false} overScrollMode="never" contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 20, paddingBottom: 12, gap: 16 }} showsVerticalScrollIndicator={false}>
+          <Text variant="title" accessibilityRole="header">Votre trajet, tout simplement.</Text>
           <PressableScale onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={`Itinéraire : ${stops.map((s) => s.label).join(', ')}. Modifier`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text variant="label" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
               {stops.map((s) => s.label.replace(/^(Rabat|Casablanca) · /, '')).join(' → ')}
@@ -150,21 +151,13 @@ export default function QuoteScreen() {
             <StatusBanner tone="danger" title={isApiError(quote.error) && quote.error.code === 'OUT_OF_ZONE' ? 'Hors zone desservie' : 'Prix indisponible'} message={errorMessage(quote.error)} action={{ label: 'Modifier l’itinéraire', onPress: () => router.back() }} testID="quote-error" />
           ) : null}
 
-          <PressableScale onPress={() => q && setShowFare(true)} accessibilityRole="button" accessibilityLabel={q ? `Naya, ${formatMoney(total)}, ${formatDistance(q.route.distanceMeters)}, ${formatDuration(q.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, borderRadius: 24, paddingVertical: 10, paddingLeft: 8, paddingRight: 14, borderWidth: 1.5, borderColor: colors.accent }} testID="fare-card" pressedScale={0.98}>
-            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={96} />
-            <View style={{ flex: 1, gap: 1 }}>
-              <Text variant="label" weight="semibold">Naya</Text>
-              {q ? (
-                <Text variant="caption" tone="muted" numeric>
-                  {formatDistance(q.route.distanceMeters)} · {formatDuration(q.route.durationSeconds)}
-                </Text>
-              ) : (
-                <Skeleton width={80} height={12} />
-              )}
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 1 }}>
-              {q ? <Money amount={total} variant="title" style={{ fontSize: 22, lineHeight: 28 }} /> : <Skeleton width={80} height={24} />}
-              <Text variant="micro" tone="muted">Détail ›</Text>
+          <PressableScale onPress={() => q && setShowFare(true)} accessibilityRole="button" accessibilityLabel={q ? `Naya, ${formatMoney(total)}, ${formatDistance(q.route.distanceMeters)}, ${formatDuration(q.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: colors.mauveSoft, borderRadius: 24, paddingVertical: 18, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line }} testID="fare-card" pressedScale={0.98}>
+            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={112} />
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text variant="label" weight="semibold">Naya Signature</Text>
+              {q ? <Money amount={total} variant="title" style={{ fontSize: 28, lineHeight: 34 }} /> : <Skeleton width={100} height={32} />}
+              <Text variant="caption" tone="muted" numeric>{q ? `${formatDistance(q.route.distanceMeters)} · ${formatDuration(q.route.durationSeconds)}` : 'Calcul du prix…'}</Text>
+              <Text variant="micro" tone="accent">Voir le détail du prix ›</Text>
             </View>
           </PressableScale>
 

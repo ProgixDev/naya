@@ -37,13 +37,13 @@ export function SchedulePicker({ day, time, onDay, onTime, minLeadMinutes, maxDa
   }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <View style={{ gap: 4 }} testID="schedule-picker">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityLabel="Jour de départ" contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+      <ScrollView bounces={false} overScrollMode="never" horizontal showsHorizontalScrollIndicator={false} accessibilityLabel="Jour de départ" contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
         {opts.days.map((d) => (
           <Pill key={d.date} label={d.label} selected={d.date === day} onPress={() => onDay(d.date)} testID={`day-${d.date}`} />
         ))}
       </ScrollView>
       {slots.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityLabel="Heure de départ (heure de Rabat)" contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+        <ScrollView bounces={false} overScrollMode="never" horizontal showsHorizontalScrollIndicator={false} accessibilityLabel="Heure de départ (heure de Rabat)" contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
           {slots.map((t) => (
             <Pill key={t} label={t.replace(':', 'h')} selected={t === time} onPress={() => onTime(t)} testID={`time-${t}`} />
           ))}

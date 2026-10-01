@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { motionTiming } from './motion';
 import { colors } from '@naya/tokens';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
@@ -22,7 +23,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, t
   const x = useSharedValue(0);
   const seg = width / options.length;
   useEffect(() => {
-    x.value = reduceMotion ? index * seg : withSpring(index * seg, { damping: 22, stiffness: 260 });
+    x.value = reduceMotion ? index * seg : withTiming(index * seg, motionTiming.selection);
   }, [index, seg, reduceMotion, x]);
   const indicator = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (

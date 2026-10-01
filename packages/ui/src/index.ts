@@ -29,4 +29,7 @@ export * from './core/DevNavigator';
 export * from './Material';
 export * from './Progress';
 export * from './Toggle';
+export * from './WelcomeJourney';
+export * from './ProfileHero';
 export * from './DocumentPicker';
+export * from './motion';

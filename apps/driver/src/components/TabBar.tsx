@@ -13,7 +13,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: Math.max(insets.bottom, 12) }} pointerEvents="box-none">
-      <Glass radius={30} contentStyle={{ height: 64, paddingHorizontal: 6, justifyContent: 'space-between' }}>
+      <Glass radius={30} contentStyle={{ height: 60, paddingHorizontal: 6, justifyContent: 'space-between' }}>
         {state.routes.map((route, i) => {
           const focused = state.index === i;
           const name = route.name as keyof typeof ICONS;
@@ -33,10 +33,10 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                   navigation.navigate(route.name);
                 }
               }}
-              style={{ flex: 1, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: focused ? colors.selected : 'transparent' }}
+              style={{ flex: 1, height: 52, borderRadius: 24, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: focused ? colors.accent : 'transparent' }}
             >
-              <Icon size={22} color={focused ? colors.accent : colors.ink} strokeWidth={focused ? 2.2 : 1.8} />
-              <Text variant="micro" weight={focused ? 'semibold' : 'medium'} tone={focused ? 'accent' : 'ink'} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+              <Icon size={22} color={focused ? colors.inverse : colors.muted} strokeWidth={focused ? 2.2 : 1.8} />
+              <Text variant="micro" weight={focused ? 'semibold' : 'medium'} tone={focused ? 'inverse' : 'muted'} numberOfLines={1} maxFontSizeMultiplier={1.2}>
                 {LABELS[name]}
               </Text>
             </PressableScale>

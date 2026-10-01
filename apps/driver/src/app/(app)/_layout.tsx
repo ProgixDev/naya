@@ -1,3 +1,4 @@
+import { useStackMotion, useA11yPrefs } from '@naya/ui';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Stack, router, usePathname } from 'expo-router';
@@ -41,14 +42,16 @@ function useOfferAndRideWatcher() {
 }
 
 export default function AppLayout() {
+  const stackMotion = useStackMotion();
   useOfferAndRideWatcher();
+  const { reduceMotion } = useA11yPrefs();
   const api = useApi();
   const status = useDriverStatus();
   useLocationStream(!!status.data?.online || !!status.data?.activeRide, (p) => api.driver.sendLocation(p).catch(() => undefined));
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack screenOptions={{ ...stackMotion, headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="offer" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', gestureEnabled: false }} />
+      <Stack.Screen name="offer" options={{ presentation: 'fullScreenModal', animation: reduceMotion ? 'none' : 'slide_from_bottom', gestureEnabled: false }} />
       <Stack.Screen name="ride" options={{ gestureEnabled: false }} />
       <Stack.Screen name="recharge/sandbox/[id]" options={{ presentation: 'modal' }} />
     </Stack>

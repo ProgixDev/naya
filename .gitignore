@@ -16,3 +16,4 @@ _handoff/
 .playwright-mcp/
 test-results-*/
 .env*.local
+/work/

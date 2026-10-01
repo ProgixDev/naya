@@ -1,4 +1,4 @@
-import { Text as RNText, type TextProps, type TextStyle } from 'react-native';
+import { Text as RNText, useWindowDimensions, type TextProps, type TextStyle } from 'react-native';
 import { colors, type as scale, type TypeToken } from '@naya/tokens';
 
 export type Tone = 'ink' | 'muted' | 'accent' | 'inverse' | 'success' | 'warning' | 'danger' | 'disabled';
@@ -31,8 +31,11 @@ const weightFont = { regular: 'Inter_400Regular', medium: 'Inter_500Medium', sem
  */
 export function Text({ variant = 'body', tone = 'ink', weight, numeric, align, style, maxFontSizeMultiplier = 1.6, ...rest }: NayaTextProps) {
   const t = scale[variant];
+  const { fontScale } = useWindowDimensions();
   return (
     <RNText
+      // Recreate the native text measurement when Dynamic Type changes while mounted.
+      key={fontScale}
       maxFontSizeMultiplier={maxFontSizeMultiplier}
       style={[
         {

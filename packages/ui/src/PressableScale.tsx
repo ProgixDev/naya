@@ -1,6 +1,7 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, type ReactNode } from 'react';
 import { Pressable, type PressableProps, type View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { motionTiming } from './motion';
 import { motion } from '@naya/tokens';
 import { useA11yPrefs } from './a11y';
 
@@ -10,7 +11,7 @@ export interface PressableScaleProps extends Omit<PressableProps, 'style' | 'chi
   style?: StyleProp<ViewStyle>;
   className?: string;
   children?: ReactNode;
-  /** Scale on press; 0.96 for tiles and buttons, 1 to disable. */
+  /** Scale on press; 0.985 for tiles and buttons, 1 to disable. */
   pressedScale?: number;
 }
 
@@ -21,6 +22,7 @@ export const PressableScale = forwardRef<View, PressableScaleProps>(function Pre
 ) {
   const { reduceMotion } = useA11yPrefs();
   const scale = useSharedValue(1);
+  useEffect(() => { if (reduceMotion || disabled) scale.value = 1; }, [reduceMotion, disabled, scale]);
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
     <AnimatedPressable
@@ -28,11 +30,11 @@ export const PressableScale = forwardRef<View, PressableScaleProps>(function Pre
       disabled={disabled}
       accessibilityState={{ disabled: !!disabled }}
       onPressIn={(e) => {
-        if (!reduceMotion) scale.value = withTiming(pressedScale, { duration: 90 });
+        if (!reduceMotion) scale.value = withTiming(pressedScale, motionTiming.pressIn);
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        if (!reduceMotion) scale.value = withSpring(1, { damping: motion.press.damping, stiffness: motion.press.stiffness });
+        scale.value = reduceMotion ? 1 : withTiming(1, motionTiming.pressOut);
         onPressOut?.(e);
       }}
       style={[style, animated]}
