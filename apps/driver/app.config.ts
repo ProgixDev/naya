@@ -14,6 +14,7 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'ma.naya.chauffeuse',
     supportsTablet: false,
+    buildNumber: '2',
     config: { usesNonExemptEncryption: false },
   },
   android: {

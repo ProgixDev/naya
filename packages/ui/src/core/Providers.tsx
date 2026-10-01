@@ -13,7 +13,8 @@ import { AccountBoundary } from './AccountBoundary';
 import { ToastHost } from '../Toast';
 import { StatusBanner } from '../Feedback';
 import { createQueryClient, wireQueryLifecycle } from './query';
-import { resolveApiBase } from './apiBase';
+import { resolveApiBase, STANDALONE_DEMO } from './apiBase';
+import { localDemoOptions } from './localDemo';
 import type { SessionStore } from './session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,6 +25,7 @@ export function useMakeClient(session: SessionStore): { api: ApiClient; queryCli
     const queryClient = createQueryClient();
     const api = createApiClient({
       baseUrl: resolveApiBase(),
+      ...(STANDALONE_DEMO ? localDemoOptions(session) : {}),
       getToken: () => session.getState().token,
       onUnauthorized: () => {
         queryClient.removeQueries({ queryKey: qk.root });
@@ -39,7 +41,7 @@ function OfflineBanner() {
   const [online, setOnline] = useState(onlineManager.isOnline());
   const insets = useSafeAreaInsets();
   useEffect(() => onlineManager.subscribe(setOnline), []);
-  if (online) return null;
+  if (online || STANDALONE_DEMO) return null;
   return (
     <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 4, left: 16, right: 16 }}>
       <StatusBanner tone="warning" title="Hors ligne" message="Les informations affichées peuvent ne plus être à jour." />

@@ -1,7 +1,4 @@
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createHash, readFileSync, fixturePath } from './platform';
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { ZodError, type ZodType } from 'zod';
@@ -194,17 +191,19 @@ function paginate<T>(items: T[], c: Context) {
   return { items: page, nextCursor: cursor + limit < items.length ? cursor + limit : null, total: items.length };
 }
 
-export function createApp(ctx: Ctx) {
+export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   const app = new Hono<Env>();
   const S = () => ctx.store.state;
   const now = () => ctx.clock.now();
 
-  app.use('*', cors({ origin: (o) => o ?? '*', allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Naya-Signature'], exposeHeaders: ['X-Server-Time'], maxAge: 600 }));
+  // In-process native requests have no browser origin. RN's Response also has no
+  // streaming `body`, so middleware must not reconstruct it from response.body.
+  if (!options.embedded) app.use('*', cors({ origin: (o) => o ?? '*', allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Naya-Signature'], exposeHeaders: ['X-Server-Time'], maxAge: 600 }));
   app.use('*', async (c, next) => {
     c.set('principal', authenticate(ctx, c.req.header('Authorization')));
-    await next();
     c.header('X-Server-Time', ctx.clock.iso());
     c.header('Cache-Control', 'no-store');
+    await next();
   });
 
   app.onError((err, c) => {
@@ -971,12 +970,10 @@ export function createApp(ctx: Ctx) {
       const { purpose } = (await c.req.json()) as { purpose: string };
       const file = SAMPLES[purpose];
       if (!file) throw new DomainError('VALIDATION', 'Aucun exemple pour cette pièce.');
-      const data = readFileSync(join(FIXTURES_DIR, file));
+      const data = readFileSync(fixturePath(file));
       return c.json(createUpload(ctx, p.user.id, { purpose: purpose as UploadInput['purpose'], mimeType: 'image/jpeg', dataBase64: data.toString('base64'), width: null, height: null }));
     });
   }
 
   return app;
 }
-
-const FIXTURES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');

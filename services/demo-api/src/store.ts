@@ -1,5 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync, dirname } from './platform';
 import { DomainError } from '@naya/domain';
 import type { State } from './state';
 
@@ -31,7 +30,7 @@ export class Store {
   }
 
   tx<T>(fn: (s: State) => T): T {
-    const snapshot = structuredClone(this.state);
+    const snapshot = JSON.parse(JSON.stringify(this.state)) as State;
     try {
       const result = fn(this.state);
       this.state.version += 1;

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@naya/api/react';
 import { qk } from '@naya/api';
 import type { SessionStore } from './session';
+import { STANDALONE_DEMO } from './apiBase';
 
 /**
  * Review builds only (EXPO_PUBLIC_REVIEW=1): polls the demo API for a navigation command so
@@ -15,7 +16,7 @@ export function DevNavigator({ app, session }: { app: 'passenger' | 'driver'; se
   const qc = useQueryClient();
   const last = useRef(0);
   useEffect(() => {
-    if (process.env.EXPO_PUBLIC_REVIEW !== '1') return;
+    if (STANDALONE_DEMO || process.env.EXPO_PUBLIC_REVIEW !== '1') return;
     const t = setInterval(async () => {
       try {
         const res = await fetch(`${api.baseUrl}/dev/navigate?app=${app}`);

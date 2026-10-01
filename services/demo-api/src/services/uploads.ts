@@ -1,5 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { Buffer, mkdirSync, readFileSync, writeFileSync, existsSync, join } from '../platform';
 import { DomainError, type Upload, type UploadInput } from '@naya/domain';
 import type { Ctx } from '../context';
 import type { Principal } from './auth';

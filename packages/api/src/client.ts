@@ -261,6 +261,8 @@ export interface ClientOptions {
   getToken: () => string | null | Promise<string | null>;
   onUnauthorized?: () => void;
   timeoutMs?: number;
+  transport?: (url: string, init: RequestInit) => Promise<Response>;
+  uploadUrl?: (id: string) => string;
 }
 
 export function newIdempotencyKey(): string {
@@ -303,8 +305,9 @@ export function createApiClient(opts: ClientOptions) {
     const sentAt = Date.now();
     let res: Response;
     try {
-      res = await fetch(`${base}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: controller?.signal });
-    } catch {
+      res = await (opts.transport ?? fetch)(`${base}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: controller?.signal });
+    } catch (error) {
+      if (opts.transport) throw error;
       throw new ApiError('NETWORK', ERROR_MESSAGES.NETWORK, 0);
     } finally {
       if (timer) clearTimeout(timer);
@@ -329,7 +332,7 @@ export function createApiClient(opts: ClientOptions) {
 
   return {
     baseUrl: base,
-    uploadUrl: (id: string) => `${base}/uploads/${id}`,
+    uploadUrl: (id: string) => opts.uploadUrl?.(id) ?? `${base}/uploads/${id}`,
     health: () => get<{ ok: boolean; version: number; scenario: string; devMode: boolean; time: string }>('/health'),
     sync: () => get<{ version: number; time: string }>('/sync'),
 

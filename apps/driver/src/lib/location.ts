@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import type { LatLng } from '@naya/domain';
+import { STANDALONE_DEMO } from '@naya/ui';
 
 export type LocationState = 'unknown' | 'granted' | 'denied' | 'unavailable';
 
@@ -8,11 +9,13 @@ export type LocationState = 'unknown' | 'granted' | 'denied' | 'unavailable';
 export function useForegroundLocation() {
   const [state, setState] = useState<LocationState>('unknown');
   useEffect(() => {
+    if (STANDALONE_DEMO) { setState('granted'); return; }
     Location.getForegroundPermissionsAsync()
       .then((p) => setState(p.granted ? 'granted' : p.canAskAgain ? 'unknown' : 'denied'))
       .catch(() => setState('unavailable'));
   }, []);
   const request = useCallback(async (): Promise<LatLng | null | 'denied'> => {
+    if (STANDALONE_DEMO) return { lat: 34.0205, lng: -6.831 };
     try {
       const p = await Location.requestForegroundPermissionsAsync();
       if (!p.granted) {
@@ -44,7 +47,7 @@ export function useLocationStream(active: boolean, send: (p: LatLng) => void) {
   const sendRef = useRef(send);
   sendRef.current = send;
   useEffect(() => {
-    if (!active) return;
+    if (!active || STANDALONE_DEMO) return;
     let sub: Location.LocationSubscription | null = null;
     let alive = true;
     let last: LatLng | null = null;

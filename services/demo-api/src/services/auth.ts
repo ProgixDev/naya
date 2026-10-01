@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
+import { Buffer, createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from '../platform';
 import { DomainError, type AdminUser, type MobileRole, type User } from '@naya/domain';
 import type { Ctx } from '../context';
 import type { State } from '../state';
@@ -19,7 +19,7 @@ export function hashPassword(password: string, salt = randomBytes(16).toString('
 }
 
 function newSession(s: State, subjectType: 'user' | 'admin', subjectId: string, nowMs: number, ttlMs: number) {
-  const token = randomBytes(32).toString('base64url');
+  const token = randomBytes(32).toString('hex');
   s.sessions = s.sessions.filter((x) => Date.parse(x.expiresAt) > nowMs);
   s.sessions.push({ tokenHash: sha256(token), subjectType, subjectId, createdAt: new Date(nowMs).toISOString(), expiresAt: new Date(nowMs + ttlMs).toISOString() });
   return token;

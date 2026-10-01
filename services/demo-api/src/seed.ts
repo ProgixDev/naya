@@ -1,6 +1,4 @@
-import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { copyFileSync, mkdirSync, rmSync, join, fixturePath } from './platform';
 import {
   CASABLANCA_RULES,
   CASABLANCA_ZONE,
@@ -28,8 +26,7 @@ import { hashPassword } from './services/auth';
 import { nextId } from './store';
 import { postLedger } from './services/finance';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const FIXTURES = join(here, '..', 'fixtures');
+
 
 export const SCENARIOS = {
   default: 'Monde de démonstration complet : NY-001 (espèces) et NY-002 (carte) terminées, portefeuille d’Amina à 70 MAD, file de vérification, Leila en dette.',
@@ -119,7 +116,7 @@ function city(s: State, id: string, name: string, status: CityConfig['status'], 
 function upload(s: State, dataDir: string, ownerId: string, purpose: VerificationItemKey, fixture: string, at: string) {
   const id = nextId(s, 'UP', 5);
   mkdirSync(join(dataDir, 'uploads'), { recursive: true });
-  copyFileSync(join(FIXTURES, `${fixture}.jpg`), join(dataDir, 'uploads', `${id}.jpg`));
+  copyFileSync(fixturePath(`${fixture}.jpg`), join(dataDir, 'uploads', `${id}.jpg`));
   s.uploads.push({ id, ownerId, purpose, mimeType: 'image/jpeg', width: 1000, height: 630, size: 90_000, createdAt: at });
   return id;
 }

@@ -1,6 +1,6 @@
 # Naya
 
-Women-only mobility service launching in Rabat, Morocco. This repository contains the passenger app, the driver app (both Expo / React Native), a separate responsive administration dashboard, shared business logic and a shared demo API that all three talk to.
+Women-only mobility service launching in Rabat, Morocco. This repository contains the passenger app, the driver app (both Expo / React Native), a separate responsive administration dashboard, shared business logic and a demo engine. Native mobile demo builds run entirely on the device; the web apps and admin can use the shared demo API.
 
 All customer-facing copy is French. Currency is MAD. Business scheduling uses `Africa/Casablanca`; timestamps are stored in UTC.
 
@@ -78,7 +78,9 @@ cd apps/passenger && npx expo run:ios          # or: eas build --profile develop
 cd apps/driver && npx expo run:ios
 ```
 
-On a physical device on the same network, the apps reach the API through the Metro host automatically; otherwise set `EXPO_PUBLIC_API_URL`.
+Native demo builds are standalone by default: no backend or SMS service is required. Select **Utiliser un compte démo** on the phone screen; the code `123456` is prefilled. Each app stores its own fictional data on the device and simulates the other party. The apps do not synchronize with one another or the admin in this mode. Map tiles may still use the map provider’s network connection.
+
+For a connected development demo, set `EXPO_PUBLIC_STANDALONE=0` and run `pnpm api`. A physical device on the same network then uses the Metro host automatically, or set `EXPO_PUBLIC_API_URL`. Web builds always use the shared API.
 
 ## Native builds
 
@@ -88,7 +90,8 @@ Development builds (native modules included) — `npx expo run:ios` / `run:andro
 cd apps/passenger
 npx eas-cli@latest build --profile development      # dev client (simulator build on iOS)
 npx eas-cli@latest build --profile preview          # internal distribution
-npx eas-cli@latest build --profile production
+npx eas-cli@latest build --profile demo-testflight  # standalone demo for TestFlight
+npx eas-cli@latest build --profile production      # real backend required
 ```
 
 Local iOS Simulator review build (what the captures in `docs/screens/native/` come from):
@@ -96,7 +99,7 @@ Local iOS Simulator review build (what the captures in `docs/screens/native/` co
 ```bash
 cd apps/passenger && npx expo prebuild --platform ios && (cd ios && pod install)
 # review flags are read at bundle time from a git-ignored env file:
-printf 'EXPO_PUBLIC_REVIEW=1\nEXPO_PUBLIC_API_URL=http://localhost:4010\n' > .env.production.local
+printf 'EXPO_PUBLIC_REVIEW=1\nEXPO_PUBLIC_STANDALONE=0\nEXPO_PUBLIC_API_URL=http://localhost:4010\n' > .env.production.local
 xcodebuild -workspace ios/Naya.xcworkspace -scheme Naya -configuration Release \
   -destination 'platform=iOS Simulator,name=<device>' ONLY_ACTIVE_ARCH=YES \
   COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGN_IDENTITY=- build
@@ -109,6 +112,12 @@ Notes learned on this machine:
 - `npx expo prebuild` resets the CocoaPods integration: run `pod install` again afterwards. React Native writes codegen into `ios/build/generated`, so do not delete `ios/build` without re-running `pod install`.
 - A two-architecture Release build needs ~6 GB of derived data; a single-architecture build with indexing off needs ~2.7 GB.
 - `EXPO_PUBLIC_REVIEW=1` enables a development-only navigation hook (`/dev/navigate` on the demo API) used to capture screens without tapping. It is inert in any other build.
+
+## Standalone TestFlight builds
+
+Both apps use `EXPO_PUBLIC_DEMO=1`, `EXPO_PUBLIC_STANDALONE=1`, and `EXPO_PUBLIC_REVIEW=0`. Do not point a TestFlight demo at localhost or a placeholder server. `apps/*/eas.json` includes a `demo-testflight` profile; for local Xcode archives, place those three flags in each app’s ignored `.env.production.local` before bundling.
+
+Sign-in, document samples and simulated review, route search, bookings, driver offers, trips, payments and wallet actions execute locally. No real SMS, payment or identity review occurs. Profiles and progress persist across launches. A stale session from a previous connected build returns to sign-in. New driver offers appear shortly after going online. The scenario launcher is also local.
 
 ## Demo data
 

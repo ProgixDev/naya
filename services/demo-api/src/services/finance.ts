@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { Buffer, createHmac, timingSafeEqual } from '../platform';
 import {
   assertRechargeAmount,
   assertWithdrawable,

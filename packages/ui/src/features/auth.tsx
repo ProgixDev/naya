@@ -11,6 +11,7 @@ import { Button, TextButton } from '../Button';
 import { OTPField, PhoneField } from '../Form';
 import { StatusBanner } from '../Feedback';
 import { haptic } from '../haptics';
+import { STANDALONE_DEMO } from '../core/apiBase';
 
 export interface PhoneSignInProps {
   role: MobileRole;
@@ -63,6 +64,10 @@ export function PhoneSignInScreen({ role, title, subtitle, onCodeSent, onBack, p
     >
       <View style={{ gap: 14, marginTop: 16 }}>
         <PhoneField value={digits} onChangeText={(v) => { setDigits(v); if (error) setError(null); }} country={country} onCountryChange={setCountry} error={error} onSubmitEditing={submit} autoFocus />
+        {STANDALONE_DEMO ? <View style={{ gap: 12 }}>
+          <Text variant="caption" tone="muted">Démo sur votre appareil. Aucun SMS n’est envoyé ; le code est prérempli.</Text>
+          <Button label="Utiliser un compte démo" variant="secondary" full loading={send.isPending} testID="demo-account" onPress={() => { setError(null); send.mutate(role === 'passenger' ? '+212612345678' : '+212661234567'); }} />
+        </View> : null}
         {providers}
       </View>
     </Screen>

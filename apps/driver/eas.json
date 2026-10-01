@@ -1,24 +1,53 @@
 {
-  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_URL": "http://localhost:4010", "EXPO_PUBLIC_DEMO": "1" },
-      "ios": { "simulator": true }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:4010",
+        "EXPO_PUBLIC_DEMO": "1",
+        "EXPO_PUBLIC_STANDALONE": "0"
+      },
+      "ios": {
+        "simulator": true
+      }
     },
     "development-device": {
       "extends": "development",
-      "ios": { "simulator": false }
+      "ios": {
+        "simulator": false
+      }
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_URL": "https://demo-api.naya.example", "EXPO_PUBLIC_DEMO": "1" }
+      "env": {
+        "EXPO_PUBLIC_DEMO": "1",
+        "EXPO_PUBLIC_STANDALONE": "1",
+        "EXPO_PUBLIC_REVIEW": "0"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.naya.example", "EXPO_PUBLIC_DEMO": "0" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.naya.example",
+        "EXPO_PUBLIC_DEMO": "0"
+      }
+    },
+    "demo-testflight": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_DEMO": "1",
+        "EXPO_PUBLIC_STANDALONE": "1",
+        "EXPO_PUBLIC_REVIEW": "0"
+      }
     }
   },
-  "submit": { "production": {} }
+  "submit": {
+    "production": {}
+  }
 }

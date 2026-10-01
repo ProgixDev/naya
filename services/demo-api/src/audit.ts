@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash } from './platform';
 import type { AuditActor, AuditEvent } from '@naya/domain';
 import type { State } from './state';
 import { nextId } from './store';

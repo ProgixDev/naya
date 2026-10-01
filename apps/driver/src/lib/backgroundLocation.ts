@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 import * as TaskManager from 'expo-task-manager';
-import { resolveApiBase } from '@naya/ui';
+import { resolveApiBase, STANDALONE_DEMO } from '@naya/ui';
 
 /**
  * Background location is used only while a ride is accepted (pickup and trip) so the
@@ -12,7 +12,7 @@ import { resolveApiBase } from '@naya/ui';
  */
 export const RIDE_LOCATION_TASK = 'naya-driver-ride-location';
 
-if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(RIDE_LOCATION_TASK)) {
+if (!STANDALONE_DEMO && Platform.OS !== 'web' && !TaskManager.isTaskDefined(RIDE_LOCATION_TASK)) {
   TaskManager.defineTask<{ locations: Location.LocationObject[] }>(RIDE_LOCATION_TASK, async ({ data, error }) => {
     if (error || !data?.locations?.length) return;
     const last = data.locations[data.locations.length - 1]!;
@@ -34,6 +34,7 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(RIDE_LOCATION_TASK)) {
 export type BackgroundResult = 'started' | 'unsupported' | 'denied' | 'foreground-only';
 
 export async function startRideTracking(): Promise<BackgroundResult> {
+  if (STANDALONE_DEMO) return 'unsupported';
   if (Platform.OS === 'web') return 'unsupported';
   const fg = await Location.getForegroundPermissionsAsync();
   if (!fg.granted) return 'denied';

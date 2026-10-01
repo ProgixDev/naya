@@ -23,6 +23,7 @@ const storage = {
 };
 
 interface SessionState {
+  role: 'passenger' | 'driver';
   status: 'loading' | 'signedOut' | 'signedIn';
   token: string | null;
   accountId: string | null;
@@ -34,6 +35,7 @@ interface SessionState {
 export function createSessionStore(namespace: 'passenger' | 'driver') {
   const key = `naya.${namespace}.session`;
   return create<SessionState>((set) => ({
+    role: namespace,
     status: 'loading',
     token: null,
     accountId: null,

@@ -11,7 +11,7 @@ import { ListGroup, ListRow } from '../List';
 import { ErrorState, StatusBanner } from '../Feedback';
 import { toast } from '../Toast';
 import { mapEngine } from '../map';
-import { resolveApiBase } from '../core/apiBase';
+import { resolveApiBase, STANDALONE_DEMO } from '../core/apiBase';
 import { useGlassKind } from '../Glass';
 
 /**
@@ -38,13 +38,13 @@ export function DevLauncher({ onBack, onSignInAs, role }: { onBack: () => void; 
       setBusy(null);
     }
   };
-  if (data.isError) return <Screen header={<Header title="Lanceur de scénarios" onBack={onBack} />}><ErrorState message={`API injoignable : ${resolveApiBase()}. Lancez « pnpm api ».`} onRetry={() => data.refetch()} /></Screen>;
+  if (data.isError) return <Screen header={<Header title="Lanceur de scénarios" onBack={onBack} />}><ErrorState message={STANDALONE_DEMO ? 'La démonstration n’a pas pu se charger. Réessayez.' : `API injoignable : ${resolveApiBase()}. Lancez « pnpm api ».`} onRetry={() => data.refetch()} /></Screen>;
   const d = data.data;
   const accounts = role === 'passenger' ? d?.accounts.passengers : d?.accounts.drivers;
   return (
     <Screen header={<Header title="Lanceur de scénarios" subtitle="Outil de développement · non livré en production" onBack={onBack} />}>
       <View style={{ gap: 24, marginTop: 12 }}>
-        <StatusBanner tone="warning" title="Environnement de démonstration" message={`API ${resolveApiBase()} · carte ${mapEngine} · matériau ${glass} · scénario « ${d?.current ?? '…'} »`} />
+        <StatusBanner tone="warning" title="Environnement de démonstration" message={STANDALONE_DEMO ? `Démo autonome sur cet appareil · scénario « ${d?.current ?? '…'} ». Les deux apps utilisent chacune leurs données locales.` : `API ${resolveApiBase()} · carte ${mapEngine} · matériau ${glass} · scénario « ${d?.current ?? '…'} »`} />
         <ListGroup label="Réinitialiser les données partagées">
           {Object.entries(d?.scenarios ?? {}).map(([id, desc]) => (
             <ListRow key={id} title={id} subtitle={desc} onPress={() => run(`Scénario « ${id} » chargé`, () => api.dev.reset(id))} testID={`scenario-${id}`} />

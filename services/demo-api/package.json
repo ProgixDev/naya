@@ -12,8 +12,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@naya/domain": "workspace:*",
     "@hono/node-server": "^1.19.0",
+    "@naya/domain": "workspace:*",
+    "@noble/hashes": "^2.4.0",
+    "buffer": "^6.0.3",
     "hono": "^4.10.0",
     "zod": "^4.6.5"
   },
@@ -22,5 +24,8 @@
     "tsx": "^4.20.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.11"
+  },
+  "exports": {
+    "./embedded": "./src/embedded.ts"
   }
 }
