@@ -29,3 +29,4 @@ export * from './core/DevNavigator';
 export * from './Material';
 export * from './Progress';
 export * from './Toggle';
+export * from './DocumentPicker';

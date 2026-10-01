@@ -8,7 +8,8 @@ import { z } from 'zod';
 import { identityDetailsSchema } from '@naya/domain';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { Button, FieldRow, FormField, Header, Screen, SegmentedControl, StatusBanner, Text, haptic, toast } from '@naya/ui';
+import { CalendarDays, Hash, UserRound } from 'lucide-react-native';
+import { Button, DocumentPicker, FieldRow, FormField, Header, ID_DOCUMENTS, Screen, Text, haptic, toast } from '@naya/ui';
 import { useAccountId, useIdentityCase } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 
@@ -26,24 +27,19 @@ const maskDate = (v: string) => {
   return [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean).join('/');
 };
 
-const DOCS = [
-  { value: 'cin', label: 'CIN' },
-  { value: 'passport', label: 'Passeport' },
-  { value: 'residence_permit', label: 'Titre de séjour' },
-] as const;
-
 export default function IdentityDetails() {
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();
   const { identity, isLoading } = useIdentityCase();
-  const { control, handleSubmit, reset, setError, formState } = useForm<Form>({
+  const { control, handleSubmit, reset, setError, formState, watch } = useForm<Form>({
     resolver: zodResolver(formSchema),
     defaultValues: { firstName: '', lastName: '', birthDate: '', documentType: 'cin', documentNumber: '' },
   });
   useEffect(() => {
     if (identity?.identity) reset({ ...identity.identity, birthDate: toFr(identity.identity.birthDate) });
   }, [identity?.identity, reset]);
+  const docType = watch('documentType');
   const save = useMutation({
     mutationFn: (f: Form) => {
       const payload = { ...f, birthDate: toIso(f.birthDate) };
@@ -80,20 +76,19 @@ export default function IdentityDetails() {
       footer={<Button label="Continuer" size="major" full loading={save.isPending} onPress={handleSubmit((f) => save.mutate(f))} testID="identity-continue" />}
     >
       <View style={{ gap: 12, marginTop: 12 }}>
-        <StatusBanner compact tone="neutral" title="Vérifié par une personne de l’équipe Naya" />
-        <FieldRow>
-          <Controller control={control} name="firstName" render={({ field, fieldState }) => <FormField label="Prénom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="given-name" textContentType="givenName" returnKeyType="next" testID="first-name" />} />
-          <Controller control={control} name="lastName" render={({ field, fieldState }) => <FormField label="Nom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="family-name" textContentType="familyName" returnKeyType="next" testID="last-name" />} />
-        </FieldRow>
-        <Controller control={control} name="birthDate" render={({ field, fieldState }) => <FormField label="Date de naissance" value={field.value} onChangeText={(v) => field.onChange(maskDate(v))} onBlur={field.onBlur} error={fieldState.error?.message} keyboardType="number-pad" placeholder="JJ/MM/AAAA" testID="birth-date" />} />
+        <Controller control={control} name="documentType" render={({ field }) => <DocumentPicker value={field.value} onChange={field.onChange} testID="doc-type" />} />
         <Controller
           control={control}
-          name="documentType"
-          render={({ field }) => (
-            <SegmentedControl testID="doc-type" options={DOCS.map((d) => ({ value: d.value, label: d.label }))} value={field.value} onChange={(v) => field.onChange(v)} />
+          name="documentNumber"
+          render={({ field, fieldState }) => (
+            <FormField icon={Hash} label={ID_DOCUMENTS[docType].numberLabel} placeholder={ID_DOCUMENTS[docType].example} value={field.value} onChangeText={(v) => field.onChange(v.toUpperCase())} onBlur={field.onBlur} error={fieldState.error?.message} autoCapitalize="characters" autoCorrect={false} testID="doc-number" />
           )}
         />
-        <Controller control={control} name="documentNumber" render={({ field, fieldState }) => <FormField label="Numéro de la pièce" value={field.value} onChangeText={(v) => field.onChange(v.toUpperCase())} onBlur={field.onBlur} error={fieldState.error?.message} autoCapitalize="characters" autoCorrect={false} testID="doc-number" />} />
+        <FieldRow>
+          <Controller control={control} name="firstName" render={({ field, fieldState }) => <FormField icon={UserRound} label="Prénom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="given-name" textContentType="givenName" returnKeyType="next" testID="first-name" />} />
+          <Controller control={control} name="lastName" render={({ field, fieldState }) => <FormField label="Nom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="family-name" textContentType="familyName" returnKeyType="next" testID="last-name" />} />
+        </FieldRow>
+        <Controller control={control} name="birthDate" render={({ field, fieldState }) => <FormField icon={CalendarDays} label="Date de naissance" value={field.value} onChangeText={(v) => field.onChange(maskDate(v))} onBlur={field.onBlur} error={fieldState.error?.message} keyboardType="number-pad" placeholder="JJ/MM/AAAA" testID="birth-date" />} />
         {formState.isSubmitted && !formState.isValid ? (
           <Text variant="caption" tone="danger" accessibilityRole="alert" style={{ marginLeft: 18 }}>
             Corrigez les champs signalés pour continuer.

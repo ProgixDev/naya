@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { ShieldCheck } from 'lucide-react-native';
 import { colors } from '@naya/tokens';
-import { Button, Header, Screen, StatusBanner } from '@naya/ui';
+import { Button, Header, Screen } from '@naya/ui';
 import { useCases } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { CaseChecklist } from './Dossier';
@@ -36,7 +35,6 @@ export function DossierHub({ onBack }: { onBack?: () => void }) {
       testID="dossier-hub"
     >
       <View style={{ gap: 12, marginTop: 4 }}>
-        <StatusBanner compact tone="neutral" icon={<ShieldCheck size={15} color={colors.accent} />} title="Examen humain · documents privés" />
         <CaseChecklist kase={person} subject="driver_identity" collapsed={expanded !== 'driver_identity'} onToggle={() => toggle('driver_identity')} />
         <CaseChecklist kase={vehicle} subject="vehicle" collapsed={expanded !== 'vehicle'} onToggle={() => toggle('vehicle')} />
       </View>

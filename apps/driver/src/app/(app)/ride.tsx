@@ -220,7 +220,6 @@ export default function RideScreen() {
 
       <Sheet visible={contactOpen} onClose={() => setContactOpen(false)} title={`Contacter ${ride.passenger.firstName}`} subtitle="Votre numéro reste masqué des deux côtés.">
         <View style={{ gap: 12 }}>
-          <StatusBanner tone="info" title="Appel masqué non configuré dans la démo" message="En production, l’appel passe par un numéro relais Naya. Aucun service téléphonique n’est connecté à cet environnement." />
           <Text variant="caption" tone="muted">
             En cas de problème de sécurité, appelez le 19 (police).
           </Text>

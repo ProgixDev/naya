@@ -1,7 +1,7 @@
 import { Children, forwardRef, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Modal, Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
-import { Check, ChevronDown } from 'lucide-react-native';
+import { CalendarDays, Check, ChevronDown, type LucideIcon } from 'lucide-react-native';
 import { colors, radius } from '@naya/tokens';
 import { COUNTRIES, formatNational, type Country } from '@naya/domain';
 import { Text } from './Text';
@@ -14,6 +14,8 @@ export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
   label: string;
   error?: string | null;
   helper?: string;
+  /** Leading glyph inside the pill; unlike `leading` it does not keep the label floated. */
+  icon?: LucideIcon;
   leading?: ReactNode;
   trailing?: ReactNode;
   testID?: string;
@@ -25,7 +27,7 @@ export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
  * error under it. Multiline fields keep the language with a 24-pt radius.
  */
 export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField(
-  { label, error, helper, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, value, multiline, placeholder, ...input },
+  { label, error, helper, icon: Icon, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, value, multiline, placeholder, ...input },
   ref,
 ) {
   const { reduceMotion } = useA11yPrefs();
@@ -46,6 +48,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
         style={[styles.field, { borderRadius: radius, minHeight: multiline ? 120 : 56, alignItems: multiline ? 'flex-start' : 'center' }, focused && styles.focused, !!error && styles.errorBorder, !editable && { backgroundColor: colors.disabledFill }]}
         accessible={false}
       >
+        {Icon ? <Icon size={20} color={error ? colors.danger : focused ? colors.accent : colors.muted} strokeWidth={1.8} style={{ alignSelf: 'center' }} /> : null}
         {leading}
         <View style={{ flex: 1, justifyContent: 'center', alignSelf: 'stretch', paddingTop: multiline ? 22 : 0 }}>
           <Animated.View pointerEvents="none" style={[styles.labelWrap, multiline ? { top: 10 } : null, labelStyle]}>
@@ -128,6 +131,7 @@ export function DateField({ label, value, onChange, error, testID }: DateFieldPr
   }, [value]);
   return (
     <FormField
+      icon={CalendarDays}
       label={label}
       testID={testID}
       value={maskDate(digits)}

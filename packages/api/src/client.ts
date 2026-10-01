@@ -478,6 +478,8 @@ export function createApiClient(opts: ClientOptions) {
       freezeTracking: (rideId: string) => post<unknown>(`/dev/tracking/${rideId}/freeze`),
       resumeTracking: (rideId: string) => post<unknown>(`/dev/tracking/${rideId}/resume`),
       resolveProvider: (kind: 'payment' | 'recharge' | 'withdrawal', ref: string, outcome: 'confirm' | 'fail') => post<unknown>(`/dev/providers/${kind}/${ref}/${outcome}`),
+      /** Attaches a fictional specimen as the caller's upload (capture bypass without a camera). */
+      sampleUpload: (purpose: VerificationItemKey) => post<Upload>('/dev/sample-upload', { purpose }),
       providerJobs: () => get<{ id: string; kind: string; ref: string; outcome: string; dueAt: string | null }[]>('/dev/provider-jobs'),
     },
   };

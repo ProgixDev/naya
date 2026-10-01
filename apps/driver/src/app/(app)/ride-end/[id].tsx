@@ -63,7 +63,6 @@ export default function RideEnd() {
           <FigureLine label={`Commission · ${formatBp(ride.terms.commissionBp)}`} sub={cash ? 'Débitée du portefeuille' : 'Retenue sur le paiement carte'} value={formatMoney(-split.commission)} />
           <FigureLine label="Revenu net" sub={`${formatMoney(split.gross)} − ${formatMoney(split.commission)}`} value={formatMoney(split.net)} strong />
         </Card>
-        {cash && !confirmed ? <StatusBanner compact tone="neutral" title="Espèces hors portefeuille" message="seule la commission y est débitée" testID="cash-info" /> : null}
         {cash && confirmed ? <StatusBanner compact tone="success" title={`Vous gardez ${formatMoney(split.gross)} en espèces`} message={`commission ${formatMoney(split.commission)} débitée`} testID="cash-confirmed" /> : null}
         {!cash && payment?.status === 'pending' ? <StatusBanner compact tone="info" title="Paiement carte en confirmation" message="aucun crédit avant confirmation" testID="card-pending" /> : null}
         {!cash && payment?.status === 'confirmed' ? <StatusBanner compact tone="success" title={`${formatMoney(split.net, { sign: 'always' })} crédités`} message="après compensation d’une dette" testID="card-confirmed" /> : null}

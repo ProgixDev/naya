@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Camera, FileText, IdCard, ImageIcon, ScanFace } from 'lucide-react-native';
+import { Camera, FastForward, FileText, IdCard, ImageIcon, ScanFace } from 'lucide-react-native';
 import { errorMessage } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';
@@ -11,6 +11,7 @@ import { Button } from '../Button';
 import { StatusBanner } from '../Feedback';
 import { haptic } from '../haptics';
 import { pickFile, uploadFile, type PickedFile, type Source } from './uploads';
+import { DEMO_MODE } from '../core/apiBase';
 
 export interface CaptureStepProps {
   caseId: string;
@@ -37,7 +38,7 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
   const api = useApi();
   const [file, setFile] = useState<PickedFile | null>(null);
   const [denied, setDenied] = useState(false);
-  const [busy, setBusy] = useState<Source | 'upload' | null>(null);
+  const [busy, setBusy] = useState<Source | 'upload' | 'sample' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const web = Platform.OS === 'web';
 
@@ -67,6 +68,23 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
       const saved = await api.verification.setItem(caseId, item, [up.id]);
       haptic.success();
       setFile(null);
+      onSaved(saved);
+    } catch (e) {
+      setError(errorMessage(e));
+      haptic.error();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** Demo builds only: attach a fictional specimen so the flow continues without a camera. */
+  const skip = async () => {
+    setBusy('sample');
+    setError(null);
+    try {
+      const up = await api.dev.sampleUpload(item);
+      const saved = await api.verification.setItem(caseId, item, [up.id]);
+      haptic.success();
       onSaved(saved);
     } catch (e) {
       setError(errorMessage(e));
@@ -137,6 +155,9 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
             />
             {!selfie ? <Button label="PDF" variant="secondary" size={web ? 'major' : 'standard'} icon={<FileText size={17} color={colors.accent} />} onPress={() => choose('document')} testID="import-pdf" /> : null}
           </View>
+          {DEMO_MODE ? (
+            <Button label="Passer · exemple de démonstration" variant="ghost" full icon={<FastForward size={16} color={colors.accent} />} loading={busy === 'sample'} disabled={!!busy && busy !== 'sample'} onPress={skip} testID="skip-capture" />
+          ) : null}
         </View>
       )}
       {denied ? <StatusBanner tone="warning" title="Accès refusé" message="Autorisez l’appareil photo ou les photos dans les réglages pour continuer." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}

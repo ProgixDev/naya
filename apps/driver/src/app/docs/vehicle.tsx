@@ -7,7 +7,7 @@ import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { vehicleDetailsSchema, type VehicleDetailsInput } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, FieldRow, FormField, Header, Screen, StatusBanner, Text, toast } from '@naya/ui';
+import { Button, FieldRow, FormField, Header, Screen, Text, toast } from '@naya/ui';
 import { useAccountId, useCases } from '@/lib/queries';
 
 /** D04-car: vehicle identity. Creates the vehicle dossier (reviewed separately from the driver). */
@@ -37,7 +37,6 @@ export default function VehicleDetails() {
   return (
     <Screen keyboard header={<Header title="Votre véhicule" subtitle="Comme sur la carte grise." onBack={() => router.back()} />} footer={<Button label="Enregistrer" size="major" full loading={save.isPending} onPress={handleSubmit((v) => save.mutate(v))} testID="save-vehicle" />}>
       <View style={{ gap: 12, marginTop: 4 }}>
-        <StatusBanner compact tone="neutral" title="Examen séparé" message="le véhicule est approuvé indépendamment de vous" />
         <FieldRow>
           <Controller control={control} name="make" render={({ field, fieldState }) => <FormField label="Marque" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-make" />} />
           <Controller control={control} name="model" render={({ field, fieldState }) => <FormField label="Modèle" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-model" />} />

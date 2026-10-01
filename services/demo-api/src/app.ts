@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { ZodError, type ZodType } from 'zod';
+import type { UploadInput } from '@naya/domain';
 import {
   adminLoginSchema,
   cancelSchema,
@@ -947,7 +951,32 @@ export function createApp(ctx: Ctx) {
       return c.json(cmd);
     });
     app.get('/dev/navigate', (c) => c.json(navQueue.get(c.req.query('app') ?? '') ?? null));
+
+    /**
+     * Capture bypass for simulators and demos without a camera: stores one of the fictional
+     * "SPÉCIMEN" fixtures as the caller's own upload, exactly as a real photo would be.
+     */
+    const SAMPLES: Record<string, string> = {
+      selfie: 'amina-selfie.jpg',
+      id_front: 'generic-id-front.jpg',
+      id_back: 'generic-id-back.jpg',
+      driving_licence: 'amina-licence.jpg',
+      vehicle_registration: 'vehicle-registration-2.jpg',
+      insurance: 'insurance.jpg',
+      vehicle_photos: 'vehicle-pearl.jpg',
+    };
+    app.post('/dev/sample-upload', async (c) => {
+      const p = c.get('principal');
+      if (!p || p.kind !== 'user') throw new DomainError('UNAUTHORIZED');
+      const { purpose } = (await c.req.json()) as { purpose: string };
+      const file = SAMPLES[purpose];
+      if (!file) throw new DomainError('VALIDATION', 'Aucun exemple pour cette pièce.');
+      const data = readFileSync(join(FIXTURES_DIR, file));
+      return c.json(createUpload(ctx, p.user.id, { purpose: purpose as UploadInput['purpose'], mimeType: 'image/jpeg', dataBase64: data.toString('base64'), width: null, height: null }));
+    });
   }
 
   return app;
 }
+
+const FIXTURES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');

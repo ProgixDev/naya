@@ -8,7 +8,7 @@ import { useApi } from '@naya/api/react';
 import { formatDateTime, formatMoney, formatShort, SCHEDULED_STATUS_LABELS } from '@naya/domain';
 import { aspect, illustrations } from '@naya/assets';
 import { colors } from '@naya/tokens';
-import { Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SegmentedControl, SkeletonList, StatusBanner, StatusPill } from '@naya/ui';
+import { Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SegmentedControl, SkeletonList, StatusPill } from '@naya/ui';
 import { useAccountId, useScheduled } from '@/lib/queries';
 import { useTabBarSpace } from '@/components/TabBar';
 
@@ -52,7 +52,6 @@ export default function Trips() {
                   <ListRow key={b.id} testID={`scheduled-${b.id}`} title={formatDateTime(b.pickupAt)} subtitle={`${b.route.stops[0]!.label} → ${b.route.stops[b.route.stops.length - 1]!.label} · ${formatMoney(b.terms.breakdown.total)}`} leading={<IconDisc><CalendarClock size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push({ pathname: '/scheduled/[id]', params: { id: b.id } })} />
                 ))}
               </ListGroup>
-              <StatusBanner compact tone="neutral" title="Recherche 15 min avant" message="aucune chauffeuse n’est confirmée à l’avance" />
             </>
           )
         ) : null}

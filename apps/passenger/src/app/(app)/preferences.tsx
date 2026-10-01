@@ -45,7 +45,6 @@ export default function Preferences() {
       <View style={{ gap: 14, marginTop: 4 }}>
         {perm === 'undetermined' ? <StatusBanner tone="neutral" title="Être prévenue à l’arrivée ?" message="Même si l’app est en arrière-plan." action={{ label: 'Autoriser les notifications', onPress: ask }} /> : null}
         {perm === 'denied' ? <StatusBanner tone="warning" title="Notifications désactivées" message="Activez-les dans les réglages du téléphone." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}
-        {perm === 'unsupported' ? <StatusBanner compact tone="info" title="Navigateur" message="notifications sur l’app iOS et Android" /> : null}
         <ListGroup label="Notifications">
           {ROWS.map((r) => (
             <ListRow key={r.key} title={r.title} trailing={<Toggle value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />

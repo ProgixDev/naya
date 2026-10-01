@@ -1,11 +1,9 @@
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Lock } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import type { VerificationItemKey } from '@naya/domain';
-import { colors } from '@naya/tokens';
-import { CaptureStep, Header, Screen, Text } from '@naya/ui';
+import { CaptureStep, Header, Screen } from '@naya/ui';
 import { useAccountId, useIdentityCase } from '@/lib/queries';
 import { nextStep, PASSENGER_STEPS } from '@/features/verify/steps';
 
@@ -37,10 +35,6 @@ export default function Capture() {
             else router.push('/(verify)/review');
           }}
         />
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
-          <Lock size={13} color={colors.muted} />
-          <Text variant="micro" tone="muted">Chiffré · visible uniquement par l’équipe de vérification</Text>
-        </View>
       </View>
     </Screen>
   );

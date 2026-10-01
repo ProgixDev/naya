@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, CreditCard, Lock } from 'lucide-react-native';
+import { Building2, CreditCard } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { assertRechargeAmount, formatMoney, parseMoneyInput } from '@naya/domain';
@@ -74,7 +74,6 @@ export default function Recharge() {
             ))}
           </View>
         ) : null}
-        <StatusBanner compact tone="neutral" icon={<Lock size={14} color={colors.accent} />} title="Naya ne voit jamais vos données de carte" message="page du prestataire simulée" />
       </View>
     </Screen>
   );

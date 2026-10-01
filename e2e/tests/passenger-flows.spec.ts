@@ -25,9 +25,9 @@ async function driver(phone = PHONES.amina) {
 async function uploadStep(page: Page) {
   const chooser = page.waitForEvent('filechooser');
   // Stacked screens stay mounted on the web: target the visible step only.
-  await page.locator('[data-testid="import-photo"]:visible').click();
+  await page.locator('[data-testid="import-photo"]:visible').last().click();
   await (await chooser).setFiles(FIXTURE);
-  await page.locator('[data-testid="use-photo"]:visible').click();
+  await page.locator('[data-testid="use-photo"]:visible').last().click();
 }
 
 test.describe('passenger', () => {
@@ -36,14 +36,17 @@ test.describe('passenger', () => {
     await page.goto(URLS.passenger + '/phone');
     await tid(page, 'phone-input').fill('677123456');
     await tid(page, 'send-code').click();
-    await expect(tid(page, 'demo-code')).toContainText('123456');
-    await tid(page, 'otp-input').fill('123456');
+    await expect(tid(page, 'otp-input')).toHaveValue('123456'); // demo: pre-filled, no SMS
+    await tid(page, 'verify-code').click();
     await tid(page, 'first-name').fill('Yasmine');
     await tid(page, 'last-name').fill('Kabbaj');
     await tid(page, 'birth-date').fill('01051998');
     await tid(page, 'doc-number').fill('aa112233');
     await tid(page, 'identity-continue').click();
-    for (let i = 0; i < 3; i++) await uploadStep(page);
+    await tid(page, 'skip-capture').click(); // demo bypass: fictional specimen selfie
+    await expect(page.getByRole('heading', { name: 'Pièce · recto' })).toBeVisible();
+    for (let i = 0; i < 2; i++) await uploadStep(page);
+    await expect(tid(page, 'review-selfie')).toContainText('Ajoutée');
     await expect(tid(page, 'review-id_back')).toContainText('Ajoutée');
     await tid(page, 'submit-identity').click();
     await expect(tid(page, 'status-pending')).toBeVisible();

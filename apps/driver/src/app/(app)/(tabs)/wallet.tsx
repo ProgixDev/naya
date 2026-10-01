@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowDownLeft, ArrowUpRight, Banknote, Clock, ListOrdered } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Clock, ListOrdered } from 'lucide-react-native';
 import { formatMoney, formatShort, TRANSFER_STATUS_LABELS } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, Skeleton, StatusBanner, Text } from '@naya/ui';
@@ -30,7 +30,6 @@ export default function WalletTab() {
             {w.available <= 0 && !w.offersBlockedByDebt ? <Text variant="micro" tone="muted" align="center">Aucun montant disponible au retrait pour le moment.</Text> : null}
             {w.offersBlockedByDebt ? <ActionNote tone="danger" title="Plafond de dette atteint" message={`Une recharge confirmée qui ramène le solde au-dessus de ${formatMoney(-w.debtLimit)} rétablit l’accès aux courses.`} testID="wallet-blocked" /> : null}
             {near ? <StatusBanner compact tone="warning" title="Proche du plafond" message={`au-delà de ${formatMoney(-w.debtLimit)}, les courses sont suspendues`} testID="wallet-near" /> : null}
-            {w.balance === 0 && w.reserved === 0 ? <StatusBanner compact tone="neutral" title="Solde à zéro" message="les revenus carte confirmés s’ajoutent ici" testID="wallet-zero" /> : null}
             {(q.data?.pendingWithdrawals.length || q.data?.pendingRecharges.length) ? (
               <ListGroup label="En cours">
                 {q.data!.pendingWithdrawals.map((x) => (
@@ -41,7 +40,6 @@ export default function WalletTab() {
                 ))}
               </ListGroup>
             ) : null}
-            <StatusBanner compact tone="neutral" icon={<Banknote size={14} color={colors.accent} />} title="Les espèces encaissées restent chez vous" />
           </>
         ) : null}
       </View>

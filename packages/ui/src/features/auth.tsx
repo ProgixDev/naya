@@ -10,7 +10,6 @@ import { Text } from '../Text';
 import { Button, TextButton } from '../Button';
 import { OTPField, PhoneField } from '../Form';
 import { StatusBanner } from '../Feedback';
-import { DEMO_MODE } from '../core/apiBase';
 import { haptic } from '../haptics';
 
 export interface PhoneSignInProps {
@@ -65,7 +64,6 @@ export function PhoneSignInScreen({ role, title, subtitle, onCodeSent, onBack, p
       <View style={{ gap: 14, marginTop: 16 }}>
         <PhoneField value={digits} onChangeText={(v) => { setDigits(v); if (error) setError(null); }} country={country} onCountryChange={setCountry} error={error} onSubmitEditing={submit} autoFocus />
         {providers}
-        {DEMO_MODE ? <StatusBanner compact tone="warning" title="Démo" message="aucun SMS n’est envoyé ; le code s’affiche ensuite" testID="demo-note" /> : null}
       </View>
     </Screen>
   );
@@ -83,12 +81,12 @@ const RESEND_SECONDS = 30;
 
 export function OtpScreen({ role, phone, demoCode, onVerified, onBack }: OtpProps) {
   const api = useApi();
-  const [code, setCode] = useState('');
+  // Demo builds send no SMS: the code arrives pre-filled so sign-in is one tap.
+  const [code, setCode] = useState(demoCode ?? '');
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
   const [resendAt, setResendAt] = useState(() => serverClock.now() + RESEND_SECONDS * 1000);
   const [now, setNow] = useState(serverClock.now());
-  const [shownCode, setShownCode] = useState(demoCode);
   useEffect(() => {
     const t = setInterval(() => setNow(serverClock.now()), 500);
     return () => clearInterval(t);
@@ -110,7 +108,7 @@ export function OtpScreen({ role, phone, demoCode, onVerified, onBack }: OtpProp
     mutationFn: () => api.auth.requestOtp(phone, role),
     onSuccess: (r) => {
       setResendAt(Date.parse(r.resendAvailableAt));
-      setShownCode(r.demoCode);
+      if (r.demoCode) setCode(r.demoCode);
       setError(null);
       setExpired(false);
     },
@@ -127,9 +125,6 @@ export function OtpScreen({ role, phone, demoCode, onVerified, onBack }: OtpProp
       <View style={{ gap: 14, marginTop: 18 }}>
         <OTPField value={code} onChange={(v) => { setCode(v); if (error) setError(null); }} error={error} onComplete={(c) => !verify.isPending && verify.mutate(c)} />
         {expired ? <StatusBanner compact tone="warning" title="Code expiré" message="demandez-en un nouveau (valable 5 min)" /> : null}
-        {shownCode ? (
-          <StatusBanner compact tone="neutral" title={`Code de démonstration : ${shownCode}`} message="démo uniquement" testID="demo-code" />
-        ) : null}
         {wait > 0 ? (
           <Text variant="caption" tone="muted" align="center" numeric accessibilityLiveRegion="polite">
             Nouveau code possible dans {wait} s
