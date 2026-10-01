@@ -1,6 +1,6 @@
 # Standalone mobile demo — 1 October 2026
 
-Build 1 was connected to a Mac-hosted demo API. Build 2 replaces those mobile requests with an in-process transport, persistent app-sandbox data and bundled sample documents. Neither mobile app starts a server or opens a socket for demo API requests.
+Build 1 was connected to a Mac-hosted demo API. The replacement releases (passenger build 2, driver build 3) replace those mobile requests with an in-process transport, persistent app-sandbox data and bundled sample documents. Neither mobile app starts a server or opens a socket for demo API requests.
 
 ## Tester flow
 
@@ -10,7 +10,7 @@ Passenger trips use a simulated driver. Going online in the driver app creates s
 
 ## Release configuration
 
-Both apps: `EXPO_PUBLIC_DEMO=1`, `EXPO_PUBLIC_STANDALONE=1`, `EXPO_PUBLIC_REVIEW=0`. The EAS profile is `demo-testflight`. Local Xcode archives read the same flags from each app's ignored `.env.production.local`. Build number is 2 in both Expo configs.
+Both apps: `EXPO_PUBLIC_DEMO=1`, `EXPO_PUBLIC_STANDALONE=1`, `EXPO_PUBLIC_REVIEW=0`. The EAS profile is `demo-testflight`. Local Xcode archives read the same flags from each app's ignored `.env.production.local`. Build numbers are 2 for the passenger app and 3 for the driver app. Xcode automatically incremented the driver upload to 3. Apple accepted both uploads on 1 October 2026; TestFlight processing follows upload acceptance.
 
 Set `EXPO_PUBLIC_STANDALONE=0` only when deliberately using the shared demo server. The real production profile sets `EXPO_PUBLIC_DEMO=0` and needs a deployed backend.
 
