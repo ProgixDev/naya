@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Camera, FileText, ImageIcon } from 'lucide-react-native';
+import { Camera, FileText, IdCard, ImageIcon, ScanFace } from 'lucide-react-native';
 import { errorMessage } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';
-import { colors, radius } from '@naya/tokens';
+import { colors } from '@naya/tokens';
 import { Text } from '../Text';
 import { Button } from '../Button';
 import { StatusBanner } from '../Feedback';
@@ -24,10 +24,14 @@ export interface CaptureStepProps {
   onSaved: (c: VerificationCase) => void;
 }
 
+const CARD_RATIO = 1.586; // ID-1 card
+const FRAME_H = 210;
+
 /**
- * Capture → preview → confirm. Uses the real camera, photo library or document picker,
- * keeps the photo's aspect ratio in the preview, and uploads to the protected endpoint
- * only when the person confirms. Permission denial offers a way to the settings.
+ * Framed capture guide → preview → confirm. The frame has the document's own shape (an
+ * oval for the selfie, an ID card ratio otherwise) so the whole step fits one screen.
+ * Uses the real camera, photo library or document picker and uploads to the protected
+ * endpoint only when the person confirms. Permission denial offers a way to the settings.
  */
 export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, existingUploadId, onSaved }: CaptureStepProps) {
   const api = useApi();
@@ -35,6 +39,7 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState<Source | 'upload' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const web = Platform.OS === 'web';
 
   const choose = async (source: Source) => {
     setBusy(source);
@@ -47,7 +52,7 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
         setFile(r);
       }
     } catch (e) {
-      setError(Platform.OS === 'web' && source === 'camera' ? 'L’appareil photo n’est pas disponible dans le navigateur. Importez une photo.' : errorMessage(e));
+      setError(web && source === 'camera' ? 'L’appareil photo n’est pas disponible dans le navigateur. Importez une photo.' : errorMessage(e));
     } finally {
       setBusy(null);
     }
@@ -71,39 +76,71 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
     }
   };
 
-  const ratio = file?.width && file?.height ? file.width / file.height : selfie ? 3 / 4 : 1.586;
+  const frameW = selfie ? FRAME_H * 0.78 : FRAME_H * CARD_RATIO;
+  const frame = {
+    width: frameW,
+    maxWidth: '100%' as const,
+    height: FRAME_H,
+    borderRadius: selfie ? FRAME_H / 2 : 22,
+    alignSelf: 'center' as const,
+    overflow: 'hidden' as const,
+  };
+
   return (
-    <View style={{ gap: 16 }} testID={`capture-${item}`}>
-      {correctionNote ? <StatusBanner tone="warning" title={`${ITEM_LABELS[item]} à reprendre`} message={correctionNote} /> : null}
+    <View style={{ gap: 14 }} testID={`capture-${item}`}>
+      {correctionNote ? <StatusBanner compact tone="warning" title={`${ITEM_LABELS[item]} à reprendre`} message={correctionNote} /> : null}
+
       {file ? (
-        <View style={{ gap: 12 }}>
-          {file.mimeType === 'application/pdf' ? (
-            <View style={{ height: 160, borderRadius: radius.card, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <FileText size={36} color={colors.accent} />
-              <Text variant="label">Document PDF prêt à envoyer</Text>
-            </View>
-          ) : (
-            <Image source={{ uri: file.uri }} style={{ width: '100%', aspectRatio: ratio, maxHeight: 420, borderRadius: radius.card, backgroundColor: colors.selected }} contentFit="contain" accessibilityLabel={`Aperçu : ${ITEM_LABELS[item]}`} />
-          )}
-          <Text variant="caption" tone="muted">
-            Vérifiez que tout est lisible, sans reflet ni coin coupé.
+        file.mimeType === 'application/pdf' ? (
+          <View style={[frame, { backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 8 }]}>
+            <FileText size={34} color={colors.accent} />
+            <Text variant="label">Document PDF prêt</Text>
+          </View>
+        ) : (
+          <View style={[frame, { backgroundColor: colors.selected }]}>
+            <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" accessibilityLabel={`Aperçu : ${ITEM_LABELS[item]}`} />
+          </View>
+        )
+      ) : (
+        <View style={[frame, { borderWidth: 2, borderStyle: 'dashed', borderColor: existingUploadId ? colors.success : colors.mauve, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 10 }]}>
+          {selfie ? <ScanFace size={34} color={colors.accent} /> : <IdCard size={34} color={colors.accent} />}
+          <Text variant="caption" tone="muted" align="center">
+            {existingUploadId ? 'Pièce ajoutée · vous pouvez la remplacer' : guidance}
+          </Text>
+        </View>
+      )}
+
+      {file ? (
+        <View style={{ gap: 8 }}>
+          <Text variant="caption" tone="muted" align="center">
+            Tout est lisible, sans reflet ni coin coupé ?
           </Text>
           <Button label="Utiliser cette photo" full size="major" loading={busy === 'upload'} loadingLabel="Envoi sécurisé…" onPress={confirm} testID="use-photo" />
-          <Button label="Reprendre" variant="ghost" full onPress={() => setFile(null)} disabled={busy === 'upload'} />
+          <Button label="Reprendre" variant="secondary" full onPress={() => setFile(null)} disabled={busy === 'upload'} />
         </View>
       ) : (
-        <View style={{ gap: 12 }}>
-          <Text variant="label" tone="muted">
-            {guidance}
-          </Text>
-          {existingUploadId ? <StatusBanner tone="success" title="Pièce ajoutée" message="Vous pouvez la remplacer si besoin." /> : null}
-          {Platform.OS !== 'web' ? <Button label={selfie ? 'Prendre mon selfie' : 'Prendre une photo'} full size="major" icon={<Camera size={18} color={colors.inverse} />} loading={busy === 'camera'} onPress={() => choose('camera')} testID="take-photo" /> : null}
-          <Button label="Importer une photo" variant={Platform.OS === 'web' ? 'primary' : 'secondary'} full icon={<ImageIcon size={18} color={Platform.OS === 'web' ? colors.inverse : colors.accent} />} loading={busy === 'library'} onPress={() => choose('library')} testID="import-photo" />
-          {!selfie ? <Button label="Importer un PDF" variant="ghost" full onPress={() => choose('document')} testID="import-pdf" /> : null}
+        <View style={{ gap: 10 }}>
+          {!web ? (
+            <Button label={selfie ? 'Prendre mon selfie' : 'Prendre une photo'} full size="major" icon={<Camera size={18} color={colors.inverse} />} loading={busy === 'camera'} onPress={() => choose('camera')} testID="take-photo" />
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Button
+              label="Importer une photo"
+              variant={web ? 'primary' : 'secondary'}
+              size={web ? 'major' : 'standard'}
+              full
+              style={{ flex: 1 }}
+              icon={<ImageIcon size={17} color={web ? colors.inverse : colors.accent} />}
+              loading={busy === 'library'}
+              onPress={() => choose('library')}
+              testID="import-photo"
+            />
+            {!selfie ? <Button label="PDF" variant="secondary" size={web ? 'major' : 'standard'} icon={<FileText size={17} color={colors.accent} />} onPress={() => choose('document')} testID="import-pdf" /> : null}
+          </View>
         </View>
       )}
       {denied ? <StatusBanner tone="warning" title="Accès refusé" message="Autorisez l’appareil photo ou les photos dans les réglages pour continuer." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}
-      {error ? <StatusBanner tone="danger" title="Envoi impossible" message={error} /> : null}
+      {error ? <StatusBanner compact tone="danger" title="Envoi impossible" message={error} /> : null}
     </View>
   );
 }

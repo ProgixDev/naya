@@ -10,7 +10,7 @@ const ICONS = { trip: RouteIcon, payment: Wallet, account: FileText, safety: Shi
 export default function Help() {
   return (
     <Screen testID="help" header={<Header title="Comment vous aider ?" onBack={() => router.back()} />} footer={<Button label="Créer une demande" full size="major" onPress={() => router.push('/support/new')} testID="help-new" />}>
-      <View style={{ gap: 16, marginTop: 12 }}>
+      <View style={{ gap: 12, marginTop: 4 }}>
         <ListGroup>
           {HELP_TOPICS.map((t) => {
             const Icon = ICONS[t.id as keyof typeof ICONS] ?? MessageCircle;
@@ -20,7 +20,7 @@ export default function Help() {
         <ListGroup>
           <ListRow testID="my-tickets" title="Mes demandes" subtitle="Consulter les réponses" leading={<IconDisc><MessageCircle size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/support')} />
         </ListGroup>
-        <Text variant="caption" tone="muted">Les réponses sont consultables ici. Aucun délai instantané n’est garanti ; les signalements de sécurité sont traités en priorité.</Text>
+        <Text variant="caption" tone="muted" style={{ paddingHorizontal: 4 }}>Les signalements de sécurité sont traités en priorité.</Text>
       </View>
     </Screen>
   );

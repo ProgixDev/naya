@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { colors, gutter, shadow } from '@naya/tokens';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { qk } from '@naya/api';
@@ -29,18 +30,18 @@ export default function Ledger() {
   });
   const entries = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
-    <Screen header={<Header title="Mouvements" subtitle="Seules les opérations confirmées modifient le solde." onBack={() => router.back()} />} testID="ledger-screen">
-      <View style={{ gap: 16, marginTop: 12 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup">
+    <Screen header={<Header title="Mouvements" subtitle="Opérations confirmées uniquement." onBack={() => router.back()} />} testID="ledger-screen">
+      <View style={{ gap: 12, marginTop: 4 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -gutter, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: gutter, gap: 8, paddingVertical: 4 }} accessibilityRole="radiogroup">
           {FILTERS.map((f) => (
             <Pill key={f.label} label={f.label} selected={type === f.value} onPress={() => setType(f.value)} testID={`ledger-filter-${f.value ?? 'all'}`} />
           ))}
-        </View>
+        </ScrollView>
         {q.isLoading ? <SkeletonList /> : null}
         {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
         {q.data && entries.length === 0 ? <EmptyState title="Aucun mouvement" message="Les commissions, crédits, recharges et retraits confirmés apparaîtront ici." /> : null}
         {entries.length ? (
-          <View style={{ backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 16 }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 14, ...shadow.card }}>
             {entries.map((e) => (
               <TransactionRow key={e.id} entry={e} onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: e.id } })} />
             ))}

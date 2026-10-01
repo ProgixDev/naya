@@ -125,9 +125,9 @@ export default function RideScreen() {
       </View>
 
       <View style={{ maxHeight: '62%', marginTop: -28, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingBottom: insets.bottom + 12, ...shadow.float }}>
-        <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ padding: gutter, gap: 14 }} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 18, paddingBottom: 10, gap: 12 }} showsVerticalScrollIndicator={false}>
         <View style={{ gap: 4 }}>
-          <Text variant="title" accessibilityRole="header" accessibilityLiveRegion="polite" testID="ride-title">
+          <Text variant="title" style={{ fontSize: 22, lineHeight: 28 }} accessibilityRole="header" accessibilityLiveRegion="polite" testID="ride-title">
             {title}
           </Text>
           {ride.status === 'searching' ? (
@@ -140,8 +140,8 @@ export default function RideScreen() {
           {ride.status === 'in_progress' ? <Text variant="label" tone="muted" numeric>{formatDuration(ride.route.durationSeconds)} de trajet · {formatMoney(ride.terms.breakdown.total)} · {ride.paymentMethod.label}</Text> : null}
         </View>
 
-        {recovered ? <StatusBanner tone="warning" title="Votre chauffeuse a annulé" message={`Motif : ${ride.driverCancellations[ride.driverCancellations.length - 1]!.reasonText}. Nous cherchons une autre chauffeuse ; vous pouvez annuler sans frais.`} testID="driver-cancelled" /> : null}
-        {ride.driverLocation?.stale ? <StatusBanner tone="warning" icon={<Signal size={20} color={colors.warning} />} title="Position non mise à jour" message={`Dernière position reçue il y a ${secondsBetween(ride.driverLocation.at, now)} s. La course continue ; la carte se mettra à jour dès le retour du signal.`} testID="stale-tracking" /> : null}
+        {recovered ? <StatusBanner compact tone="warning" title="Chauffeuse désistée" message={`${ride.driverCancellations[ride.driverCancellations.length - 1]!.reasonText} · annulation sans frais`} testID="driver-cancelled" /> : null}
+        {ride.driverLocation?.stale ? <StatusBanner compact tone="warning" icon={<Signal size={16} color={colors.warning} />} title="Position en attente" message={`dernier signal il y a ${secondsBetween(ride.driverLocation.at, now)} s · la course continue`} testID="stale-tracking" /> : null}
 
         {ride.status === 'searching' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -150,7 +150,7 @@ export default function RideScreen() {
           </View>
         ) : null}
 
-        {ride.status === 'no_driver' ? <StatusBanner tone="warning" icon={<Clock size={20} color={colors.warning} />} title="Toutes les chauffeuses sont occupées" message="Relancez la recherche, ou planifiez ce trajet pour plus tard." testID="no-driver" /> : null}
+        {ride.status === 'no_driver' ? <StatusBanner compact tone="warning" icon={<Clock size={16} color={colors.warning} />} title="Toutes occupées" message="relancez ou planifiez pour plus tard" testID="no-driver" /> : null}
 
         {ride.driver && ['driver_assigned', 'driver_arrived', 'in_progress'].includes(ride.status) ? (
           <DriverCard driver={ride.driver} trailing={<IconButton variant="tonal" icon={<Phone size={20} color={colors.accent} />} accessibilityLabel={`Contacter ${ride.driver.firstName}`} label="Contacter" onPress={() => setContactOpen(true)} testID="contact" />} />
@@ -167,7 +167,7 @@ export default function RideScreen() {
         ) : null}
 
         </ScrollView>
-        <View style={{ paddingHorizontal: gutter, gap: 8, paddingTop: 4 }}>
+        <View style={{ paddingHorizontal: gutter, gap: 6, paddingTop: 2 }}>
         {ride.status === 'no_driver' ? <Button label="Relancer la recherche" size="major" full loading={retry.isPending} onPress={() => retry.mutate()} testID="retry-search" /> : null}
         {ride.status === 'in_progress' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
@@ -175,8 +175,14 @@ export default function RideScreen() {
             <Text variant="caption" tone="muted">Trajet partagé avec l’équipe sécurité Naya jusqu’à l’arrivée.</Text>
           </View>
         ) : null}
-        {cancellable ? <Button label={ride.status === 'searching' || ride.status === 'no_driver' ? 'Annuler la demande' : 'Annuler la course'} variant="secondary" full onPress={() => setCancelOpen(true)} testID="cancel-ride" /> : null}
-        {ride.status === 'no_driver' ? <Button label="Annuler et planifier plus tard" variant="ghost" full icon={<MapPinned size={18} color={colors.accent} />} loading={planLater.isPending} onPress={() => planLater.mutate()} testID="plan-later" /> : null}
+        {ride.status === 'no_driver' ? (
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Button label="Planifier" variant="secondary" style={{ flex: 1 }} full icon={<MapPinned size={17} color={colors.accent} />} loading={planLater.isPending} onPress={() => planLater.mutate()} testID="plan-later" />
+            <Button label="Annuler" variant="secondary" style={{ flex: 1 }} full onPress={() => setCancelOpen(true)} testID="cancel-ride" />
+          </View>
+        ) : cancellable ? (
+          <Button label={ride.status === 'searching' ? 'Annuler la demande' : 'Annuler la course'} variant="secondary" full onPress={() => setCancelOpen(true)} testID="cancel-ride" />
+        ) : null}
         </View>
       </View>
 

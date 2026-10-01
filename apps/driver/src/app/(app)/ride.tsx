@@ -151,8 +151,8 @@ export default function RideScreen() {
         </Glass>
       </View>
 
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 14, ...shadow.float }}>
-        {stale ? <StatusBanner tone="warning" title="Connexion instable" message="Votre position n’est plus transmise. Les actions seront envoyées au retour du réseau." testID="stale-banner" /> : null}
+      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 16, gap: 12, ...shadow.float }}>
+        {stale ? <StatusBanner compact tone="warning" title="Connexion instable" message="actions envoyées au retour du réseau" testID="stale-banner" /> : null}
 
         {approaching || ride.status === 'driver_arrived' ? (
           <View style={{ gap: 4 }}>
@@ -196,7 +196,7 @@ export default function RideScreen() {
           </View>
         )}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, borderRadius: radius.row, padding: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.background, borderRadius: 20, paddingVertical: 10, paddingLeft: 12, paddingRight: 10 }}>
           <IconDisc size={40}>
             <UserRound size={20} color={colors.accent} />
           </IconDisc>
@@ -207,8 +207,8 @@ export default function RideScreen() {
               {ride.paymentMethod.kind === 'cash' ? `Espèces · ${formatMoney(ride.terms.breakdown.total)}` : 'Carte · payée via Naya'}
             </Text>
           </View>
-          <IconButton variant="tonal" icon={<Phone size={18} color={colors.accent} />} accessibilityLabel={`Contacter ${ride.passenger.firstName}`} label="Contacter" onPress={() => setContactOpen(true)} testID="contact-passenger" />
-          <IconButton variant="tonal" icon={<Navigation size={18} color={colors.accent} />} accessibilityLabel="Ouvrir la navigation" label="Naviguer" onPress={() => openNavigation(target.location, target.label)} testID="open-navigation" />
+          <IconButton variant="solid" icon={<Phone size={18} color={colors.accent} />} accessibilityLabel={`Contacter ${ride.passenger.firstName}`} onPress={() => setContactOpen(true)} testID="contact-passenger" />
+          <IconButton variant="solid" icon={<Navigation size={18} color={colors.accent} />} accessibilityLabel="Ouvrir la navigation" onPress={() => openNavigation(target.location, target.label)} testID="open-navigation" />
         </View>
 
         {ride.status === 'driver_assigned' ? <Button label="Signaler mon arrivée" size="major" full loading={step.isPending} onPress={() => step.run('arrive')} testID="ride-arrive" /> : null}

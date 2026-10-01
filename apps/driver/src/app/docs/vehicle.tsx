@@ -6,7 +6,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { vehicleDetailsSchema, type VehicleDetailsInput } from '@naya/domain';
-import { Button, FormField, Header, Screen, StatusBanner, toast } from '@naya/ui';
+import { colors } from '@naya/tokens';
+import { Button, FieldRow, FormField, Header, Screen, StatusBanner, Text, toast } from '@naya/ui';
 import { useAccountId, useCases } from '@/lib/queries';
 
 /** D04-car: vehicle identity. Creates the vehicle dossier (reviewed separately from the driver). */
@@ -34,14 +35,18 @@ export default function VehicleDetails() {
     },
   });
   return (
-    <Screen keyboard header={<Header title="Votre véhicule" subtitle="Tel qu’indiqué sur la carte grise." onBack={() => router.back()} />} footer={<Button label="Enregistrer" size="major" full loading={save.isPending} onPress={handleSubmit((v) => save.mutate(v))} testID="save-vehicle" />}>
-      <View style={{ gap: 18, marginTop: 12 }}>
-        <Controller control={control} name="make" render={({ field, fieldState }) => <FormField label="Marque" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-make" />} />
-        <Controller control={control} name="model" render={({ field, fieldState }) => <FormField label="Modèle" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-model" />} />
-        <Controller control={control} name="color" render={({ field, fieldState }) => <FormField label="Couleur" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-color" />} />
-        <Controller control={control} name="plate" render={({ field, fieldState }) => <FormField label="Immatriculation" value={field.value} onChangeText={(t) => field.onChange(t.toUpperCase())} error={fieldState.error?.message} autoCapitalize="characters" testID="vehicle-plate" />} />
-        <Controller control={control} name="year" render={({ field, fieldState }) => <FormField label="Année de mise en circulation" value={field.value ? String(field.value) : ''} onChangeText={(t) => field.onChange(Number(t.replace(/\D/g, '').slice(0, 4)) || 0)} error={fieldState.error?.message} keyboardType="number-pad" maxLength={4} testID="vehicle-year" />} />
-        <StatusBanner tone="neutral" title="Examen séparé" message="Votre véhicule est approuvé indépendamment de votre dossier personnel." />
+    <Screen keyboard header={<Header title="Votre véhicule" subtitle="Comme sur la carte grise." onBack={() => router.back()} />} footer={<Button label="Enregistrer" size="major" full loading={save.isPending} onPress={handleSubmit((v) => save.mutate(v))} testID="save-vehicle" />}>
+      <View style={{ gap: 12, marginTop: 4 }}>
+        <StatusBanner compact tone="neutral" title="Examen séparé" message="le véhicule est approuvé indépendamment de vous" />
+        <FieldRow>
+          <Controller control={control} name="make" render={({ field, fieldState }) => <FormField label="Marque" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-make" />} />
+          <Controller control={control} name="model" render={({ field, fieldState }) => <FormField label="Modèle" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-model" />} />
+        </FieldRow>
+        <FieldRow>
+          <Controller control={control} name="color" render={({ field, fieldState }) => <FormField label="Couleur" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} testID="vehicle-color" />} />
+          <Controller control={control} name="year" render={({ field, fieldState }) => <FormField label="Année" value={field.value ? String(field.value) : ''} onChangeText={(t) => field.onChange(Number(t.replace(/\D/g, '').slice(0, 4)) || 0)} error={fieldState.error?.message} keyboardType="number-pad" maxLength={4} accessibilityHint="Année de mise en circulation" testID="vehicle-year" />} />
+        </FieldRow>
+        <Controller control={control} name="plate" render={({ field, fieldState }) => <FormField label="Immatriculation" value={field.value} onChangeText={(t) => field.onChange(t.toUpperCase())} error={fieldState.error?.message} autoCapitalize="characters" leading={<View style={{ backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, marginLeft: -6 }}><Text variant="micro" weight="bold" tone="inverse">MA</Text></View>} inputStyle={{ letterSpacing: 1.5, fontFamily: 'Inter_600SemiBold' }} testID="vehicle-plate" />} />
       </View>
     </Screen>
   );

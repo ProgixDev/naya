@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { identityDetailsSchema, type IdentityDetailsInput } from '@naya/domain';
-import { Button, FormField, Header, Pill, Screen, StatusBanner, Text, toast } from '@naya/ui';
+import { Button, DateField, FieldRow, FormField, Header, Screen, SegmentedControl, StatusBanner, Text, toast } from '@naya/ui';
 import { useAccountId, useCases } from '@/lib/queries';
 
 const DOCS = [
@@ -39,34 +39,28 @@ export default function IdentityDetails() {
   if (!person) return null;
   return (
     <Screen keyboard header={<Header title="Vos informations" subtitle="Comme sur votre pièce d’identité." onBack={() => router.back()} />} footer={<Button label="Enregistrer" size="major" full loading={save.isPending} onPress={handleSubmit((v) => save.mutate(v))} testID="save-identity" />}>
-      <View style={{ gap: 18, marginTop: 12 }}>
-        <Controller control={control} name="firstName" render={({ field, fieldState }) => <FormField label="Prénom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="given-name" textContentType="givenName" testID="first-name" />} />
-        <Controller control={control} name="lastName" render={({ field, fieldState }) => <FormField label="Nom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="family-name" textContentType="familyName" testID="last-name" />} />
-        <Controller control={control} name="birthDate" render={({ field, fieldState }) => <FormField label="Date de naissance" value={field.value} onChangeText={(t) => field.onChange(formatDate(t))} onBlur={field.onBlur} error={fieldState.error?.message} placeholder="AAAA-MM-JJ" keyboardType="number-pad" maxLength={10} helper="Vous devez avoir 18 ans ou plus." testID="birth-date" />} />
+      <View style={{ gap: 12, marginTop: 4 }}>
+        <StatusBanner compact tone="neutral" title="Vérifié par une personne de l’équipe Naya" />
+        <FieldRow>
+          <Controller control={control} name="firstName" render={({ field, fieldState }) => <FormField label="Prénom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="given-name" textContentType="givenName" testID="first-name" />} />
+          <Controller control={control} name="lastName" render={({ field, fieldState }) => <FormField label="Nom" value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} error={fieldState.error?.message} autoComplete="family-name" textContentType="familyName" testID="last-name" />} />
+        </FieldRow>
+        <Controller control={control} name="birthDate" render={({ field, fieldState }) => <DateField label="Date de naissance · 18 ans ou plus" value={field.value} onChange={field.onChange} error={fieldState.error?.message} testID="birth-date" />} />
         <Controller
           control={control}
           name="documentType"
           render={({ field }) => (
-            <View style={{ gap: 8 }}>
-              <Text variant="caption" weight="semibold">
+            <View style={{ gap: 6 }}>
+              <Text variant="caption" weight="semibold" tone="muted" style={{ marginLeft: 4 }}>
                 Type de pièce
               </Text>
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                {DOCS.map((d) => (
-                  <Pill key={d.value} label={d.label} selected={field.value === d.value} onPress={() => field.onChange(d.value)} />
-                ))}
-              </View>
+              <SegmentedControl options={DOCS.map((d) => ({ value: d.value, label: d.label }))} value={field.value} onChange={field.onChange} testID="document-type" />
             </View>
           )}
         />
         <Controller control={control} name="documentNumber" render={({ field, fieldState }) => <FormField label="Numéro de la pièce" value={field.value} onChangeText={(t) => field.onChange(t.toUpperCase())} onBlur={field.onBlur} error={fieldState.error?.message} autoCapitalize="characters" testID="document-number" />} />
-        {Object.keys(formState.errors).length ? <StatusBanner tone="danger" title="Vérifiez les champs signalés" /> : null}
+        {Object.keys(formState.errors).length ? <StatusBanner compact tone="danger" title="Vérifiez les champs signalés" /> : null}
       </View>
     </Screen>
   );
-}
-
-function formatDate(t: string) {
-  const d = t.replace(/\D/g, '').slice(0, 8);
-  return [d.slice(0, 4), d.slice(4, 6), d.slice(6, 8)].filter(Boolean).join('-');
 }

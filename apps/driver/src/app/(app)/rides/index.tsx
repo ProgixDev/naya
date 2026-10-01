@@ -17,7 +17,7 @@ export default function RideHistory() {
   const rides = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <Screen header={<Header title="Mes courses" onBack={() => router.back()} />} testID="ride-history">
-      <View style={{ gap: 16, marginTop: 12 }}>
+      <View style={{ gap: 12, marginTop: 4 }}>
         {q.isLoading ? <SkeletonList /> : null}
         {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
         {q.data && rides.length === 0 ? <EmptyState title="Aucune course pour le moment" message="Vos courses terminées et annulées apparaîtront ici." testID="rides-empty" /> : null}
@@ -31,7 +31,7 @@ export default function RideHistory() {
                   key={r.id}
                   title={`${r.id} · ${r.route.stops[r.route.stops.length - 1]!.label}`}
                   subtitle={`${formatShort(r.completedAt ?? r.cancellation?.at ?? r.requestedAt)} · ${cancelled ? 'Annulée' : `${r.paymentMethod.kind === 'cash' ? 'Espèces' : 'Carte'} · net ${formatMoney(net)}`}`}
-                  leading={<IconDisc tone={cancelled ? 'danger' : 'plain'}>{cancelled ? <XCircle size={18} color={colors.danger} /> : r.paymentMethod.kind === 'cash' ? <Banknote size={18} color={colors.accent} /> : <CreditCard size={18} color={colors.accent} />}</IconDisc>}
+                  leading={<IconDisc size={36} tone={cancelled ? 'danger' : 'plain'}>{cancelled ? <XCircle size={17} color={colors.danger} /> : r.paymentMethod.kind === 'cash' ? <Banknote size={17} color={colors.accent} /> : <CreditCard size={17} color={colors.accent} />}</IconDisc>}
                   onPress={() => router.push({ pathname: '/rides/[id]', params: { id: r.id } })}
                   testID={`ride-row-${r.id}`}
                 />

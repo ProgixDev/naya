@@ -36,7 +36,7 @@ export default function Trips() {
       contentStyle={{ paddingBottom: space + 12 }}
       refreshControl={<RefreshControl refreshing={scheduled.isRefetching || history.isRefetching} onRefresh={() => (tab === 'upcoming' ? scheduled.refetch() : history.refetch())} tintColor={colors.accent} />}
     >
-      <View style={{ gap: 16, marginTop: 8 }}>
+      <View style={{ gap: 12, marginTop: 4 }}>
         <SegmentedControl options={[{ value: 'upcoming', label: 'À venir' }, { value: 'history', label: 'Historique' }]} value={tab} onChange={setTab} testID="trips-tabs" />
         {tab === 'upcoming' ? (
           scheduled.isLoading ? (
@@ -52,7 +52,7 @@ export default function Trips() {
                   <ListRow key={b.id} testID={`scheduled-${b.id}`} title={formatDateTime(b.pickupAt)} subtitle={`${b.route.stops[0]!.label} → ${b.route.stops[b.route.stops.length - 1]!.label} · ${formatMoney(b.terms.breakdown.total)}`} leading={<IconDisc><CalendarClock size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push({ pathname: '/scheduled/[id]', params: { id: b.id } })} />
                 ))}
               </ListGroup>
-              <StatusBanner tone="neutral" title="Réservation enregistrée" message="Aucune chauffeuse n’est confirmée à l’avance : la recherche commence 15 minutes avant le départ." />
+              <StatusBanner compact tone="neutral" title="Recherche 15 min avant" message="aucune chauffeuse n’est confirmée à l’avance" />
             </>
           )
         ) : null}

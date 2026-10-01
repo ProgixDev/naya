@@ -23,11 +23,11 @@ export default function Payments() {
   const target = methods.data?.find((m) => m.id === removing);
   return (
     <Screen testID="payments" header={<Header title="Moyens de paiement" onBack={() => router.back()} />} footer={<Button label="Ajouter une carte" full size="major" onPress={() => router.push('/card/new')} testID="add-card" />}>
-      <View style={{ gap: 16, marginTop: 12 }}>
+      <View style={{ gap: 12, marginTop: 4 }}>
         {methods.isLoading ? <SkeletonList rows={3} /> : null}
         {methods.isError ? <ErrorState onRetry={() => methods.refetch()} /> : null}
         {methods.data ? (
-          <ListGroup footnote="Touchez un moyen pour le définir comme préféré.">
+          <ListGroup footnote="Touchez un moyen pour le définir comme préféré. Naya ne conserve qu’un jeton et les 4 derniers chiffres.">
             {methods.data.map((m) => (
               <ListRow
                 key={m.id}
@@ -47,8 +47,7 @@ export default function Payments() {
             ))}
           </ListGroup>
         ) : null}
-        <StatusBanner tone="neutral" title={`Disponibles à ${me.data?.city.name ?? 'Rabat'}`} message="Les moyens proposés dépendent de votre ville. Les cartes sont gérées par le prestataire de paiement : Naya ne conserve qu’un jeton et les 4 derniers chiffres." />
-        <StatusBanner tone="warning" title="Paiement carte en démonstration" message="Le prestataire est simulé : •••• 4242 est acceptée, •••• 0002 refusée, •••• 3155 reste en attente. Aucun débit réel." />
+        <StatusBanner compact tone="warning" title="Démo" message="•••• 4242 acceptée, 0002 refusée, 3155 en attente · aucun débit réel" />
       </View>
       <ConfirmDialog visible={!!target} title="Supprimer cette carte ?" message={target?.label} confirmLabel="Supprimer la carte" destructive loading={remove.isPending} onConfirm={() => target && remove.mutate(target.id)} onCancel={() => setRemoving(null)} />
     </Screen>

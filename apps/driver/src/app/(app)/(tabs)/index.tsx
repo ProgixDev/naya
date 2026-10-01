@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,17 +14,18 @@ import { useAccountId, useDriverStatus, useMe } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
 import { useForegroundLocation } from '@/lib/location';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
+import { ActionNote, StatTile } from '@/components/Kit';
 
 const RABAT = { lat: 34.0189, lng: -6.8367 };
 
 function reasonBanner(r: EligibilityReason) {
   switch (r.code) {
     case 'debt_limit':
-      return { key: r.code, tone: 'danger' as const, title: 'Plafond de dette atteint', message: `Solde : ${formatMoney(r.balance)}. Les nouvelles propositions sont bloquées. Une course en cours n’est jamais interrompue.`, action: { label: 'Recharger', onPress: () => router.push('/recharge') } };
+      return { key: r.code, tone: 'danger' as const, title: 'Plafond de dette atteint', message: `Solde ${formatMoney(r.balance)} · nouvelles propositions bloquées.`, action: { label: 'Recharger', onPress: () => router.push('/recharge') } };
     case 'identity_not_approved':
-      return { key: r.code, tone: 'warning' as const, title: 'Dossier chauffeuse en attente', message: 'Votre identité et votre permis doivent être approuvés.', action: { label: 'Voir le dossier', onPress: () => router.push('/docs/status') } };
+      return { key: r.code, tone: 'warning' as const, title: 'Dossier chauffeuse en attente', message: 'Identité et permis à faire approuver.', action: { label: 'Dossier', onPress: () => router.push('/docs/status') } };
     case 'vehicle_not_approved':
-      return { key: r.code, tone: 'warning' as const, title: 'Véhicule en attente', message: 'Votre véhicule doit être approuvé pour passer en ligne.', action: { label: 'Voir le dossier', onPress: () => router.push('/docs/status') } };
+      return { key: r.code, tone: 'warning' as const, title: 'Véhicule en attente', message: 'Il doit être approuvé pour passer en ligne.', action: { label: 'Dossier', onPress: () => router.push('/docs/status') } };
     case 'city_unavailable':
       return { key: r.code, tone: 'info' as const, title: 'Ville en phase de test', message: 'Naya n’accepte pas encore de courses dans cette ville pour votre compte.' };
     case 'account_suspended':
@@ -102,53 +103,46 @@ export default function Dashboard() {
         <IconButton icon={<Text variant="label" weight="semibold" tone="accent">{firstName.charAt(0) || 'N'}</Text>} accessibilityLabel="Mon compte" onPress={() => router.navigate('/account')} />
       </View>
 
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: TAB_BAR_SPACE + insets.bottom - 8, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 16, ...shadow.float }}>
+      <View style={{ position: 'absolute', left: 12, right: 12, bottom: TAB_BAR_SPACE + insets.bottom - 8, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 16, gap: 12, ...shadow.float }}>
         {status.isLoading ? (
           <View style={{ gap: 12 }}>
             <Skeleton width="50%" height={18} />
             <Skeleton height={48} />
-            <Skeleton height={54} radius={27} />
+            <Skeleton height={50} radius={25} />
           </View>
         ) : d ? (
           <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityLabel={online ? 'Vous êtes en ligne' : 'Vous êtes hors ligne'}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 }} accessible accessibilityLabel={online ? 'Vous êtes en ligne' : 'Vous êtes hors ligne'}>
               <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: online ? colors.success : colors.surface, borderWidth: 2, borderColor: online ? colors.success : colors.ink }} />
-              <Text variant="heading" testID="online-state">
-                {online ? 'Vous êtes en ligne' : 'Vous êtes hors ligne'}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text variant="heading" testID="online-state">
+                  {online ? 'Vous êtes en ligne' : 'Vous êtes hors ligne'}
+                </Text>
+                <Text variant="micro" tone="muted" numberOfLines={1}>
+                  {online ? 'Propositions en direct · 30 s pour répondre' : blocked ? 'Réglez le point ci-dessous pour passer en ligne' : 'Choisissez quand prendre la route'}
+                </Text>
+              </View>
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 16 }}>
-              <PressableScale style={{ flex: 1, gap: 2 }} onPress={() => router.navigate('/earnings')} accessibilityRole="button" accessibilityLabel={`Revenus nets aujourd’hui ${formatMoney(earnings.data?.net ?? 0)}`}>
-                <Text variant="caption" tone="muted">
-                  Revenus nets
-                </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <StatTile label="Revenus nets" foot={`Aujourd’hui · ${earnings.data?.rideCount ?? 0} course${(earnings.data?.rideCount ?? 0) > 1 ? 's' : ''}`} onPress={() => router.navigate('/earnings')} accessibilityLabel={`Revenus nets aujourd’hui ${formatMoney(earnings.data?.net ?? 0)}`}>
                 <Money amount={earnings.data?.net ?? 0} variant="title" />
-                <Text variant="micro" tone="muted">
-                  Aujourd’hui · {earnings.data?.rideCount ?? 0} course{(earnings.data?.rideCount ?? 0) > 1 ? 's' : ''}
-                </Text>
-              </PressableScale>
-              <PressableScale style={{ flex: 1, gap: 2 }} onPress={() => router.navigate('/wallet')} accessibilityRole="button" accessibilityLabel={`Portefeuille ${formatMoney(d.wallet.balance)}`} testID="home-wallet">
-                <Text variant="caption" tone="muted">
-                  Portefeuille
-                </Text>
+              </StatTile>
+              <StatTile label="Portefeuille" foot="Solde comptable" onPress={() => router.navigate('/wallet')} accessibilityLabel={`Portefeuille ${formatMoney(d.wallet.balance)}`} testID="home-wallet">
                 <Money amount={d.wallet.balance} variant="title" tone={d.wallet.offersBlockedByDebt ? 'danger' : 'ink'} />
-                <Text variant="micro" tone="muted">
-                  Voir les mouvements
-                </Text>
-              </PressableScale>
+              </StatTile>
             </View>
 
-            {restored ? <StatusBanner tone="success" title="Accès rétabli" message="Votre solde est repassé sous le plafond : vous pouvez de nouveau recevoir des courses." testID="restored-banner" /> : null}
-            {d.activeRide ? <StatusBanner tone="info" title={`Course ${d.activeRide.id} en cours`} message="Reprenez le guidage de la course acceptée." action={{ label: 'Reprendre', onPress: () => router.push('/ride') }} testID="resume-ride" /> : null}
-            {d.awaitingCashRide ? <StatusBanner tone="warning" title={`Espèces à confirmer · ${d.awaitingCashRide.id}`} message={`Confirmez l’encaissement de ${formatMoney(d.awaitingCashRide.terms.breakdown.total)}.`} action={{ label: 'Confirmer', onPress: () => router.push({ pathname: '/ride-end/[id]', params: { id: d.awaitingCashRide!.id } }) }} testID="cash-pending" /> : null}
-            {banners.slice(0, 2).map((b) => (b ? <StatusBanner key={b.key} tone={b.tone} title={b.title} message={b.message} action={b.action} testID={`reason-${b.key}`} /> : null))}
+            {restored ? <StatusBanner compact tone="success" title="Accès rétabli" message="solde repassé sous le plafond" testID="restored-banner" /> : null}
+            {d.activeRide ? <ActionNote tone="info" title={`Course ${d.activeRide.id} en cours`} message="Reprenez le guidage." action={{ label: 'Reprendre', onPress: () => router.push('/ride') }} testID="resume-ride" /> : null}
+            {d.awaitingCashRide ? <ActionNote tone="warning" title={`Espèces à confirmer · ${d.awaitingCashRide.id}`} message={`${formatMoney(d.awaitingCashRide.terms.breakdown.total)} à encaisser.`} action={{ label: 'Confirmer', onPress: () => router.push({ pathname: '/ride-end/[id]', params: { id: d.awaitingCashRide!.id } }) }} testID="cash-pending" /> : null}
+            {banners.slice(0, 2).map((b) => (b ? <ActionNote key={b.key} tone={b.tone} title={b.title} message={b.message} action={b.action} testID={`reason-${b.key}`} /> : null))}
             {gpsDenied ? (
-              <StatusBanner
+              <ActionNote
                 tone="warning"
                 title="Localisation refusée"
-                message="Sans votre position, Naya ne peut pas vous proposer de courses proches."
-                action={Platform.OS === 'web' || !DEMO_MODE ? { label: 'Ouvrir les réglages', onPress: () => Linking.openSettings().catch(() => toast('Autorisez la localisation dans les réglages du navigateur.')) } : { label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }}
+                message="Sans position, pas de courses proches."
+                action={{ label: 'Réglages', onPress: () => Linking.openSettings().catch(() => toast('Autorisez la localisation dans les réglages du navigateur.')) }}
                 testID="gps-denied"
               />
             ) : null}
@@ -166,16 +160,12 @@ export default function Dashboard() {
               />
             ) : null}
 
-            <Text variant="caption" tone="muted">
-              {online ? 'Une proposition peut arriver à tout moment. Vous aurez 30 secondes pour répondre.' : blocked ? 'Réglez les points ci-dessus pour passer en ligne.' : 'Choisissez quand prendre la route.'}
-            </Text>
             <Button
               label={online ? 'Passer hors ligne' : 'Passer en ligne'}
               variant={online ? 'secondary' : 'primary'}
               size="major"
               full
               disabled={!online && blocked}
-              disabledReason={undefined}
               loading={toggle.isPending}
               onPress={() => toggle.mutate(!online)}
               testID="toggle-online"

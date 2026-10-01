@@ -1,8 +1,10 @@
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { Lock } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import type { VerificationItemKey } from '@naya/domain';
+import { colors } from '@naya/tokens';
 import { CaptureStep, Header, Screen, Text } from '@naya/ui';
 import { useAccountId, useIdentityCase } from '@/lib/queries';
 import { nextStep, PASSENGER_STEPS } from '@/features/verify/steps';
@@ -17,8 +19,8 @@ export default function Capture() {
   if (!step || !identity) return <Screen><View /></Screen>;
   const existing = identity.items.find((i) => i.key === item);
   return (
-    <Screen header={<Header title={step.title} subtitle={correction ? 'Correction demandée' : `${index + 2} sur 4`} onBack={() => router.back()} />}>
-      <View style={{ marginTop: 12, gap: 12 }}>
+    <Screen header={<Header title={step.title} subtitle={correction ? 'Correction demandée' : undefined} progress={correction ? undefined : { step: index + 2, total: 4 }} onBack={() => router.back()} />}>
+      <View style={{ marginTop: 16, gap: 14 }}>
         <CaptureStep
           caseId={identity.id}
           item={step.key}
@@ -35,9 +37,10 @@ export default function Capture() {
             else router.push('/(verify)/review');
           }}
         />
-        <Text variant="micro" tone="muted">
-          Vos pièces sont chiffrées pendant l’envoi et consultables uniquement par l’équipe de vérification.
-        </Text>
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
+          <Lock size={13} color={colors.muted} />
+          <Text variant="micro" tone="muted">Chiffré · visible uniquement par l’équipe de vérification</Text>
+        </View>
       </View>
     </Screen>
   );

@@ -49,7 +49,7 @@ export default function RouteEditor() {
       header={<Header title="Votre itinéraire" onBack={() => router.back()} />}
       footer={<Button label="Voir l’estimation" size="major" full disabled={!complete || outOfZone.length > 0} disabledReason={!complete ? 'Choisissez un départ et une destination.' : outOfZone.length ? 'Une adresse est hors zone.' : undefined} onPress={() => router.push({ pathname: '/quote', params: { schedule: params.schedule } })} testID="see-quote" />}
     >
-      <View style={{ gap: 16, marginTop: 12 }}>
+      <View style={{ gap: 12, marginTop: 8 }}>
         <Card padded={false} style={{ paddingHorizontal: 14, paddingVertical: 4 }}>
           <RouteStopRow role="pickup" place={draft.pickup} placeholder="Choisir le départ" onPress={() => setSlot({ kind: 'pickup' })} testID="stop-pickup" />
           {draft.stops.map((s, i) => (
@@ -66,14 +66,15 @@ export default function RouteEditor() {
           ))}
           <RouteStopRow role="destination" place={draft.destination} placeholder="Où allez-vous ?" onPress={() => setSlot({ kind: 'destination' })} isLast testID="stop-destination" />
         </Card>
-        {outOfZone.length ? <StatusBanner tone="danger" title="Hors zone desservie" message={`${outOfZone.join(', ')} ${outOfZone.length > 1 ? 'sont' : 'est'} en dehors de la zone ${city?.name ?? ''}. Choisissez une autre adresse.`} testID="out-of-zone" /> : null}
-        {draft.stops.length < MAX_STOPS ? (
-          <Button label="Ajouter un arrêt" variant="secondary" full icon={<Plus size={18} color={colors.accent} />} onPress={() => setSlot({ kind: 'newStop' })} disabled={!draft.destination} disabledReason={!draft.destination ? 'Choisissez d’abord la destination.' : undefined} testID="add-stop" />
-        ) : (
-          <StatusBanner tone="neutral" title="Deux arrêts maximum" message="Retirez un arrêt pour en ajouter un autre." testID="max-stops" />
-        )}
-        <Button label="Choisir le départ sur la carte" variant="tonal" full icon={<MapPin size={18} color={colors.accent} />} onPress={() => setPinFor({ kind: 'pickup' })} testID="pin-pickup" />
-        {draft.stops.length > 1 ? <Text variant="caption" tone="muted">Utilisez les poignées pour changer l’ordre des arrêts. Le prix est recalculé à l’étape suivante.</Text> : null}
+        {outOfZone.length ? <StatusBanner compact tone="danger" title="Hors zone" message={`${outOfZone.join(', ')} · choisissez une adresse dans la zone ${city?.name ?? ''}`} testID="out-of-zone" /> : null}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {draft.stops.length < MAX_STOPS ? (
+            <Button label="Ajouter un arrêt" variant="secondary" size="compact" style={{ flex: 1 }} full icon={<Plus size={16} color={colors.accent} />} onPress={() => setSlot({ kind: 'newStop' })} disabled={!draft.destination} testID="add-stop" />
+          ) : null}
+          <Button label="Départ sur la carte" variant="secondary" size="compact" style={{ flex: 1 }} full icon={<MapPin size={16} color={colors.accent} />} onPress={() => setPinFor({ kind: 'pickup' })} testID="pin-pickup" />
+        </View>
+        {draft.stops.length >= MAX_STOPS ? <StatusBanner compact tone="neutral" title="Deux arrêts maximum" message="retirez-en un pour en ajouter" testID="max-stops" /> : null}
+        {!draft.destination ? <Text variant="caption" tone="muted">Choisissez la destination pour ajouter un arrêt.</Text> : draft.stops.length > 1 ? <Text variant="caption" tone="muted">Changez l’ordre avec les flèches ; le prix est recalculé ensuite.</Text> : null}
       </View>
     </Screen>
   );
@@ -94,13 +95,13 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
   const title = slot.kind === 'pickup' ? 'Point de départ' : slot.kind === 'destination' ? 'Destination' : 'Arrêt';
   return (
     <Screen keyboard header={<Header title={title} onClose={onCancel} large={false} />}>
-      <View style={{ gap: 16, marginTop: 4 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, borderRadius: 26, paddingHorizontal: 16, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.accent }}>
+      <View style={{ gap: 12, marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 56, borderRadius: 28, paddingHorizontal: 20, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.accent }}>
           <Search size={20} color={colors.ink} />
           <TextInput ref={input} autoFocus value={q} onChangeText={setQ} placeholder="Rechercher une adresse ou un lieu" placeholderTextColor={colors.disabledText} style={[{ flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]} accessibilityLabel={`Rechercher : ${title}`} testID="place-search" returnKeyType="search" />
           {results.isFetching ? <ActivityIndicator color={colors.accent} /> : null}
         </View>
-        <Button label="Choisir sur la carte" variant="tonal" size="compact" icon={<MapPin size={16} color={colors.accent} />} onPress={onPin} testID="search-pin" />
+        <Button label="Choisir sur la carte" variant="secondary" size="compact" style={{ alignSelf: 'flex-start' }} icon={<MapPin size={16} color={colors.accent} />} onPress={onPin} testID="search-pin" />
         {!debounced && saved.length ? (
           <ListGroup label="Adresses enregistrées">
             {saved.map((s) => (
@@ -146,7 +147,7 @@ function PinPicker({ initial, zones, title, onConfirm, onCancel }: { initial: La
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, padding: gutter, paddingBottom: insets.bottom + 16, gap: 12, ...shadow.float }}>
         <Text variant="heading">{title}</Text>
         <Text variant="label" tone="muted" numberOfLines={2}>{place.data?.address ?? 'Déplacez la carte pour placer le repère…'}</Text>
-        {!inZone ? <StatusBanner tone="danger" title="Hors zone desservie" message="Déplacez le repère dans la zone de service." testID="pin-out-of-zone" /> : null}
+        {!inZone ? <StatusBanner compact tone="danger" title="Hors zone" message="déplacez le repère dans la zone de service" testID="pin-out-of-zone" /> : null}
         <Button label="Confirmer ce point" size="major" full disabled={!place.data || !inZone} onPress={() => place.data && onConfirm(place.data)} testID="confirm-pin" />
       </View>
     </View>

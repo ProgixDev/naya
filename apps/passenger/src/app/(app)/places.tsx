@@ -43,7 +43,7 @@ export default function Places() {
   const saved = me.data?.user.savedPlaces ?? [];
   return (
     <Screen testID="places" header={<Header title="Adresses enregistrées" onBack={() => router.back()} />} footer={<Button label="Ajouter une adresse" full onPress={() => setAdding(true)} testID="add-place" />}>
-      <View style={{ marginTop: 12 }}>
+      <View style={{ marginTop: 4 }}>
         {saved.length === 0 ? (
           <EmptyState title="Aucune adresse" message="Enregistrez Maison et Travail pour réserver en un geste." />
         ) : (

@@ -31,10 +31,10 @@ export default function Preferences() {
   const n = me.data?.user.notifications;
   return (
     <Screen header={<Header title="Préférences" onBack={() => router.back()} />} testID="preferences">
-      <View style={{ gap: 24, marginTop: 12 }}>
+      <View style={{ gap: 16, marginTop: 4 }}>
         <ListGroup label="Notifications">
           {ROWS.map((r) => (
-            <ListRow key={r.key} title={r.title} subtitle={r.subtitle} trailing={<Switch value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} trackColor={{ true: colors.accent, false: colors.line }} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />
+            <ListRow key={r.key} title={r.title} subtitle={r.subtitle} trailing={<Switch value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} trackColor={{ true: colors.accent, false: colors.line }} thumbColor={colors.surface} {...({ activeThumbColor: colors.surface } as object)} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />
           ))}
         </ListGroup>
         <ListGroup label="Affichage (réglages du système)" footnote="Naya suit automatiquement les réglages d’accessibilité de votre téléphone.">
@@ -42,8 +42,8 @@ export default function Preferences() {
           <ListRow title="Réduire la transparence" value={glass === 'opaque' ? 'Surfaces opaques' : 'Verre dépoli'} />
           <ListRow title="Taille du texte" value={`${Math.round(prefs.fontScale * 100)} %`} numericValue />
         </ListGroup>
-        <Text variant="caption" tone="muted">
-          Langue : français. Fuseau horaire : Africa/Casablanca.
+        <Text variant="micro" tone="muted" align="center">
+          Français · Africa/Casablanca
         </Text>
       </View>
     </Screen>

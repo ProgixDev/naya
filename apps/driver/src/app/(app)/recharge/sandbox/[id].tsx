@@ -35,29 +35,34 @@ export default function ProviderSandbox() {
     }
   };
   return (
-    <Screen header={<Header title="Prestataire de paiement" subtitle="Environnement de test du prestataire" onClose={() => router.back()} />} testID="provider-sandbox">
-      <View style={{ gap: 16, marginTop: 12 }}>
-        <StatusBanner tone="warning" icon={<FlaskConical size={20} color={colors.warning} />} title="Simulation du prestataire" message="Aucun paiement réel. Cet écran remplace la page sécurisée du prestataire pour tester la confirmation et le refus." />
+    <Screen
+      header={<Header title="Prestataire de paiement" subtitle="Environnement de test" onClose={() => router.back()} />}
+      footer={
+        <View style={{ gap: 8 }}>
+          <Button label={r.data ? `Autoriser ${formatMoney(r.data.amount)}` : 'Autoriser'} size="major" full loading={busy === 'approve'} disabled={!r.data || r.data.status !== 'pending' || !!busy} onPress={() => resolve('approve')} testID="sandbox-approve" />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button label="Refuser" variant="secondary" full style={{ flex: 1 }} loading={busy === 'decline'} disabled={!r.data || r.data.status !== 'pending' || !!busy} onPress={() => resolve('decline')} testID="sandbox-decline" />
+            <Button label="Fermer sans payer" variant="ghost" full style={{ flex: 1 }} onPress={() => router.back()} testID="sandbox-close" />
+          </View>
+        </View>
+      }
+      testID="provider-sandbox"
+    >
+      <View style={{ gap: 14, marginTop: 4 }}>
+        <StatusBanner compact tone="warning" icon={<FlaskConical size={14} color={colors.warning} />} title="Simulation : aucun paiement réel" message="remplace la page sécurisée du prestataire" />
         {r.data ? (
-          <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <IconDisc>
-                <Text variant="caption" weight="bold" tone="accent">
-                  PSP
-                </Text>
-              </IconDisc>
-              <View style={{ flex: 1 }}>
-                <Text variant="caption" tone="muted">
-                  Bénéficiaire : Naya · réf. {r.data.providerRef}
-                </Text>
-                <Money amount={r.data.amount} variant="title" />
-              </View>
-            </View>
+          <Card style={{ alignItems: 'center', gap: 6, paddingVertical: 20 }}>
+            <IconDisc size={44}>
+              <Text variant="caption" weight="bold" tone="accent">
+                PSP
+              </Text>
+            </IconDisc>
+            <Text variant="caption" tone="muted" align="center">
+              Bénéficiaire : Naya · réf. {r.data.providerRef}
+            </Text>
+            <Money amount={r.data.amount} variant="display" />
           </Card>
         ) : null}
-        <Button label={r.data ? `Autoriser ${formatMoney(r.data.amount)}` : 'Autoriser'} size="major" full loading={busy === 'approve'} disabled={!r.data || r.data.status !== 'pending' || !!busy} onPress={() => resolve('approve')} testID="sandbox-approve" />
-        <Button label="Refuser le paiement" variant="secondary" full loading={busy === 'decline'} disabled={!r.data || r.data.status !== 'pending' || !!busy} onPress={() => resolve('decline')} testID="sandbox-decline" />
-        <Button label="Fermer sans payer" variant="ghost" full onPress={() => router.back()} testID="sandbox-close" />
       </View>
     </Screen>
   );

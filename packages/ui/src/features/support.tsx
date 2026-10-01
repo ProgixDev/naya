@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, Platform, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MessageCircle, Paperclip, X } from 'lucide-react-native';
+import { ArrowUp, MessageCircle, Paperclip, X } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatShort, SUPPORT_STATUS_LABELS, supportTicketSchema, type SupportTicket } from '@naya/domain';
 import { colors, radius } from '@naya/tokens';
-import { Screen, Section } from '../Screen';
+import { Screen } from '../Screen';
+import { PressableScale } from '../PressableScale';
+import { GlossLayers, glossShadow } from '../Material';
 import { Header } from '../Header';
 import { Text } from '../Text';
 import { Button, IconButton } from '../Button';
@@ -30,7 +32,7 @@ export function TicketListScreen({ accountId, onBack, onOpen, onCreate, emptyIma
   const q = useQuery({ queryKey: qk.tickets(accountId), queryFn: api.support.list });
   return (
     <Screen header={<Header title="Mes demandes" onBack={onBack} />} footer={<Button label="Nouvelle demande" full onPress={onCreate} testID="new-ticket" />}>
-      <View style={{ marginTop: 12 }}>
+      <View style={{ marginTop: 4 }}>
         {q.isLoading ? <SkeletonList rows={3} /> : null}
         {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
         {q.data && q.data.length === 0 ? <EmptyState title="Aucune demande" message="Vos échanges avec l’équipe Naya apparaîtront ici." image={emptyImage} /> : null}
@@ -103,21 +105,18 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
   };
   return (
     <Screen keyboard header={<Header title="Nouvelle demande" subtitle={rideId ? `À propos de la course ${rideId}` : undefined} onBack={onBack} />} footer={<Button label="Envoyer la demande" size="major" full loading={create.isPending} onPress={submit} testID="submit-ticket" />}>
-      <View style={{ gap: 20, marginTop: 12 }}>
-        <View style={{ gap: 8 }}>
-          <Text variant="caption" weight="semibold">
-            Sujet
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup">
+      <View style={{ gap: 14, marginTop: 4 }}>
+        <View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Sujet">
             {CATEGORIES.filter((c) => role === 'driver' || c.value !== 'wallet').map((c) => (
               <Pill key={c.value} label={c.label} selected={category === c.value} onPress={() => setCategory(c.value)} testID={`category-${c.value}`} />
             ))}
           </View>
         </View>
         <FormField label="Objet" value={subject} onChangeText={setSubject} error={errors.subject} placeholder="Ex. : montant de la course" testID="ticket-subject" maxLength={120} />
-        <FormField label="Votre message" value={body} onChangeText={setBody} error={errors.body} multiline numberOfLines={5} textAlignVertical="top" placeholder="Décrivez ce qui s’est passé." testID="ticket-body" maxLength={2000} inputStyle={{ minHeight: 120 }} />
+        <FormField label="Votre message" value={body} onChangeText={setBody} error={errors.body} multiline numberOfLines={5} textAlignVertical="top" placeholder="Décrivez ce qui s’est passé." testID="ticket-body" maxLength={2000} inputStyle={{ minHeight: 96 }} />
         <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {attachments.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {attachments.map((a) => (
               <View key={a.id}>
                 <Image source={{ uri: a.uri }} style={{ width: 72, height: 72, borderRadius: radius.row }} contentFit="cover" accessibilityLabel="Pièce jointe" />
@@ -126,13 +125,15 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
                 </View>
               </View>
             ))}
+          </View> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {attachments.length < 3 ? <Button label="Photo" variant="secondary" size="compact" icon={<Paperclip size={16} color={colors.accent} />} loading={uploading} onPress={attach} testID="attach" /> : null}
+            <Text variant="caption" tone="muted" style={{ flex: 1 }}>
+              Pièces jointes privées, vues par l’équipe support seulement.
+            </Text>
           </View>
-          {attachments.length < 3 ? <Button label="Joindre une photo" variant="secondary" size="compact" icon={<Paperclip size={16} color={colors.accent} />} loading={uploading} onPress={attach} testID="attach" /> : null}
-          <Text variant="caption" tone="muted">
-            Les pièces jointes sont privées : seule l’équipe support peut les consulter.
-          </Text>
         </View>
-        {category === 'safety' ? <StatusBanner tone="danger" title="En cas d’urgence, appelez le 19 (police) ou le 15 (SAMU)." message="L’équipe Naya traite les signalements de sécurité en priorité." /> : null}
+        {category === 'safety' ? <StatusBanner compact tone="danger" title="Urgence : 19 (police) · 15 (SAMU)" message="signalements traités en priorité" /> : null}
       </View>
     </Screen>
   );
@@ -160,29 +161,23 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
       header={<Header title={t?.subject ?? 'Demande'} subtitle={t ? `${t.id}${t.rideId ? ` · course ${t.rideId}` : ''}` : undefined} onBack={onBack} />}
       footer={
         t && t.status !== 'resolved' ? (
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-            <View style={{ flex: 1 }}>
-              <FormField label="Répondre" value={text} onChangeText={setText} placeholder="Votre message" multiline testID="reply-input" maxLength={2000} />
-            </View>
-            <Button label="Envoyer" disabled={!text.trim()} loading={send.isPending} onPress={() => send.mutate()} testID="send-reply" />
-          </View>
+          <Composer value={text} onChange={setText} sending={send.isPending} onSend={() => send.mutate()} />
         ) : undefined
       }
     >
       {q.isLoading ? <SkeletonList rows={3} /> : null}
       {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
       {t ? (
-        <View style={{ gap: 16, marginTop: 8 }}>
+        <View style={{ gap: 12, marginTop: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TicketStatus ticket={t} />
             <Text variant="caption" tone="muted">
               Mise à jour {formatShort(t.updatedAt)}
             </Text>
           </View>
-          {t.status === 'awaiting_user' ? <StatusBanner tone="warning" title="L’équipe attend votre réponse" message="Répondez ci-dessous pour poursuivre l’échange." /> : null}
+          {t.status === 'awaiting_user' ? <StatusBanner compact tone="warning" title="L’équipe attend votre réponse" message="répondez ci-dessous" /> : null}
           {t.resolution ? <StatusBanner tone="success" title={`Résolue · ${t.resolution.outcome}`} message={t.resolution.note} /> : null}
-          <Section title="Échanges" style={{ marginTop: 8 }}>
-            <View style={{ gap: 10 }}>
+          <View style={{ gap: 10, marginTop: 4 }} accessibilityLabel="Échanges">
               {t.messages.map((m) => {
                 const mine = m.author === 'user';
                 return (
@@ -209,10 +204,33 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
                   </View>
                 );
               })}
-            </View>
-          </Section>
+          </View>
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+/** Pill composer: the field and a round glossy send button share one capsule. */
+function Composer({ value, onChange, sending, onSend }: { value: string; onChange: (v: string) => void; sending: boolean; onSend: () => void }) {
+  const ready = !!value.trim() && !sending;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, paddingVertical: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Votre réponse"
+        placeholderTextColor={colors.disabledText}
+        multiline
+        maxLength={2000}
+        accessibilityLabel="Répondre"
+        testID="reply-input"
+        style={[{ flex: 1, minHeight: 40, maxHeight: 120, paddingTop: 10, paddingBottom: 10, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+      />
+      <PressableScale onPress={onSend} disabled={!ready} accessibilityRole="button" accessibilityLabel="Envoyer" accessibilityState={{ disabled: !ready, busy: sending }} testID="send-reply" style={[{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: ready ? undefined : colors.selected }, ready ? glossShadow('accent') : null]}>
+        {ready ? <GlossLayers tone="accent" radius={20} /> : null}
+        <View>{sending ? <ActivityIndicator color={colors.accent} /> : <ArrowUp size={20} color={ready ? colors.inverse : colors.disabledText} />}</View>
+      </PressableScale>
+    </View>
   );
 }

@@ -8,11 +8,11 @@ import { Divider, Money, PressableScale, Sheet, Text } from '@naya/ui';
 
 type Figure = 'available' | 'reserved' | 'debt' | 'pending';
 
-const DEFS: Record<Figure, { title: string; body: string }> = {
-  available: { title: 'Disponible au retrait', body: 'Solde comptable moins les retraits en cours de traitement. C’est le montant que vous pouvez retirer maintenant.' },
-  reserved: { title: 'Réservé', body: 'Montant bloqué par un retrait en cours. Il reste dans votre solde jusqu’à la confirmation de la banque, et redevient disponible si le virement échoue.' },
-  debt: { title: 'Dette de commission', body: 'Commissions dues sur vos courses en espèces, non encore compensées par des courses carte ou une recharge. Au plafond, les nouvelles courses sont suspendues.' },
-  pending: { title: 'Recharge en attente', body: 'Recharge demandée mais pas encore confirmée par le prestataire. Elle ne compte pas dans votre solde tant qu’elle n’est pas confirmée.' },
+const DEFS: Record<Figure, { title: string; short: string; body: string }> = {
+  available: { title: 'Disponible au retrait', short: 'Disponible', body: 'Solde comptable moins les retraits en cours de traitement. C’est le montant que vous pouvez retirer maintenant.' },
+  reserved: { title: 'Réservé', short: 'Réservé', body: 'Montant bloqué par un retrait en cours. Il reste dans votre solde jusqu’à la confirmation de la banque, et redevient disponible si le virement échoue.' },
+  debt: { title: 'Dette de commission', short: 'Dette', body: 'Commissions dues sur vos courses en espèces, non encore compensées par des courses carte ou une recharge. Au plafond, les nouvelles courses sont suspendues.' },
+  pending: { title: 'Recharge en attente', short: 'En attente', body: 'Recharge demandée mais pas encore confirmée par le prestataire. Elle ne compte pas dans votre solde tant qu’elle n’est pas confirmée.' },
 };
 
 /**
@@ -37,13 +37,13 @@ export function WalletCard({ wallet }: { wallet: Wallet }) {
           <PressableScale key={f} pressedScale={0.98} onPress={() => setOpen(f)} accessibilityRole="button" accessibilityLabel={`${DEFS[f].title} ${formatMoney(amountFor(f))}. Afficher la définition`} style={styles.figure} testID={`wallet-${f}`}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text variant="micro" tone="inverse" style={{ opacity: 0.82 }}>
-                {DEFS[f].title}
+                {DEFS[f].short}
               </Text>
               <Info size={12} color={colors.inverse} style={{ opacity: 0.8 }} />
             </View>
             <Text variant="label" tone="inverse" weight="semibold" numeric>
               {formatMoney(amountFor(f))}
-              {f === 'debt' ? <Text variant="caption" tone="inverse" style={{ opacity: 0.75 }}>{` / ${formatMoney(wallet.debtLimit)}`}</Text> : null}
+              {f === 'debt' ? <Text variant="micro" tone="inverse" style={{ opacity: 0.75 }}>{` / ${formatMoney(wallet.debtLimit, { currency: false })}`}</Text> : null}
             </Text>
           </PressableScale>
         ))}
@@ -69,7 +69,7 @@ export function WalletCard({ wallet }: { wallet: Wallet }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.card + 4, padding: 20, overflow: 'hidden', gap: 2 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  figure: { width: '50%', paddingRight: 8, paddingVertical: 8, gap: 2, minHeight: 44 },
+  card: { borderRadius: radius.card + 4, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10, overflow: 'hidden', gap: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10, marginHorizontal: -6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.24)', paddingTop: 6 },
+  figure: { flexGrow: 1, flexBasis: '30%', paddingHorizontal: 6, paddingVertical: 6, gap: 2, minHeight: 44 },
 });

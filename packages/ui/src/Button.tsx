@@ -146,7 +146,8 @@ export function IconButton({ icon, accessibilityLabel, onPress, label, variant =
     ) : (
       <View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }, variant === 'solid' ? [frostShadow, frostOutline] : null]}>
         {variant === 'solid' || variant === 'tonal' ? <FrostLayers radius={size / 2} tint={variant === 'tonal' ? 'mauve' : 'white'} /> : null}
-        {icon}
+        {/* Wrapped so the icon paints above the absolutely positioned frost layers (web stacking). */}
+        <View style={styles.disc}>{icon}</View>
       </View>
     );
   return (

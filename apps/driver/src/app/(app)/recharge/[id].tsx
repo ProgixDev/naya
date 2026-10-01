@@ -2,12 +2,11 @@ import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { CheckCircle2, Clock, XCircle } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, formatShort } from '@naya/domain';
-import { colors } from '@naya/tokens';
-import { Button, ErrorState, Header, IconDisc, ListGroup, ListRow, Money, Screen, SkeletonList, StatusBanner, Text, haptic } from '@naya/ui';
+import { Button, Card, ErrorState, Header, Screen, SkeletonList, StatusBanner, haptic } from '@naya/ui';
+import { FigureLine, OperationHero } from '@/components/Kit';
 import { useAccountId, useWallet } from '@/lib/queries';
 
 /** D14-pending · D14-failed · D14-success (+ -normal variants) */
@@ -56,26 +55,16 @@ export default function RechargeStatus() {
       {q.isLoading ? <SkeletonList rows={2} /> : null}
       {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
       {r ? (
-        <View style={{ gap: 16, marginTop: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <IconDisc size={48} tone={r.status === 'confirmed' ? 'success' : r.status === 'failed' ? 'danger' : 'plain'}>
-              {r.status === 'confirmed' ? <CheckCircle2 size={24} color={colors.success} /> : r.status === 'failed' ? <XCircle size={24} color={colors.danger} /> : <Clock size={24} color={colors.accent} />}
-            </IconDisc>
-            <View>
-              <Money amount={r.amount} variant="hero" />
-              <Text variant="caption" tone="muted">
-                {r.providerName} · {r.id} · {formatShort(r.createdAt)}
-              </Text>
-            </View>
-          </View>
-          {r.status === 'pending' ? <StatusBanner tone="info" title="En attente du prestataire" message={r.providerId.includes('card') ? 'Finalisez le paiement sur la page du prestataire. Votre solde ne change pas avant confirmation.' : `Présentez la référence ${r.providerRef} en agence. Votre solde ne change pas avant confirmation.`} testID="recharge-pending-banner" /> : null}
-          {r.status === 'failed' ? <StatusBanner tone="danger" title="Aucun montant n’a été crédité" message={r.failureReason ?? 'Paiement refusé par le prestataire.'} /> : null}
-          {r.status === 'confirmed' && restored ? <StatusBanner tone="success" title="Accès aux courses rétabli" message="Votre dette est repassée sous le plafond. Vous pouvez de nouveau passer en ligne." testID="recharge-restored" /> : null}
+        <View style={{ gap: 14, marginTop: 4 }}>
+          <OperationHero state={r.status === 'confirmed' ? 'confirmed' : r.status === 'failed' ? 'failed' : 'pending'} amount={r.amount} kicker={r.status === 'confirmed' ? 'Recharge créditée' : r.status === 'failed' ? 'Aucun montant crédité' : 'En attente du prestataire'} caption={`${r.providerName} · ${r.id} · ${formatShort(r.createdAt)}`} />
+          {r.status === 'pending' ? <StatusBanner compact tone="info" title={r.providerId.includes('card') ? 'Finalisez sur la page du prestataire' : `Référence ${r.providerRef} à présenter en agence`} message="le solde ne change pas avant confirmation" testID="recharge-pending-banner" /> : null}
+          {r.status === 'failed' ? <StatusBanner compact tone="danger" title="Aucun montant n’a été crédité" message={r.failureReason ?? 'paiement refusé par le prestataire'} /> : null}
+          {r.status === 'confirmed' && restored ? <StatusBanner compact tone="success" title="Accès aux courses rétabli" message="dette repassée sous le plafond" testID="recharge-restored" /> : null}
           {w ? (
-            <ListGroup>
-              <ListRow title="Solde comptable" value={formatMoney(w.balance)} numericValue testID="recharge-balance" />
-              <ListRow title="Dette de commission" subtitle={`Plafond ${formatMoney(w.debtLimit)}`} value={formatMoney(w.debt)} numericValue />
-            </ListGroup>
+            <Card style={{ paddingVertical: 6, gap: 0 }}>
+              <FigureLine label="Solde comptable" value={formatMoney(w.balance)} strong testID="recharge-balance" />
+              <FigureLine label="Dette de commission" sub={`Plafond ${formatMoney(w.debtLimit)}`} value={formatMoney(w.debt)} />
+            </Card>
           ) : null}
         </View>
       ) : null}

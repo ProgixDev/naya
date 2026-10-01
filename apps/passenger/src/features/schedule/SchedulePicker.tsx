@@ -36,16 +36,14 @@ export function SchedulePicker({ day, time, onDay, onTime, minLeadMinutes, maxDa
     if (!time || !slots.includes(time)) onTime(slots[0] ?? null);
   }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <View style={{ gap: 10 }} testID="schedule-picker">
-      <Text variant="caption" weight="semibold">Jour de départ</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
+    <View style={{ gap: 4 }} testID="schedule-picker">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityLabel="Jour de départ" contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
         {opts.days.map((d) => (
           <Pill key={d.date} label={d.label} selected={d.date === day} onPress={() => onDay(d.date)} testID={`day-${d.date}`} />
         ))}
       </ScrollView>
-      <Text variant="caption" weight="semibold">Heure (heure de Rabat)</Text>
       {slots.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityLabel="Heure de départ (heure de Rabat)" contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
           {slots.map((t) => (
             <Pill key={t} label={t.replace(':', 'h')} selected={t === time} onPress={() => onTime(t)} testID={`time-${t}`} />
           ))}

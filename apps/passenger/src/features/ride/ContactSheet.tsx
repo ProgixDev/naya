@@ -11,8 +11,8 @@ import type { DriverSummary } from '@naya/domain';
 export function ContactSheet({ driver, visible, onClose }: { driver: DriverSummary; visible: boolean; onClose: () => void }) {
   return (
     <Sheet visible={visible} onClose={onClose} title={`Contacter ${driver.firstName}`} subtitle="Vos numéros restent masqués." testID="contact-sheet">
-      <View style={{ gap: 14 }}>
-        <StatusBanner tone="warning" title="Appel et message masqués indisponibles" message="Cette fonction nécessite un fournisseur de téléphonie avec masquage de numéro, non configuré dans la démonstration." />
+      <View style={{ gap: 12 }}>
+        <StatusBanner compact tone="warning" title="Démo" message="appel masqué : fournisseur non configuré" />
         <ListGroup>
           <ListRow title="Appeler via Naya" subtitle="Indisponible · fournisseur non configuré" leading={<IconDisc><Phone size={18} color={colors.disabledText} /></IconDisc>} />
           <ListRow title="Envoyer un message" subtitle="Indisponible · fournisseur non configuré" leading={<IconDisc><MessageSquare size={18} color={colors.disabledText} /></IconDisc>} />

@@ -35,21 +35,22 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
   });
   const fee = preview.data?.fee ?? 0;
   return (
-    <Sheet visible={visible} onClose={onClose} dismissible={!cancel.isPending} title="Annuler la course ?" subtitle="Dites-nous pourquoi. Cela nous aide à améliorer le service." testID="cancel-sheet">
-      <View style={{ gap: 16 }}>
+    <Sheet visible={visible} onClose={onClose} dismissible={!cancel.isPending} title="Annuler la course ?" subtitle="Choisissez un motif." testID="cancel-sheet">
+      <View style={{ gap: 12 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup">
           {PASSENGER_CANCEL_REASONS.map((r) => (
             <Pill key={r.code} label={r.label} selected={reason === r.code} onPress={() => setReason(r.code)} testID={`reason-${r.code}`} />
           ))}
         </View>
         {preview.isLoading ? (
-          <Skeleton height={64} radius={16} />
+          <Skeleton height={44} radius={22} />
         ) : preview.data ? (
-          <StatusBanner tone={fee > 0 ? 'warning' : 'success'} title={fee > 0 ? `Frais d’annulation : ${formatMoney(fee)}` : 'Annulation gratuite'} message={preview.data.explanation} testID="cancel-fee" />
+          <StatusBanner tone={fee > 0 ? 'warning' : 'success'} title={fee > 0 ? `Frais : ${formatMoney(fee)}` : 'Annulation gratuite'} message={preview.data.explanation} testID="cancel-fee" />
         ) : null}
         <Button
           label={fee > 0 ? `Annuler et payer ${formatMoney(fee)}` : 'Annuler sans frais'}
           variant="danger"
+          size="major"
           full
           disabled={!reason || !preview.data}
           disabledReason={!reason ? 'Choisissez un motif.' : undefined}
@@ -57,7 +58,7 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
           onPress={() => cancel.run()}
           testID="confirm-cancel"
         />
-        <Button label="Garder ma course" variant="ghost" full onPress={onClose} disabled={cancel.isPending} />
+        <Button label="Garder ma course" variant="secondary" full onPress={onClose} disabled={cancel.isPending} />
         <Text variant="micro" tone="muted" align="center">
           {ride.paymentMethod.kind === 'card' ? 'Les frais éventuels sont débités sur la carte de la course.' : 'Les frais éventuels sont à régler avec votre prochaine course.'}
         </Text>

@@ -10,7 +10,7 @@ import { Button, Header, ListGroup, ListRow, Screen, StatusBanner, haptic, toast
 import { useAccountId, useIdentityCase } from '@/lib/queries';
 import { PASSENGER_STEPS } from '@/features/verify/steps';
 
-/** P04-review: check every piece, then send for manual review. */
+/** P04-review: Persona-style hub — every piece on one card, then send for manual review. */
 export default function Review() {
   const api = useApi();
   const qc = useQueryClient();
@@ -30,38 +30,45 @@ export default function Review() {
     },
   });
   if (!identity) return null;
-  const missing = PASSENGER_STEPS.filter((s) => {
-    const it = identity.items.find((i) => i.key === s.key);
-    return !it || it.uploadIds.length === 0 || it.status === 'needs_correction' || it.status === 'missing';
-  });
+  const stateOf = (key: (typeof PASSENGER_STEPS)[number]['key']) => {
+    const it = identity.items.find((i) => i.key === key);
+    if (it?.status === 'needs_correction') return 'fix' as const;
+    return it && it.uploadIds.length > 0 && it.status !== 'missing' ? ('ok' as const) : ('todo' as const);
+  };
+  const missing = PASSENGER_STEPS.filter((s) => stateOf(s.key) !== 'ok');
   const resubmission = identity.status === 'more_info_requested';
+  const icon = (s: 'ok' | 'fix' | 'todo') => (s === 'ok' ? <CheckCircle2 size={22} color={colors.success} /> : s === 'fix' ? <CircleAlert size={22} color={colors.warning} /> : <Circle size={22} color={colors.line} />);
+  const openStep = (key: string) => router.push({ pathname: '/(verify)/capture/[item]', params: { item: key, correction: resubmission ? '1' : undefined } });
+  const done = PASSENGER_STEPS.length - missing.length + (identity.identity ? 1 : 0);
   return (
     <Screen
-      header={<Header title="Vérifier et envoyer" subtitle={resubmission ? 'Complément à envoyer' : '4 sur 4 · Dernière étape'} onBack={() => router.back()} />}
-      footer={<Button label={resubmission ? 'Envoyer le complément' : 'Envoyer mon dossier'} size="major" full disabled={missing.length > 0} disabledReason={missing.length ? 'Ajoutez les pièces manquantes.' : undefined} loading={submit.isPending} onPress={() => submit.mutate()} testID="submit-identity" />}
+      header={<Header title="Votre dossier" subtitle={resubmission ? 'Reprenez la pièce signalée, puis renvoyez.' : `${done} sur 4 éléments prêts`} onBack={() => router.back()} />}
+      footer={
+        missing.length > 0 ? (
+          <Button label={`Continuer · ${ITEM_LABELS[missing[0]!.key]}`} size="major" full onPress={() => openStep(missing[0]!.key)} testID="submit-identity" />
+        ) : (
+          <Button label={resubmission ? 'Envoyer le complément' : 'Envoyer mon dossier'} size="major" full loading={submit.isPending} onPress={() => submit.mutate()} testID="submit-identity" />
+        )
+      }
     >
-      <View style={{ gap: 20, marginTop: 12 }}>
-        <ListGroup label="Informations">
-          <ListRow title={`${identity.identity?.firstName ?? ''} ${identity.identity?.lastName ?? ''}`.trim() || 'À compléter'} subtitle={identity.identity ? `Née le ${identity.identity.birthDate.split('-').reverse().join('/')} · ${identity.identity.documentNumber}` : undefined} onPress={identity.status === 'draft' ? () => router.push('/(verify)/identity') : undefined} />
-        </ListGroup>
-        <ListGroup label="Pièces">
+      <View style={{ gap: 14, marginTop: 14 }}>
+        <ListGroup>
+          <ListRow
+            title="Informations"
+            subtitle={identity.identity ? `${identity.identity.firstName} ${identity.identity.lastName} · ${identity.identity.birthDate.split('-').reverse().join('/')}` : 'À compléter'}
+            leading={icon(identity.identity ? 'ok' : 'todo')}
+            onPress={identity.status === 'draft' ? () => router.push('/(verify)/identity') : undefined}
+            testID="review-details"
+          />
           {PASSENGER_STEPS.map((s) => {
+            const st = stateOf(s.key);
             const it = identity.items.find((i) => i.key === s.key);
-            const ok = it && it.uploadIds.length > 0 && it.status !== 'needs_correction' && it.status !== 'missing';
-            const fix = it?.status === 'needs_correction';
             return (
-              <ListRow
-                key={s.key}
-                testID={`review-${s.key}`}
-                title={ITEM_LABELS[s.key]}
-                subtitle={fix ? it?.note ?? 'À reprendre' : ok ? 'Ajoutée' : 'Manquante'}
-                leading={ok ? <CheckCircle2 size={22} color={colors.success} /> : fix ? <CircleAlert size={22} color={colors.warning} /> : <Circle size={22} color={colors.muted} />}
-                onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: s.key, correction: identity.status === 'more_info_requested' ? '1' : undefined } })}
-              />
+              <ListRow key={s.key} testID={`review-${s.key}`} title={ITEM_LABELS[s.key]} subtitle={st === 'fix' ? (it?.note ?? 'À reprendre') : st === 'ok' ? 'Ajoutée' : 'À ajouter'} leading={icon(st)} onPress={() => openStep(s.key)} />
             );
           })}
         </ListGroup>
-        <StatusBanner tone="info" title="Envoyer n’est pas encore une validation" message="Une personne de l’équipe Naya examine chaque dossier. Vous recevrez la décision dans l’application." />
+        <StatusBanner compact tone="neutral" title="L’envoi n’est pas une validation" message="une personne examine chaque dossier" />
       </View>
     </Screen>
   );

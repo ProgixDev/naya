@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CreditCard, MessageCircle, Route as RouteIcon, Star } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, CreditCard, MessageCircle, Route as RouteIcon, Star } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDateTime, formatMoney, PAYMENT_STATUS_LABELS, type Payment, type Ride } from '@naya/domain';
@@ -32,6 +32,7 @@ export default function Receipt() {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [payOpen, setPayOpen] = useState(false);
+  const [detail, setDetail] = useState(false);
   const rate = useMutation({
     mutationFn: () => api.rides.rate(id, stars, comment.trim() || null),
     onSuccess: () => {
@@ -66,55 +67,65 @@ export default function Receipt() {
 
   return (
     <Screen testID="receipt" header={<Header title="Votre reçu" subtitle={`${ride.id} · ${formatDateTime(when)}`} onBack={back} />} footer={<Button label="Terminé" full size="major" variant={ride.rating || cancelled ? 'primary' : 'secondary'} onPress={() => router.dismissTo('/')} testID="receipt-done" />}>
-      <View style={{ gap: 16, marginTop: 12 }}>
+      <View style={{ gap: 12, marginTop: 8 }}>
         <Card>
-          <View style={{ gap: 6 }}>
+          <View style={{ gap: 4 }}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, rowGap: 6 }}>
-              <Text variant="heading">{cancelled ? 'Course annulée' : 'Course terminée'}</Text>
+              <Text variant="label" weight="semibold">{cancelled ? 'Course annulée' : 'Course terminée'}</Text>
               {(cancelled ? fee : main) ? <StatusPill tone={state.tone} label={PAYMENT_STATUS_LABELS[(cancelled ? fee : main)!.status]} /> : null}
             </View>
             <View testID="receipt-amount"><Money amount={cancelled ? (fee?.amount ?? 0) : ride.terms.breakdown.total} variant="hero" /></View>
             <Text variant="caption" tone="muted">{cancelled ? (ride.cancellation?.fee ? 'Frais d’annulation' : 'Aucun frais') : ride.paymentMethod.label}</Text>
           </View>
+          {!cancelled ? (
+            <>
+              <PressableScale onPress={() => setDetail((d) => !d)} accessibilityRole="button" accessibilityState={{ expanded: detail }} accessibilityLabel="Détail du prix" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line }} testID="receipt-detail-toggle">
+                <Text variant="label" weight="semibold" style={{ flex: 1 }}>Détail du prix</Text>
+                <Text variant="caption" tone="muted">règles v{ride.terms.ruleVersion}</Text>
+                {detail ? <ChevronUp size={18} color={colors.muted} /> : <ChevronDown size={18} color={colors.muted} />}
+              </PressableScale>
+              {detail ? (
+                <View style={{ marginTop: 10 }}>
+                  <FareBreakdown fare={ride.terms.breakdown} distanceMeters={ride.route.distanceMeters} durationSeconds={ride.route.durationSeconds} dynamicReason={ride.terms.dynamic?.reason} />
+                </View>
+              ) : null}
+            </>
+          ) : null}
         </Card>
-        <StatusBanner tone={state.tone} title={state.title} message={state.message} action={main?.status === 'failed' && !cancelled ? { label: 'Payer avec une autre carte', onPress: () => setPayOpen(true) } : undefined} testID="payment-state" />
-        {cancelled && ride.cancellation ? <StatusBanner tone="neutral" title={`Annulée par ${ride.cancellation.by === 'passenger' ? 'vous' : ride.cancellation.by === 'driver' ? 'la chauffeuse' : 'Naya'}`} message={`Motif : ${ride.cancellation.reasonText}`} /> : null}
-
-        <ListGroup>
-          <ListRow title={ride.route.stops.map((s) => s.label).join(' → ')} subtitle={[ride.route.stops.length > 2 ? `${ride.route.stops.length - 2} arrêt : ${ride.route.stops.slice(1, -1).map((s) => s.label).join(', ')}` : null, ride.driver ? `${ride.driver.firstName} ${ride.driver.lastInitial}. · ${ride.driver.vehicle.plate}` : null].filter(Boolean).join(' · ')} leading={<IconDisc><RouteIcon size={18} color={colors.accent} /></IconDisc>} />
-          <ListRow title="Aide sur cette course" subtitle="Ouvrir une demande liée à la course" leading={<IconDisc><MessageCircle size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push({ pathname: '/support/new', params: { rideId: ride.id } })} testID="receipt-help" />
-        </ListGroup>
-
-        {!cancelled ? (
-          <View style={{ gap: 8 }}>
-            <Text variant="heading">Détail du prix</Text>
-            <Card>
-              <FareBreakdown fare={ride.terms.breakdown} distanceMeters={ride.route.distanceMeters} durationSeconds={ride.route.durationSeconds} dynamicReason={ride.terms.dynamic?.reason} />
-            </Card>
-            <Text variant="caption" tone="muted">Prix fixé à la confirmation (règles v{ride.terms.ruleVersion}).</Text>
-          </View>
-        ) : null}
+        <StatusBanner compact={state.tone === 'success' || state.tone === 'info'} tone={state.tone} title={state.title} message={state.message} action={main?.status === 'failed' && !cancelled ? { label: 'Payer avec une autre carte', onPress: () => setPayOpen(true) } : undefined} testID="payment-state" />
+        {cancelled && ride.cancellation ? <StatusBanner compact tone="neutral" title={`Annulée par ${ride.cancellation.by === 'passenger' ? 'vous' : ride.cancellation.by === 'driver' ? 'la chauffeuse' : 'Naya'}`} message={ride.cancellation.reasonText} /> : null}
 
         {ride.status === 'completed' && ride.driver ? (
           <Card testID="rating">
             {ride.rating ? (
               <Text variant="label">Merci, vous avez noté {ride.driver.firstName} {ride.rating.stars}/5.</Text>
             ) : (
-              <View style={{ gap: 12 }}>
-                <Text variant="heading">Comment s’est passé votre trajet ?</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="adjustable" accessibilityLabel={`Note : ${stars} sur 5`}>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <PressableScale key={n} onPress={() => { haptic.select(); setStars(n); }} accessibilityRole="button" accessibilityLabel={`${n} étoile${n > 1 ? 's' : ''}`} accessibilityState={{ selected: stars >= n }} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }} testID={`star-${n}`}>
-                      <Star size={32} color={colors.accent} fill={stars >= n ? colors.accent : 'transparent'} />
-                    </PressableScale>
-                  ))}
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text variant="label" weight="semibold" style={{ flex: 1 }}>Notez {ride.driver.firstName}</Text>
+                  <View style={{ flexDirection: 'row' }} accessibilityRole="adjustable" accessibilityLabel={`Note : ${stars} sur 5`}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <PressableScale key={n} onPress={() => { haptic.select(); setStars(n); }} accessibilityRole="button" accessibilityLabel={`${n} étoile${n > 1 ? 's' : ''}`} accessibilityState={{ selected: stars >= n }} style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }} testID={`star-${n}`}>
+                        <Star size={26} color={colors.accent} fill={stars >= n ? colors.accent : 'transparent'} />
+                      </PressableScale>
+                    ))}
+                  </View>
                 </View>
-                {stars > 0 ? <FormField label="Un commentaire (facultatif)" value={comment} onChangeText={setComment} multiline maxLength={500} /> : null}
-                <Button label="Envoyer ma note" variant="secondary" disabled={stars === 0} loading={rate.isPending} onPress={() => rate.mutate()} testID="send-rating" />
+                {stars > 0 ? (
+                  <>
+                    <FormField label="Un commentaire (facultatif)" value={comment} onChangeText={setComment} maxLength={500} />
+                    <Button label="Envoyer ma note" variant="secondary" full loading={rate.isPending} onPress={() => rate.mutate()} testID="send-rating" />
+                  </>
+                ) : null}
               </View>
             )}
           </Card>
         ) : null}
+
+        <ListGroup>
+          <ListRow title={ride.route.stops.map((s) => s.label).join(' → ')} subtitle={[ride.route.stops.length > 2 ? `${ride.route.stops.length - 2} arrêt : ${ride.route.stops.slice(1, -1).map((s) => s.label).join(', ')}` : null, ride.driver ? `${ride.driver.firstName} ${ride.driver.lastInitial}. · ${ride.driver.vehicle.plate}` : null].filter(Boolean).join(' · ')} leading={<IconDisc><RouteIcon size={18} color={colors.accent} /></IconDisc>} />
+          <ListRow title="Aide sur cette course" leading={<IconDisc><MessageCircle size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push({ pathname: '/support/new', params: { rideId: ride.id } })} testID="receipt-help" />
+        </ListGroup>
       </View>
 
       <Sheet visible={payOpen} onClose={() => setPayOpen(false)} title="Payer avec une autre carte" subtitle={`${formatMoney(ride.terms.breakdown.total)} · ${ride.id}`}>

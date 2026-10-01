@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Landmark } from 'lucide-react-native';
+import { Landmark } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { assertWithdrawable, formatMoney, parseMoneyInput } from '@naya/domain';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';
-import { Button, ErrorState, FormField, Header, IconDisc, ListGroup, ListRow, Pill, Screen, SkeletonList, StatusBanner, Text, haptic, useSingleFlight } from '@naya/ui';
+import { Button, ErrorState, Header, IconDisc, Screen, SkeletonList, StatusBanner, Text, haptic, useSingleFlight } from '@naya/ui';
+import { ActionNote, AmountEntry, ChoiceRow, QuickPills } from '@/components/Kit';
 import { useAccountId, useWallet } from '@/lib/queries';
 
 /** D15 · D15-insufficient · D15-recharged */
@@ -53,23 +54,31 @@ export default function Withdraw() {
     create.run({ amount, accountId: chosen });
   };
   const after = amount !== null ? Math.max(0, wallet.available - amount) : wallet.available;
+  const allText = formatMoney(wallet.available, { currency: false });
+  const quick = [
+    { key: 'all', label: 'Tout', testID: 'withdraw-all' },
+    ...(wallet.available >= 5000 ? [{ key: '50', label: '50 MAD', testID: 'withdraw-50' }] : []),
+    ...(wallet.available >= 10000 ? [{ key: '100', label: '100 MAD', testID: 'withdraw-100' }] : []),
+  ];
+  const quickSelected = amount !== null && amount === wallet.available ? 'all' : quick.find((x) => x.key === text)?.key ?? null;
+  const shownError = error ?? (amount !== null && localError ? localError : null);
   return (
-    <Screen keyboard header={<Header title="Retirer" subtitle="Traitement automatique, sans validation manuelle." onBack={() => router.back()} />} footer={<Button label="Confirmer le retrait" size="major" full loading={create.isPending} loadingLabel="Envoi à la banque…" disabled={pending || wallet.available <= 0} disabledReason={pending ? 'Un retrait est déjà en cours de traitement.' : wallet.available <= 0 ? 'Aucun montant disponible au retrait.' : undefined} onPress={submit} testID="withdraw-confirm" />} testID="withdraw-screen">
-      <View style={{ gap: 20, marginTop: 12 }}>
-        <FormField label="Montant" value={text} onChangeText={(t) => { setText(t); setError(null); }} keyboardType="decimal-pad" error={error ?? (amount !== null && localError ? localError : null)} helper={`Disponible au retrait : ${formatMoney(wallet.available)} · minimum ${formatMoney(city.minimumWithdrawal)}`} trailing={<Text variant="label" tone="muted">MAD</Text>} testID="withdraw-amount" />
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          <Pill label="Tout le disponible" selected={amount === wallet.available} onPress={() => setText(formatMoney(wallet.available, { currency: false }))} testID="withdraw-all" />
-          {wallet.available >= 5000 ? <Pill label="50 MAD" selected={text === '50'} onPress={() => setText('50')} /> : null}
-        </View>
-        <ListGroup label="Compte de destination">
+    <Screen keyboard header={<Header title="Retirer" onBack={() => router.back()} />} footer={<Button label={amount !== null && !localError ? `Retirer ${formatMoney(amount)}` : 'Confirmer le retrait'} size="major" full loading={create.isPending} loadingLabel="Envoi à la banque…" disabled={pending || wallet.available <= 0 || !!localError} disabledReason={pending ? 'Un retrait est déjà en cours de traitement.' : wallet.available <= 0 ? 'Aucun montant disponible au retrait.' : undefined} onPress={submit} testID="withdraw-confirm" />} testID="withdraw-screen">
+      <View style={{ gap: 16, marginTop: 4 }}>
+        <AmountEntry label="Montant à retirer" value={text} onChangeText={(t) => { setText(t); setError(null); }} error={shownError} helper={`Disponible ${formatMoney(wallet.available)} · minimum ${formatMoney(city.minimumWithdrawal)}`} testID="withdraw-amount" />
+        <QuickPills options={quick} selected={quickSelected} onSelect={(k) => { setText(k === 'all' ? allText : k); setError(null); }} />
+        <View style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Compte de destination">
+          <Text variant="caption" weight="semibold" tone="muted" style={{ marginLeft: 4 }}>
+            Vers le compte
+          </Text>
           {payoutAccounts.map((acc) => (
-            <ListRow key={acc.id} title={acc.label} subtitle={`${acc.bankName} · ••${acc.last4}${acc.last4 === '0000' ? ' · compte de test (virement refusé)' : ''}`} leading={<IconDisc><Landmark size={18} color={colors.accent} /></IconDisc>} trailing={chosen === acc.id ? <Check size={20} color={colors.accent} /> : null} chevron={false} onPress={() => setAccountId(acc.id)} testID={`payout-${acc.last4}`} />
+            <ChoiceRow key={acc.id} title={acc.label} subtitle={`${acc.bankName} · ••${acc.last4}`} leading={<IconDisc size={36}><Landmark size={17} color={colors.accent} /></IconDisc>} selected={chosen === acc.id} onPress={() => setAccountId(acc.id)} testID={`payout-${acc.last4}`} />
           ))}
-        </ListGroup>
+        </View>
         {amount !== null && !localError ? (
-          <StatusBanner tone="neutral" title={`${formatMoney(amount)} seront réservés`} message={`Pendant le transfert, le disponible passera de ${formatMoney(wallet.available)} à ${formatMoney(after)}. Votre solde comptable ne baisse qu’à la confirmation. Frais : 0 MAD.`} testID="withdraw-preview" />
+          <StatusBanner compact tone="neutral" title={`${formatMoney(amount)} réservés pendant le transfert`} message={`disponible ${formatMoney(wallet.available)} → ${formatMoney(after)}, sans frais`} testID="withdraw-preview" />
         ) : null}
-        {pending ? <StatusBanner tone="info" title="Retrait en cours" message="Attendez la fin du transfert en cours avant d’en demander un nouveau." action={{ label: 'Suivre', onPress: () => router.push({ pathname: '/withdraw/[id]', params: { id: pendingWithdrawals[0]!.id } }) }} /> : null}
+        {pending ? <ActionNote tone="info" title="Retrait en cours" message="Attendez la fin du transfert avant d’en demander un nouveau." action={{ label: 'Suivre', onPress: () => router.push({ pathname: '/withdraw/[id]', params: { id: pendingWithdrawals[0]!.id } }) }} /> : null}
       </View>
     </Screen>
   );

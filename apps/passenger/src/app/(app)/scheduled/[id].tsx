@@ -7,7 +7,7 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { casablancaLocalToUtc, formatDateTime, formatMoney, formatShort, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, Card, ConfirmDialog, ErrorState, FareBreakdown, Header, IconDisc, ListGroup, ListRow, Screen, Sheet, SkeletonList, StatusBanner, StatusPill, Text, haptic, toast } from '@naya/ui';
+import { Button, ConfirmDialog, ErrorState, FareBreakdown, Header, IconDisc, ListGroup, ListRow, Screen, Sheet, SkeletonList, StatusBanner, StatusPill, Text, haptic, toast } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 import { SchedulePicker } from '@/features/schedule/SchedulePicker';
 
@@ -20,6 +20,7 @@ export default function ScheduledDetail() {
   const q = useQuery({ queryKey: qk.scheduledOne(a, id), queryFn: () => api.scheduled.get(id), refetchInterval: 15_000 });
   const [editing, setEditing] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [fareOpen, setFareOpen] = useState(false);
   const b = q.data;
   const parts = b ? toCasablancaParts(b.pickupAt) : null;
   const [day, setDay] = useState(parts?.date ?? '');
@@ -60,35 +61,32 @@ export default function ScheduledDetail() {
       header={<Header title={open ? 'Réservation enregistrée' : SCHEDULED_STATUS_LABELS[b.status]} subtitle={b.id} onBack={() => (router.canGoBack() ? router.back() : router.dismissTo('/trips'))} />}
       footer={
         open ? (
-          <>
-            <Button label="Modifier l’horaire" full variant="secondary" disabled={cutoffPassed} disabledReason={cutoffPassed ? 'Modification possible jusqu’à 1 h avant le départ.' : undefined} onPress={() => { setDay(parts!.date); setTime(parts!.time); setEditing(true); }} testID="modify-scheduled" />
-            <Button label="Annuler la réservation" full variant="ghost" onPress={() => setConfirmCancel(true)} testID="cancel-scheduled" />
-          </>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Button label="Modifier l’horaire" full variant="secondary" style={{ flex: 1.3 }} disabled={cutoffPassed} onPress={() => { setDay(parts!.date); setTime(parts!.time); setEditing(true); }} testID="modify-scheduled" />
+            <Button label="Annuler" full variant="secondary" style={{ flex: 1 }} onPress={() => setConfirmCancel(true)} testID="cancel-scheduled" />
+          </View>
         ) : b.rideId ? (
           <Button label="Voir la course" full onPress={() => router.push({ pathname: '/receipt/[id]', params: { id: b.rideId! } })} />
         ) : undefined
       }
     >
-      <View style={{ gap: 16, marginTop: 12 }}>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          <StatusPill tone={b.status === 'cancelled' ? 'danger' : b.status === 'scheduled' ? 'info' : 'neutral'} label={SCHEDULED_STATUS_LABELS[b.status]} />
-        </View>
-        {open ? <StatusBanner tone="info" title="Aucune chauffeuse n’est encore confirmée" message="Votre trajet est enregistré. La recherche commence 15 minutes avant le départ ; nous vous préviendrons dès qu’une chauffeuse accepte." /> : null}
+      <View style={{ gap: 12, marginTop: 4 }}>
+        {open ? <StatusBanner compact tone="info" title="Aucune chauffeuse n’est encore confirmée" message="recherche 15 min avant le départ" /> : <StatusPill tone={b.status === 'cancelled' ? 'danger' : 'neutral'} label={SCHEDULED_STATUS_LABELS[b.status]} />}
+        {open && cutoffPassed ? <Text variant="caption" tone="muted">Modification possible jusqu’à 1 h avant le départ.</Text> : null}
         <ListGroup>
           <ListRow title={formatDateTime(b.pickupAt)} subtitle="Heure de Rabat" leading={<IconDisc><CalendarClock size={18} color={colors.accent} /></IconDisc>} />
           <ListRow title={b.route.stops.map((s) => s.label).join(' → ')} subtitle={b.route.stops[0]!.address} leading={<IconDisc><RouteIcon size={18} color={colors.accent} /></IconDisc>} />
-          <ListRow title={b.paymentMethod.label} subtitle="Moyen de paiement" leading={<IconDisc><CreditCard size={18} color={colors.accent} /></IconDisc>} />
+          <ListRow title={b.paymentMethod.label} subtitle={`Prix gelé · ${formatMoney(b.terms.breakdown.total)}`} leading={<IconDisc><CreditCard size={18} color={colors.accent} /></IconDisc>} onPress={() => setFareOpen(true)} testID="scheduled-fare" />
         </ListGroup>
-        <Card>
-          <FareBreakdown fare={b.terms.breakdown} distanceMeters={b.route.distanceMeters} durationSeconds={b.route.durationSeconds} dynamicReason={b.terms.dynamic?.reason} />
-        </Card>
-        <Text variant="caption" tone="muted">Prix gelé à la réservation : {formatMoney(b.terms.breakdown.total)}, même si les tarifs changent.</Text>
         <ListGroup label="Historique">
           {b.history.map((h, i) => (
-            <ListRow key={i} title={h.label} subtitle={formatShort(h.at)} />
+            <ListRow key={i} title={h.label} value={formatShort(h.at)} />
           ))}
         </ListGroup>
       </View>
+      <Sheet visible={fareOpen} onClose={() => setFareOpen(false)} title="Détail du prix" subtitle="Gelé à la réservation, même si les tarifs changent.">
+        <FareBreakdown fare={b.terms.breakdown} distanceMeters={b.route.distanceMeters} durationSeconds={b.route.durationSeconds} dynamicReason={b.terms.dynamic?.reason} />
+      </Sheet>
       <Sheet visible={editing} onClose={() => setEditing(false)} title="Modifier l’horaire" subtitle="Le prix reste celui de la réservation." footer={<Button label="Enregistrer le nouvel horaire" full loading={modify.isPending} disabled={!time} onPress={() => modify.mutate()} testID="save-schedule" />}>
         <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} />
       </Sheet>

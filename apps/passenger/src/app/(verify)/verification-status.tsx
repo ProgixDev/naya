@@ -1,13 +1,13 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText } from 'lucide-react-native';
+import { BadgeCheck, CircleAlert, Clock3, FileText, XCircle } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDay, ITEM_LABELS, STATUS_LABELS } from '@naya/domain';
 import { aspect, illustrations } from '@naya/assets';
 import { colors } from '@naya/tokens';
-import { Button, ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Screen, SkeletonList, StatusBanner, TextButton, haptic, toast } from '@naya/ui';
+import { Button, ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Screen, SkeletonList, StatusBanner, Text, TextButton, haptic, toast } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 
@@ -36,16 +36,16 @@ export default function Status() {
 
   const received = (
     <ListGroup>
-      <ListRow title={`Identité de ${c.identity?.firstName ?? 'la passagère'}`} subtitle={`${STATUS_LABELS[c.status]}${c.submittedAt ? ` le ${formatDay(c.submittedAt)}` : ''}`} leading={<IconDisc><FileText size={18} color={colors.accent} /></IconDisc>} />
+      <ListRow title={`Identité de ${c.identity?.firstName ?? 'la passagère'}`} subtitle={`${STATUS_LABELS[c.status]}${c.submittedAt ? ` le ${formatDay(c.submittedAt)}` : ''}`} leading={<IconDisc><FileText size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/(verify)/review')} />
     </ListGroup>
   );
 
   if (c.status === 'approved') {
     return (
-      <Screen testID="status-approved" header={<Header title="Dossier approuvé" />} footer={<Button label="Commencer" size="major" full onPress={() => { haptic.success(); qc.invalidateQueries({ queryKey: qk.me(a) }); }} testID="start-app" />}>
-        <View style={{ gap: 20, marginTop: 8 }}>
-          <Illustration source={illustrations.passengerWelcome} aspect={aspect.illustration} width="86%" />
-          <StatusBanner tone="success" title="Bienvenue sur Naya" message={c.decision?.message ?? 'Votre identité a été vérifiée. Vous pouvez réserver votre première course.'} />
+      <Screen testID="status-approved" header={<Header title="Dossier approuvé" subtitle="Votre identité a été vérifiée." />} footer={<Button label="Commencer" size="major" full onPress={() => { haptic.success(); qc.invalidateQueries({ queryKey: qk.me(a) }); }} testID="start-app" />}>
+        <View style={{ gap: 16, marginTop: 12 }}>
+          <Illustration source={illustrations.passengerWelcome} aspect={aspect.illustration} width="78%" maxHeight={240} />
+          <StatusHero tone="success" Icon={BadgeCheck} title="Bienvenue sur Naya" message={c.decision?.message ?? 'Vous pouvez réserver votre première course.'} />
         </View>
       </Screen>
     );
@@ -54,15 +54,14 @@ export default function Status() {
   if (c.status === 'more_info_requested') {
     const fixes = c.items.filter((i) => i.status === 'needs_correction');
     return (
-      <Screen testID="status-more" header={<Header title="Un complément est demandé" />} footer={<Button label="Corriger mon dossier" size="major" full onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: fixes[0]?.key ?? 'id_back', correction: '1' } })} testID="fix-case" />}>
-        <View style={{ gap: 16, marginTop: 8 }}>
-          <StatusBanner tone="warning" title="Presque terminé" message={c.decision?.message ?? 'Une pièce doit être reprise.'} />
+      <Screen testID="status-more" header={<Header title="Un complément est demandé" />} footer={<><Button label="Corriger mon dossier" size="major" full onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: fixes[0]?.key ?? 'id_back', correction: '1' } })} testID="fix-case" />{signOut}</>}>
+        <View style={{ gap: 14, marginTop: 14 }}>
+          <StatusHero tone="warning" Icon={CircleAlert} title="Presque terminé" message={c.decision?.message ?? 'Une pièce doit être reprise.'} />
           <ListGroup label="À reprendre">
             {fixes.map((f) => (
               <ListRow key={f.key} title={ITEM_LABELS[f.key]} subtitle={f.note ?? undefined} onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: f.key, correction: '1' } })} />
             ))}
           </ListGroup>
-          {signOut}
         </View>
       </Screen>
     );
@@ -76,30 +75,52 @@ export default function Status() {
         testID="status-rejected"
         header={<Header title="Dossier non approuvé" />}
         footer={
-          recoverable ? (
-            <Button label="Recommencer avec une pièce valide" size="major" full loading={reopen.isPending} onPress={() => reopen.mutate(c.id)} testID="reopen-case" />
-          ) : (
-            <Button label="Contacter l’assistance" size="major" full onPress={() => router.push('/(verify)/support/new')} />
-          )
+          <>
+            {recoverable ? (
+              <Button label="Recommencer avec une pièce valide" size="major" full loading={reopen.isPending} onPress={() => reopen.mutate(c.id)} testID="reopen-case" />
+            ) : (
+              <Button label="Contacter l’assistance" size="major" full onPress={() => router.push('/(verify)/support/new')} />
+            )}
+            {recoverable ? <Button label="Contacter l’assistance" variant="secondary" full onPress={() => router.push('/(verify)/support/new')} /> : null}
+            {signOut}
+          </>
         }
       >
-        <View style={{ gap: 16, marginTop: 8 }}>
-          <StatusBanner tone="danger" title={reason ?? 'Dossier refusé'} message={c.decision?.message} />
-          {recoverable ? <TextButton label="Contacter l’assistance" onPress={() => router.push('/(verify)/support/new')} /> : null}
-          {signOut}
+        <View style={{ marginTop: 14 }}>
+          <StatusHero tone="danger" Icon={XCircle} title={reason ?? 'Dossier refusé'} message={c.decision?.message ?? ''} />
         </View>
       </Screen>
     );
   }
 
   return (
-    <Screen testID="status-pending" header={<Header title="Dossier envoyé" />} footer={<Button label="Consulter mon dossier" variant="secondary" size="major" full onPress={() => router.push('/(verify)/review')} />}>
-      <View style={{ gap: 16, marginTop: 8 }}>
-        <StatusBanner tone="info" title="En attente de vérification" message="Votre dossier sera examiné manuellement. Nous vous informerons de la décision ici." />
+    <Screen testID="status-pending" header={<Header title="Dossier envoyé" />} footer={<><Button label="Consulter mon dossier" variant="secondary" full onPress={() => router.push('/(verify)/review')} />{signOut}</>}>
+      <View style={{ gap: 14, marginTop: 14 }}>
+        <StatusHero tone="info" Icon={Clock3} title="En attente de vérification" message="Une personne de l’équipe Naya l’examine. Délai habituel : moins de 24 h." />
         {received}
-        <StatusBanner tone="neutral" title="La réservation sera disponible après approbation." />
-        <View style={{ flexDirection: 'row', justifyContent: 'center' }}>{signOut}</View>
+        <StatusBanner compact tone="neutral" title="Réservation disponible après approbation" />
       </View>
     </Screen>
+  );
+}
+
+const toneColors = {
+  info: { bg: colors.infoSoft, fg: colors.info },
+  success: { bg: colors.successSoft, fg: colors.success },
+  warning: { bg: colors.warningSoft, fg: colors.warning },
+  danger: { bg: colors.dangerSoft, fg: colors.danger },
+} as const;
+
+/** One card per decision: tone disc, title, one line. */
+function StatusHero({ tone, Icon, title, message }: { tone: keyof typeof toneColors; Icon: typeof Clock3; title: string; message: string }) {
+  const t = toneColors[tone];
+  return (
+    <View accessible accessibilityRole="summary" style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 18, gap: 10, borderWidth: 1, borderColor: 'rgba(46,32,44,0.06)' }}>
+      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={24} color={t.fg} />
+      </View>
+      <Text variant="heading">{title}</Text>
+      {message ? <Text variant="label" tone="muted">{message}</Text> : null}
+    </View>
   );
 }

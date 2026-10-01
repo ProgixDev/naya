@@ -103,7 +103,7 @@ export default function OfferScreen() {
         topInset={insets.top}
         interactive={false}
       />
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 14, ...shadow.float }}>
+      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 16, gap: 12, ...shadow.float }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <View style={{ gap: 2, flex: 1 }}>
             <Text variant="heading" accessibilityRole="header">
@@ -133,9 +133,10 @@ export default function OfferScreen() {
           {formatDistance(offer.route.distanceMeters)} · {formatDuration(offer.route.durationSeconds)} de trajet estimé
         </Text>
 
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 8 }}>
+          <View style={{ position: 'absolute', left: 8, top: 22, bottom: 22, width: 2, borderRadius: 1, backgroundColor: colors.selected }} />
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-            <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 3, borderColor: colors.accent }} />
+            <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 4, borderColor: colors.accent, backgroundColor: colors.surface }} />
             <View style={{ flex: 1 }}>
               <Text variant="label" numberOfLines={1}>
                 {pickup.label}
@@ -160,7 +161,7 @@ export default function OfferScreen() {
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.background, borderRadius: radius.row, padding: 12 }} accessible accessibilityLabel={`Votre revenu net estimé ${formatMoney(offer.estimatedNet)}, commission ${formatMoney(offer.commission)}`}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.mauveSoft, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }} accessible accessibilityLabel={`Votre revenu net estimé ${formatMoney(offer.estimatedNet)}, commission ${formatMoney(offer.commission)}`}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text variant="label">Votre revenu net estimé</Text>
             <Text variant="micro" tone="muted" numeric>
@@ -169,7 +170,7 @@ export default function OfferScreen() {
             </Text>
           </View>
           <View testID="offer-net" style={{ flexShrink: 0 }}>
-            <Money amount={offer.estimatedNet} tone="accent" />
+            <Money amount={offer.estimatedNet} variant="title" tone="accent" />
           </View>
         </View>
 

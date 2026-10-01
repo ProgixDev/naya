@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { qk } from '@naya/api';
-import { ITEM_LABELS, verificationItemKeySchema, type VerificationItemKey } from '@naya/domain';
+import { ITEM_LABELS, REQUIRED_ITEMS, verificationItemKeySchema, type VerificationItemKey } from '@naya/domain';
 import { CaptureStep, ErrorState, Header, Screen } from '@naya/ui';
 import { useAccountId, useCases } from '@/lib/queries';
 
@@ -28,9 +28,11 @@ export default function Capture() {
   const kase = ['vehicle_registration', 'insurance', 'vehicle_photos'].includes(item) ? vehicle : person;
   if (!kase) return <Screen header={<Header onBack={() => router.back()} />}><ErrorState title="Dossier introuvable" message="Renseignez d’abord les informations du véhicule." /></Screen>;
   const existing = kase.items.find((i) => i.key === item);
+  // Step position inside the dossier: details first, then each required item.
+  const steps = REQUIRED_ITEMS[kase.subject];
   return (
-    <Screen header={<Header title={ITEM_LABELS[item]} onBack={() => router.back()} />}>
-      <View style={{ marginTop: 12 }}>
+    <Screen header={<Header title={ITEM_LABELS[item]} onBack={() => router.back()} progress={{ step: steps.indexOf(item) + 2, total: steps.length + 1 }} />}>
+      <View style={{ marginTop: 4 }}>
         <CaptureStep
           caseId={kase.id}
           item={item}

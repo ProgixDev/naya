@@ -10,7 +10,6 @@ import { Text } from '../Text';
 import { Button, TextButton } from '../Button';
 import { OTPField, PhoneField } from '../Form';
 import { StatusBanner } from '../Feedback';
-import { DemoBadge } from '../Brand';
 import { DEMO_MODE } from '../core/apiBase';
 import { haptic } from '../haptics';
 
@@ -63,17 +62,10 @@ export function PhoneSignInScreen({ role, title, subtitle, onCodeSent, onBack, p
         </>
       }
     >
-      <View style={{ gap: 20, marginTop: 20 }}>
+      <View style={{ gap: 14, marginTop: 16 }}>
         <PhoneField value={digits} onChangeText={(v) => { setDigits(v); if (error) setError(null); }} country={country} onCountryChange={setCountry} error={error} onSubmitEditing={submit} autoFocus />
         {providers}
-        {DEMO_MODE ? (
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <DemoBadge />
-            <Text variant="caption" tone="muted" style={{ flex: 1 }}>
-              Aucun SMS n’est envoyé en démonstration : le code s’affiche à l’étape suivante.
-            </Text>
-          </View>
-        ) : null}
+        {DEMO_MODE ? <StatusBanner compact tone="warning" title="Démo" message="aucun SMS n’est envoyé ; le code s’affiche ensuite" testID="demo-note" /> : null}
       </View>
     </Screen>
   );
@@ -132,11 +124,11 @@ export function OtpScreen({ role, phone, demoCode, onVerified, onBack }: OtpProp
   const masked = phone.replace(/^(\+\d{3})(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/, '$1 $2 $3 $4 $5 $6');
   return (
     <Screen keyboard header={<Header title="Entrez le code" subtitle={`Envoyé par SMS au ${masked}`} onBack={onBack} />} footer={<Button label="Vérifier" size="major" full loading={verify.isPending} disabled={code.length !== 6} onPress={() => verify.mutate(code)} testID="verify-code" />}>
-      <View style={{ gap: 20, marginTop: 24 }}>
+      <View style={{ gap: 14, marginTop: 18 }}>
         <OTPField value={code} onChange={(v) => { setCode(v); if (error) setError(null); }} error={error} onComplete={(c) => !verify.isPending && verify.mutate(c)} />
-        {expired ? <StatusBanner tone="warning" title="Code expiré" message="Demandez un nouveau code, il reste valable 5 minutes." /> : null}
+        {expired ? <StatusBanner compact tone="warning" title="Code expiré" message="demandez-en un nouveau (valable 5 min)" /> : null}
         {shownCode ? (
-          <StatusBanner tone="neutral" title={`Code de démonstration : ${shownCode}`} message="Affiché uniquement dans l’environnement de démonstration." testID="demo-code" />
+          <StatusBanner compact tone="neutral" title={`Code de démonstration : ${shownCode}`} message="démo uniquement" testID="demo-code" />
         ) : null}
         {wait > 0 ? (
           <Text variant="caption" tone="muted" align="center" numeric accessibilityLiveRegion="polite">

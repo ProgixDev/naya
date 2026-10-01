@@ -16,6 +16,7 @@ export default function Welcome() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(0);
+  const [slideHeight, setSlideHeight] = useState(0);
   const scroller = useRef<ScrollView>(null);
   const seen = usePrefs((s) => s.onboardingDone);
   const done = usePrefs((s) => s.setOnboardingDone);
@@ -46,11 +47,13 @@ export default function Welcome() {
         </View>
         {index < SLIDES.length - 1 ? <Button label="Passer" variant="ghost" size="compact" onPress={finish} testID="skip-onboarding" /> : <View />}
       </View>
-      <ScrollView ref={scroller} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll} style={{ flex: 1 }}>
+      <ScrollView ref={scroller} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll} onLayout={(e) => setSlideHeight(e.nativeEvent.layout.height)} style={{ flex: 1 }}>
         {SLIDES.map((s, i) => (
-          <View key={i} style={{ width, paddingHorizontal: gutter, justifyContent: 'center' }} accessibilityElementsHidden={i !== index} importantForAccessibility={i === index ? 'auto' : 'no-hide-descendants'}>
-            <Illustration source={s.image} aspect={aspect.illustration} width="100%" maxHeight={330} />
-            <View style={{ gap: 10, marginTop: 20 }}>
+          <View key={i} style={{ width, height: slideHeight || undefined, paddingHorizontal: gutter, paddingTop: 8, gap: 20 }} accessibilityElementsHidden={i !== index} importantForAccessibility={i === index ? 'auto' : 'no-hide-descendants'}>
+            <View style={{ flex: 1, borderRadius: 32, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 16 }}>
+              <Illustration source={s.image} aspect={aspect.illustration} width="100%" maxHeight={340} />
+            </View>
+            <View style={{ gap: 8, paddingHorizontal: 4 }}>
               <Text variant="hero" accessibilityRole="header">
                 {s.title}
               </Text>
@@ -61,7 +64,7 @@ export default function Welcome() {
           </View>
         ))}
       </ScrollView>
-      <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + 12, gap: 20 }}>
+      <View style={{ paddingHorizontal: gutter, paddingTop: 20, paddingBottom: insets.bottom + 12, gap: 16 }}>
         <View style={{ flexDirection: 'row', gap: 8 }} accessible accessibilityLabel={`Étape ${index + 1} sur ${SLIDES.length}`}>
           {SLIDES.map((_, i) => (
             <View key={i} style={{ height: 8, width: i === index ? 24 : 8, borderRadius: 4, backgroundColor: i === index ? colors.accent : colors.line }} />

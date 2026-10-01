@@ -40,7 +40,7 @@ const SHOTS = [
 
 const browser = await chromium.launch();
 for (const s of SHOTS.filter((x) => !ONLY || x.name.startsWith(ONLY))) {
-  const ctx = await browser.newContext({ viewport: { width: W, height: 844 }, deviceScaleFactor: 2 });
+  const ctx = await browser.newContext({ viewport: { width: W, height: Number(process.env.H ?? 844) }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log(`[${s.name}] pageerror`, e.message));
   await page.goto(WEB);
@@ -71,8 +71,16 @@ for (const s of SHOTS.filter((x) => !ONLY || x.name.startsWith(ONLY))) {
       await page.waitForTimeout(2500);
     }
   }
-  await page.screenshot({ path: `${OUT}${s.name}.png` });
-  console.log('saved', s.name);
+  const contentH = await page.evaluate(() => {
+    let max = 0;
+    for (const el of document.querySelectorAll('*')) {
+      const cs = getComputedStyle(el);
+      if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.clientHeight > 200) max = Math.max(max, el.scrollHeight - el.clientHeight);
+    }
+    return max;
+  });
+  if (!process.env.MEASURE_ONLY) await page.screenshot({ path: `${OUT}${s.name}.png` });
+  console.log('saved', s.name, 'overflow', contentH);
   await ctx.close();
 }
 await browser.close();

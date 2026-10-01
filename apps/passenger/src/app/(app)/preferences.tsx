@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, Platform, Switch, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,14 +7,14 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { NotificationPreferences } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, Header, ListGroup, ListRow, Screen, StatusBanner, Text, toast, useA11yPrefs, useGlassKind } from '@naya/ui';
+import { Header, ListGroup, ListRow, Screen, StatusBanner, Text, TextButton, toast, useA11yPrefs, useGlassKind, Toggle } from '@naya/ui';
 import { useAccountId, useMe } from '@/lib/queries';
 
-const ROWS: { key: keyof NotificationPreferences; title: string; subtitle: string }[] = [
-  { key: 'rideUpdates', title: 'Suivi de course', subtitle: 'Chauffeuse attribuée, arrivée, fin de trajet' },
-  { key: 'scheduledReminders', title: 'Rappels de réservation', subtitle: 'Avant un départ planifié' },
-  { key: 'supportReplies', title: 'Réponses de l’assistance', subtitle: 'Quand l’équipe vous répond' },
-  { key: 'product', title: 'Nouveautés Naya', subtitle: 'Rarement, jamais publicitaire' },
+const ROWS: { key: keyof NotificationPreferences; title: string }[] = [
+  { key: 'rideUpdates', title: 'Suivi de course' },
+  { key: 'scheduledReminders', title: 'Rappels de réservation' },
+  { key: 'supportReplies', title: 'Réponses de l’assistance' },
+  { key: 'product', title: 'Nouveautés Naya (rares)' },
 ];
 
 /** P13-settings / P13-notifications: server-side preferences + device permission asked in context. */
@@ -42,26 +42,22 @@ export default function Preferences() {
   const n = me.data?.user.notifications;
   return (
     <Screen testID="preferences" header={<Header title="Préférences" onBack={() => router.back()} />}>
-      <View style={{ gap: 20, marginTop: 12 }}>
-        {perm === 'undetermined' ? <StatusBanner tone="neutral" title="Recevoir l’arrivée de votre chauffeuse ?" message="Nous vous prévenons quand elle arrive, même si l’app est en arrière-plan." action={{ label: 'Autoriser les notifications', onPress: ask }} /> : null}
-        {perm === 'denied' ? <StatusBanner tone="warning" title="Notifications désactivées" message="Activez-les dans les réglages du téléphone pour être prévenue de l’arrivée." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}
-        {perm === 'unsupported' ? <StatusBanner tone="info" title="Notifications indisponibles ici" message="Les notifications fonctionnent sur l’app iOS et Android (build de développement)." /> : null}
+      <View style={{ gap: 14, marginTop: 4 }}>
+        {perm === 'undetermined' ? <StatusBanner tone="neutral" title="Être prévenue à l’arrivée ?" message="Même si l’app est en arrière-plan." action={{ label: 'Autoriser les notifications', onPress: ask }} /> : null}
+        {perm === 'denied' ? <StatusBanner tone="warning" title="Notifications désactivées" message="Activez-les dans les réglages du téléphone." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}
+        {perm === 'unsupported' ? <StatusBanner compact tone="info" title="Navigateur" message="notifications sur l’app iOS et Android" /> : null}
         <ListGroup label="Notifications">
           {ROWS.map((r) => (
-            <ListRow key={r.key} title={r.title} subtitle={r.subtitle} trailing={<Switch value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} trackColor={{ true: colors.accent, false: colors.line }} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />
+            <ListRow key={r.key} title={r.title} trailing={<Toggle value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />
           ))}
         </ListGroup>
-        <ListGroup label="Affichage" footnote="Naya suit les réglages d’accessibilité du téléphone : réduction des animations et de la transparence, taille du texte.">
+        <ListGroup label="Affichage" footnote="Naya suit les réglages d’accessibilité du téléphone.">
           <ListRow title="Réduire les animations" value={a11y.reduceMotion ? 'Activé' : 'Désactivé'} />
-          <ListRow title="Matériau des commandes flottantes" value={glass === 'opaque' ? 'Opaque' : glass === 'liquid' ? 'Verre natif' : 'Givré'} />
+          <ListRow title="Commandes flottantes" value={glass === 'opaque' ? 'Opaques' : glass === 'liquid' ? 'Verre natif' : 'Givrées'} />
           <ListRow title="Taille du texte" value={`${Math.round(a11y.fontScale * 100)} %`} numericValue />
         </ListGroup>
-        <ListGroup label="Confidentialité">
-          <ListRow title="Vos pièces d’identité" subtitle="Privées, consultables uniquement par l’équipe de vérification" />
-          <ListRow title="Position" subtitle="Utilisée seulement pendant l’app ouverte, pour le point de départ" />
-        </ListGroup>
-        <Text variant="caption" tone="muted">Pour supprimer votre compte, écrivez à l’assistance depuis Aide et demandes.</Text>
-        <Button label="Contacter l’assistance" variant="ghost" full onPress={() => router.push('/support/new')} />
+        <Text variant="caption" tone="muted" style={{ paddingHorizontal: 4 }}>Vos pièces d’identité sont privées (équipe de vérification uniquement). La position sert seulement app ouverte, pour le départ.</Text>
+        <TextButton label="Supprimer mon compte · écrire à l’assistance" onPress={() => router.push('/support/new')} />
       </View>
     </Screen>
   );

@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Check, ChevronRight, CreditCard, SlidersHorizontal, TrendingUp } from 'lucide-react-native';
+import { Banknote, Check, ChevronRight, CreditCard, TrendingUp } from 'lucide-react-native';
 import {
   casablancaLocalToUtc,
   formatDistance,
@@ -131,23 +131,54 @@ export default function QuoteScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="quote">
-      <View style={{ height: '42%' }}>
+      <View style={{ height: '36%' }}>
         <NayaMap center={center} markers={markers} route={q?.route.polyline} fitTo={q?.route.polyline ?? stops.map((s) => s.location)} topInset={insets.top + 8} bottomInset={36} />
         <View style={{ position: 'absolute', top: insets.top + 8, left: gutter }}>
           <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Modifier l’itinéraire" onPress={() => router.back()} testID="quote-back" />
         </View>
       </View>
       <View style={{ flex: 1, marginTop: -28, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float }}>
-        <ScrollView contentContainerStyle={{ padding: gutter, paddingBottom: 24, gap: 14 }} showsVerticalScrollIndicator={false}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text variant="title" style={{ flex: 1, fontSize: 24, lineHeight: 30 }} accessibilityRole="header">
-              Votre trajet
+        <ScrollView contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 18, paddingBottom: 12, gap: 12 }} showsVerticalScrollIndicator={false}>
+          <PressableScale onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={`Itinéraire : ${stops.map((s) => s.label).join(', ')}. Modifier`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text variant="label" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
+              {stops.map((s) => s.label.replace(/^(Rabat|Casablanca) · /, '')).join(' → ')}
             </Text>
-            <IconButton variant="tonal" icon={<SlidersHorizontal size={20} color={colors.ink} />} accessibilityLabel="Modifier l’itinéraire" label="Modifier" onPress={() => router.back()} />
-          </View>
-          <Text variant="label" tone="muted" numberOfLines={2}>
-            {stops.map((s) => s.label).join(' → ')}
-          </Text>
+            <Text variant="caption" weight="semibold" tone="accent">Modifier</Text>
+          </PressableScale>
+
+          {quote.isError ? (
+            <StatusBanner tone="danger" title={isApiError(quote.error) && quote.error.code === 'OUT_OF_ZONE' ? 'Hors zone desservie' : 'Prix indisponible'} message={errorMessage(quote.error)} action={{ label: 'Modifier l’itinéraire', onPress: () => router.back() }} testID="quote-error" />
+          ) : null}
+
+          <PressableScale onPress={() => q && setShowFare(true)} accessibilityRole="button" accessibilityLabel={q ? `Naya, ${formatMoney(total)}, ${formatDistance(q.route.distanceMeters)}, ${formatDuration(q.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, borderRadius: 24, paddingVertical: 10, paddingLeft: 8, paddingRight: 14, borderWidth: 1.5, borderColor: colors.accent }} testID="fare-card" pressedScale={0.98}>
+            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={96} />
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text variant="label" weight="semibold">Naya</Text>
+              {q ? (
+                <Text variant="caption" tone="muted" numeric>
+                  {formatDistance(q.route.distanceMeters)} · {formatDuration(q.route.durationSeconds)}
+                </Text>
+              ) : (
+                <Skeleton width={80} height={12} />
+              )}
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 1 }}>
+              {q ? <Money amount={total} variant="title" style={{ fontSize: 22, lineHeight: 28 }} /> : <Skeleton width={80} height={24} />}
+              <Text variant="micro" tone="muted">Détail ›</Text>
+            </View>
+          </PressableScale>
+
+          {q?.conditions.dynamic ? (
+            <StatusBanner
+              compact
+              tone="warning"
+              icon={<TrendingUp size={16} color={colors.warning} />}
+              title={`Demande élevée ${formatMultiplier(q.conditions.dynamic.multiplierBp)}`}
+              message={`sans majoration ${formatMoney(q.breakdown.total - q.breakdown.dynamicSurcharge)} · prix garanti`}
+              testID="dynamic-banner"
+            />
+          ) : null}
+
           <SegmentedControl
             options={[
               { value: 'now', label: 'Maintenant' },
@@ -157,58 +188,21 @@ export default function QuoteScreen() {
             onChange={setMode}
             testID="mode"
           />
+          {mode === 'schedule' ? <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} /> : null}
 
-          {quote.isError ? (
-            <StatusBanner tone="danger" title={isApiError(quote.error) && quote.error.code === 'OUT_OF_ZONE' ? 'Hors zone desservie' : 'Prix indisponible'} message={errorMessage(quote.error)} action={{ label: 'Modifier l’itinéraire', onPress: () => router.back() }} testID="quote-error" />
-          ) : null}
-
-          <PressableScale onPress={() => q && setShowFare(true)} accessibilityRole="button" accessibilityLabel={q ? `Naya, ${formatMoney(total)}, ${formatDistance(q.route.distanceMeters)}, ${formatDuration(q.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, borderRadius: radius.card, padding: 14 }} testID="fare-card" pressedScale={0.98}>
-            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={120} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="label" weight="semibold">Naya</Text>
-              {q ? <Money amount={total} variant="title" style={{ fontSize: 24, lineHeight: 30 }} /> : <Skeleton width={90} height={26} />}
-              {q ? (
-                <Text variant="caption" tone="muted" numeric>
-                  {formatDistance(q.route.distanceMeters)} · {formatDuration(q.route.durationSeconds)}
-                </Text>
-              ) : (
-                <Skeleton width={80} height={12} />
-              )}
+          <PressableScale onPress={() => setShowPay(true)} accessibilityRole="button" accessibilityLabel={`Paiement : ${pm?.label ?? 'à choisir'}. Changer`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 52, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.background }} testID="payment-row" pressedScale={0.98}>
+            {pm?.kind === 'card' ? <CreditCard size={20} color={colors.ink} /> : <Banknote size={20} color={colors.ink} />}
+            <View style={{ flex: 1 }}>
+              <Text variant="label" weight="semibold" numberOfLines={1}>{pm?.label ?? 'Moyen de paiement'}</Text>
+              <Text variant="micro" tone="muted" numberOfLines={1}>{pm ? (pm.kind === 'cash' ? 'À régler à la fin du trajet' : 'Débitée à l’arrivée') : 'À choisir'}</Text>
             </View>
-            <ChevronRight size={20} color={colors.muted} />
+            <ChevronRight size={18} color={colors.muted} />
           </PressableScale>
-
-          {q?.conditions.dynamic ? (
-            <StatusBanner
-              tone="warning"
-              icon={<TrendingUp size={20} color={colors.warning} />}
-              title={`Demande élevée · ${formatMultiplier(q.conditions.dynamic.multiplierBp)}`}
-              message={`${q.conditions.dynamic.reason} Sans majoration : ${formatMoney(q.breakdown.total - q.breakdown.dynamicSurcharge)}. Ce prix est garanti une fois confirmé.`}
-              testID="dynamic-banner"
-            />
-          ) : null}
-
-          {mode === 'schedule' ? (
-            <View style={{ gap: 8 }}>
-              <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} />
-              <Text variant="caption" tone="muted">La réservation est enregistrée ; la recherche d’une chauffeuse commence 15 minutes avant le départ.</Text>
-            </View>
-          ) : null}
-
-          <ListGroup>
-            <ListRow
-              testID="payment-row"
-              title={pm?.label ?? 'Moyen de paiement'}
-              subtitle={pm ? (pm.kind === 'cash' ? 'À régler à la fin du trajet' : 'Débitée à l’arrivée, après confirmation') : 'À choisir'}
-              leading={pm?.kind === 'card' ? <CreditCard size={20} color={colors.ink} /> : <Banknote size={20} color={colors.ink} />}
-              onPress={() => setShowPay(true)}
-            />
-          </ListGroup>
         </ScrollView>
-        <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + 12, paddingTop: 8, gap: 6 }}>
+        <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + 10, paddingTop: 6, gap: 6 }}>
           <Button label={confirmLabel} size="major" full loading={book.isPending} loadingLabel={mode === 'schedule' ? 'Enregistrement…' : 'Envoi de la demande…'} disabled={!q || !pm || (mode === 'schedule' && !time)} disabledReason={!pm ? 'Choisissez un moyen de paiement.' : undefined} onPress={() => book.run()} testID="confirm-booking" />
           <Text variant="micro" tone="muted" align="center">
-            {q ? `Annulation gratuite ${Math.round(q.conditions.cancellation.graceSeconds / 60)} min après l’attribution, puis ${formatMoney(q.conditions.cancellation.feeAfterGrace)}.` : 'Le prix reste visible avant confirmation.'}
+            {mode === 'schedule' ? 'Recherche d’une chauffeuse 15 min avant le départ.' : q ? `Annulation gratuite ${Math.round(q.conditions.cancellation.graceSeconds / 60)} min après l’attribution, puis ${formatMoney(q.conditions.cancellation.feeAfterGrace)}.` : 'Le prix reste visible avant confirmation.'}
           </Text>
         </View>
       </View>
