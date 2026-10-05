@@ -180,3 +180,7 @@ Not verified here: physical devices, background location with the screen locked,
 - `docs/INTEGRATIONS.md` — what is simulated and what live operation needs
 - `docs/DESIGN.md` — references, principles and improvements over the prototype
 - `docs/SCREENS.md` — screen coverage mapped to Figma IDs, and verification captures
+
+## Website prototype
+
+The new Next.js landing page and backoffice live in `apps/web`. Run `npm run dev` from the root, then open http://localhost:3000 or http://localhost:3000/backoffice. Standalone dependency setup: `npm install --prefix apps/web`. The website uses Tailwind CSS, GSAP and persistent Zustand state. See `apps/web/README.md` for prototype scope and checks.

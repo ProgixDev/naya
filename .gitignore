@@ -17,3 +17,7 @@ _handoff/
 test-results-*/
 .env*.local
 /work/
+
+.next/
+.next-dev/
+/apps/web/review/photo-references/

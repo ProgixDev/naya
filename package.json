@@ -3,7 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "packageManager": "pnpm@12.8.1",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "api": "pnpm --filter @naya/demo-api dev",
     "demo:seed": "pnpm --filter @naya/demo-api seed",
@@ -14,6 +16,10 @@
     "typecheck": "pnpm -r --parallel typecheck",
     "test": "pnpm -r --if-present test",
     "e2e": "pnpm --filter @naya/e2e test",
-    "doctor": "pnpm --filter @naya/passenger doctor && pnpm --filter @naya/driver doctor"
+    "doctor": "pnpm --filter @naya/passenger doctor && pnpm --filter @naya/driver doctor",
+    "web": "pnpm --filter @naya/web dev",
+    "web:build": "pnpm --filter @naya/web build",
+    "dev": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/web"
   }
 }
