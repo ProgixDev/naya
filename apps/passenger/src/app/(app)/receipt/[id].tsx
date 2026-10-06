@@ -1,3 +1,4 @@
+import { useTheme } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -23,6 +24,7 @@ function paymentState(ride: Ride, p: Payment | undefined): { tone: BannerTone; t
 }
 
 export default function Receipt() {
+  useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const api = useApi();
   const qc = useQueryClient();

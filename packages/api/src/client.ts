@@ -1,4 +1,5 @@
 import {
+  type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type PassengerWallet, type SafetyAlert, type PrototypeAdmin,
   ERROR_MESSAGES,
   type AdminUser,
   type AuditEvent,
@@ -142,7 +143,7 @@ export interface AdminOverview {
   completedRides: number;
   volume: Centimes;
   commission: Centimes;
-  byMethod: { cash: Centimes; card: Centimes };
+  byMethod: { cash: Centimes; card: Centimes; wallet: Centimes; mobile_wallet: Centimes };
   activeRides: number;
   reviewQueue: { caseId: string; subject: VerificationCase['subject']; userId: string; userName: string; submittedAt: string | null }[];
   openTickets: number;
@@ -332,6 +333,7 @@ export function createApiClient(opts: ClientOptions) {
 
   return {
     baseUrl: base,
+    uploadPreview: (id: string) => get<{ uri: string; mimeType: string }>(`/uploads/${id}/preview`),
     uploadUrl: (id: string) => opts.uploadUrl?.(id) ?? `${base}/uploads/${id}`,
     health: () => get<{ ok: boolean; version: number; scenario: string; devMode: boolean; time: string }>('/health'),
     sync: () => get<{ version: number; time: string }>('/sync'),
@@ -374,7 +376,7 @@ export function createApiClient(opts: ClientOptions) {
     },
 
     quotes: {
-      create: (cityId: string, stops: Place[]) => post<Quote>('/quotes', { cityId, stops }),
+      create: (cityId: string, stops: Place[], categoryId?: string) => post<Quote>('/quotes', { cityId, stops, categoryId }),
     },
 
     paymentMethods: {
@@ -441,6 +443,29 @@ export function createApiClient(opts: ClientOptions) {
       message: (id: string, input: SupportMessageInput) => post<SupportTicket>(`/support/tickets/${id}/messages`, input),
     },
 
+    prototype: {
+      catalog: () => get<PrototypeCatalog>('/prototype/catalog'),
+      wallet: () => get<PassengerWallet>('/prototype/wallet'),
+      topup: (amount: number, providerId: string, key: string) => post<PassengerWallet['entries'][number]>('/prototype/wallet/topup', { amount, providerId }, key),
+      resolveTopup: (id: string, outcome: 'confirmed' | 'failed') => post<PassengerWallet>(`/prototype/wallet/${id}/resolve`, { outcome }),
+      family: () => get<FamilyOverview>('/prototype/family'),
+      example: () => post<FamilyOverview>('/prototype/family/example'),
+      child: (input: Omit<FamilyChild, 'id' | 'passengerId'>) => post<FamilyChild>('/prototype/family/children', input),
+      subscribe: (planId: string, key: string) => post<FamilySubscription>('/prototype/family/subscribe', { planId }, key),
+      trip: (input: { childId: string; pickup: Place; destination: Place; pickupAt: string; weekdays: number[] }, key: string) => post<FamilyTrip>('/prototype/family/trips', input, key),
+      advance: (id: string, input: { expectedStatus: string; proof?: string; childName?: string; recipientId?: string; code?: string }) => post<FamilyTrip>(`/prototype/family/trips/${id}/advance`, input),
+      incident: (id: string, message: string) => post<FamilyTrip>(`/prototype/family/trips/${id}/incident`, { message }),
+      sos: (input: { rideId: string | null; familyTripId: string | null; location: LatLng; contactName: string }, key: string) => post<SafetyAlert>('/prototype/sos', input, key),
+      alerts: () => get<SafetyAlert[]>('/prototype/sos'),
+      safetyAction: (id: string, action: string) => post<SafetyAlert>(`/prototype/sos/${id}/action`, { action }),
+    },
+    adminPrototype: {
+      get: () => get<PrototypeAdmin>('/admin/prototype'),
+      save: (kind: 'categories' | 'plans' | 'reasons' | 'payments', input: unknown) => request<PrototypeCatalog>('PUT', `/admin/prototype/catalog/${kind}`, input),
+      alert: (id: string, status: SafetyAlert['status'], note: string) => post<SafetyAlert>(`/admin/prototype/alerts/${id}`, { status, note }),
+      assign: (id: string, driverId: string) => post(`/admin/prototype/assignment/${id}`, { driverId }),
+      categories: (id: string, categoryIds: string[]) => post(`/admin/prototype/driver-categories/${id}`, { categoryIds }),
+    },
     admin: {
       login: (email: string, password: string) => post<{ token: string; admin: AdminUser }>('/admin/auth/login', { email, password }),
       me: () => get<AdminUser>('/admin/me'),

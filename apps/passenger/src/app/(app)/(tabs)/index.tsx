@@ -1,3 +1,4 @@
+import { useTheme , Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -9,7 +10,6 @@ import { qk } from '@naya/api';
 import { cars, aspect } from '@naya/assets';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
 import { useAccountId, useActiveRide, useCities, useMe } from '@/lib/queries';
 import { useDraft } from '@/lib/draft';
 import { usePrefs } from '@/lib/prefs';
@@ -20,6 +20,7 @@ import { LocationExplainer } from '@/features/location/LocationExplainer';
 const CITY_DEFAULT_PICKUP: Record<string, Place> = { rabat: PLACES.centreVille, casablanca: PLACES.casaPort };
 
 export default function Home() {
+  useTheme();
   const insets = useSafeAreaInsets();
   const tabSpace = useTabBarSpace();
   const api = useApi();
@@ -55,7 +56,7 @@ export default function Home() {
     },
   });
 
-  const useMyPosition = async () => {
+  const applyMyPosition = async () => {
     setExplainer(false);
     const p = await loc.locate();
     if (!p) return;
@@ -91,7 +92,7 @@ export default function Home() {
         </PressableScale>
       </View>
       <View style={{ position: 'absolute', right: gutter, bottom: tabSpace + 266 }}>
-        <IconButton icon={<LocateFixed size={22} color={colors.ink} />} accessibilityLabel="Utiliser ma position" onPress={() => (loc.status === 'granted' ? useMyPosition() : setExplainer(true))} testID="locate" />
+        <IconButton icon={<LocateFixed size={22} color={colors.ink} />} accessibilityLabel="Utiliser ma position" onPress={() => (loc.status === 'granted' ? applyMyPosition() : setExplainer(true))} testID="locate" />
       </View>
 
       <View style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: tabSpace }}>
@@ -131,7 +132,7 @@ export default function Home() {
         </View>
       </View>
 
-      <LocationExplainer visible={explainer} onClose={() => setExplainer(false)} onAllow={useMyPosition} onManual={() => { setExplainer(false); router.push({ pathname: '/route', params: { pin: '1' } }); }} />
+      <LocationExplainer visible={explainer} onClose={() => setExplainer(false)} onAllow={applyMyPosition} onManual={() => { setExplainer(false); router.push({ pathname: '/route', params: { pin: '1' } }); }} />
       <Sheet visible={cityPicker} onClose={() => setCityPicker(false)} title="Ville" subtitle="Les prix et les moyens de paiement dépendent de la ville." testID="city-picker">
         <ListGroup>
           {(cities.data ?? []).map((c) => {
@@ -155,6 +156,7 @@ export default function Home() {
 
 /** Frosted shortcut pill: one tap to a saved place or to planning. */
 function QuickPill({ label, icon, onPress, testID, a11y }: { label: string; icon: React.ReactNode; onPress: () => void; testID: string; a11y: string }) {
+  useTheme();
   return (
     <PressableScale onPress={onPress} testID={testID} accessibilityRole="button" accessibilityLabel={a11y} style={[styles.chip, frostOutline]} pressedScale={0.985}>
       <FrostLayers radius={18} tint="white" />

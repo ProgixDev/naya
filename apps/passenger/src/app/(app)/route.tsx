@@ -1,3 +1,4 @@
+import { useTheme , Button, Card, EmptyState, Header, IconButton, ListGroup, ListRow, NayaMap, RouteStopRow, Screen, StatusBanner, Text, haptic } from '@naya/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -8,7 +9,6 @@ import { isInService, type LatLng, type Place } from '@naya/domain';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Button, Card, EmptyState, Header, IconButton, ListGroup, ListRow, NayaMap, RouteStopRow, Screen, StatusBanner, Text, haptic } from '@naya/ui';
 import { MAX_STOPS, useDraft } from '@/lib/draft';
 import { useCities, useMe } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
@@ -17,6 +17,7 @@ type Slot = { kind: 'pickup' } | { kind: 'destination' } | { kind: 'stop'; index
 
 /** P07: pickup and destination search, manual pin, up to two ordered stops, zone checks. */
 export default function RouteEditor() {
+  useTheme();
   const params = useLocalSearchParams<{ focus?: string; pin?: string; schedule?: string }>();
   const draft = useDraft();
   const cities = useCities();
@@ -81,6 +82,7 @@ export default function RouteEditor() {
 }
 
 function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; cityId: string; onPick: (p: Place) => void; onCancel: () => void; onPin: () => void }) {
+  useTheme();
   const api = useApi();
   const me = useMe();
   const [q, setQ] = useState('');
@@ -125,6 +127,7 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
 
 /** Manual pin: the map moves under a fixed centre pin; the address resolves when it stops. */
 function PinPicker({ initial, zones, title, onConfirm, onCancel }: { initial: LatLng; zones: { polygon: LatLng[]; active: boolean; id: string; cityId: string; name: string }[]; title: string; onConfirm: (p: Place) => void; onCancel: () => void }) {
+  useTheme();
   const api = useApi();
   const insets = useSafeAreaInsets();
   const [center, setCenter] = useState(initial);

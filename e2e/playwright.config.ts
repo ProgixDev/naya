@@ -22,7 +22,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1, // one shared demo API; scenarios reset it
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
-  use: { trace: 'retain-on-failure', screenshot: 'only-on-failure', locale: 'fr-MA', timezoneId: 'Africa/Casablanca' },
+  use: { launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}, trace: 'retain-on-failure', screenshot: 'only-on-failure', locale: 'fr-MA', timezoneId: 'Africa/Casablanca' },
   projects: [
     { name: 'passenger', testMatch: /passenger.*\.spec\.ts/, use: { ...phone, baseURL: URLS.passenger } },
     { name: 'driver', testMatch: /driver.*\.spec\.ts/, use: { ...phone, baseURL: URLS.driver } },

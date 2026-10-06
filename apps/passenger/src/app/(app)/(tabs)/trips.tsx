@@ -1,3 +1,4 @@
+import { useTheme , PressableScale, Illustration, Text, Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SegmentedControl, SkeletonList, StatusPill } from '@naya/ui';
 import { useState } from 'react';
 import { RefreshControl, View } from 'react-native';
 import { router } from 'expo-router';
@@ -8,11 +9,11 @@ import { useApi } from '@naya/api/react';
 import { formatDateTime, formatMoney, formatShort, SCHEDULED_STATUS_LABELS } from '@naya/domain';
 import { aspect, cars, illustrations } from '@naya/assets';
 import { colors } from '@naya/tokens';
-import { PressableScale, Illustration, Text, Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SegmentedControl, SkeletonList, StatusPill } from '@naya/ui';
 import { useAccountId, useScheduled } from '@/lib/queries';
 import { useTabBarSpace } from '@/components/TabBar';
 
 export default function Trips() {
+  useTheme();
   const api = useApi();
   const a = useAccountId();
   const space = useTabBarSpace();

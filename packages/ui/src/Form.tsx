@@ -1,8 +1,9 @@
+import { themedStyles , colors, radius } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { Children, forwardRef, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Modal, Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
 import { CalendarDays, Check, ChevronDown, type LucideIcon } from 'lucide-react-native';
-import { colors, radius } from '@naya/tokens';
 import { COUNTRIES, formatNational, type Country } from '@naya/domain';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
@@ -30,6 +31,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
   { label, error, helper, icon: Icon, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, value, multiline, placeholder, ...input },
   ref,
 ) {
+  useTheme();
   const { reduceMotion } = useA11yPrefs();
   const [focused, setFocused] = useState(false);
   const floated = focused || !!value || !!leading;
@@ -96,6 +98,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
 
 /** Two fields side by side (e.g. Prénom · Nom). Stacks at large text sizes. */
 export function FieldRow({ children }: { children: ReactNode }) {
+  useTheme();
   const { largeText } = useA11yPrefs();
   return <View style={{ flexDirection: largeText ? 'column' : 'row', gap: 10 }}>{Children.map(children, (c) => <View style={{ flex: largeText ? undefined : 1 }}>{c}</View>)}</View>;
 }
@@ -124,6 +127,7 @@ export interface DateFieldProps {
 
 /** Date of birth as one pill with a JJ / MM / AAAA mask and the number pad. */
 export function DateField({ label, value, onChange, error, testID }: DateFieldProps) {
+  useTheme();
   const [digits, setDigits] = useState(() => digitsFromIso(value));
   useEffect(() => {
     if (value && digitsFromIso(value) !== digits) setDigits(digitsFromIso(value));
@@ -160,6 +164,7 @@ export interface PhoneFieldProps {
 
 /** International phone entry, +212 first; digits grouped as the user types. */
 export function PhoneField({ value, onChangeText, country, onCountryChange, error, onSubmitEditing, autoFocus }: PhoneFieldProps) {
+  useTheme();
   const [open, setOpen] = useState(false);
   const { reduceMotion } = useA11yPrefs();
   return (
@@ -234,6 +239,7 @@ export interface OTPFieldProps {
  * Android sms-otp) fill every box at once.
  */
 export function OTPField({ value, onChange, length = 6, error, onComplete, autoFocus = true }: OTPFieldProps) {
+  useTheme();
   const ref = useRef<TextInput>(null);
   const [focused, setFocused] = useState(autoFocus);
   const digits = useMemo(() => Array.from({ length }, (_, i) => value[i] ?? ''), [value, length]);
@@ -292,6 +298,7 @@ export interface PillProps {
 
 /** 32-pt chip with a 44-pt touch area; selected = ink fill + check, not just a tint. */
 export function Pill({ label, selected, onPress, icon, testID, disabled }: PillProps) {
+  useTheme();
   return (
     <PressableScale
       testID={testID}
@@ -302,6 +309,7 @@ export function Pill({ label, selected, onPress, icon, testID, disabled }: PillP
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected, disabled: !!disabled }}
+      aria-selected={!!selected}
       hitSlop={hitSlopFor(32)}
       style={[styles.pill, selected ? { backgroundColor: colors.ink, borderColor: colors.ink } : null, disabled ? { opacity: 0.5 } : null]}
     >
@@ -313,7 +321,7 @@ export function Pill({ label, selected, onPress, icon, testID, disabled }: PillP
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   field: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', paddingHorizontal: 20, gap: 10, shadowColor: colors.ink, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
   labelWrap: { position: 'absolute', left: 0, right: 0, transformOrigin: 'left center' },
   focused: { borderColor: colors.accent, borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.08, shadowRadius: 8 },
@@ -328,5 +336,5 @@ const styles = StyleSheet.create({
   countryRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 12 },
   box: { flex: 1, maxWidth: 52, height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignItems: 'center', justifyContent: 'center', shadowColor: colors.ink, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
   hiddenInput: { position: 'absolute', opacity: 0.011, height: 1, width: 1 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.8)', borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignSelf: 'flex-start', shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-});
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignSelf: 'flex-start', shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+}));

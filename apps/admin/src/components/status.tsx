@@ -29,7 +29,7 @@ export const PaymentBadge = ({ status }: { status: PaymentStatus }) => <Badge to
 const tTone: Record<TransferStatus, Tone> = { pending: 'warning', confirmed: 'success', failed: 'danger' };
 export const TransferBadge = ({ status }: { status: TransferStatus }) => <Badge tone={tTone[status]}>{TRANSFER_STATUS_LABELS[status]}</Badge>;
 
-const sTone: Record<SupportStatus, Tone> = { open: 'info', in_progress: 'accent', awaiting_user: 'warning', resolved: 'success' };
+const sTone: Record<SupportStatus, Tone> = { open: 'info', in_progress: 'accent', awaiting_user: 'warning', resolved: 'success', rejected: 'danger' };
 export const TicketBadge = ({ status }: { status: SupportStatus }) => <Badge tone={sTone[status]}>{SUPPORT_STATUS_LABELS[status]}</Badge>;
 
 const oTone: Record<OfferStatus, Tone> = { pending: 'info', accepted: 'success', declined: 'neutral', expired: 'warning', withdrawn: 'neutral' };
@@ -44,7 +44,7 @@ export const CityBadge = ({ status }: { status: CityStatus }) => <Badge tone={cT
 export const cityStatusLabel = (s: CityStatus) => CITY_LABELS[s];
 
 export const SUBJECT_LABELS = { passenger_identity: 'Identité passagère', driver_identity: 'Identité chauffeuse', vehicle: 'Véhicule' } as const;
-export const METHOD_LABELS = { cash: 'Espèces', card: 'Carte' } as const;
+export const METHOD_LABELS = { cash: 'Espèces', card: 'Carte', wallet: 'Portefeuille Naya', mobile_wallet: 'Wallet marocain' } as const;
 export const LEDGER_LABELS = {
   ride_commission: 'Commission (espèces)',
   ride_net_credit: 'Revenu net (carte)',

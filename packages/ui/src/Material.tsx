@@ -1,7 +1,8 @@
+import { getColorScheme , colors } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '@naya/tokens';
 import { useGlassKind } from './Glass';
 
 /**
@@ -15,7 +16,9 @@ import { useGlassKind } from './Glass';
 const fill = StyleSheet.absoluteFill;
 
 export function GlossLayers({ tone, radius }: { tone: 'accent' | 'danger'; radius: number }) {
-  const stops = tone === 'danger' ? (['#AF3C49', colors.danger, '#982D3A'] as const) : (['#794462', colors.accent, '#61304F'] as const);
+  useTheme();
+  const dark = getColorScheme() === 'dark';
+  const stops = dark ? (tone === 'danger' ? [colors.danger, colors.danger, colors.danger] as const : [colors.accent, colors.accent, colors.accent] as const) : tone === 'danger' ? (['#AF3C49', colors.danger, '#982D3A'] as const) : (['#794462', colors.accent, '#61304F'] as const);
   return (
     <View pointerEvents="none" style={[fill, { borderRadius: radius, overflow: 'hidden' }]}>
       <LinearGradient colors={stops} locations={[0, 0.5, 1]} style={fill} />
@@ -37,21 +40,23 @@ export const glossShadow = (tone: 'accent' | 'danger'): ViewStyle => ({
 });
 
 export function FrostLayers({ radius, tint = 'white' }: { radius: number; tint?: 'white' | 'mauve' }) {
+  useTheme();
   const kind = useGlassKind();
-  const base = tint === 'mauve' ? 'rgba(243,233,239,0.72)' : 'rgba(255,255,255,0.62)';
+  const dark = getColorScheme() === 'dark';
+  const base = dark ? colors.glass : tint === 'mauve' ? 'rgba(243,233,239,0.72)' : 'rgba(255,255,255,0.62)';
   return (
     <View pointerEvents="none" style={[fill, { borderRadius: radius, overflow: 'hidden' }]}>
       {kind === 'opaque' ? (
         <View style={[fill, { backgroundColor: tint === 'mauve' ? colors.mauveSoft : colors.surface }]} />
       ) : (
         <>
-          {Platform.OS !== 'android' ? <BlurView intensity={28} tint="light" style={fill} /> : null}
+          {Platform.OS !== 'android' ? <BlurView intensity={28} tint={dark ? 'dark' : 'light'} style={fill} /> : null}
           <View style={[fill, { backgroundColor: base }]} />
           {/* top sheen */}
-          <LinearGradient colors={['rgba(255,255,255,0.85)', 'rgba(255,255,255,0)']} locations={[0, 0.55]} style={fill} />
+          <LinearGradient colors={[dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)', 'rgba(255,255,255,0)']} locations={[0, 0.55]} style={fill} />
         </>
       )}
-      <View style={[fill, { borderRadius: radius, borderWidth: 1, borderColor: 'rgba(255,255,255,0.95)' }]} />
+      <View style={[fill, { borderRadius: radius, borderWidth: 1, borderColor: colors.glassBorder }]} />
     </View>
   );
 }

@@ -1,9 +1,10 @@
+import { useTheme , useA11yPrefs } from '@naya/ui';
 import { Tabs } from 'expo-router';
 import { colors, motion } from '@naya/tokens';
-import { useA11yPrefs } from '@naya/ui';
 import { CapsuleTabBar } from '@/components/TabBar';
 
 export default function TabsLayout() {
+  useTheme();
   const { reduceMotion } = useA11yPrefs();
   return (
     <Tabs

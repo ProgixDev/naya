@@ -33,3 +33,11 @@ export * from './WelcomeJourney';
 export * from './ProfileHero';
 export * from './DocumentPicker';
 export * from './motion';
+
+export * from './features/prototype';
+
+export * from './core/theme';
+
+export * from './features/brand';
+
+export * from './features/ThemePicker';

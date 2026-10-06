@@ -1,21 +1,22 @@
+import { themedStyles , colors, radius } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Animated as RNAnimated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { AlertTriangle, CheckCircle2, Info, WifiOff, XCircle } from 'lucide-react-native';
-import { Image } from 'expo-image';
-import { colors, radius } from '@naya/tokens';
+import { Illustration } from './Brand';
 import { Text } from './Text';
 import { Button } from './Button';
 import { useA11yPrefs } from './a11y';
 
 export type BannerTone = 'info' | 'success' | 'warning' | 'danger' | 'neutral';
 
-const toneStyle: Record<BannerTone, { bg: string; fg: string; Icon: typeof Info }> = {
+const toneStyle = themedStyles((): Record<BannerTone, { bg: string; fg: string; Icon: typeof Info }> => ({
   info: { bg: colors.infoSoft, fg: colors.info, Icon: Info },
   success: { bg: colors.successSoft, fg: colors.success, Icon: CheckCircle2 },
   warning: { bg: colors.warningSoft, fg: colors.warning, Icon: AlertTriangle },
   danger: { bg: colors.dangerSoft, fg: colors.danger, Icon: XCircle },
   neutral: { bg: colors.mauveSoft, fg: colors.accent, Icon: Info },
-};
+}));
 
 export interface StatusBannerProps {
   tone?: BannerTone;
@@ -31,6 +32,7 @@ export interface StatusBannerProps {
 
 /** States are icons plus words; problems always keep a sentence explaining the cause. */
 export function StatusBanner({ tone = 'info', title, message, action, icon, style, testID, compact }: StatusBannerProps) {
+  useTheme();
   const t = toneStyle[tone];
   if (compact) {
     return (
@@ -60,6 +62,7 @@ export function StatusBanner({ tone = 'info', title, message, action, icon, styl
 }
 
 export function StatusPill({ tone = 'neutral', label, testID }: { tone?: BannerTone; label: string; testID?: string }) {
+  useTheme();
   const t = toneStyle[tone];
   return (
     <View testID={testID} style={[styles.pill, { backgroundColor: t.bg }]}>
@@ -82,9 +85,10 @@ export interface EmptyStateProps {
 
 /** One sentence and one move. */
 export function EmptyState({ title, message, image, imageAspect = 4 / 3, action, testID }: EmptyStateProps) {
+  useTheme();
   return (
     <View testID={testID} style={styles.empty}>
-      {image ? <Image source={image} style={{ width: 220, aspectRatio: imageAspect }} contentFit="contain" accessibilityIgnoresInvertColors /> : null}
+      {image ? <Illustration source={image} width={220} aspect={imageAspect} /> : null}
       <Text variant="heading" align="center">
         {title}
       </Text>
@@ -99,6 +103,7 @@ export function EmptyState({ title, message, image, imageAspect = 4 / 3, action,
 }
 
 export function ErrorState({ title = 'Impossible de charger', message, onRetry, offline, testID }: { title?: string; message?: string; onRetry?: () => void; offline?: boolean; testID?: string }) {
+  useTheme();
   return (
     <View testID={testID} style={styles.empty} accessibilityRole="alert">
       <View style={styles.errorDisc}>{offline ? <WifiOff size={26} color={colors.danger} /> : <AlertTriangle size={26} color={colors.danger} />}</View>
@@ -115,6 +120,7 @@ export function ErrorState({ title = 'Impossible de charger', message, onRetry, 
 
 /** Grey blocks shaped like the final layout. Pulses gently unless Reduce Motion is on. */
 export function Skeleton({ width = '100%', height = 16, radius: r = 8, style }: { width?: number | `${number}%`; height?: number; radius?: number; style?: StyleProp<ViewStyle> }) {
+  useTheme();
   const { reduceMotion } = useA11yPrefs();
   const opacity = useRef(new RNAnimated.Value(0.55)).current;
   useEffect(() => {
@@ -132,6 +138,7 @@ export function Skeleton({ width = '100%', height = 16, radius: r = 8, style }: 
 }
 
 export function SkeletonList({ rows = 4 }: { rows?: number }) {
+  useTheme();
   return (
     <View accessibilityLabel="Chargement" accessibilityRole="progressbar" style={{ gap: 12 }}>
       {Array.from({ length: rows }, (_, i) => (
@@ -148,11 +155,11 @@ export function SkeletonList({ rows = 4 }: { rows?: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   banner: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.row + 6 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, alignSelf: 'stretch' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, borderRadius: 999 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   empty: { alignItems: 'center', gap: 10, paddingVertical: 32, paddingHorizontal: 16 },
   errorDisc: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.dangerSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-});
+}));

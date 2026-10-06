@@ -1,4 +1,4 @@
-import { useStackMotion, useA11yPrefs } from '@naya/ui';
+import { useTheme , useStackMotion, useA11yPrefs } from '@naya/ui';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Stack, router, usePathname } from 'expo-router';
@@ -42,6 +42,7 @@ function useOfferAndRideWatcher() {
 }
 
 export default function AppLayout() {
+  useTheme();
   const stackMotion = useStackMotion();
   useOfferAndRideWatcher();
   const { reduceMotion } = useA11yPrefs();

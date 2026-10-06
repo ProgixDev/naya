@@ -1,18 +1,10 @@
+import { useTheme } from './core/theme';
 import { Text as RNText, useWindowDimensions, type TextProps, type TextStyle } from 'react-native';
 import { colors, type as scale, type TypeToken } from '@naya/tokens';
 
 export type Tone = 'ink' | 'muted' | 'accent' | 'inverse' | 'success' | 'warning' | 'danger' | 'disabled';
 
-const toneColor: Record<Tone, string> = {
-  ink: colors.ink,
-  muted: colors.muted,
-  accent: colors.accent,
-  inverse: colors.inverse,
-  success: colors.success,
-  warning: colors.warning,
-  danger: colors.danger,
-  disabled: colors.disabledText,
-};
+
 
 export interface NayaTextProps extends TextProps {
   variant?: TypeToken;
@@ -30,6 +22,17 @@ const weightFont = { regular: 'Inter_400Regular', medium: 'Inter_500Medium', sem
  * points and RN multiplies both size and line height by the font scale (capped at 1.6).
  */
 export function Text({ variant = 'body', tone = 'ink', weight, numeric, align, style, maxFontSizeMultiplier = 1.6, ...rest }: NayaTextProps) {
+  useTheme();
+const toneColor: Record<Tone, string> = {
+  ink: colors.ink,
+  muted: colors.muted,
+  accent: colors.accent,
+  inverse: colors.inverse,
+  success: colors.success,
+  warning: colors.warning,
+  danger: colors.danger,
+  disabled: colors.disabledText,
+};
   const t = scale[variant];
   const { fontScale } = useWindowDimensions();
   return (

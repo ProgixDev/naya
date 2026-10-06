@@ -1,3 +1,4 @@
+import { useTheme , Button, EmptyState, ErrorState, Header, Pill, Screen, SkeletonList , TransactionRow } from '@naya/ui';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { colors, gutter, shadow } from '@naya/tokens';
@@ -5,8 +6,6 @@ import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { Button, EmptyState, ErrorState, Header, Pill, Screen, SkeletonList } from '@naya/ui';
-import { TransactionRow } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 
 const FILTERS = [
@@ -19,6 +18,7 @@ const FILTERS = [
 
 /** D13 · D13-filter · D13-cash · D13-withdrawal */
 export default function Ledger() {
+  useTheme();
   const api = useApi();
   const a = useAccountId();
   const [type, setType] = useState<string | undefined>(undefined);

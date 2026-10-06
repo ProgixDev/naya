@@ -1,9 +1,10 @@
+import { themedStyles , colors } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { create } from 'zustand';
-import { colors } from '@naya/tokens';
 import { Text } from './Text';
 import { useA11yPrefs } from './a11y';
 
@@ -29,6 +30,7 @@ export const toast = (message: string, tone?: ToastTone) => useToast.getState().
 
 /** Pill toasts never need dismissing; they announce themselves to screen readers. */
 export function ToastHost() {
+  useTheme();
   const { message, tone, id, hide } = useToast();
   const insets = useSafeAreaInsets();
   const { reduceMotion } = useA11yPrefs();
@@ -49,6 +51,6 @@ export function ToastHost() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   toast: { maxWidth: 340, minHeight: 44, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 999, backgroundColor: colors.ink, justifyContent: 'center' },
-});
+}));

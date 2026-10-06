@@ -41,6 +41,7 @@ import type { State } from '../state';
 import { mustFind, nextId } from '../store';
 import { appendAudit } from '../audit';
 import { postLedger, queueProviderJob, walletOf } from './finance';
+import { categoryFor, ensurePrototype, prototypeMethods, reservePassengerWallet, releasePassengerWallet, settlePassengerWallet, passengerWallet } from './prototype';
 
 const STALE_AFTER_MS = 20_000;
 /** Demo trips play 20× faster than real time so movement is visible in a demo. */
@@ -66,7 +67,7 @@ export function rulesAtVersion(s: State, city: CityConfig, version: number) {
 
 /* ───────────── Quotes ───────────── */
 
-export function createQuote(ctx: Ctx, user: User, cityId: string, stops: Place[]): Quote {
+export function createQuote(ctx: Ctx, user: User, cityId: string, stops: Place[], categoryId?: string): Quote {
   return ctx.store.tx((s) => {
     const city = bookableCity(s, user, cityId);
     const zones = s.zones.filter((z) => z.cityId === city.id);
@@ -75,17 +76,20 @@ export function createQuote(ctx: Ctx, user: User, cityId: string, stops: Place[]
         throw new DomainError('OUT_OF_ZONE', `${p.label} est en dehors de la zone desservie à ${city.name}.`, { index });
       }
     });
+    const category = categoryId ? categoryFor(s, cityId, categoryId) : null;
+    const fareRules = category ? { ...city.rules, baseFare: category.baseFare ?? city.rules.baseFare, perKm: category.perKm ?? city.rules.perKm, perMinute: category.perMinute ?? city.rules.perMinute, minimumFare: category.minimumFare ?? city.rules.minimumFare } : city.rules;
     const route = demoRoute(stops);
     const multiplier = city.rules.dynamic.enabled ? city.rules.dynamic.multiplierBp : NO_MULTIPLIER;
     const now = ctx.clock.now();
     const quote: Quote = {
+      ...(category ? { service: { id: category.id, name: category.name, icon: category.icon, etaMinutes: category.etaMinutes, commissionBp: category.commissionBp } } : {}),
       id: nextId(s, 'QT', 5),
       passengerId: user.id,
       cityId: city.id,
       currency: 'MAD',
       ruleVersion: city.rulesVersion,
       route,
-      breakdown: computeFare(city.rules, route.distanceMeters, route.durationSeconds, multiplier),
+      breakdown: computeFare(fareRules, route.distanceMeters, route.durationSeconds, multiplier),
       conditions: {
         cancellation: city.rules.cancellation,
         dynamic: multiplier > NO_MULTIPLIER ? { multiplierBp: multiplier, reason: city.rules.dynamic.reason } : null,
@@ -106,6 +110,7 @@ function takeQuote(s: State, user: User, quoteId: string, nowMs: number) {
   if (quote.status !== 'open') throw new DomainError('CONFLICT', 'Ce devis a déjà été utilisé.');
   if (Date.parse(quote.expiresAt) <= nowMs) throw new DomainError('QUOTE_EXPIRED');
   const city = bookableCity(s, user, quote.cityId);
+  if (quote.service) categoryFor(s, quote.cityId, quote.service.id);
   quote.status = 'used';
   return { quote, city };
 }
@@ -113,12 +118,13 @@ function takeQuote(s: State, user: User, quoteId: string, nowMs: number) {
 function freezeTerms(s: State, quote: Quote, city: CityConfig, at: string): FrozenTerms {
   const rules = rulesAtVersion(s, city, quote.ruleVersion);
   return {
+    service: quote.service,
     quoteId: quote.id,
     cityId: quote.cityId,
     currency: quote.currency,
     ruleVersion: quote.ruleVersion,
     breakdown: quote.breakdown,
-    commissionBp: rules.commissionBp,
+    commissionBp: quote.service?.commissionBp ?? rules.commissionBp,
     cancellation: quote.conditions.cancellation,
     dynamic: quote.conditions.dynamic,
     acceptedAt: at,
@@ -131,7 +137,13 @@ function requireVerifiedPassenger(s: State, user: User) {
 }
 
 function paymentRef(s: State, user: User, paymentMethodId: string, cityId: string) {
+  prototypeMethods(s, user);
   const pm = mustFind(s.paymentMethods, (p) => p.id === paymentMethodId && p.userId === user.id, 'moyen de paiement');
+  if (pm.kind === 'wallet') return { id: pm.id, kind: pm.kind, label: pm.label };
+  if (pm.kind === 'mobile_wallet') {
+    if (!ensurePrototype(s).catalog.payments.some(p => p.kind === 'mobile' && p.enabled && (!p.cityIds.length || p.cityIds.includes(cityId)))) throw new DomainError('PAYMENT_METHOD_UNAVAILABLE');
+    return { id: pm.id, kind: pm.kind, label: pm.label };
+  }
   const provider = s.providers.find((p) => p.cityId === cityId && p.purpose === 'ride' && p.kind === pm.kind && p.enabled && p.configured);
   if (!provider) throw new DomainError('PAYMENT_METHOD_UNAVAILABLE');
   return { id: pm.id, kind: pm.kind, label: pm.label };
@@ -184,6 +196,7 @@ export function createRide(ctx: Ctx, user: User, quoteId: string, paymentMethodI
     const { quote, city } = takeQuote(s, user, quoteId, nowMs);
     const payment = paymentRef(s, user, paymentMethodId, city.id);
     const ride = newRide(s, user, quote.route, freezeTerms(s, quote, city, now), payment, now, null);
+    if (payment.kind === 'wallet') reservePassengerWallet(s, user.id, ride.id, ride.terms.breakdown.total, now);
     s.rides.push(ride);
     dispatch(s, ride, nowMs);
     return ride;
@@ -246,7 +259,7 @@ export function dispatch(s: State, ride: Ride, nowMs: number): DriverOffer | nul
   const candidates = s.presence
     .filter((p) => p.online && !tried.has(p.driverId) && !busy.has(p.driverId))
     .map((p) => ({ p, driver: s.users.find((u) => u.id === p.driverId)! }))
-    .filter(({ driver }) => driver && driver.cityId === ride.cityId && driverEligibility(s, driver, now).eligible)
+    .filter(({ driver }) => driver && driver.cityId === ride.cityId && driverEligibility(s, driver, now).eligible && (ensurePrototype(s).driverCategories[driver.id] ?? ensurePrototype(s).catalog.categories.map(c => c.id)).includes(ride.terms.service?.id ?? 'standard'))
     .map(({ p, driver }) => ({ driver, distance: p.location ? Math.round(haversineMeters(p.location, pickup)) : 800 }))
     .sort((a, b) => a.distance - b.distance || a.driver.id.localeCompare(b.driver.id));
   const best = candidates[0];
@@ -254,6 +267,7 @@ export function dispatch(s: State, ride: Ride, nowMs: number): DriverOffer | nul
   const city = mustFind(s.cities, (c) => c.id === ride.cityId);
   const split = splitFare(ride.terms.breakdown.total, ride.terms.commissionBp);
   const offer: DriverOffer = {
+    service: ride.terms.service,
     id: nextId(s, 'OF', 5),
     rideId: ride.id,
     driverId: best.driver.id,
@@ -353,6 +367,7 @@ export function acceptOffer(ctx: Ctx, driver: User, offerId: string): { ride: Ri
     const now = new Date(nowMs).toISOString();
     const e = driverEligibility(s, driver, now);
     if (!e.eligible) throw new DomainError('NOT_ELIGIBLE', undefined, { reasons: e.reasons });
+    if (!(ensurePrototype(s).driverCategories[driver.id] ?? ensurePrototype(s).catalog.categories.map(c => c.id)).includes(ride.terms.service?.id ?? 'standard')) throw new DomainError('NOT_ELIGIBLE');
     offer.status = offerMachine.next(offer.status, 'ACCEPT');
     offer.respondedAt = now;
     ride.status = rideMachine.next(ride.status, 'ASSIGN');
@@ -439,7 +454,11 @@ function chargeFee(s: State, ride: Ride, fee: number, now: string, ctx: Ctx) {
     updatedAt: now,
   };
   s.payments.push(payment);
-  if (payment.providerRef) queueCardOutcome(s, ctx, payment.providerRef, pm?.providerToken ?? null);
+  if (ride.paymentMethod.kind === 'wallet' || ride.paymentMethod.kind === 'mobile_wallet') {
+    if (ride.paymentMethod.kind === 'wallet') settlePassengerWallet(s, ride.passengerId, `${ride.id}-fee`, fee, now);
+    Object.assign(payment, { status: 'confirmed', provider: 'wallet-demo' });
+    if (ride.driverId) postLedger(s, now, { driverId: ride.driverId, type: 'cancellation_fee_credit', amount: splitFare(fee, ride.terms.commissionBp).net, description: 'Frais d’annulation (portefeuille)', rideId: ride.id, idempotencyKey: `ride:${ride.id}:cancel-fee` });
+  } else if (payment.providerRef) queueCardOutcome(s, ctx, payment.providerRef, pm?.providerToken ?? null);
 }
 
 export function passengerCancel(ctx: Ctx, user: User, rideId: string, input: CancelInput) {
@@ -462,6 +481,7 @@ export function passengerCancel(ctx: Ctx, user: User, rideId: string, input: Can
       o.status = offerMachine.next(o.status, 'WITHDRAW');
       o.respondedAt = now;
     }
+    if (ride.paymentMethod.kind === 'wallet') releasePassengerWallet(s, user.id, ride.id);
     chargeFee(s, ride, preview.fee, now, ctx);
     return ride;
   });
@@ -472,6 +492,7 @@ export function retrySearch(ctx: Ctx, user: User, rideId: string) {
     const nowMs = ctx.clock.now();
     const ride = ownRide(s, user, rideId);
     ride.status = rideMachine.next(ride.status, 'RETRY_SEARCH');
+    if (ride.paymentMethod.kind === 'wallet') reservePassengerWallet(s, user.id, ride.id, ride.terms.breakdown.total, new Date(nowMs).toISOString());
     ride.searchStartedAt = new Date(nowMs).toISOString();
     tl(ride, ride.searchStartedAt, 'search.retry', 'passenger', 'Nouvelle recherche lancée');
     dispatch(s, ride, nowMs);
@@ -509,7 +530,8 @@ export function retryPayment(ctx: Ctx, user: User, rideId: string, paymentMethod
     const ride = ownRide(s, user, rideId);
     const current = s.payments.find((p) => p.id === ride.paymentId);
     if (!current || current.status !== 'failed') throw new DomainError('INVALID_TRANSITION', 'Aucun paiement à relancer.');
-    const pm = mustFind(s.paymentMethods, (p) => p.id === paymentMethodId && p.userId === user.id, 'moyen de paiement');
+    prototypeMethods(s, user);
+  const pm = mustFind(s.paymentMethods, (p) => p.id === paymentMethodId && p.userId === user.id, 'moyen de paiement');
     if (pm.kind !== 'card') throw new DomainError('PAYMENT_METHOD_UNAVAILABLE', 'Choisissez une carte pour régler cette course.');
     const now = ctx.clock.iso();
     const id = nextId(s, 'PY');
@@ -600,6 +622,13 @@ function settleRide(s: State, ctx: Ctx, ride: Ride, now: string) {
     updatedAt: now,
   });
   ride.paymentId = id;
+  if (ride.paymentMethod.kind === 'wallet' || ride.paymentMethod.kind === 'mobile_wallet') {
+    if (ride.paymentMethod.kind === 'wallet') settlePassengerWallet(s, ride.passengerId, ride.id, split.gross, now);
+    const p = s.payments.find(p => p.id === id)!; p.status = 'confirmed'; p.provider = ride.paymentMethod.kind === 'wallet' ? 'naya-wallet-demo' : 'mobile-wallet-demo';
+    postLedger(s, now, { driverId: ride.driverId!, type: 'ride_net_credit', amount: split.net, description: `Revenu net ${ride.paymentMethod.label}`, rideId: ride.id, idempotencyKey: `ride:${ride.id}:net` });
+    tl(ride, now, 'payment.confirmed', 'provider', 'Paiement portefeuille confirmé (simulation)');
+    return;
+  }
   if (isCard) {
     queueCardOutcome(s, ctx, `demo_py_${id}`, pm?.providerToken ?? null);
   } else {
@@ -706,6 +735,7 @@ export function scheduleRide(ctx: Ctx, user: User, quoteId: string, paymentMetho
       cancellation: null,
       history: [{ at: now, label: 'Réservation enregistrée · aucune chauffeuse assignée pour le moment' }],
     };
+    if (booking.paymentMethod.kind === 'wallet') reservePassengerWallet(s, user.id, booking.id, booking.terms.breakdown.total, now);
     s.scheduled.push(booking);
     return booking;
   });
@@ -727,7 +757,11 @@ export function modifyScheduled(ctx: Ctx, user: User, id: string, input: ModifyS
     b.status = scheduledMachine.next(b.status, 'MODIFY');
     const now = new Date(nowMs).toISOString();
     b.pickupAt = input.pickupAt;
-    if (input.paymentMethodId) b.paymentMethod = paymentRef(s, user, input.paymentMethodId, city.id);
+    if (input.paymentMethodId) {
+      if (b.paymentMethod.kind === 'wallet') releasePassengerWallet(s, user.id, b.id);
+      b.paymentMethod = paymentRef(s, user, input.paymentMethodId, city.id);
+      if (b.paymentMethod.kind === 'wallet') reservePassengerWallet(s, user.id, b.id, b.terms.breakdown.total, now);
+    }
     b.updatedAt = now;
     b.history.push({ at: now, label: 'Horaire modifié · prix inchangé' });
     return b;
@@ -741,6 +775,7 @@ export function cancelScheduled(ctx: Ctx, user: User, id: string, reasonCode: st
     const now = ctx.clock.iso();
     b.cancellation = { reasonCode, reasonText: reasonLabel(PASSENGER_CANCEL_REASONS, reasonCode, reasonText), at: now };
     b.updatedAt = now;
+    if (b.paymentMethod.kind === 'wallet') releasePassengerWallet(s, user.id, b.id);
     b.history.push({ at: now, label: 'Réservation annulée · sans frais' });
     return b;
   });
@@ -755,10 +790,12 @@ export function dispatchDueScheduled(s: State, nowMs: number) {
     const user = s.users.find((u) => u.id === b.passengerId)!;
     if (s.rides.some((r) => r.passengerId === user.id && isRideActive(r.status))) {
       b.status = scheduledMachine.next(b.status, 'EXPIRE');
+      if (b.paymentMethod.kind === 'wallet') releasePassengerWallet(s, user.id, b.id);
       b.history.push({ at: now, label: 'Non lancée : une autre course était en cours' });
       continue;
     }
     const ride = newRide(s, user, b.route, b.terms, b.paymentMethod, now, b.id);
+    if (b.paymentMethod.kind === 'wallet') for (const e of passengerWallet(s, user.id).entries.filter(e => e.rideId === b.id && e.status === 'pending')) { e.rideId = ride.id; e.id = `hold:${ride.id}`; }
     s.rides.push(ride);
     b.status = scheduledMachine.next(b.status, 'DISPATCH');
     b.rideId = ride.id;
@@ -781,6 +818,7 @@ export function runRideTimers(s: State, nowMs: number): boolean {
     const pending = s.offers.some((o) => o.rideId === r.id && o.status === 'pending');
     if (city && !pending && nowMs - Date.parse(r.searchStartedAt) >= city.rules.searchTimeoutSeconds * 1000) {
       r.status = rideMachine.next(r.status, 'SEARCH_TIMEOUT');
+      if (r.paymentMethod.kind === 'wallet') releasePassengerWallet(s, r.passengerId, r.id);
       tl(r, new Date(nowMs).toISOString(), 'search.timeout', 'system', 'Aucune chauffeuse disponible pour le moment');
       changed = true;
     }

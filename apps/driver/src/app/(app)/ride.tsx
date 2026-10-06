@@ -1,3 +1,4 @@
+import { useTheme , SafetyButton , Button, DemoBadge, Glass, IconButton, IconDisc, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { router } from 'expo-router';
@@ -9,7 +10,6 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { DRIVER_CANCEL_REASONS, formatMoney, formatTime, type LatLng, type Ride } from '@naya/domain';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Button, DemoBadge, Glass, IconButton, IconDisc, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
 import { useAccountId, useDriverStatus } from '@/lib/queries';
 import { startRideTracking, stopRideTracking } from '@/lib/backgroundLocation';
 
@@ -21,6 +21,7 @@ function openNavigation(to: LatLng, label: string) {
 
 /** D08 · D08-arrived · D08-contact · D08-cancel · D08-cancelled · D09 · D09-stop · D09-stale */
 export default function RideScreen() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();
@@ -35,9 +36,8 @@ export default function RideScreen() {
   const tracking = useRef(false);
 
   const ride = status.data?.activeRide ?? null;
-  useEffect(() => {
-    if (ride) setLastRideId(ride.id);
-  }, [ride?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (ride && ride.id !== lastRideId) setLastRideId(ride.id);
+
   useEffect(() => NetInfo.addEventListener((s) => setOffline(!s.isConnected || s.isInternetReachable === false)), []);
 
   // Background location only while a ride is accepted.
@@ -204,13 +204,14 @@ export default function RideScreen() {
             <Text variant="label">{ride.passenger.firstName}</Text>
             <Text variant="caption" tone="muted" numeric>
               {ride.passenger.ratingAverage ? `${String(ride.passenger.ratingAverage).replace('.', ',')} · ` : ''}
-              {ride.paymentMethod.kind === 'cash' ? `Espèces · ${formatMoney(ride.terms.breakdown.total)}` : 'Carte · payée via Naya'}
+              {ride.paymentMethod.kind === 'cash' ? `Espèces · ${formatMoney(ride.terms.breakdown.total)}` : `${ride.paymentMethod.label} · via Naya`}
             </Text>
           </View>
           <IconButton variant="solid" icon={<Phone size={18} color={colors.accent} />} accessibilityLabel={`Contacter ${ride.passenger.firstName}`} onPress={() => setContactOpen(true)} testID="contact-passenger" />
           <IconButton variant="solid" icon={<Navigation size={18} color={colors.accent} />} accessibilityLabel="Ouvrir la navigation" onPress={() => openNavigation(target.location, target.label)} testID="open-navigation" />
         </View>
 
+        <SafetyButton rideId={ride.id} location={ride.driverLocation?.location ?? ride.route.stops[0]!.location} />
         {ride.status === 'driver_assigned' ? <Button label="Signaler mon arrivée" size="major" full loading={step.isPending} onPress={() => step.run('arrive')} testID="ride-arrive" /> : null}
         {ride.status === 'driver_arrived' ? <Button label="Commencer la course" size="major" full loading={step.isPending} onPress={() => step.run('start')} testID="ride-start" /> : null}
         {ride.status === 'in_progress' && pendingStop ? <Button label={`Arrêt effectué · ${pendingStop.label}`} size="major" full loading={step.isPending} onPress={() => step.run('stop')} testID="ride-stop" /> : null}
@@ -244,6 +245,7 @@ export default function RideScreen() {
 }
 
 function Ended({ title, message, onHome, top, testID, cta }: { title: string; message: string; onHome: () => void; top: number; testID?: string; cta?: string }) {
+  useTheme();
   return (
     <View testID={testID} style={{ flex: 1, backgroundColor: colors.background, paddingTop: top + 40, paddingHorizontal: gutter, gap: 16 }}>
       <IconDisc size={56}>

@@ -1,3 +1,4 @@
+import { useTheme , SafetyButton } from '@naya/ui';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
@@ -18,6 +19,7 @@ import { ContactSheet } from '@/features/ride/ContactSheet';
 const LONG_WAIT_S = 45;
 
 export default function RideScreen() {
+  useTheme();
   const insets = useSafeAreaInsets();
   const api = useApi();
   const qc = useQueryClient();
@@ -34,7 +36,7 @@ export default function RideScreen() {
   }, []);
 
   const ride = active.data;
-  if (ride) lastId.current = ride.id;
+  useEffect(() => { if (ride) lastId.current = ride.id; }, [ride]);
 
   // When the ride leaves the active set (completed or cancelled), open its receipt.
   useEffect(() => {
@@ -168,11 +170,12 @@ export default function RideScreen() {
 
         </ScrollView>
         <View style={{ paddingHorizontal: gutter, gap: 6, paddingTop: 2 }}>
+        <SafetyButton rideId={ride.id} location={ride.driverLocation?.location ?? ride.route.stops[0]!.location} />
         {ride.status === 'no_driver' ? <Button label="Relancer la recherche" size="major" full loading={retry.isPending} onPress={() => retry.mutate()} testID="retry-search" /> : null}
         {ride.status === 'in_progress' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <CheckCircle2 size={16} color={colors.success} />
-            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Trajet partagé avec l’équipe sécurité Naya jusqu’à l’arrivée.</Text>
+            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Suivi de démonstration · utilisez SOS pour tester une alerte.</Text>
           </View>
         ) : null}
         {ride.status === 'no_driver' ? (

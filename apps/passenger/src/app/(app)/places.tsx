@@ -1,3 +1,4 @@
+import { useTheme , Button, EmptyState, FormField, Header, IconButton, ListGroup, ListRow, Pill, Screen, Sheet, Text, haptic, toast } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -7,7 +8,6 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { Place, SavedPlace } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, EmptyState, FormField, Header, IconButton, ListGroup, ListRow, Pill, Screen, Sheet, Text, haptic, toast } from '@naya/ui';
 import { useAccountId, useMe } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
 
@@ -15,6 +15,7 @@ const ICON = { home: HomeIcon, work: Briefcase, other: Star };
 
 /** P13-address: saved places, add by search, remove. */
 export default function Places() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

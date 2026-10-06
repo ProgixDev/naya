@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { casablancaLocalToUtc, toCasablancaParts } from '@naya/domain';
 import { Pill, Text } from '@naya/ui';
@@ -8,8 +8,8 @@ const weekday = new Intl.DateTimeFormat('fr-MA', { weekday: 'short', day: 'numer
 
 /** Casablanca-local days and 15-minute slots that respect the city's lead time and horizon. */
 export function useScheduleOptions(minLeadMinutes = 30, maxDaysAhead = 7) {
+  const [now] = useState(Date.now);
   return useMemo(() => {
-    const now = Date.now();
     const days = Array.from({ length: Math.min(maxDaysAhead, 7) }, (_, i) => {
       const iso = new Date(now + i * 86_400_000).toISOString();
       return { date: toCasablancaParts(iso).date, label: DAY_LABELS[i] ?? weekday.format(new Date(iso)) };
@@ -26,7 +26,7 @@ export function useScheduleOptions(minLeadMinutes = 30, maxDaysAhead = 7) {
       return out;
     };
     return { days, slotsFor };
-  }, [minLeadMinutes, maxDaysAhead]);
+  }, [minLeadMinutes, maxDaysAhead, now]);
 }
 
 export function SchedulePicker({ day, time, onDay, onTime, minLeadMinutes, maxDaysAhead }: { day: string; time: string | null; onDay: (d: string) => void; onTime: (t: string | null) => void; minLeadMinutes?: number; maxDaysAhead?: number }) {

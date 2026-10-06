@@ -1,3 +1,4 @@
+import { DocThumb, DocViewer } from '../components/DocViewer';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,13 +9,14 @@ import { Banner, Button, Card, DefinitionList, Dialog, ErrorState, Field, Input,
 import { PaymentBadge, RideBadge, TicketBadge } from '../components/status';
 import { AuditList } from './Audit';
 
-const OUTCOMES = ['Tarif confirmé', 'Remboursement accordé', 'Information transmise', 'Signalement traité', 'Compte mis à jour'];
+const OUTCOMES = ['Rejetée', 'Tarif confirmé', 'Remboursement accordé', 'Information transmise', 'Signalement traité', 'Compte mis à jour'];
 
 /** A08 · Fil d’une demande, réponse et résolution motivée. */
 export function TicketPage() {
   const { id = '' } = useParams();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['admin', 'ticket', id], queryFn: () => api.admin.ticket(id), refetchInterval: 8000 });
+  const [attachment, setAttachment] = useState<string>();
   const [reply, setReply] = useState('');
   const [resolveOpen, setResolveOpen] = useState(false);
   const [outcome, setOutcome] = useState(OUTCOMES[0]!);
@@ -26,20 +28,20 @@ export function TicketPage() {
   if (q.isLoading) return <Skeleton className="mt-6 h-[420px] w-full" />;
   if (q.isError || !q.data) return <Card><ErrorState onRetry={() => q.refetch()} /></Card>;
   const { ticket: t, ride, payments, audit } = q.data;
-  const open = t.status !== 'resolved';
+  const open = t.status !== 'resolved' && t.status !== 'rejected';
   return (
     <>
       <PageHeader eyebrow={<Link to="/support" className="hover:text-accent">Support</Link>} title={t.subject} subtitle={`${t.id} · ${t.userName} · ${t.userRole === 'driver' ? 'chauffeuse' : 'passagère'} · ouverte le ${fmtDateTime(t.createdAt)}`} actions={<><TicketBadge status={t.status} />{open ? <Button onClick={() => (setResolveOpen(true), setNoteError(null))} data-testid="resolve">Résoudre</Button> : null}</>} />
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
         <div className="flex flex-col gap-5">
-          {t.resolution ? <Banner tone="success" title={`Résolue · ${t.resolution.outcome}`}>{t.resolution.note} · {t.resolution.by} · {fmtDateTime(t.resolution.at)}</Banner> : null}
+          {t.resolution ? <Banner tone={t.status === 'rejected' ? 'danger' : 'success'} title={`${t.status === 'rejected' ? 'Rejetée' : 'Résolue'} · ${t.resolution.outcome}`}>{t.resolution.note} · {t.resolution.by} · {fmtDateTime(t.resolution.at)}</Banner> : null}
           <Card title="Échanges">
             <ol className="flex flex-col gap-3">
               {t.messages.map((m) => (
                 <li key={m.id} className={cx('max-w-[85%] rounded-2xl px-4 py-3', m.author === 'agent' ? 'ml-auto bg-selected' : m.author === 'system' ? 'bg-transparent px-0 text-muted' : 'bg-background')}>
                   <div className="text-[12px] font-semibold text-accent">{m.authorName}</div>
                   <p className="mt-1 whitespace-pre-wrap text-[14px]">{m.body}</p>
-                  {m.attachments.length ? <p className="mt-1 text-[12px] text-muted">{m.attachments.length} pièce(s) jointe(s) · {m.attachments.join(', ')}</p> : null}
+                  <div className="mt-3 grid grid-cols-2 gap-2">{m.attachments.map(id=><DocThumb key={id} uploadId={id} label="Pièce jointe au litige" onOpen={()=>setAttachment(id)} />)}</div>
                   <div className="mt-1 text-[11px] text-muted">{fmtDateTime(m.at)}</div>
                 </li>
               ))}
@@ -85,6 +87,7 @@ export function TicketPage() {
           <Card title="Journal">{audit.length ? <AuditList events={audit} compact /> : <p className="text-[14px] text-muted">Aucun événement d’audit pour cette demande.</p>}</Card>
         </div>
       </div>
+      <DocViewer uploadId={attachment} label="Pièce jointe au litige" open={!!attachment} onClose={()=>setAttachment(undefined)} />
       <Dialog
         open={resolveOpen}
         onClose={() => setResolveOpen(false)}

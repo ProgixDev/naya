@@ -19,6 +19,7 @@ export const NAV: { to: string; label: string; icon: typeof BarChart3; permissio
   { to: '/finance', label: 'Finance', icon: Wallet, permission: 'finance.read', group: 'gestion' },
   { to: '/villes', label: 'Villes & règles', icon: MapPin, group: 'gestion' },
   { to: '/paiements', label: 'Paiements', icon: CreditCard, group: 'gestion' },
+  { to: '/services', label: 'Services et familles', icon: Users, permission: 'config.edit', group: 'gestion' },
   { to: '/audit', label: 'Journal d’audit', icon: FileText, permission: 'audit.read', group: 'gestion' },
 ];
 

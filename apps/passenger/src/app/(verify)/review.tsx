@@ -1,3 +1,4 @@
+import { useTheme , Button, Header, ListGroup, ListRow, Screen, StatusBanner, haptic, toast } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -6,12 +7,12 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, Header, ListGroup, ListRow, Screen, StatusBanner, haptic, toast } from '@naya/ui';
 import { useAccountId, useIdentityCase } from '@/lib/queries';
 import { PASSENGER_STEPS } from '@/features/verify/steps';
 
 /** P04-review: Persona-style hub — every piece on one card, then send for manual review. */
 export default function Review() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

@@ -1,3 +1,4 @@
+import { useTheme , Button, CountdownRing, IconDisc, Money, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, useSingleFlight } from '@naya/ui';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -8,13 +9,13 @@ import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi, useDeadline } from '@naya/api/react';
 import { formatDistance, formatDuration, formatMoney, OFFER_DECLINE_REASONS, type DriverOffer } from '@naya/domain';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Button, CountdownRing, IconDisc, Money, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, useSingleFlight } from '@naya/ui';
 import { useAccountId, useDriverStatus } from '@/lib/queries';
 
 type Phase = 'pending' | 'accepted' | 'declined' | 'expired' | 'withdrawn' | 'taken';
 
 /** D07 · D07-10 · D07-timer-* · D07-declined · D07-expired · D07-withdrawn */
 export default function OfferScreen() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();
@@ -27,10 +28,8 @@ export default function OfferScreen() {
   const warned = useRef(false);
 
   // Keep the offer we are showing; update it with the server's view of the same offer.
-  useEffect(() => {
-    const o = status.data?.offer;
-    if (o && (!snapshot || o.id === snapshot.id || snapshot.status !== 'pending')) setSnapshot(o);
-  }, [status.data?.offer]); // eslint-disable-line react-hooks/exhaustive-deps
+  const currentOffer = status.data?.offer;
+  if (currentOffer && currentOffer !== snapshot && (!snapshot || currentOffer.id === snapshot.id || snapshot.status !== 'pending')) setSnapshot(currentOffer);
 
   const offer = snapshot;
   const { seconds, expired } = useDeadline(offer?.status === 'pending' ? offer.expiresAt : null);
@@ -110,6 +109,7 @@ export default function OfferScreen() {
               Nouvelle course
             </Text>
             <Text variant="caption" tone="muted" numeric>
+              {offer.service?.name ? `${offer.service.name} · ` : ''}
               Prise en charge à {formatDuration(offer.pickupEtaSeconds)} · {formatDistance(offer.pickupDistanceMeters)} de vous
             </Text>
           </View>
@@ -125,7 +125,7 @@ export default function OfferScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.background, borderRadius: 999, paddingHorizontal: 12, minHeight: 32, paddingVertical: 4 }}>
             {offer.paymentKind === 'cash' ? <Banknote size={16} color={colors.ink} /> : <CreditCard size={16} color={colors.ink} />}
             <Text variant="caption" weight="semibold">
-              {offer.paymentKind === 'cash' ? 'Espèces' : 'Carte'}
+              {offer.paymentKind === 'cash' ? 'Espèces' : offer.paymentKind === 'card' ? 'Carte' : 'Portefeuille'}
             </Text>
           </View>
         </View>
@@ -191,6 +191,7 @@ export default function OfferScreen() {
 }
 
 function Terminal({ icon, title, message, onBack, cta, insetsTop, testID }: { icon: React.ReactNode; title: string; message: string; onBack: () => void; cta?: { label: string; onPress: () => void }; insetsTop: number; testID?: string }) {
+  useTheme();
   return (
     <View testID={testID} style={{ flex: 1, backgroundColor: colors.background, paddingTop: insetsTop + 40, paddingHorizontal: gutter, gap: 16 }}>
       <IconDisc size={56}>{icon}</IconDisc>

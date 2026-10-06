@@ -1,8 +1,9 @@
+import { themedStyles , colors } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { motionTiming } from './motion';
-import { colors } from '@naya/tokens';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
 import { useA11yPrefs } from './a11y';
@@ -17,6 +18,7 @@ export interface SegmentedControlProps<T extends string> {
 
 /** Indicator slides on the UI thread; with Reduce Motion it jumps. */
 export function SegmentedControl<T extends string>({ options, value, onChange, testID }: SegmentedControlProps<T>) {
+  useTheme();
   const { reduceMotion } = useA11yPrefs();
   const [width, setWidth] = useState(0);
   const index = Math.max(0, options.findIndex((o) => o.value === value));
@@ -50,8 +52,8 @@ export function SegmentedControl<T extends string>({ options, value, onChange, t
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   track: { flexDirection: 'row', backgroundColor: colors.selected, borderRadius: 999, padding: 4, minHeight: 44 },
   indicator: { position: 'absolute', top: 4, bottom: 4, left: 4, borderRadius: 999, backgroundColor: colors.surface, shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 36, paddingHorizontal: 8 },
-});
+}));

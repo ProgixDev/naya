@@ -1,3 +1,4 @@
+import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { View } from 'react-native';
 import { colors } from '@naya/tokens';
@@ -5,6 +6,7 @@ import { Avatar } from './Brand';
 import { Text } from './Text';
 
 export function ProfileHero({ name, detail, source, status }: { name: string; detail: string; source?: number | null; status?: ReactNode }) {
+  useTheme();
   return (
     <View style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 24, gap: 12 }}>
       <View style={{ padding: 5, borderRadius: 52, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>

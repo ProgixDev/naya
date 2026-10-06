@@ -1,3 +1,4 @@
+import { useTheme , ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Money, Screen, SegmentedControl, SkeletonList, StatusBanner, Text } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -8,7 +9,6 @@ import { useApi } from '@naya/api/react';
 import { formatMoney, formatShort } from '@naya/domain';
 import { illustrations, aspect } from '@naya/assets';
 import { colors } from '@naya/tokens';
-import { ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Money, Screen, SegmentedControl, SkeletonList, StatusBanner, Text } from '@naya/ui';
 import { StatTile } from '@/components/Kit';
 import { useAccountId } from '@/lib/queries';
 import { daysAgoUtc, startOfTodayUtc } from '@/lib/time';
@@ -18,6 +18,7 @@ type Period = 'today' | '7d' | '30d';
 
 /** D11 · D11-filter · D11-empty */
 export default function Earnings() {
+  useTheme();
   const api = useApi();
   const a = useAccountId();
   const [period, setPeriod] = useState<Period>('today');

@@ -1,9 +1,9 @@
+import { useTheme , ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, Skeleton, StatusBanner, Text } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowDownLeft, ArrowUpRight, Clock, ListOrdered } from 'lucide-react-native';
 import { formatMoney, formatShort, TRANSFER_STATUS_LABELS } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, Skeleton, StatusBanner, Text } from '@naya/ui';
 import { useWallet } from '@/lib/queries';
 import { WalletCard } from '@/components/WalletCard';
 import { ActionNote, ActionPill } from '@/components/Kit';
@@ -11,6 +11,7 @@ import { TAB_BAR_SPACE } from '@/components/TabBar';
 
 /** D12 · D12-negative · D12-zero · D12-near · D12-after · D12-recharged */
 export default function WalletTab() {
+  useTheme();
   const q = useWallet();
   const w = q.data?.wallet;
   const near = w && w.balance < 0 && !w.offersBlockedByDebt && -w.balance >= w.debtLimit * 0.8;

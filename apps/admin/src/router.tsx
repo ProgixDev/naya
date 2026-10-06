@@ -21,6 +21,7 @@ const CitiesPage = page(() => import('./pages/Cities'), 'CitiesPage');
 const RulesPage = page(() => import('./pages/Rules'), 'RulesPage');
 const ProvidersPage = page(() => import('./pages/Providers'), 'ProvidersPage');
 const AuditPage = page(() => import('./pages/Audit'), 'AuditPage');
+const PrototypePage = page(() => import('./pages/Prototype'), 'PrototypePage');
 const NotFoundPage = page(() => import('./pages/NotFound'), 'NotFoundPage');
 
 function PageFallback() {
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
       { path: 'finance', element: gate('finance.read', 'Finance', S(<FinancePage />)) },
       { path: 'villes', element: S(<CitiesPage />) },
       { path: 'villes/:id/regles', element: S(<RulesPage />) },
+      { path: 'services', element: gate('config.edit', 'Services et familles', S(<PrototypePage />)) },
       { path: 'paiements', element: S(<ProvidersPage />) },
       { path: 'audit', element: gate('audit.read', 'Journal d’audit', S(<AuditPage />)) },
       { path: '*', element: S(<NotFoundPage />) },

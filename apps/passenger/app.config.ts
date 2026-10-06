@@ -9,12 +9,12 @@ const config: ExpoConfig = {
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
-  userInterfaceStyle: 'light',
+  userInterfaceStyle: 'automatic',
   backgroundColor: '#FAF4F7',
   ios: {
     bundleIdentifier: 'ma.naya.passagere',
     supportsTablet: false,
-    buildNumber: '2',
+    buildNumber: '3',
     config: { usesNonExemptEncryption: false },
   },
   android: {

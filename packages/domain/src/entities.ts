@@ -261,6 +261,7 @@ export interface QuoteConditions {
 }
 
 export interface Quote {
+  service?: import('./prototype').ServiceSelection;
   id: string;
   passengerId: UserId;
   cityId: CityId;
@@ -276,6 +277,7 @@ export interface Quote {
 
 /** Commercial terms frozen at booking. Later rule changes never alter them. */
 export interface FrozenTerms {
+  service?: import('./prototype').ServiceSelection;
   quoteId: string;
   cityId: CityId;
   currency: Currency;
@@ -287,7 +289,7 @@ export interface FrozenTerms {
   acceptedAt: IsoUtc;
 }
 
-export type PaymentMethodKind = 'cash' | 'card';
+export type PaymentMethodKind = 'cash' | 'card' | 'wallet' | 'mobile_wallet';
 
 export interface PaymentMethod {
   id: string;
@@ -390,6 +392,7 @@ export interface Ride {
 export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'expired' | 'withdrawn';
 
 export interface DriverOffer {
+  service?: import('./prototype').ServiceSelection;
   id: string;
   rideId: string;
   driverId: UserId;
@@ -545,7 +548,7 @@ export interface EarningsSummary {
 
 /* ───────────────────────── Support and audit ───────────────────────── */
 
-export type SupportStatus = 'open' | 'in_progress' | 'awaiting_user' | 'resolved';
+export type SupportStatus = 'open' | 'in_progress' | 'awaiting_user' | 'resolved' | 'rejected';
 
 export interface SupportMessage {
   id: string;
@@ -557,6 +560,7 @@ export interface SupportMessage {
 }
 
 export interface SupportTicket {
+  reasonId?: string;
   id: string;
   userId: UserId;
   userRole: MobileRole;

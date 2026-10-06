@@ -3,7 +3,7 @@
  * (--naya-*) of file nOuWsQ5MA8CdU5HsSGoXwP. Status hues are an addition: the prototype
  * showed every state in plum, which made failure and success read alike.
  */
-export const colors = {
+export const lightColors = {
   // Figma variables
   background: '#F8F7F9', // quiet pearl; plum is reserved for actions and artwork
   surface: '#FFFFFF', // --naya-surface-critical (legible surface for money and decisions)
@@ -36,7 +36,18 @@ export const colors = {
   map: '#EFE9EC',
 } as const;
 
-export type ColorToken = keyof typeof colors;
+export type ColorToken = keyof typeof lightColors;
+export const darkColors: Record<ColorToken, string> = {
+  background: '#16121A', surface: '#231D28', selected: '#3A2938', ink: '#F4EDF5', muted: '#BBAFBE', inverse: '#201522', accent: '#E5B6D4', line: '#423648', accentPressed: '#D59AC2', accentDeep: '#382233', mauve: '#CDA0BF', mauveSoft: '#302432', elevated: '#2C2431', glass: 'rgba(35,29,40,0.88)', glassBorder: 'rgba(230,206,231,0.14)', scrim: 'rgba(0,0,0,0.65)', disabledFill: '#332A38', disabledText: '#8A7C91', success: '#9AD5B4', successSoft: '#203A2E', warning: '#F0C982', warningSoft: '#423320', danger: '#FFABB6', dangerSoft: '#48242F', info: '#A9C9F5', infoSoft: '#25344C', map: '#25202B',
+};
+let scheme: 'light' | 'dark' = 'light';
+const listeners = new Set<() => void>();
+export const getColorScheme = () => scheme;
+export const subscribeColors = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
+export function setColorScheme(next: 'light' | 'dark') { if (next !== scheme) { scheme = next; listeners.forEach(fn => fn()); } }
+export const colors = new Proxy(lightColors as Record<ColorToken, string>, { get: (_target, key) => (scheme === 'dark' ? darkColors : lightColors)[key as ColorToken] });
+/** Style properties are evaluated with the current palette, including module-level styles. */
+export function themedStyles<T extends object>(factory: () => T): T { return new Proxy(factory(), { get: (_, key) => factory()[key as keyof T] }); }
 
 /** Inter, real font files loaded with explicit weights. */
 export const fonts = {

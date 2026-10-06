@@ -1,15 +1,16 @@
+import { useTheme , Glass, PressableScale, Text, haptic } from '@naya/ui';
 import { View } from 'react-native';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarChart3, House, UserRound, Wallet } from 'lucide-react-native';
 import { colors, gutter } from '@naya/tokens';
-import { Glass, PressableScale, Text, haptic } from '@naya/ui';
 
 const ICONS = { index: House, earnings: BarChart3, wallet: Wallet, account: UserRound } as const;
 const LABELS = { index: 'Accueil', earnings: 'Gains', wallet: 'Portefeuille', account: 'Compte' } as const;
 
 /** Floating capsule tab bar; labels always visible; active item as a tinted pill. No bounce. */
 export function TabBar({ state, navigation }: BottomTabBarProps) {
+  useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: Math.max(insets.bottom, 12) }} pointerEvents="box-none">

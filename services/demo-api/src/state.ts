@@ -84,6 +84,7 @@ export interface TrackingOverride {
 }
 
 export interface State {
+  prototype?: import('@naya/domain').PrototypeState;
   schemaVersion: 1;
   scenario: string;
   version: number;

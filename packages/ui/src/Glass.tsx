@@ -1,8 +1,10 @@
+import { getColorScheme } from '@naya/tokens';
+import { themedStyles , colors, shadow } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { colors, shadow } from '@naya/tokens';
 import { useA11yPrefs } from './a11y';
 
 const liquid = (() => {
@@ -40,6 +42,7 @@ export interface GlassProps {
  * Transparency. Critical amounts and decisions never sit on this material.
  */
 export function Glass({ children, style, radius = 999, floating = true, interactive = false, contentStyle }: GlassProps) {
+  useTheme();
   const kind = useGlassKind();
   const flat = StyleSheet.flatten(style) ?? {};
   const base: ViewStyle = { borderRadius: radius, overflow: 'hidden' };
@@ -55,17 +58,17 @@ export function Glass({ children, style, radius = 999, floating = true, interact
   if (kind === 'blur') {
     return (
       <View style={[outer, flat]}>
-        <BlurView intensity={40} tint="light" style={[StyleSheet.absoluteFill, base]} />
+        <BlurView intensity={40} tint={getColorScheme() === 'dark' ? 'dark' : 'light'} style={[StyleSheet.absoluteFill, base]} />
         <View style={[StyleSheet.absoluteFill, base, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]} />
         <View style={[base, styles.content, contentStyle]}>{children}</View>
       </View>
     );
   }
   return (
-    <View style={[outer, { backgroundColor: 'rgba(255,255,255,0.97)', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }, flat]}>
+    <View style={[outer, { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }, flat]}>
       <View style={[base, styles.content, contentStyle]}>{children}</View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({ content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' } });
+const styles = themedStyles(() => StyleSheet.create({ content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' } }));

@@ -1,3 +1,4 @@
+import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ export interface HeaderProps {
 }
 
 export function Header({ title, large = true, subtitle, onBack, onClose, right, overlay, progress }: HeaderProps) {
+  useTheme();
   const insets = useSafeAreaInsets();
   const hasBar = onBack || onClose || right || (!large && title);
   return (

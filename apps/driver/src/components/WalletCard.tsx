@@ -1,10 +1,10 @@
+import { getColorScheme , themedStyles , colors, radius } from '@naya/tokens';
+import { useTheme , Divider, Money, PressableScale, Sheet, Text } from '@naya/ui';
 import { useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Info } from 'lucide-react-native';
 import { formatMoney, type Centimes, type Wallet } from '@naya/domain';
-import { colors, radius } from '@naya/tokens';
-import { Divider, Money, PressableScale, Sheet, Text } from '@naya/ui';
 
 type Figure = 'available' | 'reserved' | 'debt' | 'pending';
 
@@ -20,13 +20,14 @@ const DEFS: Record<Figure, { title: string; short: string; body: string }> = {
  * definition, so the four money concepts stay distinct without paragraphs on the card.
  */
 export function WalletCard({ wallet }: { wallet: Wallet }) {
+  useTheme();
   const { fontScale } = useWindowDimensions();
   const [open, setOpen] = useState<Figure | null>(null);
   const amountFor = (f: Figure): Centimes => (f === 'available' ? wallet.available : f === 'reserved' ? wallet.reserved : f === 'debt' ? wallet.debt : wallet.pendingRecharges);
   const figures: Figure[] = ['available', 'reserved', 'debt', ...(wallet.pendingRecharges > 0 ? (['pending'] as const) : [])];
   return (
     <View style={styles.card} testID="wallet-card">
-      <LinearGradient colors={['#764D69', '#56354E', '#352331']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.card + 4 }]} />
+      <LinearGradient colors={getColorScheme() === 'dark' ? ['#E5B6D4', '#CFA3C3', '#BC92B0'] : ['#764D69', '#56354E', '#352331']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.card + 4 }]} />
       <View pointerEvents="none" style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', right: -90, top: -75 }} />
       <View pointerEvents="none" style={{ position: 'absolute', width: 160, height: 160, borderRadius: 80, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', right: -60, top: -45 }} />
       <Text variant="caption" tone="inverse" style={{ opacity: 0.86 }}>
@@ -71,8 +72,8 @@ export function WalletCard({ wallet }: { wallet: Wallet }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   card: { borderRadius: radius.card + 4, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16, overflow: 'hidden', gap: 2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10, marginHorizontal: -6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.24)', paddingTop: 6 },
   figure: { flexGrow: 1, flexBasis: '30%', paddingHorizontal: 6, paddingVertical: 6, gap: 2, minHeight: 44 },
-});
+}));

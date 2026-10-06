@@ -88,6 +88,7 @@ export const uploadSchema = z.object({
 });
 
 export const quoteRequestSchema = z.object({
+  categoryId: z.string().optional(),
   cityId: z.string().min(1),
   stops: z.array(placeSchema).min(2).max(4),
 });
@@ -119,6 +120,7 @@ export const withdrawalSchema = z.object({ amount: positiveCentimes, payoutAccou
 export const tokenizedCardSchema = z.object({ providerToken: z.string().min(8), makeDefault: z.boolean().default(false) });
 
 export const supportTicketSchema = z.object({
+  reasonId: z.string().optional(),
   rideId: z.string().nullable(),
   category: z.enum(['ride', 'payment', 'safety', 'account', 'wallet', 'other']),
   subject: z.string().trim().min(3, 'Objet trop court').max(120),

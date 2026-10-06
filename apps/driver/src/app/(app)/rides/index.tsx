@@ -1,3 +1,4 @@
+import { useTheme , Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SkeletonList } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -6,11 +7,11 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, formatShort, splitFare } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SkeletonList } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 
 /** D16 · D16-empty */
 export default function RideHistory() {
+  useTheme();
   const api = useApi();
   const a = useAccountId();
   const q = useInfiniteQuery({ queryKey: qk.rideHistory(a), queryFn: ({ pageParam }) => api.rides.history(pageParam, 20), initialPageParam: 0, getNextPageParam: (l) => l.nextCursor ?? undefined });

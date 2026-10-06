@@ -1,3 +1,4 @@
+import { useTheme , Glass, PressableScale, Text, haptic, useA11yPrefs, motionTiming } from '@naya/ui';
 import { useEffect, useState, type ComponentProps } from 'react';
 import { View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import type { Tabs } from 'expo-router';
@@ -5,7 +6,6 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Route, UserRound } from 'lucide-react-native';
 import { colors, gutter, shadow } from '@naya/tokens';
-import { Glass, PressableScale, Text, haptic, useA11yPrefs, motionTiming } from '@naya/ui';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
@@ -14,6 +14,7 @@ const LABELS: Record<string, string> = { index: 'Accueil', trips: 'Trajets', acc
 
 /** Floating capsule with visible labels; the selected pill slides on the UI thread (no bounce). */
 export function CapsuleTabBar({ state, navigation }: TabBarProps) {
+  useTheme();
   const insets = useSafeAreaInsets();
   const { reduceMotion } = useA11yPrefs();
   const [width, setWidth] = useState(0);

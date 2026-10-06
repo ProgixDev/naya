@@ -1,11 +1,12 @@
+import { useTheme , useA11yPrefs, useStackMotion } from '@naya/ui';
 import { Stack } from 'expo-router';
 import { colors } from '@naya/tokens';
-import { useA11yPrefs, useStackMotion } from '@naya/ui';
 
 export const unstable_settings = { anchor: '(tabs)' };
 
 /** Drill-down slides from the right; focused tasks (route, quote, forms) rise from the bottom. */
 export default function AppLayout() {
+  useTheme();
   const stackMotion = useStackMotion();
   const { reduceMotion } = useA11yPrefs();
   const anim = reduceMotion ? 'none' : 'simple_push';

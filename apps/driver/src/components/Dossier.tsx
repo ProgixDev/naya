@@ -1,3 +1,5 @@
+import { themedStyles , colors, shadow } from '@naya/tokens';
+import { useTheme } from '@naya/ui';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -5,7 +7,6 @@ import { AlertTriangle, Car, CheckCircle2, ChevronDown, ChevronRight, Circle, Cl
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, REQUIRED_ITEMS, STATUS_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';
-import { colors, shadow } from '@naya/tokens';
 import { Button, IconDisc, PressableScale, StatusPill, StepProgress, Text, toast, haptic, type BannerTone } from '@naya/ui';
 import { ActionNote } from './Kit';
 import { useAccountId } from '@/lib/queries';
@@ -40,6 +41,7 @@ export function caseProgress(kase: VerificationCase | null, subject: 'driver_ide
 
 /** Compact Persona-style step row: 48 pt, state icon, label, state word, chevron when editable. */
 function StepRow({ title, note, status, onPress, testID }: { title: string; note?: string | null; status: string; onPress?: () => void; testID?: string }) {
+  useTheme();
   const tone = status === 'needs_correction' ? 'warning' : itemDone(status) ? 'muted' : 'accent';
   const body = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingVertical: 6 }}>
@@ -76,6 +78,7 @@ function StepRow({ title, note, status, onPress, testID }: { title: string; note
  * header (tap to open), so the hub fits one screen; the card that needs work opens by default.
  */
 export function CaseChecklist({ kase, subject, collapsed, onToggle, primary = true }: { kase: VerificationCase | null; subject: 'driver_identity' | 'vehicle'; collapsed?: boolean; onToggle?: () => void; primary?: boolean }) {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();
@@ -166,12 +169,13 @@ export function CaseChecklist({ kase, subject, collapsed, onToggle, primary = tr
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: 24, padding: 14, ...shadow.card },
-});
+}));
 
 /** D05: one dossier's review state, with the next step the driver can take. */
 export function CaseReview({ kase, subject, recoverable }: { kase: VerificationCase | null; subject: 'driver_identity' | 'vehicle'; recoverable: string[] }) {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

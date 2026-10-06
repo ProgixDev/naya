@@ -1,3 +1,4 @@
+import { useTheme , Button, FieldRow, FormField, Header, Screen, Text, toast } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
@@ -7,11 +8,11 @@ import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { vehicleDetailsSchema, type VehicleDetailsInput } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, FieldRow, FormField, Header, Screen, Text, toast } from '@naya/ui';
 import { useAccountId, useCases } from '@/lib/queries';
 
 /** D04-car: vehicle identity. Creates the vehicle dossier (reviewed separately from the driver). */
 export default function VehicleDetails() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

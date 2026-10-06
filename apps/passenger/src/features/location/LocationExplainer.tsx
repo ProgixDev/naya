@@ -1,10 +1,11 @@
+import { useTheme , Button, IconDisc, Sheet, Text, TextButton } from '@naya/ui';
 import { View } from 'react-native';
 import { LocateFixed, MapPin } from 'lucide-react-native';
 import { colors } from '@naya/tokens';
-import { Button, IconDisc, Sheet, Text, TextButton } from '@naya/ui';
 
 /** Pre-permission sheet: why, and the alternative. The system prompt only follows a tap. */
 export function LocationExplainer({ visible, onAllow, onManual, onClose }: { visible: boolean; onAllow: () => void; onManual: () => void; onClose: () => void }) {
+  useTheme();
   return (
     <Sheet visible={visible} onClose={onClose} title="Utiliser votre position ?" testID="location-explainer">
       <View style={{ gap: 16 }}>

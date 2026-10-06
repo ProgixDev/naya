@@ -1,10 +1,11 @@
+import { getColorScheme , themedStyles , colors, gutter } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { useRef, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowUpRight, ShieldCheck } from 'lucide-react-native';
-import { colors, gutter } from '@naya/tokens';
 import { BrandMark, Illustration } from './Brand';
 import { Button } from './Button';
 import { Text } from './Text';
@@ -14,6 +15,7 @@ export interface WelcomeSlide { image: number; title: string; body: string; note
 
 /** Shared editorial opening: artwork has its own stage; content remains scrollable at large text sizes. */
 export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { slides: readonly WelcomeSlide[]; onFinish: () => void; badge?: ReactNode; driver?: boolean }) {
+  useTheme();
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { reduceMotion } = useA11yPrefs();
@@ -27,7 +29,7 @@ export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { sl
   };
   return (
     <View style={[styles.root, { paddingTop: insets.top }]} testID="onboarding">
-      <StatusBar style="dark" />
+      <StatusBar style={getColorScheme() === 'dark' ? 'light' : 'dark'} />
       <LinearGradient pointerEvents="none" colors={['#F1E6EF', '#FAF8FA', colors.background]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -72,10 +74,10 @@ export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { sl
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter + 4, height: 58 },
   stage: { borderRadius: 34, overflow: 'hidden', justifyContent: 'center', borderWidth: 1, borderColor: '#FFFFFF' },
   stageLabel: { position: 'absolute', top: 20, left: 20, flexDirection: 'row', alignItems: 'center', gap: 7 },
   orbit: { position: 'absolute', width: 310, height: 310, borderRadius: 180, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', top: 32, right: -42 },
-});
+}));

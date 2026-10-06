@@ -1,3 +1,5 @@
+import { themedStyles , colors, gutter, radius, shadow } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -5,7 +7,6 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, interp
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { X } from 'lucide-react-native';
-import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { motionTiming } from './motion';
 import { Text } from './Text';
 import { Button, IconButton, TextButton } from './Button';
@@ -26,6 +27,7 @@ export interface SheetProps {
 }
 
 export function Sheet({ visible, onClose, title, subtitle, children, footer, dismissible = true, testID }: SheetProps) {
+  useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const { reduceMotion } = useA11yPrefs();
@@ -102,6 +104,7 @@ export interface MapSheetProps {
 }
 
 export function MapSheet({ children, snaps, initial = 0, onSnap, testID }: MapSheetProps) {
+  useTheme();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { reduceMotion } = useA11yPrefs();
@@ -176,6 +179,7 @@ export interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ visible, title, message, children, confirmLabel, cancelLabel = 'Annuler', destructive, loading, onConfirm, onCancel, testID }: ConfirmDialogProps) {
+  useTheme();
   const { reduceMotion } = useA11yPrefs();
   return (
     <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} statusBarTranslucent onRequestClose={() => !loading && onCancel()}>
@@ -201,11 +205,11 @@ export function ConfirmDialog({ visible, title, message, children, confirmLabel,
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float },
   grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: colors.line },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: gutter, paddingTop: 14, paddingBottom: 12, gap: 12 },
   mapSheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   dialog: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: 24, padding: 22 },
-});
+}));

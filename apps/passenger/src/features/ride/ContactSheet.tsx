@@ -1,7 +1,7 @@
+import { useTheme , IconDisc, ListGroup, ListRow, Sheet, StatusBanner } from '@naya/ui';
 import { Linking, View } from 'react-native';
 import { MessageSquare, Phone, ShieldAlert } from 'lucide-react-native';
 import { colors } from '@naya/tokens';
-import { IconDisc, ListGroup, ListRow, Sheet, StatusBanner } from '@naya/ui';
 import type { DriverSummary } from '@naya/domain';
 
 /**
@@ -9,6 +9,7 @@ import type { DriverSummary } from '@naya/domain';
  * configured in the demo, so the options explain the dependency instead of faking a call.
  */
 export function ContactSheet({ driver, visible, onClose }: { driver: DriverSummary; visible: boolean; onClose: () => void }) {
+  useTheme();
   return (
     <Sheet visible={visible} onClose={onClose} title={`Contacter ${driver.firstName}`} subtitle="Vos numéros restent masqués." testID="contact-sheet">
       <View style={{ gap: 12 }}>

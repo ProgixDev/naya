@@ -1,7 +1,8 @@
+import { useTheme , ThemeController } from './theme';
 import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider , useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -16,7 +17,6 @@ import { createQueryClient, wireQueryLifecycle } from './query';
 import { resolveApiBase, STANDALONE_DEMO } from './apiBase';
 import { localDemoOptions } from './localDemo';
 import type { SessionStore } from './session';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -38,6 +38,7 @@ export function useMakeClient(session: SessionStore): { api: ApiClient; queryCli
 }
 
 function OfflineBanner() {
+  useTheme();
   const [online, setOnline] = useState(onlineManager.isOnline());
   const insets = useSafeAreaInsets();
   useEffect(() => onlineManager.subscribe(setOnline), []);
@@ -50,6 +51,7 @@ function OfflineBanner() {
 }
 
 export function AppProviders({ session, children }: { session: SessionStore; children: ReactNode }) {
+  useTheme();
   const { api, queryClient } = useMakeClient(session);
   const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
   const status = session((s) => s.status);
@@ -65,6 +67,7 @@ export function AppProviders({ session, children }: { session: SessionStore; chi
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>
+        <ThemeController />
         <KeyboardProvider>
           <QueryClientProvider client={queryClient}>
             <ApiProvider client={api}>

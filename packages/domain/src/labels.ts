@@ -43,6 +43,7 @@ export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
   in_progress: 'En cours de traitement',
   awaiting_user: 'Réponse attendue',
   resolved: 'Résolue',
+  rejected: 'Rejetée',
 };
 
 export const PASSENGER_CANCEL_REASONS = [

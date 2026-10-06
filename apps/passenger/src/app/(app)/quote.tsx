@@ -1,22 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Check, ChevronRight, CreditCard, TrendingUp } from 'lucide-react-native';
-import {
-  casablancaLocalToUtc,
-  formatDistance,
-  formatDuration,
-  formatMoney,
-  formatMultiplier,
-  type Quote,
-} from '@naya/domain';
-import { errorMessage, isApiError, qk } from '@naya/api';
-import { useApi, useDeadline } from '@naya/api/react';
-import { cars, aspect } from '@naya/assets';
-import { colors, gutter, radius, shadow } from '@naya/tokens';
-import {
+import { useTheme ,
   Button,
   ErrorState,
   FareBreakdown,
@@ -36,13 +18,31 @@ import {
   toast,
   useSingleFlight,
 } from '@naya/ui';
-import { ArrowLeft } from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ScrollView, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Banknote, Check, ChevronRight, CreditCard, TrendingUp , ArrowLeft } from 'lucide-react-native';
+import {
+  casablancaLocalToUtc,
+  formatDistance,
+  formatDuration,
+  formatMoney,
+  formatMultiplier,
+  type Quote,
+} from '@naya/domain';
+import { errorMessage, isApiError, qk } from '@naya/api';
+import { useApi, useDeadline } from '@naya/api/react';
+import { cars, aspect } from '@naya/assets';
+import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { draftStops, useDraft } from '@/lib/draft';
 import { useAccountId, usePaymentMethods } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
 import { SchedulePicker, firstDay } from '@/features/schedule/SchedulePicker';
 
 export default function QuoteScreen() {
+  useTheme();
   const params = useLocalSearchParams<{ schedule?: string }>();
   const api = useApi();
   const qc = useQueryClient();
@@ -52,9 +52,12 @@ export default function QuoteScreen() {
   const cityId = usePrefs((s) => s.cityId);
   const stops = draftStops(draft);
   const stopsKey = JSON.stringify(stops?.map((s) => [s.label, s.location.lat, s.location.lng]));
+  const [categoryId, setCategoryId] = useState('standard');
+  const catalog = useQuery({ queryKey: ['naya', a, 'catalog'], queryFn: api.prototype.catalog });
+  const cities = useQuery({ queryKey: ['naya', 'cities'], queryFn: api.cities.list });
   const quote = useQuery({
-    queryKey: ['naya', a, 'quote', cityId, stopsKey],
-    queryFn: () => api.quotes.create(cityId, stops!),
+    queryKey: ['naya', a, 'quote', cityId, stopsKey, categoryId],
+    queryFn: () => api.quotes.create(cityId, stops!, categoryId),
     enabled: !!stops,
     staleTime: Infinity,
     // A quote is single-use: never reuse one from an earlier booking of the same trip.
@@ -71,11 +74,7 @@ export default function QuoteScreen() {
   const [day, setDay] = useState(firstDay());
   const [time, setTime] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!methods.data || pmId) return;
-    const def = methods.data.find((m) => m.isDefault && m.availableInCity) ?? methods.data.find((m) => m.availableInCity);
-    if (def) setPmId(def.id);
-  }, [methods.data, pmId]);
+
 
   // Quotes are valid 10 minutes. On expiry a fresh quote is fetched and shown before any commitment.
   useEffect(() => {
@@ -85,7 +84,7 @@ export default function QuoteScreen() {
     }
   }, [deadline.expired]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pm = methods.data?.find((m) => m.id === pmId);
+  const pm = methods.data?.find((m) => m.id === pmId && m.availableInCity) ?? methods.data?.find(m => m.isDefault && m.availableInCity) ?? methods.data?.find(m => m.availableInCity);
   const book = useSingleFlight(
     async (_v: void, key: string) => {
       if (!q || !pm) throw new Error('Choisissez un moyen de paiement.');
@@ -151,10 +150,14 @@ export default function QuoteScreen() {
             <StatusBanner tone="danger" title={isApiError(quote.error) && quote.error.code === 'OUT_OF_ZONE' ? 'Hors zone desservie' : 'Prix indisponible'} message={errorMessage(quote.error)} action={{ label: 'Modifier l’itinéraire', onPress: () => router.back() }} testID="quote-error" />
           ) : null}
 
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Catégorie">
+            {catalog.data?.categories.filter(c => c.enabled && (!c.cityIds.length || c.cityIds.includes(cityId))).map(c => <PressableScale key={c.id} onPress={() => setCategoryId(c.id)} testID={`service-${c.id}`} accessibilityRole="radio" accessibilityState={{ checked: categoryId === c.id }} style={{ padding: 12, borderRadius: 18, borderWidth: 1, borderColor: categoryId === c.id ? colors.accent : colors.line, backgroundColor: categoryId === c.id ? colors.selected : colors.surface }}><Text variant="label">{c.name}</Text><Text variant="micro" tone="muted">{c.etaMinutes} min · {c.description}</Text></PressableScale>)}
+          </View>
           <PressableScale onPress={() => q && setShowFare(true)} accessibilityRole="button" accessibilityLabel={q ? `Naya, ${formatMoney(total)}, ${formatDistance(q.route.distanceMeters)}, ${formatDuration(q.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: colors.mauveSoft, borderRadius: 24, paddingVertical: 18, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line }} testID="fare-card" pressedScale={0.98}>
             <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={112} />
             <View style={{ flex: 1, gap: 5 }}>
-              <Text variant="label" weight="semibold">Naya Signature</Text>
+              <Text variant="label" weight="semibold">{q?.service?.name ?? 'Naya Standard'}</Text>
+              <Text variant="caption" tone="accent">Arrivée estimée · {q?.service?.etaMinutes ?? 5} min (démo)</Text>
               {q ? <Money amount={total} variant="title" style={{ fontSize: 28, lineHeight: 34 }} /> : <Skeleton width={100} height={32} />}
               <Text variant="caption" tone="muted" numeric>{q ? `${formatDistance(q.route.distanceMeters)} · ${formatDuration(q.route.durationSeconds)}` : 'Calcul du prix…'}</Text>
               <Text variant="micro" tone="accent">Voir le détail du prix ›</Text>
@@ -200,7 +203,7 @@ export default function QuoteScreen() {
         </View>
       </View>
 
-      <Sheet visible={showFare} onClose={() => setShowFare(false)} title="Détail du prix" subtitle={q ? `Tarifs ${q.cityId === 'rabat' ? 'Rabat' : 'Casablanca'} · règles v${q.ruleVersion}` : undefined} testID="fare-sheet">
+      <Sheet visible={showFare} onClose={() => setShowFare(false)} title="Détail du prix" subtitle={q ? `Tarifs ${cities.data?.find(c => c.id === q.cityId)?.name ?? q.cityId} · règles v${q.ruleVersion}` : undefined} testID="fare-sheet">
         {q ? <FareDetail q={q} /> : null}
       </Sheet>
       <Sheet visible={showPay} onClose={() => setShowPay(false)} title="Paiement" subtitle="Les moyens proposés dépendent de votre ville." testID="payment-sheet">
@@ -209,7 +212,7 @@ export default function QuoteScreen() {
             {(methods.data ?? []).map((m) => (
               <ListRow
                 key={m.id}
-                testID={`pm-${m.last4 ?? 'cash'}`}
+                testID={`pm-${m.last4 ?? m.kind}`}
                 title={m.label}
                 subtitle={!m.availableInCity ? 'Indisponible dans cette ville' : m.id === pmId ? 'Sélectionné' : undefined}
                 leading={m.kind === 'card' ? <CreditCard size={20} color={m.availableInCity ? colors.ink : colors.disabledText} /> : <Banknote size={20} color={colors.ink} />}
@@ -226,6 +229,7 @@ export default function QuoteScreen() {
 }
 
 function FareDetail({ q }: { q: Quote }) {
+  useTheme();
   return (
     <View style={{ gap: 14 }}>
       <FareBreakdown fare={q.breakdown} distanceMeters={q.route.distanceMeters} durationSeconds={q.route.durationSeconds} dynamicReason={q.conditions.dynamic?.reason} />

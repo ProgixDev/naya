@@ -1,3 +1,4 @@
+import { useTheme , Button, ErrorState, Header, IconDisc, Screen, SkeletonList, StatusBanner, Text, haptic, useSingleFlight } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -7,12 +8,12 @@ import { errorMessage, qk } from '@naya/api';
 import { assertWithdrawable, formatMoney, parseMoneyInput } from '@naya/domain';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';
-import { Button, ErrorState, Header, IconDisc, Screen, SkeletonList, StatusBanner, Text, haptic, useSingleFlight } from '@naya/ui';
 import { ActionNote, AmountEntry, ChoiceRow, QuickPills } from '@/components/Kit';
 import { useAccountId, useWallet } from '@/lib/queries';
 
 /** D15 · D15-insufficient · D15-recharged */
 export default function Withdraw() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

@@ -1,12 +1,14 @@
+import { themedStyles , colors, radius } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { Children, isValidElement, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
-import { colors, radius } from '@naya/tokens';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
 
 /** Grouped rows in one white 12–20 pt card on the pearl ground, hairlines inset from the label. */
 export function ListGroup({ children, label, style, footnote }: { children: ReactNode; label?: string; style?: StyleProp<ViewStyle>; footnote?: string }) {
+  useTheme();
   const items = Children.toArray(children).filter(isValidElement);
   return (
     <View style={style}>
@@ -47,6 +49,7 @@ export interface ListRowProps {
 }
 
 export function ListRow({ title, subtitle, leading, trailing, value, onPress, chevron = !!onPress, destructive, testID, numericValue, accessibilityHint }: ListRowProps) {
+  useTheme();
   const main = (
     <>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
@@ -88,11 +91,13 @@ export function ListRow({ title, subtitle, leading, trailing, value, onPress, ch
 }
 
 export function IconDisc({ children, tone = 'plain', size = 40 }: { children: ReactNode; tone?: 'plain' | 'accent' | 'success' | 'warning' | 'danger'; size?: number }) {
+  useTheme();
   const bg = { plain: colors.mauveSoft, accent: colors.selected, success: colors.successSoft, warning: colors.warningSoft, danger: colors.dangerSoft }[tone];
   return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>{children}</View>;
 }
 
 export function Card({ children, style, padded = true, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; padded?: boolean; testID?: string }) {
+  useTheme();
   return (
     <View testID={testID} style={[{ backgroundColor: colors.surface, borderRadius: radius.card, padding: padded ? 20 : 0, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }, style]}>
       {children}
@@ -101,13 +106,14 @@ export function Card({ children, style, padded = true, testID }: { children: Rea
 }
 
 export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
+  useTheme();
   return <View style={[{ height: StyleSheet.hairlineWidth, backgroundColor: colors.line }, style]} />;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   group: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(41,35,45,0.045)' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
   rowPress: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: -16, paddingLeft: 16 },
   leading: { alignItems: 'center', justifyContent: 'center' },
   hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginHorizontal: 16 },
-});
+}));

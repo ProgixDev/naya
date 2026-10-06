@@ -1,3 +1,4 @@
+import { useTheme , Button, EmptyState, Header, IconDisc, Screen, SkeletonList, StatusBanner, Text, haptic, useSingleFlight } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -7,12 +8,12 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { assertRechargeAmount, formatMoney, parseMoneyInput } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, EmptyState, Header, IconDisc, Screen, SkeletonList, StatusBanner, Text, haptic, useSingleFlight } from '@naya/ui';
 import { AmountEntry, ChoiceRow, QuickPills } from '@/components/Kit';
 import { useAccountId, useWallet } from '@/lib/queries';
 
 /** D14 · D14-debt · D14-provider · D14-provider-normal */
 export default function Recharge() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

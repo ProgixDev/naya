@@ -1,3 +1,4 @@
+import { useTheme , Button, ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Screen, SkeletonList, StatusBanner, Text, TextButton, haptic, toast } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,7 +8,6 @@ import { useApi } from '@naya/api/react';
 import { formatDay, ITEM_LABELS, STATUS_LABELS } from '@naya/domain';
 import { aspect, illustrations } from '@naya/assets';
 import { colors } from '@naya/tokens';
-import { Button, ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Screen, SkeletonList, StatusBanner, Text, TextButton, haptic, toast } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 
@@ -16,6 +16,7 @@ import { useSession } from '@/lib/session';
  * approval shows a confirmation before the app opens (the guard switches on refresh).
  */
 export default function Status() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();
@@ -113,6 +114,7 @@ const toneColors = {
 
 /** One card per decision: tone disc, title, one line. */
 function StatusHero({ tone, Icon, title, message }: { tone: keyof typeof toneColors; Icon: typeof Clock3; title: string; message: string }) {
+  useTheme();
   const t = toneColors[tone];
   return (
     <View accessible accessibilityRole="summary" style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 18, gap: 10, borderWidth: 1, borderColor: 'rgba(46,32,44,0.06)' }}>

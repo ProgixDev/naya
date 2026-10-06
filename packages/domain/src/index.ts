@@ -8,6 +8,7 @@ export * from './geo';
 export * from './cities';
 export * from './labels';
 export * from './phone';
+export * from './prototype';
 export * from './schemas';
 export * from './machines/machine';
 export * from './machines/ride';

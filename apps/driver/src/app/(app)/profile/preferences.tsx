@@ -1,3 +1,4 @@
+import { useTheme , ThemePicker , Header, ListGroup, ListRow, Screen, Text, toast, useA11yPrefs, useGlassKind } from '@naya/ui';
 import { Switch, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -5,7 +6,6 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { NotificationPreferences } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Header, ListGroup, ListRow, Screen, Text, toast, useA11yPrefs, useGlassKind } from '@naya/ui';
 import { useAccountId, useMe } from '@/lib/queries';
 
 const ROWS: { key: keyof NotificationPreferences; title: string; subtitle: string }[] = [
@@ -17,6 +17,7 @@ const ROWS: { key: keyof NotificationPreferences; title: string; subtitle: strin
 
 /** D17-settings */
 export default function Preferences() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();
@@ -37,6 +38,7 @@ export default function Preferences() {
             <ListRow key={r.key} title={r.title} subtitle={r.subtitle} trailing={<Switch value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} trackColor={{ true: colors.accent, false: colors.line }} thumbColor={colors.surface} {...({ activeThumbColor: colors.surface } as object)} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />
           ))}
         </ListGroup>
+        <ThemePicker />
         <ListGroup label="Affichage (réglages du système)" footnote="Naya suit automatiquement les réglages d’accessibilité de votre téléphone.">
           <ListRow title="Réduire les animations" value={prefs.reduceMotion ? 'Activé' : 'Désactivé'} />
           <ListRow title="Réduire la transparence" value={glass === 'opaque' ? 'Surfaces opaques' : 'Verre dépoli'} />

@@ -1,3 +1,4 @@
+import { useTheme , Button, FieldRow, FormField, Header, ListGroup, ListRow, Screen, StatusBanner, Text, haptic, toast, Toggle } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -6,7 +7,6 @@ import { Lock } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';
-import { Button, FieldRow, FormField, Header, ListGroup, ListRow, Screen, StatusBanner, Text, haptic, toast, Toggle } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 
 const luhn = (digits: string) => {
@@ -28,6 +28,7 @@ const luhn = (digits: string) => {
  * the last four digits go to the sandbox tokeniser, and Naya stores the returned token.
  */
 export default function NewCard() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

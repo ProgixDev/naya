@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useTheme , Button, ConfirmDialog, ErrorState, FareBreakdown, Header, IconDisc, ListGroup, ListRow, Screen, Sheet, SkeletonList, StatusBanner, StatusPill, Text, haptic, toast } from '@naya/ui';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,14 +8,16 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { casablancaLocalToUtc, formatDateTime, formatMoney, formatShort, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, ConfirmDialog, ErrorState, FareBreakdown, Header, IconDisc, ListGroup, ListRow, Screen, Sheet, SkeletonList, StatusBanner, StatusPill, Text, haptic, toast } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 import { SchedulePicker } from '@/features/schedule/SchedulePicker';
 
 /** P12-detail: recorded booking, modify time (price unchanged), cancel (free). */
 export default function ScheduledDetail() {
+  useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const api = useApi();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 15000); return () => clearInterval(timer); }, []);
   const qc = useQueryClient();
   const a = useAccountId();
   const q = useQuery({ queryKey: qk.scheduledOne(a, id), queryFn: () => api.scheduled.get(id), refetchInterval: 15_000 });
@@ -53,7 +56,7 @@ export default function ScheduledDetail() {
   if (q.isLoading) return <Screen header={<Header title="Réservation" onBack={() => router.back()} />}><SkeletonList rows={3} /></Screen>;
   if (q.isError || !b) return <Screen header={<Header title="Réservation" onBack={() => router.back()} />}><ErrorState onRetry={() => q.refetch()} /></Screen>;
   const open = b.status === 'scheduled';
-  const cutoffPassed = Date.parse(b.pickupAt) - Date.now() < 60 * 60_000;
+  const cutoffPassed = Date.parse(b.pickupAt) - now < 60 * 60_000;
 
   return (
     <Screen

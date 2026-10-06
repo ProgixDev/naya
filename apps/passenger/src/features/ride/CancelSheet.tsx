@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, isApiError, qk } from '@naya/api';
@@ -17,9 +17,6 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
   const a = useAccountId();
   const [reason, setReason] = useState<string | null>(null);
   const preview = useQuery({ queryKey: qk.cancellationPreview(a, ride.id), queryFn: () => api.rides.cancellationPreview(ride.id), enabled: visible, refetchInterval: visible ? 5000 : false });
-  useEffect(() => {
-    if (!visible) setReason(null);
-  }, [visible]);
   const cancel = useSingleFlight((_v: void, key: string) => api.rides.cancel(ride.id, { reasonCode: reason!, acknowledgedFee: preview.data!.fee }, key), {
     onSuccess: (r) => {
       haptic.success();
@@ -35,7 +32,7 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
   });
   const fee = preview.data?.fee ?? 0;
   return (
-    <Sheet visible={visible} onClose={onClose} dismissible={!cancel.isPending} title="Annuler la course ?" subtitle="Choisissez un motif." testID="cancel-sheet">
+    <Sheet visible={visible} onClose={() => { setReason(null); onClose(); }} dismissible={!cancel.isPending} title="Annuler la course ?" subtitle="Choisissez un motif." testID="cancel-sheet">
       <View style={{ gap: 12 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup">
           {PASSENGER_CANCEL_REASONS.map((r) => (

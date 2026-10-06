@@ -1,3 +1,4 @@
+import { useTheme , Button, Card, Header, IconDisc, Money, Screen, StatusBanner, Text, toast } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -7,7 +8,6 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, Card, Header, IconDisc, Money, Screen, StatusBanner, Text, toast } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 
 /**
@@ -15,6 +15,7 @@ import { useAccountId } from '@/lib/queries';
  * this is the provider's own screen; Naya receives only the signed result.
  */
 export default function ProviderSandbox() {
+  useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const api = useApi();
   const qc = useQueryClient();

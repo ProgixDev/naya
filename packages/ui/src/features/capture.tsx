@@ -1,3 +1,4 @@
+import { useTheme } from './../core/theme';
 import { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -35,6 +36,7 @@ const FRAME_H = 210;
  * endpoint only when the person confirms. Permission denial offers a way to the settings.
  */
 export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, existingUploadId, onSaved }: CaptureStepProps) {
+  useTheme();
   const api = useApi();
   const [file, setFile] = useState<PickedFile | null>(null);
   const [denied, setDenied] = useState(false);

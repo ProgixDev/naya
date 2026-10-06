@@ -1,3 +1,4 @@
+import { ThemePicker , Header, ListGroup, ListRow, Screen, StatusBanner, Text, TextButton, toast, useA11yPrefs, useGlassKind, Toggle } from '@naya/ui';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { router } from 'expo-router';
@@ -7,7 +8,6 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { NotificationPreferences } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Header, ListGroup, ListRow, Screen, StatusBanner, Text, TextButton, toast, useA11yPrefs, useGlassKind, Toggle } from '@naya/ui';
 import { useAccountId, useMe } from '@/lib/queries';
 
 const ROWS: { key: keyof NotificationPreferences; title: string }[] = [
@@ -25,9 +25,9 @@ export default function Preferences() {
   const me = useMe();
   const a11y = useA11yPrefs();
   const glass = useGlassKind();
-  const [perm, setPerm] = useState<'granted' | 'denied' | 'undetermined' | 'unsupported'>('undetermined');
+  const [perm, setPerm] = useState<'granted' | 'denied' | 'undetermined' | 'unsupported'>(Platform.OS === 'web' ? 'unsupported' : 'undetermined');
   useEffect(() => {
-    if (Platform.OS === 'web') return setPerm('unsupported');
+    if (Platform.OS === 'web') return;
     Notifications.getPermissionsAsync().then((p) => setPerm(p.granted ? 'granted' : p.canAskAgain ? 'undetermined' : 'denied')).catch(() => setPerm('unsupported'));
   }, []);
   const update = useMutation({
@@ -50,6 +50,7 @@ export default function Preferences() {
             <ListRow key={r.key} title={r.title} trailing={<Toggle value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />
           ))}
         </ListGroup>
+        <ThemePicker />
         <ListGroup label="Affichage" footnote="Naya suit les réglages d’accessibilité du téléphone.">
           <ListRow title="Réduire les animations" value={a11y.reduceMotion ? 'Activé' : 'Désactivé'} />
           <ListRow title="Commandes flottantes" value={glass === 'opaque' ? 'Opaques' : glass === 'liquid' ? 'Verre natif' : 'Givrées'} />

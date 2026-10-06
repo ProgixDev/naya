@@ -1,10 +1,11 @@
+import { getColorScheme , themedStyles , colors } from '@naya/tokens';
+import { useTheme } from './../core/theme';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import Svg, { Polyline } from 'react-native-svg';
-import { colors } from '@naya/tokens';
 import type { LatLng } from '@naya/domain';
 import { Text } from '../Text';
 import { useA11yPrefs } from '../a11y';
@@ -23,6 +24,7 @@ export const TILE_URL = process.env.EXPO_PUBLIC_MAP_TILE_URL ?? 'https://tile.op
 export const TILE_ATTRIBUTION = process.env.EXPO_PUBLIC_MAP_ATTRIBUTION ?? '© OpenStreetMap contributors';
 
 export function TileMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, onCenterChange, onPress, interactive = true, bottomInset = 0, topInset = 0, testID }: NayaMapProps) {
+  useTheme();
   const { reduceMotion } = useA11yPrefs();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState({ center, zoom });
@@ -108,6 +110,7 @@ export function TileMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitT
   const url = (t: { x: number; y: number }) => TILE_URL.replace('{z}', String(view.zoom)).replace('{x}', String(t.x)).replace('{y}', String(t.y)).replace('{s}', 'a');
   const routePts = route?.map(toScreen).map((p) => `${p.x},${p.y}`).join(' ');
 
+const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark' ? 'invert(0.92) hue-rotate(185deg) brightness(0.68) contrast(0.9)' : 'grayscale(0.92) sepia(0.12) hue-rotate(250deg) brightness(1.06) contrast(0.92)' } as object) : null;
   return (
     <View testID={testID} style={[StyleSheet.absoluteFill, { backgroundColor: colors.map, overflow: 'hidden' }]} onLayout={(e: LayoutChangeEvent) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} accessibilityLabel="Carte" accessibilityHint={onCenterChange ? 'Faites glisser la carte pour placer le point de départ sous le repère' : undefined}>
       <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
@@ -115,7 +118,7 @@ export function TileMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitT
           {tiles.map((t) => (
             <Image key={t.key} source={{ uri: url(t) }} style={[{ position: 'absolute', left: t.left, top: t.top, width: TILE, height: TILE }, tileFilter]} transition={Platform.OS === 'web' ? 0 : 120} cachePolicy="memory-disk" />
           ))}
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: Platform.OS === 'web' ? 'rgba(250,244,247,0.18)' : 'rgba(250,244,247,0.42)' }]} />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: getColorScheme() === 'dark' ? 'rgba(15,10,20,0.55)' : Platform.OS === 'web' ? 'rgba(250,244,247,0.18)' : 'rgba(250,244,247,0.42)' }]} />
           {route && route.length > 1 ? (
             <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={size.w} height={size.h}>
               <Polyline points={routePts} stroke={colors.surface} strokeWidth={9} fill="none" strokeLinejoin="round" strokeLinecap="round" />
@@ -149,8 +152,8 @@ export function TileMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitT
 }
 
 /** Calm, pearl-leaning basemap: desaturated on web where CSS filters exist. */
-const tileFilter = Platform.OS === 'web' ? ({ filter: 'grayscale(0.92) sepia(0.12) hue-rotate(250deg) brightness(1.06) contrast(0.92)' } as object) : null;
 
-const styles = StyleSheet.create({
+
+const styles = themedStyles(() => StyleSheet.create({
   attribution: { position: 'absolute', left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 4, paddingHorizontal: 4 },
-});
+}));

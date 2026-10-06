@@ -7,9 +7,9 @@ export type LocationState = 'unknown' | 'granted' | 'denied' | 'unavailable';
 
 /** Foreground permission, asked in context (when going online), never at launch. */
 export function useForegroundLocation() {
-  const [state, setState] = useState<LocationState>('unknown');
+  const [state, setState] = useState<LocationState>(STANDALONE_DEMO ? 'granted' : 'unknown');
   useEffect(() => {
-    if (STANDALONE_DEMO) { setState('granted'); return; }
+    if (STANDALONE_DEMO) return;
     Location.getForegroundPermissionsAsync()
       .then((p) => setState(p.granted ? 'granted' : p.canAskAgain ? 'unknown' : 'denied'))
       .catch(() => setState('unavailable'));
@@ -45,7 +45,7 @@ const HEARTBEAT_MS = 10_000;
  */
 export function useLocationStream(active: boolean, send: (p: LatLng) => void) {
   const sendRef = useRef(send);
-  sendRef.current = send;
+  useEffect(() => { sendRef.current = send; }, [send]);
   useEffect(() => {
     if (!active || STANDALONE_DEMO) return;
     let sub: Location.LocationSubscription | null = null;

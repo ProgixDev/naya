@@ -58,9 +58,9 @@ export function readUpload(ctx: Ctx, principal: Principal, id: string): { upload
   const upload = ctx.store.state.uploads.find((u) => u.id === id);
   if (!upload) throw new DomainError('NOT_FOUND');
   const allowed =
-    (principal.kind === 'user' && principal.user.id === upload.ownerId) ||
+    (principal.kind === 'user' && (principal.user.id === upload.ownerId || ctx.store.state.prototype?.trips.some(t => t.arrivalProof === id && t.passengerId === principal.user.id))) ||
     (principal.kind === 'admin' &&
-      (principal.admin.permissions.includes('verification.decide') ||
+      (principal.admin.permissions.includes('verification.decide') || (upload.purpose === 'support_attachment' && principal.admin.permissions.includes('config.edit')) ||
         (upload.purpose === 'support_attachment' && principal.admin.permissions.includes('support.resolve'))));
   if (!allowed) throw new DomainError('FORBIDDEN');
   const file = join(uploadDir(ctx), `${id}.${ext[upload.mimeType]}`);

@@ -35,7 +35,7 @@ export function OverviewPage() {
               {d ? (
                 <>
                   <Kpi label="Courses terminées" value={d.completedRides} hint={PERIOD_LABELS[period]} />
-                  <Kpi label="Volume des courses" value={money(d.volume)} hint={`${money(d.byMethod.cash)} espèces · ${money(d.byMethod.card)} carte`} />
+                  <Kpi label="Volume des courses" value={money(d.volume)} hint={`${money(d.byMethod.cash)} espèces · ${money(d.byMethod.card)} carte · ${money(d.byMethod.wallet + d.byMethod.mobile_wallet)} wallets`} />
                   <Kpi label="Commissions" value={money(d.commission)} hint="Sur les courses terminées" />
                   <Kpi label="À examiner" value={d.reviewQueue.length} hint={`${d.openTickets} demande(s) support · ${d.pendingTransfers} opération(s) en attente`} tone={d.reviewQueue.length ? 'warning' : undefined} />
                 </>

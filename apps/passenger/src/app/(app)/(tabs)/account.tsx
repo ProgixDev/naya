@@ -1,3 +1,4 @@
+import { useTheme , ProfileHero, Avatar, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, TextButton, avatarFor, haptic } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -5,13 +6,13 @@ import { Bell, CreditCard, FlaskConical, LifeBuoy, MapPin } from 'lucide-react-n
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';
-import { ProfileHero, Avatar, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, TextButton, avatarFor, haptic } from '@naya/ui';
 import { useMe } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useDraft } from '@/lib/draft';
 import { useTabBarSpace } from '@/components/TabBar';
 
 export default function Account() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const me = useMe();
@@ -30,6 +31,9 @@ export default function Account() {
       <View style={{ gap: 14, marginTop: 4 }}>
         <ProfileHero name={u ? `${u.firstName} ${u.lastName}` : 'Votre compte'} detail={`${u?.phone ?? ''} · ${me.data?.city.name ?? ''}`} source={avatarFor(u?.firstName ?? '')} status={<StatusPill tone="success" label="Compte vérifié" />} />
         <ListGroup label="Vos essentiels">
+          <ListRow title="Portefeuille Naya" subtitle="Recharges et paiements de démo" onPress={() => router.push('/wallet')} testID="account-wallet" />
+          <ListRow title="Naya Famille" subtitle="Abonnements et trajets enfants" onPress={() => router.push('/family')} testID="account-family" />
+          <ListRow title="Identité · 6 pistes" subtitle="Explorer les propositions de logo" onPress={() => router.push('/brand')} />
           <ListRow testID="account-payments" title="Moyens de paiement" leading={<IconDisc><CreditCard size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/payments')} />
           <ListRow testID="account-places" title="Adresses enregistrées" subtitle={saved || 'Maison, travail…'} leading={<IconDisc><MapPin size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/places')} />
           <ListRow testID="account-preferences" title="Notifications" leading={<IconDisc><Bell size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/preferences')} />

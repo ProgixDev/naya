@@ -1,13 +1,14 @@
+import { useTheme , Button, EmptyState, Header, PressableScale, Screen, Text } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { colors, radius } from '@naya/tokens';
-import { Button, EmptyState, Header, PressableScale, Screen, Text } from '@naya/ui';
 import { HELP_TOPICS } from '@/features/help/topics';
 
 /** Questions as one accordion card: the first answer is open, the others one tap away. */
 export default function HelpTopic() {
+  useTheme();
   const { topic } = useLocalSearchParams<{ topic: string }>();
   const t = HELP_TOPICS.find((x) => x.id === topic);
   const [open, setOpen] = useState(0);

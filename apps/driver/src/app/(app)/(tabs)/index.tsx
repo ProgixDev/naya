@@ -1,3 +1,4 @@
+import { useTheme , Avatar, avatarFor, Button, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
 import { useMemo, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -9,7 +10,6 @@ import { useApi } from '@naya/api/react';
 import { formatMoney, type LatLng } from '@naya/domain';
 import { startOfTodayUtc } from '@/lib/time';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Avatar, avatarFor, Button, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
 import { useAccountId, useDriverStatus, useMe } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
 import { useForegroundLocation } from '@/lib/location';
@@ -35,6 +35,7 @@ function reasonBanner(r: EligibilityReason) {
 
 /** D06 · D06-online · D06-debt · D06-gps · D06-docs · D06-restored · D06-casa */
 export default function Dashboard() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();

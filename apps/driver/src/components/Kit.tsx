@@ -1,9 +1,9 @@
+import { themedStyles , colors, fonts } from '@naya/tokens';
+import { useTheme , Button, FrostLayers, GlossLayers, IconDisc, Money, PressableScale, Text, frostOutline, frostShadow, glossShadow, haptic } from '@naya/ui';
 import { forwardRef, type ReactNode } from 'react';
 import { Platform, StyleSheet, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Check, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
-import { colors, fonts } from '@naya/tokens';
 import type { Centimes } from '@naya/domain';
-import { Button, FrostLayers, GlossLayers, IconDisc, Money, PressableScale, Text, frostOutline, frostShadow, glossShadow, haptic } from '@naya/ui';
 
 /**
  * Driver-side compositions of design system v2 (Copilot-style tactile pills, Dimension
@@ -12,6 +12,7 @@ import { Button, FrostLayers, GlossLayers, IconDisc, Money, PressableScale, Text
 
 /** Big centred tabular amount (Coinbase / Copilot amount entry). The MAD unit sits beside the figure. */
 export const AmountEntry = forwardRef<TextInput, { label: string; value: string; onChangeText: (v: string) => void; error?: string | null; helper?: ReactNode; testID?: string; autoFocus?: boolean }>(function AmountEntry({ label, value, onChangeText, error, helper, testID, autoFocus }, ref) {
+  useTheme();
   const size = value.length > 6 ? 40 : 52;
   return (
     <View style={{ alignItems: 'center', gap: 4, paddingVertical: 4 }}>
@@ -54,6 +55,7 @@ export const AmountEntry = forwardRef<TextInput, { label: string; value: string;
 
 /** Centred row of frosted quick-amount pills; the selected one turns ink with a check. */
 export function QuickPills({ options, selected, onSelect }: { options: { key: string; label: string; testID?: string }[]; selected?: string | null; onSelect: (key: string) => void }) {
+  useTheme();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
       {options.map((o) => {
@@ -87,6 +89,7 @@ export function QuickPills({ options, selected, onSelect }: { options: { key: st
 
 /** Selectable frosted row (provider, payout account). Radio semantics; selection = accent ring + check. */
 export function ChoiceRow({ title, subtitle, leading, selected, onPress, testID, trailing }: { title: string; subtitle?: string; leading?: ReactNode; selected?: boolean; onPress: () => void; testID?: string; trailing?: ReactNode }) {
+  useTheme();
   return (
     <PressableScale
       testID={testID}
@@ -122,6 +125,7 @@ export function ChoiceRow({ title, subtitle, leading, selected, onPress, testID,
 
 /** One-line note with an inline frosted action (blocking reasons, resume ride, cash to confirm). */
 export function ActionNote({ tone, title, message, action, icon, testID }: { tone: 'info' | 'success' | 'warning' | 'danger' | 'neutral'; title: string; message?: string; action?: { label: string; onPress: () => void }; icon?: ReactNode; testID?: string }) {
+  useTheme();
   const t = TONES[tone];
   return (
     <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.note, { backgroundColor: t.bg }]}>
@@ -151,6 +155,7 @@ const TONES = {
 
 /** Centred status hero for operation receipts (recharge, withdrawal, ride end). */
 export function OperationHero({ state, amount, kicker, caption, sign, testID }: { state: 'pending' | 'confirmed' | 'failed' | 'neutral'; amount: Centimes; kicker: string; caption?: string; sign?: 'auto' | 'always'; testID?: string }) {
+  useTheme();
   const tone = state === 'confirmed' ? 'success' : state === 'failed' ? 'danger' : 'plain';
   return (
     <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }} testID={testID}>
@@ -174,6 +179,7 @@ export function OperationHero({ state, amount, kicker, caption, sign, testID }: 
 
 /** Compact figure tile used in two-up rows (earnings, dashboard). */
 export function StatTile({ label, children, foot, onPress, testID, accessibilityLabel, style }: { label: string; children: ReactNode; foot?: string; onPress?: () => void; testID?: string; accessibilityLabel?: string; style?: StyleProp<ViewStyle> }) {
+  useTheme();
   const body = (
     <>
       <Text variant="micro" tone="muted" numberOfLines={1}>
@@ -200,6 +206,7 @@ export function StatTile({ label, children, foot, onPress, testID, accessibility
 
 /** Label + value line for compact summaries inside a card. */
 export function FigureLine({ label, value, sub, testID, strong }: { label: string; value: string; sub?: string; testID?: string; strong?: boolean }) {
+  useTheme();
   return (
     <View style={styles.line} accessible accessibilityLabel={`${label} ${value}`} testID={testID}>
       <View style={{ flex: 1 }}>
@@ -224,6 +231,7 @@ export function FigureLine({ label, value, sub, testID, strong }: { label: strin
  * 'secondary' = frosted. Disabled turns neutral grey.
  */
 export function ActionPill({ label, icon, variant = 'secondary', onPress, disabled, accessibilityHint, testID }: { label: string; icon: (color: string) => ReactNode; variant?: 'primary' | 'secondary'; onPress: () => void; disabled?: boolean; accessibilityHint?: string; testID?: string }) {
+  useTheme();
   const gloss = variant === 'primary' && !disabled;
   const color = disabled ? colors.disabledText : gloss ? colors.inverse : colors.accent;
   return (
@@ -252,7 +260,7 @@ export function ActionPill({ label, icon, variant = 'secondary', onPress, disabl
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   action: { flex: 1, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   amount: { fontFamily: fonts.semibold, letterSpacing: -1.2, textAlign: 'right', padding: 0, minWidth: 36, fontVariant: ['tabular-nums'] },
   quick: { height: 38, minWidth: 72, paddingHorizontal: 16, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
@@ -263,4 +271,4 @@ const styles = StyleSheet.create({
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 18, paddingVertical: 10, paddingLeft: 12, paddingRight: 8, minHeight: 48 },
   tile: { flex: 1, backgroundColor: colors.background, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, gap: 1 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44, paddingVertical: 4 },
-});
+}));

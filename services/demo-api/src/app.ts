@@ -87,6 +87,7 @@ import { addZone, createCity, setCityStatus, setZoneActive, toggleProvider, upda
 import { agentMessage, createTicket, resolveTicket, userMessage } from './services/support';
 import { requirePermission } from './services/permissions';
 import { tick } from './services/timers';
+import { mountPrototypeRoutes, prototypeMethods, prototypeProviders } from './services/prototype';
 import { buildSeed, DEMO_ACCOUNTS, SCENARIOS, type ScenarioId } from './seed';
 
 type Env = { Variables: { principal: Principal | null } };
@@ -219,6 +220,8 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     return c.json({ error: { code: 'UNKNOWN', message: ERROR_MESSAGES.UNKNOWN, details: null } }, 500);
   });
 
+  mountPrototypeRoutes(app, ctx, { userOf, adminOf, idempotent });
+
   app.get('/health', (c) => c.json({ ok: true, version: S().version, scenario: S().scenario, devMode: ctx.config.devMode, time: ctx.clock.iso() }));
   app.get('/sync', (c) => c.json({ version: S().version, time: ctx.clock.iso() }));
 
@@ -296,6 +299,11 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     if (!p || p.kind !== 'user') throw new DomainError('UNAUTHORIZED');
     return c.json(createUpload(ctx, p.user.id, await body(c, uploadSchema)));
   });
+  app.get('/uploads/:id/preview', (c) => {
+    const principal = c.get('principal'); if (!principal) throw new DomainError('UNAUTHORIZED');
+    const { upload, data } = readUpload(ctx, principal, c.req.param('id'));
+    return c.json({ uri: `data:${upload.mimeType};base64,${data.toString('base64')}`, mimeType: upload.mimeType }, 200, { 'Cache-Control': 'no-store' });
+  });
   app.get('/uploads/:id', (c) => {
     const p = c.get('principal');
     if (!p) throw new DomainError('UNAUTHORIZED');
@@ -325,8 +333,10 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   app.get('/places/search', (c) => {
     const q = normalize(c.req.query('q') ?? '');
     const cityId = c.req.query('cityId') ?? 'rabat';
-    const prefix = cityId === 'casablanca' ? 'casa' : 'rabat';
-    const all = Object.values(PLACES) as Place[];
+    const city = mustFind(S().cities, x => x.id === cityId, 'ville');
+    const prefix = cityId === 'casablanca' ? 'casa' : cityId;
+    const generated: Place[] = ['Centre-ville', 'Gare', 'École', 'Quartier résidentiel', 'Hôpital', 'Aéroport'].map((label, i) => ({ id: `${cityId}-demo-${i}`, label: `${city.name} · ${label}`, address: `${label}, ${city.name} (démo)`, location: { lat: city.center.lat + i * 0.0015, lng: city.center.lng + i * 0.001 } }));
+    const all = ['rabat', 'casablanca'].includes(cityId) ? Object.values(PLACES) as Place[] : generated;
     const results = all.filter((p) => (p.id?.startsWith(prefix) || (cityId === 'rabat' && p.id?.startsWith('sale'))) && (!q || normalize(`${p.label} ${p.address}`).includes(q)));
     return c.json(results.slice(0, 8));
   });
@@ -342,14 +352,15 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   /* ───────── Passenger rides ───────── */
   app.post('/quotes', async (c) => {
     const input = await body(c, quoteRequestSchema);
-    return c.json(createQuote(ctx, userOf(c, 'passenger'), input.cityId, input.stops));
+    return c.json(createQuote(ctx, userOf(c, 'passenger'), input.cityId, input.stops, input.categoryId));
   });
   app.get('/payment-methods', (c) => {
     const user = userOf(c, 'passenger');
     const s = S();
+    const proto = prototypeMethods(s, user);
     const methods = s.paymentMethods.filter((p) => p.userId === user.id);
     const available = new Set(s.providers.filter((p) => p.cityId === user.cityId && p.purpose === 'ride' && p.enabled && p.configured).map((p) => p.kind));
-    return c.json(methods.map(({ providerToken: _t, ...m }) => ({ ...m, availableInCity: available.has(m.kind) })));
+    return c.json(methods.map(({ providerToken: _t, ...m }) => ({ ...m, availableInCity: m.kind === 'wallet' || (m.kind === 'mobile_wallet' ? proto.catalog.payments.some(p => p.kind === 'mobile' && p.enabled && (!p.cityIds.length || p.cityIds.includes(user.cityId))) : available.has(m.kind)) })));
   });
   app.post('/payment-methods/card', async (c) => {
     const user = userOf(c, 'passenger');
@@ -382,7 +393,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     return c.json(
       ctx.store.tx((s) => {
         const pm = mustFind(s.paymentMethods, (p) => p.id === c.req.param('id') && p.userId === user.id, 'moyen de paiement');
-        if (pm.kind === 'cash') throw new DomainError('VALIDATION', 'Les espèces ne peuvent pas être supprimées.');
+        if (pm.kind !== 'card') throw new DomainError('VALIDATION', 'Les espèces ne peuvent pas être supprimées.');
         if (s.rides.some((r) => r.paymentMethod.id === pm.id && isRideActive(r.status)) || s.scheduled.some((b) => b.paymentMethod.id === pm.id && b.status === 'scheduled')) {
           throw new DomainError('CONFLICT', 'Cette carte est utilisée par une course en cours ou planifiée.');
         }
@@ -550,6 +561,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     });
   });
   app.get('/payment-providers', (c) => {
+    prototypeProviders(S());
     const user = userOf(c);
     const purpose = c.req.query('purpose') ?? 'recharge';
     return c.json(S().providers.filter((p) => p.cityId === user.cityId && p.purpose === purpose && p.enabled && p.configured));
@@ -641,7 +653,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     const done = rides.filter((r) => r.status === 'completed' && inPeriod(r.completedAt));
     const volume = done.reduce((a, r) => a + r.terms.breakdown.total, 0);
     const commission = done.reduce((a, r) => a + Math.round((r.terms.breakdown.total * r.terms.commissionBp) / 10_000), 0);
-    const byMethod = { cash: done.filter((r) => r.paymentMethod.kind === 'cash').reduce((a, r) => a + r.terms.breakdown.total, 0), card: done.filter((r) => r.paymentMethod.kind === 'card').reduce((a, r) => a + r.terms.breakdown.total, 0) };
+    const byMethod = { wallet: done.filter(r=>r.paymentMethod.kind==='wallet').reduce((a,r)=>a+r.terms.breakdown.total,0), mobile_wallet: done.filter(r=>r.paymentMethod.kind==='mobile_wallet').reduce((a,r)=>a+r.terms.breakdown.total,0), cash: done.filter((r) => r.paymentMethod.kind === 'cash').reduce((a, r) => a + r.terms.breakdown.total, 0), card: done.filter((r) => r.paymentMethod.kind === 'card').reduce((a, r) => a + r.terms.breakdown.total, 0) };
     const queue = s.cases.filter((x) => (x.status === 'submitted' || x.status === 'in_review') && s.users.find((u) => u.id === x.userId)?.cityId === cityId);
     const online = s.presence.filter((p) => p.online && s.users.find((u) => u.id === p.driverId)?.cityId === cityId);
     return c.json({

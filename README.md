@@ -155,6 +155,10 @@ pnpm --filter @naya/e2e install-browsers    # once
 pnpm e2e                                    # Playwright against running servers (see e2e/playwright.config.ts)
 ```
 
+## Feedback prototype (6 October 2026)
+
+The mobile feedback is implemented as demo workflows across both apps and the admin: service categories, Naya Famille, passenger wallet, SOS, dispute evidence, appearance settings, and six logo concepts. See [the walkthrough and current verification](docs/MOBILE-FEEDBACK-DEMO.md). Payments and safety actions remain simulated.
+
 ## Verification (30 September 2026)
 
 | Check | Result |

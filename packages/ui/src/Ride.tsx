@@ -1,10 +1,11 @@
+import { themedStyles , colors, radius } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
 import Svg, { Circle } from 'react-native-svg';
 import { ArrowDownLeft, ArrowUpRight, Banknote, CreditCard, GripVertical, MapPin, Receipt, Star, Trash2, Wrench } from 'lucide-react-native';
-import { avatars, cars, aspect } from '@naya/assets';
-import { colors, radius } from '@naya/tokens';
+import { cars, aspect } from '@naya/assets';
+import { Illustration , Avatar } from './Brand';
 import {
   formatDistance,
   formatDuration,
@@ -22,12 +23,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from './Text';
 import { IconButton } from './Button';
 import { PressableScale } from './PressableScale';
-import { Avatar } from './Brand';
 import { IconDisc } from './List';
 
 /* ───────────── Money ───────────── */
 
 export function Money({ amount, variant = 'label', tone = 'ink', sign, weight = 'semibold', style }: { amount: Centimes; variant?: 'display' | 'hero' | 'title' | 'heading' | 'label' | 'caption' | 'action' | 'body'; tone?: 'ink' | 'muted' | 'accent' | 'inverse' | 'success' | 'danger'; sign?: 'auto' | 'always'; weight?: 'regular' | 'medium' | 'semibold' | 'bold'; style?: object }) {
+  useTheme();
   return (
     <Text variant={variant} tone={tone} weight={weight} numeric style={style} accessibilityLabel={`${formatMoney(amount, { sign }).replace('−', 'moins ')}`}>
       {formatMoney(amount, { sign })}
@@ -58,6 +59,7 @@ export interface RouteStopRowProps {
 const roleLabel: Record<StopRole, string> = { pickup: 'Départ', stop: 'Arrêt', destination: 'Destination' };
 
 export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMoveUp, onMoveDown, isLast, done, compact = false, testID }: RouteStopRowProps) {
+  useTheme();
   const marker = role === 'pickup' ? <View style={[styles.dot, { borderColor: colors.accent }]} /> : role === 'destination' ? <MapPin size={18} color={colors.accent} fill={colors.selected} /> : <View style={[styles.square, done && { backgroundColor: colors.success, borderColor: colors.success }]} />;
   const rail = (
     <View style={styles.rail}>
@@ -114,6 +116,7 @@ export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMo
 
 /** Compact one-line summary: "Gare Rabat Ville → Agdal → Hay Riad". */
 export function RouteSummary({ stops, distanceMeters, durationSeconds }: { stops: Place[]; distanceMeters?: number; durationSeconds?: number }) {
+  useTheme();
   return (
     <View style={{ gap: 2 }}>
       <Text variant="label" numberOfLines={2}>
@@ -131,6 +134,7 @@ export function RouteSummary({ stops, distanceMeters, durationSeconds }: { stops
 /* ───────────── Fare ───────────── */
 
 function Line({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: 'ink' | 'muted' | 'accent' }) {
+  useTheme();
   return (
     <View style={styles.fareLine} accessible accessibilityLabel={`${label} ${value}`}>
       <Text variant={strong ? 'label' : 'caption'} tone={strong ? 'ink' : tone ?? 'muted'} weight={strong ? 'semibold' : 'medium'} style={{ flex: 1 }}>
@@ -145,6 +149,7 @@ function Line({ label, value, strong, tone }: { label: string; value: string; st
 
 /** Transparent fare review: every component, the minimum, the dynamic multiplier and the total. */
 export function FareBreakdown({ fare, distanceMeters, durationSeconds, dynamicReason }: { fare: Fare; distanceMeters: number; durationSeconds: number; dynamicReason?: string | null }) {
+  useTheme();
   return (
     <View style={{ gap: 2 }} testID="fare-breakdown">
       <Line label="Prise en charge" value={formatMoney(fare.baseFare)} />
@@ -166,14 +171,15 @@ export function FareBreakdown({ fare, distanceMeters, durationSeconds, dynamicRe
 /* ───────────── People and vehicles ───────────── */
 
 export function VehicleImage({ color, width = 132 }: { color: string; width?: number }) {
-  const plum = /prune|plum/i.test(color);
-  return <Image source={plum ? cars.plumSmall : cars.pearlSmall} style={{ width, aspectRatio: aspect.carSmall }} contentFit="contain" accessibilityLabel={`Naya Signature ${color}`} />;
+  useTheme();
+  return <Illustration source={cars.pearlSmall} width={width} aspect={aspect.carSmall} label={`Véhicule ${color}`} />;
 }
 
 /** Portrait avatars exist only for the illustrated demo characters. */
-export const avatarFor = (firstName: string) => (firstName === 'Amina' ? avatars.amina : firstName === 'Salma' ? avatars.salma : null);
+export const avatarFor = (_firstName: string): null => null;
 
 export function DriverCard({ driver, trailing, eta }: { driver: DriverSummary; trailing?: ReactNode; eta?: string }) {
+  useTheme();
   return (
     <View style={styles.driver} testID="driver-card">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -220,6 +226,7 @@ export function DriverCard({ driver, trailing, eta }: { driver: DriverSummary; t
  * distinct figures with distinct labels. Only the balance is the hero.
  */
 export function WalletSummary({ wallet, testID }: { wallet: Wallet; testID?: string }) {
+  useTheme();
   const negative = wallet.balance < 0;
   return (
     <View testID={testID ?? 'wallet-summary'} style={styles.walletCard}>
@@ -244,6 +251,7 @@ export function WalletSummary({ wallet, testID }: { wallet: Wallet; testID?: str
 }
 
 function WalletFigure({ label, amount, suffix, note }: { label: string; amount: Centimes; suffix?: string; note?: string }) {
+  useTheme();
   return (
     <View style={{ width: '50%', paddingRight: 8, gap: 2, marginTop: 12 }} accessible accessibilityLabel={`${label} ${formatMoney(amount)}${suffix ?? ''}${note ? `, ${note}` : ''}`}>
       <Text variant="micro" tone="inverse" style={{ opacity: 0.8 }}>
@@ -269,6 +277,7 @@ const ledgerMeta: Record<LedgerEntry['type'], { label: string; Icon: typeof Rece
 };
 
 export function TransactionRow({ entry, onPress, subtitle }: { entry: Pick<LedgerEntry, 'type' | 'amount' | 'createdAt' | 'rideId' | 'id'>; onPress?: () => void; subtitle?: string }) {
+  useTheme();
   const meta = ledgerMeta[entry.type];
   const credit = entry.amount > 0;
   const body = (
@@ -297,6 +306,7 @@ export function TransactionRow({ entry, onPress, subtitle }: { entry: Pick<Ledge
 
 /** Ring + tabular seconds. The ring is decorative; the number carries the information. */
 export function CountdownRing({ seconds, total = 30, size = 56 }: { seconds: number; total?: number; size?: number }) {
+  useTheme();
   const stroke = 4;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -315,7 +325,7 @@ export function CountdownRing({ seconds, total = 30, size = 56 }: { seconds: num
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   stopRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
   rail: { width: 20, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center' },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 3, backgroundColor: colors.surface },
@@ -328,4 +338,4 @@ const styles = StyleSheet.create({
   walletCard: { borderRadius: radius.card + 4, padding: 20, overflow: 'hidden', gap: 2 },
   walletGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
   txRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 10 },
-});
+}));

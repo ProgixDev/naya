@@ -1,9 +1,8 @@
-import { useStackMotion } from '@naya/ui';
+import { useTheme , useStackMotion , AppProviders, DevNavigator, ErrorState } from '@naya/ui';
 import '../../global.css';
 import '@/lib/backgroundLocation';
 import { Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
-import { AppProviders, DevNavigator, ErrorState } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import { useSession } from '@/lib/session';
 import { isSubmitted, useCases } from '@/lib/queries';
@@ -11,6 +10,7 @@ import { isSubmitted, useCases } from '@/lib/queries';
 export { ErrorBoundary } from 'expo-router';
 
 function RootNavigator() {
+  useTheme();
   const stackMotion = useStackMotion();
   const signedIn = useSession((s) => s.status === 'signedIn');
   const { person, vehicle, isLoading, isError, data, refetch } = useCases();
@@ -47,6 +47,7 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  useTheme();
   return (
     <AppProviders session={useSession}>
       <RootNavigator />

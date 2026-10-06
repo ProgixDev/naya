@@ -1,8 +1,9 @@
+import { getColorScheme , colors } from '@naya/tokens';
+import { useTheme } from './../core/theme';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Constants from 'expo-constants';
 import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
-import { colors } from '@naya/tokens';
 import { useA11yPrefs } from '../a11y';
 import { MarkerView } from './Markers';
 import { TileMap } from './TileMap';
@@ -21,11 +22,13 @@ const deltaForZoom = (zoom: number) => 360 / 2 ** zoom;
  * Maps when GOOGLE_MAPS_ANDROID_KEY was set at build time, otherwise the tile fallback.
  */
 export function NayaMap(props: NayaMapProps) {
+  useTheme();
   if (mapEngine === 'tiles') return <TileMap {...props} />;
   return <NativeMap {...props} />;
 }
 
 function NativeMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, onCenterChange, onPress, interactive = true, bottomInset = 0, topInset = 0, testID }: NayaMapProps) {
+  useTheme();
   const ref = useRef<MapView>(null);
   const [ready, setReady] = useState(false);
   const [layout, setLayout] = useState('');
@@ -58,6 +61,7 @@ function NativeMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, on
         onMapReady={() => setReady(true)}
         style={StyleSheet.absoluteFill}
         initialRegion={initial}
+        userInterfaceStyle={getColorScheme()}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
         showsPointsOfInterests={false}
         showsCompass={false}

@@ -1,9 +1,10 @@
+import { getColorScheme , themedStyles , colors, gutter } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle, type RefreshControlProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { StatusBar } from 'expo-status-bar';
-import { colors, gutter } from '@naya/tokens';
 import { SectionTitle } from './Text';
 
 export interface ScreenProps {
@@ -22,7 +23,8 @@ export interface ScreenProps {
   testID?: string;
 }
 
-export function Screen({ children, header, footer, scroll = true, keyboard, padded = true, background = colors.background, contentStyle, refreshControl, statusBar = 'dark', testID }: ScreenProps) {
+export function Screen({ children, header, footer, scroll = true, keyboard, padded = true, background = colors.background, contentStyle, refreshControl, statusBar, testID }: ScreenProps) {
+  useTheme();
   const insets = useSafeAreaInsets();
   const pad: ViewStyle = { paddingHorizontal: padded ? gutter : 0, paddingBottom: footer ? 24 : insets.bottom + 24 };
   const body = scroll ? (
@@ -40,7 +42,7 @@ export function Screen({ children, header, footer, scroll = true, keyboard, padd
   );
   return (
     <View testID={testID} style={[styles.root, { backgroundColor: background, paddingTop: header === undefined ? insets.top : 0 }]}>
-      <StatusBar style={statusBar} />
+      <StatusBar style={statusBar ?? (getColorScheme() === 'dark' ? 'light' : 'dark')} />
       {header}
       <View style={{ flex: 1 }}>{body}</View>
       {footer ? (
@@ -54,6 +56,7 @@ export function Screen({ children, header, footer, scroll = true, keyboard, padd
 
 /** Content section: optional title 20/600 12 pt above its content, 28 pt between sections. */
 export function Section({ title, action, children, style }: { title?: string; action?: ReactNode; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  useTheme();
   return (
     <View style={[{ marginTop: 28 }, style]}>
       {title ? (
@@ -69,7 +72,7 @@ export function Section({ title, action, children, style }: { title?: string; ac
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   root: { flex: 1 },
   footer: { paddingHorizontal: gutter, paddingTop: 12, gap: 8 },
-});
+}));

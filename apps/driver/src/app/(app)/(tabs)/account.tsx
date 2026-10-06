@@ -1,3 +1,4 @@
+import { useTheme , ProfileHero, Avatar, avatarFor, ConfirmDialog, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, Text, TextButton } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -7,7 +8,6 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { STATUS_LABELS } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { ProfileHero, Avatar, avatarFor, ConfirmDialog, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, Text, TextButton } from '@naya/ui';
 import { useCases, useMe } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { statusTone } from '@/components/Dossier';
@@ -15,6 +15,7 @@ import { TAB_BAR_SPACE } from '@/components/TabBar';
 
 /** D17 · D17-settings */
 export default function Account() {
+  useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const me = useMe();
@@ -41,6 +42,8 @@ export default function Account() {
           <ListRow title="Documents et dossier" subtitle="Vérifier ou corriger les pièces" leading={<IconDisc size={36}><FileText size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/docs/start')} testID="account-documents" />
         </ListGroup>
         <ListGroup label="Vos essentiels">
+          <ListRow title="Naya Famille" subtitle="Abonnements et trajets enfants" onPress={() => router.push('/family')} testID="account-family" />
+          <ListRow title="Identité · 6 pistes" subtitle="Explorer les propositions de logo" onPress={() => router.push('/brand')} />
           <ListRow title="Historique des courses" leading={<IconDisc size={36}><History size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/rides')} testID="account-rides" />
           <ListRow title="Préférences" subtitle="Notifications" leading={<IconDisc size={36}><Bell size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/profile/preferences')} testID="account-preferences" />
           <ListRow title="Aide et demandes" subtitle="Courses, paiements ou documents" leading={<IconDisc size={36}><LifeBuoy size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/support')} testID="account-support" />

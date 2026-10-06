@@ -1,6 +1,7 @@
+import { themedStyles , colors, control } from '@naya/tokens';
+import { useTheme } from './core/theme';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, control } from '@naya/tokens';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
 import { Glass } from './Glass';
@@ -37,6 +38,7 @@ const heights: Record<Size, number> = { major: control.major, standard: control.
  * layout, hidden); disabled is a neutral grey, never a paler plum.
  */
 export function Button({ label, onPress, variant = 'primary', size = 'standard', loading, loadingLabel, disabled, disabledReason, icon, full, style, accessibilityHint, testID }: ButtonProps) {
+  useTheme();
   const [focused, setFocused] = useState(false);
   const inactive = disabled || loading;
   const h = heights[size];
@@ -112,6 +114,7 @@ export interface GlassButtonProps {
 
 /** Frosted pill for floating secondary actions over the map. */
 export function GlassButton({ label, onPress, icon, selected, style, testID, accessibilityHint }: GlassButtonProps) {
+  useTheme();
   return (
     <PressableScale testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={accessibilityHint} accessibilityState={{ selected: !!selected }} hitSlop={hitSlopFor(40)} style={style}>
       <Glass radius={999} contentStyle={{ height: 44, paddingHorizontal: 16, gap: 8 }}>
@@ -138,6 +141,7 @@ export interface IconButtonProps {
 }
 
 export function IconButton({ icon, accessibilityLabel, onPress, label, variant = 'glass', size = 44, disabled, testID }: IconButtonProps) {
+  useTheme();
   const disc =
     variant === 'glass' ? (
       <Glass radius={size / 2} contentStyle={{ width: size, height: size }}>
@@ -163,6 +167,7 @@ export function IconButton({ icon, accessibilityLabel, onPress, label, variant =
 }
 
 export function TextButton({ label, onPress, tone = 'accent', testID }: { label: string; onPress?: () => void; tone?: 'accent' | 'danger' | 'muted'; testID?: string }) {
+  useTheme();
   return (
     <PressableScale testID={testID} onPress={onPress} accessibilityRole="button" hitSlop={hitSlopFor(24)} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'center', paddingHorizontal: 8 }} pressedScale={0.98}>
       <Text variant="action" tone={tone} align="center">
@@ -172,9 +177,9 @@ export function TextButton({ label, onPress, tone = 'accent', testID }: { label:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   pill: { borderRadius: 999, overflow: Platform.OS === 'android' ? 'hidden' : 'visible', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   disc: { alignItems: 'center', justifyContent: 'center' },
   focus: { borderWidth: 2, borderColor: colors.info },
-});
+}));
