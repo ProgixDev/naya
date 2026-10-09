@@ -65,10 +65,19 @@ export interface PrototypeCatalog {
   payments: DemoPaymentOption[];
   version: number;
 }
+export const RECIPIENT_RELATIONSHIPS = [
+  'Mère',
+  'Père',
+  'Grand-parent',
+  'Tuteur',
+  'Personne autorisée',
+] as const;
 export interface AuthorizedRecipient {
   id: string;
   name: string;
   relationship: string;
+  /** Shown to the driver at handover, together with the 4-digit code. */
+  phone?: string;
   verificationCode: string;
 }
 export interface FamilyChild {
@@ -76,9 +85,29 @@ export interface FamilyChild {
   passengerId: string;
   firstName: string;
   age: number;
+  /** Upload id of the child's photo, shown to the dedicated driver at pickup. */
+  photo?: string | null;
   school: string;
+  /** School or usual destination address. */
+  schoolPlace?: Place | null;
+  /** Important information for the trip (allergies, instructions…). */
   notes: string;
   recipients: AuthorizedRecipient[];
+}
+export type FamilyTripKind = 'home_school' | 'school_home' | 'activity_home' | 'other';
+export const FAMILY_TRIP_KINDS: Record<FamilyTripKind, string> = {
+  home_school: 'Maison → école',
+  school_home: 'École → maison',
+  activity_home: 'Activité → maison',
+  other: 'Autre trajet',
+};
+export interface FamilyIncident {
+  at: string;
+  by: string;
+  message: string;
+  location: LatLng;
+  /** `auto` alerts are raised by the platform (delay, unusual stop). */
+  source: 'driver' | 'parent' | 'auto';
 }
 export interface FamilySubscription {
   id: string;
@@ -111,14 +140,29 @@ export interface FamilyTrip {
   destination: Place;
   pickupAt: string;
   weekdays: number[];
+  kind?: FamilyTripKind;
   status: FamilyTripStatus;
   location: LatLng;
+  /** Road path pickup → destination, used for live tracking. */
+  route?: LatLng[];
+  durationSeconds?: number;
+  /** Vehicle of the dedicated driver, frozen when she sets off. */
+  vehicle?: { make: string; model: string; color: string; plate: string } | null;
+  /** When each step was confirmed (traceability). */
+  times?: Partial<Record<FamilyTripStatus, string>>;
+  /** Simulated unusual stop: movement is frozen from this time. */
+  stoppedAt?: string | null;
+  /** Total time spent stopped, excluded from progress along the route. */
+  pausedMs?: number;
+  /** Automatic alerts already raised for this trip. */
+  alertsSent?: string[];
   recipientId: string | null;
   arrivalProof: string | null;
   pickupVerified: boolean;
   timeline: { at: string; label: string; location: LatLng; proof?: string }[];
   notifications: { at: string; title: string }[];
   incident: string | null;
+  incidents?: FamilyIncident[];
 }
 export interface SafetyAlert {
   id: string;

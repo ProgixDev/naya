@@ -234,6 +234,78 @@ describe('feedback prototype workflows', () => {
     expect(result.trips).toHaveLength(2);
     expect(result.trips[0].timeline).toHaveLength(6);
     expect(result.trips[1].status).toBe('scheduled');
+    expect(result.trips[1].kind).toBe('home_school');
+    const done = result.trips[0];
+    expect(Object.keys(done.times)).toEqual(['scheduled', 'en_route', 'arrived', 'picked_up', 'in_progress', 'completed']);
+    expect(done.vehicle.plate).toBeTruthy();
+    expect(done.recipientId).toBe('mother');
+    expect(done.notifications.at(-1).title).toMatch(/remis·e à .*\(Mère\)/);
+  });
+  it('keeps several authorized people per child and never sends handover codes to the driver', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const f = await h.ok('POST', '/prototype/family/example', { token: p });
+    const child = f.children[0];
+    const photo = await h.ok('POST', '/uploads', {
+      token: p,
+      body: { purpose: 'support_attachment', mimeType: 'image/jpeg', dataBase64: JPEG_B64, width: 10, height: 10 },
+    });
+    const updated = await h.ok('PUT', `/prototype/family/children/${child.id}`, {
+      token: p,
+      body: {
+        ...child,
+        id: undefined,
+        passengerId: undefined,
+        photo: photo.id,
+        recipients: [
+          ...child.recipients,
+          { id: 'grandma', name: 'Fatima', relationship: 'Grand-parent', phone: '0600000000', verificationCode: '4321' },
+        ],
+      },
+    });
+    expect(updated.recipients.map((r: any) => r.relationship)).toEqual(['Mère', 'Père', 'Grand-parent']);
+    const seen = await h.ok('GET', '/prototype/family', { token: d });
+    expect(seen.children[0].recipients.every((r: any) => r.verificationCode === '')).toBe(true);
+    expect(seen.children[0].photo).toBe(photo.id);
+    // The dedicated driver can open the child photo; another passenger cannot.
+    expect((await h.call('GET', `/uploads/${photo.id}`, { token: d })).status).toBe(200);
+    const other = await h.login(PHONES.nour, 'passenger');
+    expect((await h.call('GET', `/uploads/${photo.id}`, { token: other })).status).toBe(403);
+  });
+  it('tracks the vehicle live and alerts the parent of delays and unusual stops', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const f = await h.ok('POST', '/prototype/family/example', { token: p });
+    const t = f.trips[0];
+    const step = (body: unknown) => h.ok('POST', `/prototype/family/trips/${t.id}/advance`, { token: d, body });
+    // Pickup planned in 1 h: still not there 5 min later → automatic alert.
+    h.advance(3600 + 6 * 60);
+    let trip = (await h.ok('GET', '/prototype/family', { token: p })).trips[0];
+    expect(trip.incidents.map((x: any) => x.source)).toEqual(['auto']);
+    expect(trip.notifications.at(-1).title).toMatch(/Retard/);
+    h.advance(60);
+    trip = (await h.ok('GET', '/prototype/family', { token: p })).trips[0];
+    expect(trip.incidents).toHaveLength(1);
+    await step({ expectedStatus: 'scheduled' });
+    await step({ expectedStatus: 'en_route', proof: 'demo-arrival-photo' });
+    await step({ expectedStatus: 'arrived', childName: 'lina' });
+    await step({ expectedStatus: 'picked_up' });
+    const start = (await h.ok('GET', '/prototype/family', { token: p })).trips[0].location;
+    h.advance(10);
+    const moved = (await h.ok('GET', '/prototype/family', { token: p })).trips[0].location;
+    expect(moved).not.toEqual(start);
+    await h.ok('POST', `/prototype/family/trips/${t.id}/stop`, { token: d, body: { stopped: true } });
+    h.advance(10);
+    trip = (await h.ok('GET', '/prototype/family', { token: p })).trips[0];
+    expect(trip.incidents.at(-1).message).toMatch(/Arrêt inhabituel/);
+    const frozen = trip.location;
+    h.advance(5);
+    expect((await h.ok('GET', '/prototype/family', { token: p })).trips[0].location).toEqual(frozen);
+    await h.ok('POST', `/prototype/family/trips/${t.id}/stop`, { token: d, body: { stopped: false } });
+    h.advance(5);
+    expect((await h.ok('GET', '/prototype/family', { token: p })).trips[0].location).not.toEqual(frozen);
   });
   it('records SOS simulation actions, enforces ownership and supports admin resolution', async () => {
     const h = setup();

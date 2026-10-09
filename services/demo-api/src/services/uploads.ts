@@ -50,6 +50,13 @@ export function createUpload(ctx: Ctx, ownerId: string, input: UploadInput): Upl
   });
 }
 
+/** The dedicated driver sees the photo of a child she drives, to check identity at pickup. */
+function childPhotoForDriver(ctx: Ctx, driverId: string, uploadId: string) {
+  const p = ctx.store.state.prototype;
+  const child = p?.children.find((c) => c.photo === uploadId);
+  return !!child && !!p?.trips.some((t) => t.childId === child.id && t.driverId === driverId);
+}
+
 /**
  * Identity documents are private: only their owner and administrators allowed to
  * review people may read them. Support agents see support attachments only.
@@ -58,7 +65,7 @@ export function readUpload(ctx: Ctx, principal: Principal, id: string): { upload
   const upload = ctx.store.state.uploads.find((u) => u.id === id);
   if (!upload) throw new DomainError('NOT_FOUND');
   const allowed =
-    (principal.kind === 'user' && (principal.user.id === upload.ownerId || ctx.store.state.prototype?.trips.some(t => t.arrivalProof === id && t.passengerId === principal.user.id))) ||
+    (principal.kind === 'user' && (principal.user.id === upload.ownerId || ctx.store.state.prototype?.trips.some(t => t.arrivalProof === id && t.passengerId === principal.user.id) || childPhotoForDriver(ctx, principal.user.id, id))) ||
     (principal.kind === 'admin' &&
       (principal.admin.permissions.includes('verification.decide') || (upload.purpose === 'support_attachment' && principal.admin.permissions.includes('config.edit')) ||
         (upload.purpose === 'support_attachment' && principal.admin.permissions.includes('support.resolve'))));

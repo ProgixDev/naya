@@ -23,10 +23,10 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await signInMobile(d, URLS.driver, 'driver', PHONES.amina);
     await d.goto(URLS.driver + '/family');
     await expect(
-      d.getByRole('button', { name: 'Partir vers l’enfant', exact: true }),
+      d.getByRole('button', { name: 'Je pars chercher l’enfant', exact: true }),
     ).toBeVisible();
     await d
-      .getByRole('button', { name: 'Partir vers l’enfant', exact: true })
+      .getByRole('button', { name: 'Je pars chercher l’enfant', exact: true })
       .click();
     await d
       .getByRole('button', {
@@ -39,7 +39,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       .fill('Lina');
     await d
       .getByRole('button', {
-        name: 'Confirmer la prise en charge',
+        name: 'Enfant récupéré',
         exact: true,
       })
       .click();
@@ -77,13 +77,16 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await expect(a.getByText(/Résolue/)).toBeVisible();
     // Reload closes the focused safety sheet while retaining the trip.
     await d.reload();
-    await d.getByLabel('Code de remise', { exact: true }).fill('1234');
+    await d.getByLabel('Code donné par la personne', { exact: true }).fill('1234');
     await d
-      .getByRole('button', { name: 'Confirmer la remise', exact: true })
+      .getByRole('button', {
+        name: 'Confirmer l’arrivée et la remise',
+        exact: true,
+      })
       .click();
-    await expect(p.getByText(/Remise confirmée/)).toBeVisible();
+    await expect(p.getByText(/Remis·e à .* \(Mère\)/)).toBeVisible();
     await expect(
-      d.getByRole('button', { name: 'Partir vers l’enfant', exact: true }),
+      d.getByRole('button', { name: 'Je pars chercher l’enfant', exact: true }),
     ).toBeVisible();
     await p.goto(URLS.passenger + '/wallet');
     await p.getByTestId('wallet-topup').click();

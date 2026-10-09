@@ -2,10 +2,15 @@ import { z } from 'zod';
 import type { Hono, Context } from 'hono';
 import {
   defaultPrototypeCatalog,
+  demoRoute,
   DomainError,
   FAMILY_NEXT,
   FAMILY_STATUS_LABELS,
   PLACES,
+  pointAlong,
+  type FamilyChild,
+  type FamilyIncident,
+  type FamilyTripKind,
   type User,
   type AdminUser,
   type PrototypeState,
@@ -78,7 +83,9 @@ const paymentSchema = z.object({
 const childSchema = z.object({
   firstName: text,
   age: z.number().int().min(1).max(17),
+  photo: z.string().max(40).nullable().optional(),
   school: text,
+  schoolPlace: place.nullable().optional(),
   notes: z.string().trim().max(500),
   recipients: z
     .array(
@@ -86,6 +93,7 @@ const childSchema = z.object({
         id: text,
         name: text,
         relationship: text,
+        phone: z.string().trim().max(30).optional(),
         verificationCode: z
           .string()
           .regex(/^\d{4}$/, 'Code à 4 chiffres requis'),
@@ -257,11 +265,24 @@ export function categoryFor(s: State, cityId: string, id = 'standard') {
 function family(s: State, user: User) {
   const p = ensurePrototype(s);
   return {
-    children: p.children.filter((x) =>
-      user.role === 'driver'
-        ? p.trips.some((t) => t.driverId === user.id && t.childId === x.id)
-        : x.passengerId === user.id,
-    ),
+    children: p.children
+      .filter((x) =>
+        user.role === 'driver'
+          ? p.trips.some((t) => t.driverId === user.id && t.childId === x.id)
+          : x.passengerId === user.id,
+      )
+      // The driver checks the code with the server; she never receives it.
+      .map((x) =>
+        user.role === 'driver'
+          ? {
+              ...x,
+              recipients: x.recipients.map((r) => ({
+                ...r,
+                verificationCode: '',
+              })),
+            }
+          : x,
+      ),
     subscription:
       p.subscriptions.find((x) => x.passengerId === user.id) ?? null,
     trips: p.trips
@@ -367,6 +388,7 @@ function addTrip(
     destination: Place;
     pickupAt: string;
     weekdays: number[];
+    kind?: FamilyTripKind;
   },
 ) {
   const p = ensurePrototype(s);
@@ -400,8 +422,17 @@ function addTrip(
       'VALIDATION',
       'Le nombre de trajets inclus est atteint.',
     );
+  const road = demoRoute([input.pickup, input.destination]);
   const trip: FamilyTrip = {
     ...input,
+    kind: input.kind ?? 'other',
+    route: road.polyline,
+    durationSeconds: road.durationSeconds,
+    vehicle: null,
+    times: { scheduled: ctx.clock.iso() },
+    stoppedAt: null,
+    alertsSent: [],
+    incidents: [],
     id: nextId(s, 'FT'),
     passengerId: user.id,
     childName: child.firstName,
@@ -431,6 +462,98 @@ function addTrip(
     `Trajet de ${child.firstName} planifié`,
   );
   return trip;
+}
+
+function checkChildPhoto(s: State, user: User, photo?: string | null) {
+  if (!photo) return;
+  const upload = mustFind(
+    s.uploads,
+    (x) => x.id === photo && x.ownerId === user.id,
+    'photo',
+  );
+  if (!upload.mimeType.startsWith('image/'))
+    throw new DomainError('VALIDATION', 'La photo doit être une image.');
+}
+function reportIncident(ctx: Ctx, t: FamilyTrip, incident: FamilyIncident) {
+  (t.incidents ??= []).push(incident);
+  t.incident = incident.message;
+  t.notifications.push({ at: incident.at, title: incident.message });
+  t.timeline.push({
+    at: incident.at,
+    label: incident.message,
+    location: incident.location,
+  });
+}
+
+/** Demo trips play 20× faster than real time, like classic rides. */
+const FAMILY_TIME_FACTOR = 20;
+/** Alert the parent when the driver is not at the pickup point 5 minutes after the planned time. */
+const LATE_PICKUP_MS = 5 * 60_000;
+/** A vehicle stopped for 3 minutes (real time) during a child trip is unusual. */
+const UNUSUAL_STOP_MS = (3 * 60_000) / FAMILY_TIME_FACTOR;
+
+/**
+ * Live tracking and automatic alerts for child trips: moves the vehicle along
+ * the route and warns the parent of delays and unusual stops. Called by `tick`.
+ */
+export function runFamilyTimers(ctx: Ctx) {
+  const trips = ctx.store.state.prototype?.trips;
+  const due = (t: FamilyTrip) =>
+    t.status === 'in_progress' ||
+    ((t.status === 'scheduled' || t.status === 'en_route') &&
+      ctx.clock.now() > Date.parse(t.pickupAt) + LATE_PICKUP_MS &&
+      !t.alertsSent?.includes('late_pickup'));
+  if (!trips?.some(due)) return;
+  ctx.store.tx((s) => {
+    const now = ctx.clock.now();
+    const at = new Date(now).toISOString();
+    for (const t of ensurePrototype(s).trips) {
+      if (t.status === 'completed') continue;
+      const sent = (t.alertsSent ??= []);
+      const alert = (key: string, message: string) => {
+        if (sent.includes(key)) return;
+        sent.push(key);
+        reportIncident(ctx, t, {
+          at,
+          by: 'Naya',
+          message,
+          location: t.location,
+          source: 'auto',
+        });
+        appendAudit(s, at, {
+          actor: { type: 'system', id: 'family-monitor', name: 'Naya' },
+          action: 'family.alert',
+          entityType: 'prototype',
+          entityId: t.id,
+          cityId: null,
+          summary: message,
+        });
+      };
+      if (
+        (t.status === 'scheduled' || t.status === 'en_route') &&
+        now > Date.parse(t.pickupAt) + LATE_PICKUP_MS
+      )
+        alert(
+          'late_pickup',
+          `Retard : la chauffeuse n’est pas encore arrivée pour ${t.childName}`,
+        );
+      if (t.status !== 'in_progress' || !t.route?.length) continue;
+      const started = Date.parse(t.times?.in_progress ?? at);
+      const expected = ((t.durationSeconds ?? 600) * 1000) / FAMILY_TIME_FACTOR;
+      if (t.stoppedAt) {
+        if (now - Date.parse(t.stoppedAt) >= UNUSUAL_STOP_MS)
+          alert(
+            `stop:${t.stoppedAt}`,
+            `Arrêt inhabituel détecté pendant le trajet de ${t.childName}`,
+          );
+        continue;
+      }
+      const moving = now - started - (t.pausedMs ?? 0);
+      t.location = pointAlong(t.route, Math.min(0.99, moving / expected));
+      if (now - started > expected * 1.5)
+        alert('long_trip', `Le trajet de ${t.childName} prend plus de temps que prévu`);
+    }
+  });
 }
 
 export function mountPrototypeRoutes(
@@ -530,9 +653,36 @@ export function mountPrototypeRoutes(
     const input = childSchema.parse(await c.req.json());
     return c.json(
       ctx.store.tx((s) => {
-        const child = { ...input, id: nextId(s, 'CH'), passengerId: u.id };
+        checkChildPhoto(s, u, input.photo);
+        const child: FamilyChild = {
+          ...input,
+          id: nextId(s, 'CH'),
+          passengerId: u.id,
+        };
         ensurePrototype(s).children.push(child);
         log(ctx, s, u, 'family.child_added', child.id, 'Profil enfant ajouté');
+        return child;
+      }),
+    );
+  });
+  app.put('/prototype/family/children/:id', async (c) => {
+    const u = userOf(c, 'passenger');
+    const input = childSchema.parse(await c.req.json());
+    return c.json(
+      ctx.store.tx((s) => {
+        const p = ensurePrototype(s);
+        const child = mustFind(
+          p.children,
+          (x) => x.id === c.req.param('id') && x.passengerId === u.id,
+          'enfant',
+        );
+        checkChildPhoto(s, u, input.photo);
+        Object.assign(child, input);
+        // Upcoming trips show the current first name.
+        for (const t of p.trips)
+          if (t.childId === child.id && t.status === 'scheduled')
+            t.childName = child.firstName;
+        log(ctx, s, u, 'family.child_updated', child.id, 'Profil enfant modifié');
         return child;
       }),
     );
@@ -555,6 +705,9 @@ export function mountPrototypeRoutes(
         destination: place,
         pickupAt: z.iso.datetime(),
         weekdays: z.array(z.number().int().min(0).max(6)).max(7),
+        kind: z
+          .enum(['home_school', 'school_home', 'activity_home', 'other'])
+          .optional(),
       })
       .parse(await c.req.json());
     if (Date.parse(input.pickupAt) < ctx.clock.now())
@@ -588,7 +741,9 @@ export function mountPrototypeRoutes(
               firstName: 'Lina',
               age: 8,
               school: 'École Agdal',
-              notes: 'Attendre à l’entrée principale.',
+              schoolPlace: { ...PLACES.agdal, label: 'École Agdal' },
+              photo: null,
+              notes: 'Attendre à l’entrée principale. Allergie aux arachides.',
               recipients: [
                 {
                   id: 'mother',
@@ -625,10 +780,11 @@ export function mountPrototypeRoutes(
         if (!p.trips.some((x) => x.passengerId === u.id && !closed(x.status)))
           addTrip(ctx, s, u, {
             childId: child.id,
-            pickup: PLACES.hayRiad,
-            destination: PLACES.agdal,
+            pickup: { ...PLACES.hayRiad, label: 'Maison' },
+            destination: { ...PLACES.agdal, label: 'École Agdal' },
             pickupAt: new Date(ctx.clock.now() + 3600000).toISOString(),
             weekdays: [1, 2, 3, 4, 5],
+            kind: 'home_school',
           });
         return family(s, actor);
       }),
@@ -713,16 +869,18 @@ export function mountPrototypeRoutes(
             throw new DomainError('VALIDATION', 'Code de remise incorrect.');
           t.recipientId = recipient.id;
         }
+        if (next === 'en_route') {
+          const driver = s.users.find((x) => x.id === t.driverId);
+          const v = s.vehicles.find((x) => x.id === driver?.vehicleId);
+          t.vehicle = v
+            ? { make: v.make, model: v.model, color: v.color, plate: v.plate }
+            : null;
+        }
         t.status = next;
+        (t.times ??= {})[next] = ctx.clock.iso();
+        // Live position: movement along the route is driven by the family timers.
         t.location =
-          next === 'in_progress'
-            ? {
-                lat: (t.pickup.location.lat + t.destination.location.lat) / 2,
-                lng: (t.pickup.location.lng + t.destination.location.lng) / 2,
-              }
-            : next === 'completed'
-              ? t.destination.location
-              : t.pickup.location;
+          next === 'completed' ? t.destination.location : t.pickup.location;
         const label = FAMILY_STATUS_LABELS[next];
         t.timeline.push({
           at: ctx.clock.iso(),
@@ -730,9 +888,17 @@ export function mountPrototypeRoutes(
           location: t.location,
           ...(input.proof ? { proof: input.proof } : {}),
         });
+        const recipient = child.recipients.find((x) => x.id === t.recipientId);
+        const message: Record<string, string> = {
+          en_route: `${t.driverName.split(' ')[0]} est en route pour récupérer ${child.firstName}`,
+          arrived: `${t.driverName.split(' ')[0]} est arrivée · photo de confirmation envoyée`,
+          picked_up: `${child.firstName} a été récupéré·e après vérification`,
+          in_progress: `Trajet de ${child.firstName} en cours · suivez-le en direct`,
+          completed: `${child.firstName} est arrivé·e · remis·e à ${recipient ? `${recipient.name} (${recipient.relationship})` : 'une personne autorisée'}`,
+        };
         t.notifications.push({
           at: ctx.clock.iso(),
-          title: `${child.firstName} · ${label}`,
+          title: message[next] ?? `${child.firstName} · ${label}`,
         });
         log(ctx, s, u, `family.${next}`, t.id, label);
         if (next === 'completed' && t.weekdays.length) {
@@ -763,6 +929,7 @@ export function mountPrototypeRoutes(
               destination: t.destination,
               pickupAt: date.toISOString(),
               weekdays: t.weekdays,
+              kind: t.kind,
             });
         }
         return t;
@@ -782,14 +949,44 @@ export function mountPrototypeRoutes(
               ? x.driverId === u.id
               : x.passengerId === u.id),
         );
-        t.incident = message;
-        t.notifications.push({ at: ctx.clock.iso(), title: message });
-        t.timeline.push({
+        reportIncident(ctx, t, {
           at: ctx.clock.iso(),
-          label: message,
+          by: `${u.firstName} ${u.lastName}`,
+          message,
           location: t.location,
+          source: u.role === 'driver' ? 'driver' : 'parent',
         });
         log(ctx, s, u, 'family.incident', t.id, message);
+        return t;
+      }),
+    );
+  });
+  // Demo only: freeze the vehicle to show the unusual-stop alert.
+  app.post('/prototype/family/trips/:id/stop', async (c) => {
+    if (!ctx.config.devMode) throw new DomainError('FORBIDDEN');
+    const u = userOf(c);
+    const { stopped } = z
+      .object({ stopped: z.boolean() })
+      .parse(await c.req.json());
+    return c.json(
+      ctx.store.tx((s) => {
+        const t = mustFind(
+          ensurePrototype(s).trips,
+          (x) =>
+            x.id === c.req.param('id') &&
+            (u.role === 'driver'
+              ? x.driverId === u.id
+              : x.passengerId === u.id),
+          'trajet',
+        );
+        if (t.status !== 'in_progress')
+          throw new DomainError('CONFLICT', 'Le trajet n’est pas en cours.');
+        const now = ctx.clock.now();
+        if (stopped && !t.stoppedAt) t.stoppedAt = new Date(now).toISOString();
+        if (!stopped && t.stoppedAt) {
+          t.pausedMs = (t.pausedMs ?? 0) + now - Date.parse(t.stoppedAt);
+          t.stoppedAt = null;
+        }
         return t;
       }),
     );

@@ -375,6 +375,34 @@ export function PrototypePage() {
                         {t.pickup.label} → {t.destination.label} ·{' '}
                         {formatShort(t.pickupAt)}
                       </p>
+                      {t.vehicle ? (
+                        <p className="text-sm">
+                          {t.driverName} · {t.vehicle.make} {t.vehicle.model}{' '}
+                          · {t.vehicle.color} · {t.vehicle.plate}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-xs tabular">
+                        {(
+                          [
+                            ['en_route', 'Départ'],
+                            ['arrived', 'Arrivée au point'],
+                            ['picked_up', 'Récupération'],
+                            ['completed', 'Arrivée et remise'],
+                          ] as const
+                        )
+                          .filter(([k]) => t.times?.[k])
+                          .map(([k, l]) => `${l} ${formatShort(t.times![k]!)}`)
+                          .join(' · ') || 'Pas encore démarré'}
+                        {t.pickupVerified ? ' · enfant vérifié' : ''}
+                        {t.recipientId ? ' · remise confirmée par code' : ''}
+                      </p>
+                      {(t.incidents ?? []).map((x, i) => (
+                        <p key={i} className="mt-1 text-xs text-danger">
+                          {formatShort(x.at)} ·{' '}
+                          {x.source === 'auto' ? 'Alerte automatique' : x.by}{' '}
+                          · {x.message}
+                        </p>
+                      ))}
                       {t.timeline.map((e, i) => (
                         <p key={i} className="mt-1 text-xs text-muted">
                           {formatShort(e.at)} · {e.label} ·{' '}
@@ -395,7 +423,7 @@ export function PrototypePage() {
                           />
                         </div>
                       ) : null}
-                      {t.incident ? (
+                      {t.incident && !t.incidents?.length ? (
                         <p className="mt-2 text-danger">{t.incident}</p>
                       ) : null}
                     </div>
