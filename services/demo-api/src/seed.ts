@@ -12,7 +12,6 @@ import {
   type CityConfig,
   type CityRules,
   type IdentityDetails,
-  type PaymentProviderConfig,
   type Ride,
   type User,
   type VerificationCase,
@@ -21,6 +20,7 @@ import {
   type VerificationStatus,
 } from '@naya/domain';
 import type { State } from './state';
+import { defaultProviders } from './services/payments';
 import { appendAudit, SYSTEM } from './audit';
 import { hashPassword } from './services/auth';
 import { nextId } from './store';
@@ -101,15 +101,7 @@ function emptyState(scenario: string): State {
 function city(s: State, id: string, name: string, status: CityConfig['status'], center: CityConfig['center'], rules: CityRules, at: string) {
   s.cities.push({ id, name, status, timezone: 'Africa/Casablanca', currency: 'MAD', center, rules, rulesVersion: 1, updatedAt: at, updatedBy: 'system' });
   s.cityRuleVersions.push({ cityId: id, version: 1, rules, createdAt: at, createdBy: 'system', reason: 'Configuration initiale de démonstration' });
-  const providers: Omit<PaymentProviderConfig, 'cityId'>[] = [
-    { id: `${id}-ride-cash`, purpose: 'ride', kind: 'cash', name: 'Espèces', enabled: true, mode: 'demo', configured: true },
-    { id: `${id}-ride-card`, purpose: 'ride', kind: 'card', name: 'Carte bancaire (démo)', enabled: true, mode: 'demo', configured: true },
-    { id: `${id}-recharge-card`, purpose: 'recharge', kind: 'card', name: 'Carte bancaire (démo)', enabled: true, mode: 'demo', configured: true },
-    { id: `${id}-recharge-agency`, purpose: 'recharge', kind: 'cash_network', name: 'Réseau d’agences (démo)', enabled: id === 'rabat', mode: 'demo', configured: true },
-    { id: `${id}-withdrawal-bank`, purpose: 'withdrawal', kind: 'bank_transfer', name: 'Virement bancaire (démo)', enabled: true, mode: 'demo', configured: true },
-    { id: `${id}-ride-card-live`, purpose: 'ride', kind: 'card', name: 'Prestataire carte (production)', enabled: false, mode: 'live', configured: false },
-  ];
-  for (const p of providers) s.providers.push({ ...p, cityId: id });
+  s.providers.push(...defaultProviders(id));
   appendAudit(s, at, { actor: SYSTEM, action: 'city.created', entityType: 'city', entityId: id, cityId: id, summary: `Ville ${name} configurée (${status === 'active' ? 'active' : 'test'}) · règles v1` });
 }
 

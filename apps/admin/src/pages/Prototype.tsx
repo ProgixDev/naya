@@ -25,12 +25,11 @@ import {
 import { DocThumb, DocViewer } from '../components/DocViewer';
 import { logoConcepts, conceptSvg } from '@naya/assets/src/concepts';
 
-type Kind = 'categories' | 'plans' | 'reasons' | 'payments';
+type Kind = 'categories' | 'plans' | 'reasons';
 const LABELS: Record<Kind, string> = {
   categories: 'Catégories',
   plans: 'Abonnements',
   reasons: 'Motifs de litige',
-  payments: 'Paiements démo',
 };
 const fields: Record<string, string> = {
   id: 'Identifiant',

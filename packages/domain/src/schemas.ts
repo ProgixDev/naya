@@ -114,7 +114,8 @@ export const locationUpdateSchema = z.object({ location: latLngSchema, heading: 
 
 export const cashCollectedSchema = z.object({ amount: positiveCentimes });
 
-export const rechargeSchema = z.object({ amount: positiveCentimes, providerId: z.string().min(1) });
+const moroccanPhone = z.string().trim().regex(/^(\+212|0)[5-7]\d{8}$/, 'Numéro marocain attendu, par ex. 0612345678.');
+export const rechargeSchema = z.object({ amount: positiveCentimes, providerId: z.string().min(1), payerPhone: moroccanPhone.optional() });
 export const withdrawalSchema = z.object({ amount: positiveCentimes, payoutAccountId: z.string().min(1) });
 
 export const tokenizedCardSchema = z.object({ providerToken: z.string().min(8), makeDefault: z.boolean().default(false) });
@@ -197,6 +198,21 @@ export const zoneSchema = z.object({ name: z.string().trim().min(2).max(60), pol
 
 export const providerToggleSchema = z.object({ enabled: z.boolean(), reason: reasonSchema });
 
+/** Back-office settings of a payment provider. Changing `adapter` swaps the provider behind it. */
+export const providerSettingsSchema = z.object({
+  name: z.string().trim().min(2).max(60),
+  adapter: z.string().min(1),
+  audiences: z.array(z.enum(['passenger', 'driver'])).max(2).default([]),
+  minAmount: z.number().int().min(0).max(10_000_000).nullable().default(null),
+  maxAmount: z.number().int().min(0).max(10_000_000).nullable().default(null),
+  instructions: z.string().trim().max(400).nullable().default(null),
+  reason: reasonSchema,
+});
+export const providerCreateSchema = providerSettingsSchema.extend({
+  cityId: z.string().min(1),
+  purpose: z.enum(['ride', 'recharge', 'withdrawal']),
+});
+
 export const correctionSchema = z.object({
   driverId: z.string().min(1),
   amount: centimes.refine((v) => v !== 0, 'Montant non nul requis'),
@@ -208,7 +224,7 @@ export const resolveTicketSchema = z.object({ outcome: z.string().trim().min(3).
 
 export const providerCallbackSchema = z.object({
   eventId: z.string().min(1),
-  kind: z.enum(['payment', 'recharge', 'withdrawal']),
+  kind: z.enum(['payment', 'recharge', 'withdrawal', 'passenger_recharge']),
   ref: z.string().min(1),
   outcome: z.enum(['confirmed', 'failed']),
   reason: z.string().nullable().default(null),
@@ -242,6 +258,8 @@ export type CreateCityInput = z.infer<typeof createCitySchema>;
 export type CityStatusInput = z.infer<typeof cityStatusSchema>;
 export type ZoneInput = z.infer<typeof zoneSchema>;
 export type ProviderToggleInput = z.infer<typeof providerToggleSchema>;
+export type ProviderSettingsInput = z.input<typeof providerSettingsSchema>;
+export type ProviderCreateInput = z.input<typeof providerCreateSchema>;
 export type CorrectionInput = z.input<typeof correctionSchema>;
 export type ResolveTicketInput = z.infer<typeof resolveTicketSchema>;
 export type AgentMessageInput = z.input<typeof agentMessageSchema>;

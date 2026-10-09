@@ -1,5 +1,5 @@
 import type { Centimes } from './money';
-import type { LatLng, Place } from './entities';
+import type { LatLng, PaymentInstructions, Place } from './entities';
 
 export interface ServiceCategory {
   id: string;
@@ -232,7 +232,7 @@ export interface SafetyAlert {
   contactPhone?: string | null;
   ticketId?: string | null;
 }
-export interface PassengerWalletEntry {
+export interface PassengerWalletEntry extends PaymentInstructions {
   id: string;
   amount: Centimes;
   label: string;
@@ -240,6 +240,9 @@ export interface PassengerWalletEntry {
   at: string;
   rideId: string | null;
   providerId: string | null;
+  /** Recharges: reference of the operation at the provider (callbacks are matched on it). */
+  providerRef?: string | null;
+  failureReason?: string | null;
 }
 export interface PassengerWallet {
   userId: string;

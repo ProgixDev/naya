@@ -121,14 +121,14 @@ describe('feedback prototype workflows', () => {
     const top = await h.ok('POST', '/prototype/wallet/topup', {
       token: p,
       key: 'top-once',
-      body: { amount: 20000, providerId: 'demo-mobile' },
+      body: { amount: 20000, providerId: 'rabat-recharge-mobile-wallet', payerPhone: '0612345678' },
     });
     expect(
       (
         await h.ok('POST', '/prototype/wallet/topup', {
           token: p,
           key: 'top-once',
-          body: { amount: 20000, providerId: 'demo-mobile' },
+          body: { amount: 20000, providerId: 'rabat-recharge-mobile-wallet', payerPhone: '0612345678' },
         })
       ).id,
     ).toBe(top.id);
@@ -421,7 +421,7 @@ describe('feedback prototype workflows', () => {
     const h = setup();
     const a = await h.adminLogin();
     const p = await h.login(PHONES.salma, 'passenger');
-    await h.ok('POST', '/prototype/wallet/topup', { token: p, key: 'fin-top', body: { amount: 20000, providerId: 'demo-mobile' } });
+    await h.ok('POST', '/prototype/wallet/topup', { token: p, key: 'fin-top', body: { amount: 20000, providerId: 'rabat-recharge-mobile-wallet', payerPhone: '0612345678' } });
     const f = await h.ok('GET', '/admin/finance/summary?cityId=rabat', { token: a });
     const done = h.ctx.store.state.rides.filter((r) => r.cityId === 'rabat' && r.status === 'completed');
     expect(f.commissions.gross).toBe(done.reduce((n, r) => n + r.terms.breakdown.total, 0));
@@ -527,7 +527,7 @@ describe('feedback prototype workflows', () => {
       if (kind === 'wallet') {
         const top = await h.ok('POST', '/prototype/wallet/topup', {
           token: p,
-          body: { amount: 20000, providerId: 'demo-cashplus' },
+          body: { amount: 20000, providerId: 'rabat-recharge-agency' },
         });
         await h.ok('POST', `/prototype/wallet/${top.id}/resolve`, {
           token: p,
@@ -581,7 +581,7 @@ describe('feedback prototype workflows', () => {
     const p = await h.login(PHONES.salma, 'passenger');
     const top = await h.ok('POST', '/prototype/wallet/topup', {
       token: p,
-      body: { amount: 20000, providerId: 'demo-wafacash' },
+      body: { amount: 20000, providerId: 'rabat-recharge-wafacash' },
     });
     await h.ok('POST', `/prototype/wallet/${top.id}/resolve`, {
       token: p,

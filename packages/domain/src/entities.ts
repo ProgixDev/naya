@@ -212,17 +212,43 @@ export interface CityRulesVersion {
 
 export type PaymentPurpose = 'ride' | 'recharge' | 'withdrawal';
 
+/** Kind of payment instrument, as the person sees it. */
+export type ProviderKind = 'cash' | 'card' | 'bank_transfer' | 'cash_network' | 'mobile_wallet' | 'mobile_payment';
+
+/**
+ * How the payer completes an operation with a provider:
+ * hosted_page = the provider's secure page (card, 3-D Secure); wallet_approval = she approves
+ * the request in her wallet / mobile-money app; voucher = she pays at a counter with a code;
+ * bank_transfer = payout to a bank account; cash = handed to the driver.
+ */
+export type ProviderFlow = 'hosted_page' | 'wallet_approval' | 'voucher' | 'bank_transfer' | 'cash';
+
 export interface PaymentProviderConfig {
   id: string;
   cityId: CityId;
   purpose: PaymentPurpose;
-  kind: 'cash' | 'card' | 'bank_transfer' | 'cash_network';
+  kind: ProviderKind;
   /** Display name. Demo providers are named honestly as demo. */
   name: string;
   enabled: boolean;
   /** `demo` providers are simulated by the demo API; `live` require credentials. */
   mode: 'demo' | 'live';
   configured: boolean;
+  /** Implementation in the server's adapter registry. Swapping it changes the provider, not the finance core. */
+  adapter?: string;
+  /** Recharge only: who may use it. Empty or missing = passengers and drivers. */
+  audiences?: ('passenger' | 'driver')[];
+  minAmount?: Centimes | null;
+  maxAmount?: Centimes | null;
+  /** Shown to the person before and during the operation. */
+  instructions?: string | null;
+}
+
+/** Public view of a provider for the apps: what to show and what to ask for. */
+export interface ProviderOption extends PaymentProviderConfig {
+  flow: ProviderFlow;
+  /** The payer's phone number is needed (mobile wallet / mobile payment). */
+  needsPhone: boolean;
 }
 
 /* ───────────────────────── Routes, quotes, rides ───────────────────────── */
@@ -478,7 +504,19 @@ export interface LedgerEntry {
 
 export type TransferStatus = 'pending' | 'confirmed' | 'failed';
 
-export interface Recharge {
+/** What the payer needs to finish a pending operation, whatever the provider. */
+export interface PaymentInstructions {
+  flow?: ProviderFlow;
+  /** Voucher flow: code to give at the counter. */
+  voucherCode?: string | null;
+  /** Voucher flow: the code stops working after this time. */
+  expiresAt?: IsoUtc | null;
+  /** Wallet approval flow: number the request was sent to. */
+  payerPhone?: string | null;
+  instructions?: string | null;
+}
+
+export interface Recharge extends PaymentInstructions {
   id: string;
   driverId: UserId;
   cityId: CityId;

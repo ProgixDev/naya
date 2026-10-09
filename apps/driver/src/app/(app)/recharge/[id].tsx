@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, formatShort } from '@naya/domain';
-import { Button, Card, ErrorState, Header, Screen, SkeletonList, StatusBanner, haptic } from '@naya/ui';
+import { Button, Card, ErrorState, Header, PaymentInstructionsCard, Screen, SkeletonList, StatusBanner, haptic, sandboxLabel } from '@naya/ui';
 import { FigureLine, OperationHero } from '@/components/Kit';
 import { useAccountId, useWallet } from '@/lib/queries';
 
@@ -20,11 +20,12 @@ export default function RechargeStatus() {
   const r = q.data;
   const opened = useRef(false);
   useEffect(() => {
-    if (r?.status === 'pending' && open === '1' && !opened.current && r.providerId.includes('card')) {
+    // The provider's page or wallet app opens at once; an agency code is shown here first.
+    if (r?.status === 'pending' && open === '1' && !opened.current && r.flow !== 'voucher') {
       opened.current = true;
       router.push({ pathname: '/recharge/sandbox/[id]', params: { id } });
     }
-  }, [r?.status, open, id, r?.providerId]);
+  }, [r?.status, open, id, r?.flow]);
   const last = useRef(r?.status);
   useEffect(() => {
     if (r && last.current === 'pending' && r.status !== 'pending') {
@@ -42,8 +43,8 @@ export default function RechargeStatus() {
     <Screen
       header={<Header title={r?.status === 'confirmed' ? 'Recharge confirmée' : r?.status === 'failed' ? 'Recharge échouée' : 'Recharge en attente'} onBack={() => router.dismissTo('/wallet')} />}
       footer={
-        r?.status === 'pending' && r.providerId.includes('card') ? (
-          <Button label="Ouvrir la page du prestataire" size="major" full onPress={() => router.push({ pathname: '/recharge/sandbox/[id]', params: { id } })} testID="open-sandbox" />
+        r?.status === 'pending' ? (
+          <Button label={sandboxLabel(r.flow)} size="major" full onPress={() => router.push({ pathname: '/recharge/sandbox/[id]', params: { id } })} testID="open-sandbox" />
         ) : r?.status === 'failed' ? (
           <Button label="Réessayer" size="major" full onPress={() => router.replace('/recharge')} testID="recharge-retry" />
         ) : r?.status === 'confirmed' ? (
@@ -57,7 +58,7 @@ export default function RechargeStatus() {
       {r ? (
         <View style={{ gap: 14, marginTop: 4 }}>
           <OperationHero state={r.status === 'confirmed' ? 'confirmed' : r.status === 'failed' ? 'failed' : 'pending'} amount={r.amount} kicker={r.status === 'confirmed' ? 'Recharge créditée' : r.status === 'failed' ? 'Aucun montant crédité' : 'En attente du prestataire'} caption={`${r.providerName} · ${r.id} · ${formatShort(r.createdAt)}`} />
-          {r.status === 'pending' ? <StatusBanner compact tone="info" title={r.providerId.includes('card') ? 'Finalisez sur la page du prestataire' : `Référence ${r.providerRef} à présenter en agence`} message="le solde ne change pas avant confirmation" testID="recharge-pending-banner" /> : null}
+          <PaymentInstructionsCard op={r} testID="recharge-pending-banner" />
           {r.status === 'failed' ? <StatusBanner compact tone="danger" title="Aucun montant n’a été crédité" message={r.failureReason ?? 'paiement refusé par le prestataire'} /> : null}
           {r.status === 'confirmed' && restored ? <StatusBanner compact tone="success" title="Accès aux courses rétabli" message="dette repassée sous le plafond" testID="recharge-restored" /> : null}
           {w ? (

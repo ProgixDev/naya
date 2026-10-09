@@ -147,7 +147,7 @@ function paymentRef(s: State, user: User, paymentMethodId: string, cityId: strin
   const pm = mustFind(s.paymentMethods, (p) => p.id === paymentMethodId && p.userId === user.id, 'moyen de paiement');
   if (pm.kind === 'wallet') return { id: pm.id, kind: pm.kind, label: pm.label };
   if (pm.kind === 'mobile_wallet') {
-    if (!ensurePrototype(s).catalog.payments.some(p => p.kind === 'mobile' && p.enabled && (!p.cityIds.length || p.cityIds.includes(cityId)))) throw new DomainError('PAYMENT_METHOD_UNAVAILABLE');
+    if (!s.providers.some((p) => p.cityId === cityId && p.purpose === 'ride' && p.kind === 'mobile_wallet' && p.enabled && p.configured)) throw new DomainError('PAYMENT_METHOD_UNAVAILABLE');
     return { id: pm.id, kind: pm.kind, label: pm.label };
   }
   const provider = s.providers.find((p) => p.cityId === cityId && p.purpose === 'ride' && p.kind === pm.kind && p.enabled && p.configured);

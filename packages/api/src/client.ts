@@ -22,6 +22,12 @@ import {
   type Payment,
   type PaymentMethod,
   type PaymentProviderConfig,
+  type ProviderOption,
+  type ProviderCreateInput,
+  type ProviderSettingsInput,
+  type ProviderFlow,
+  type ProviderKind,
+  type PaymentPurpose,
   type PayoutAccount,
   type Place,
   type ProfileUpdate,
@@ -213,6 +219,19 @@ export interface AdminFinanceSummary {
   payments: Payment[];
   commissions: { total: Centimes; gross: Centimes; byService: { id: string; name: string; rides: number; gross: Centimes; commission: Centimes }[] };
   passengerWallets: { passenger: { id: string; name: string }; wallet: PassengerWallet }[];
+}
+
+/** An implementation in the server's adapter registry. */
+export interface PaymentAdapterInfo {
+  id: string;
+  name: string;
+  description: string;
+  mode: 'demo' | 'live';
+  kinds: ProviderKind[];
+  purposes: PaymentPurpose[];
+  flow: ProviderFlow;
+  needsPhone: boolean;
+  configured: boolean;
 }
 
 export interface TicketPerson {
@@ -432,8 +451,8 @@ export function createApiClient(opts: ClientOptions) {
       ledger: (type?: string, cursor = 0, limit = 30) => get<Page<LedgerEntry>>(`/driver/ledger${qs({ type, cursor, limit })}`),
       ledgerEntry: (id: string) => get<LedgerDetail>(`/driver/ledger/${id}`),
       transfers: () => get<{ recharges: Recharge[]; withdrawals: Withdrawal[] }>('/driver/transfers'),
-      providers: (purpose: 'recharge' | 'withdrawal') => get<PaymentProviderConfig[]>(`/payment-providers${qs({ purpose })}`),
-      recharge: (amount: Centimes, providerId: string, key: string) => post<Recharge>('/driver/recharges', { amount, providerId }, key),
+      providers: (purpose: 'recharge' | 'withdrawal') => get<ProviderOption[]>(`/payment-providers${qs({ purpose })}`),
+      recharge: (amount: Centimes, providerId: string, key: string, payerPhone?: string) => post<Recharge>('/driver/recharges', { amount, providerId, ...(payerPhone ? { payerPhone } : {}) }, key),
       getRecharge: (id: string) => get<Recharge>(`/driver/recharges/${id}`),
       withdraw: (amount: Centimes, payoutAccountId: string, key: string) => post<Withdrawal>('/driver/withdrawals', { amount, payoutAccountId }, key),
       getWithdrawal: (id: string) => get<Withdrawal>(`/driver/withdrawals/${id}`),
@@ -455,7 +474,9 @@ export function createApiClient(opts: ClientOptions) {
     prototype: {
       catalog: () => get<PrototypeCatalog>('/prototype/catalog'),
       wallet: () => get<PassengerWallet>('/prototype/wallet'),
-      topup: (amount: number, providerId: string, key: string) => post<PassengerWallet['entries'][number]>('/prototype/wallet/topup', { amount, providerId }, key),
+      topup: (amount: number, providerId: string, key: string, payerPhone?: string) => post<PassengerWallet['entries'][number]>('/prototype/wallet/topup', { amount, providerId, ...(payerPhone ? { payerPhone } : {}) }, key),
+      /** Recharge options of the person's city (same providers as drivers, filtered by audience). */
+      rechargeProviders: () => get<ProviderOption[]>(`/payment-providers${qs({ purpose: 'recharge' })}`),
       resolveTopup: (id: string, outcome: 'confirmed' | 'failed') => post<PassengerWallet>(`/prototype/wallet/${id}/resolve`, { outcome }),
       family: () => get<FamilyOverview>('/prototype/family'),
       example: () => post<FamilyOverview>('/prototype/family/example'),
@@ -507,7 +528,10 @@ export function createApiClient(opts: ClientOptions) {
       setCityStatus: (cityId: string, input: CityStatusInput) => post<CityConfig>(`/admin/cities/${cityId}/status`, input),
       addZone: (cityId: string, input: ZoneInput) => post<ServiceZone>(`/admin/cities/${cityId}/zones`, input),
       setZoneActive: (zoneId: string, active: boolean, reason: string) => post<ServiceZone>(`/admin/zones/${zoneId}/active`, { active, reason }),
-      providers: (cityId?: string) => get<PaymentProviderConfig[]>(`/admin/providers${qs({ cityId })}`),
+      providers: (cityId?: string) => get<(ProviderOption & { adapterName: string })[]>(`/admin/providers${qs({ cityId })}`),
+      paymentAdapters: () => get<PaymentAdapterInfo[]>('/admin/payment-adapters'),
+      createProvider: (input: ProviderCreateInput) => post<PaymentProviderConfig>('/admin/providers', input),
+      updateProvider: (id: string, input: ProviderSettingsInput) => request<PaymentProviderConfig>('PUT', `/admin/providers/${id}`, input),
       toggleProvider: (id: string, input: ProviderToggleInput) => post<PaymentProviderConfig>(`/admin/providers/${id}`, input),
       audit: (p: { q?: string; action?: string; cityId?: string; actorType?: string; cursor?: number; limit?: number }) => get<Page<AuditEvent> & { integrity: { valid: boolean; brokenAt: number | null } }>(`/admin/audit${qs(p)}`),
     },

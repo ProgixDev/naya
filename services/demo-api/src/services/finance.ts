@@ -23,6 +23,8 @@ import type { ProviderJob, State } from '../state';
 import { mustFind, nextId } from '../store';
 import { appendAudit, SYSTEM } from '../audit';
 import { requirePermission } from './permissions';
+import { startRecharge } from './payments';
+import { ensurePrototype, passengerWallet } from './prototype';
 
 /* ───────────── Wallet projection ───────────── */
 
@@ -98,6 +100,22 @@ export function applyProviderEventIn(s: State, now: string, event: ProviderCallb
   s.processedProviderEvents.push(event.eventId);
   const reason = event.reason ?? null;
   const actor = { type: 'provider' as const, id: 'demo-provider', name: 'Prestataire de démonstration' };
+
+  if (event.kind === 'passenger_recharge') {
+    const owner = ensurePrototype(s).wallets.find((w) => w.entries.some((e) => e.providerRef === event.ref));
+    const e = owner?.entries.find((x) => x.providerRef === event.ref);
+    if (!owner || !e) throw new DomainError('NOT_FOUND', 'Recharge introuvable.');
+    const { next, outcome } = resolveTransferEvent(e.status, event.outcome === 'confirmed' ? 'CONFIRM' : 'FAIL');
+    if (outcome === 'duplicate') return { outcome };
+    e.status = next;
+    const name = s.providers.find((p) => p.id === e.providerId)?.name ?? 'prestataire';
+    e.label = `Recharge ${name} · ${next === 'confirmed' ? 'confirmée' : 'refusée'}`;
+    if (next === 'failed') e.failureReason = reason ?? 'Paiement refusé par le prestataire.';
+    passengerWallet(s, owner.userId);
+    const u = s.users.find((x) => x.id === owner.userId);
+    appendAudit(s, now, { actor, action: `wallet.topup_${next}`, entityType: 'passenger_wallet', entityId: e.id, cityId: u?.cityId ?? null, summary: `Recharge cliente ${formatMoney(e.amount)} ${next === 'confirmed' ? 'confirmée' : 'échouée'} · ${name}` });
+    return { outcome };
+  }
 
   if (event.kind === 'recharge') {
     const r = mustFind(s.recharges, (x) => x.providerRef === event.ref, 'recharge');
@@ -184,15 +202,13 @@ export function resolveManually(ctx: Ctx, kind: ProviderJob['kind'], ref: string
 export function createRecharge(ctx: Ctx, driver: User, input: RechargeInput) {
   assertRechargeAmount(input.amount);
   return ctx.store.tx((s) => {
-    const provider = mustFind(s.providers, (p) => p.id === input.providerId, 'prestataire');
-    if (provider.cityId !== driver.cityId || provider.purpose !== 'recharge' || !provider.enabled || !provider.configured) {
-      throw new DomainError('PAYMENT_METHOD_UNAVAILABLE');
-    }
     if (s.recharges.some((r) => r.driverId === driver.id && r.status === 'pending')) {
       throw new DomainError('PENDING_OPERATION', 'Une recharge est déjà en attente de confirmation.');
     }
     const now = ctx.clock.iso();
     const id = nextId(s, 'RC');
+    // The provider's adapter decides the flow (secure page, wallet approval, agency code).
+    const { provider, providerRef, instructions } = startRecharge(s, { kind: 'recharge', id, amount: input.amount, payerPhone: input.payerPhone, providerId: input.providerId, cityId: driver.cityId, role: 'driver', nowMs: ctx.clock.now() });
     const recharge = {
       id,
       driverId: driver.id,
@@ -201,13 +217,13 @@ export function createRecharge(ctx: Ctx, driver: User, input: RechargeInput) {
       providerId: provider.id,
       providerName: provider.name,
       status: 'pending' as const,
-      providerRef: `demo_rc_${id}`,
+      providerRef,
       failureReason: null,
+      ...instructions,
       createdAt: now,
       updatedAt: now,
     };
     s.recharges.push(recharge);
-    queueProviderJob(s, { kind: 'recharge', ref: recharge.providerRef, outcome: 'manual', reason: null, dueAt: null });
     appendAudit(s, now, { actor: { type: 'user', id: driver.id, name: `${driver.firstName} ${driver.lastName}` }, action: 'recharge.requested', entityType: 'recharge', entityId: id, cityId: driver.cityId, summary: `Recharge ${formatMoney(input.amount)} demandée via ${provider.name}` });
     return recharge;
   });

@@ -30,6 +30,8 @@ import { mustFind, nextId } from '../store';
 import { appendAudit } from '../audit';
 import { requirePermission } from './permissions';
 import { createTicket } from './support';
+import { migrateProviders, startRecharge } from './payments';
+import { resolveManually } from './finance';
 
 type Env = { Variables: { principal: Principal | null } };
 const text = z.string().trim().min(1).max(300);
@@ -128,6 +130,8 @@ export function ensurePrototype(s: State): PrototypeState {
     if (!p.catalog.reasons.some((x) => x.id === r.id)) p.catalog.reasons.push(r);
   for (const plan of p.catalog.plans) plan.dedicatedDriver ??= true;
   p.familyAvailability ??= {};
+  // Payment providers now live in one place for passengers and drivers.
+  migrateProviders(s);
   return p;
 }
 export function passengerWallet(s: State, userId: string): PassengerWallet {
@@ -236,33 +240,6 @@ export function prototypeMethods(s: State, user: User) {
         isDefault: false,
       });
   return p;
-}
-export function prototypeProviders(s: State, force = false) {
-  const p = ensurePrototype(s);
-  for (const city of s.cities)
-    for (const option of p.catalog.payments) {
-      const id = `${city.id}-${option.id}-recharge`;
-      let existing = s.providers.find((x) => x.id === id);
-      const created = !existing;
-      if (!existing)
-        s.providers.push(
-          (existing = {
-            id,
-            cityId: city.id,
-            purpose: 'recharge',
-            kind: option.kind === 'card' ? 'card' : 'cash_network',
-            name: `${option.name} (démo)`,
-            enabled: false,
-            mode: 'demo',
-            configured: true,
-          }),
-        );
-      existing.name = `${option.name} (démo)`;
-      if (force || created)
-        existing.enabled =
-          option.enabled &&
-          (!option.cityIds.length || option.cityIds.includes(city.id));
-    }
 }
 export function categoryFor(s: State, cityId: string, id = 'standard') {
   return mustFind(
@@ -635,39 +612,31 @@ export function mountPrototypeRoutes(
   app.post('/prototype/wallet/topup', async (c) => {
     const u = userOf(c, 'passenger');
     const input = z
-      .object({ amount: cents.min(1000), providerId: text })
+      .object({ amount: cents.min(1000), providerId: text, payerPhone: z.string().trim().regex(/^(\+212|0)[5-7]\d{8}$/, 'Numéro marocain attendu, par ex. 0612345678.').optional() })
       .parse(await c.req.json());
     return c.json(
       await idempotent(ctx, c, u.id, input, () =>
         ctx.store.tx((s) => {
-          const p = ensurePrototype(s);
-          mustFind(
-            p.catalog.payments,
-            (x) =>
-              x.id === input.providerId &&
-              x.enabled &&
-              (!x.cityIds.length || x.cityIds.includes(u.cityId)),
-            'moyen de recharge',
-          );
+          ensurePrototype(s);
           const w = passengerWallet(s, u.id);
+          if (w.entries.some((e) => e.amount > 0 && e.status === 'pending'))
+            throw new DomainError('PENDING_OPERATION', 'Une recharge est déjà en attente de confirmation.');
+          const id = nextId(s, 'PW');
+          // Same providers and adapters as driver recharges; only the ledger differs.
+          const { provider, providerRef, instructions } = startRecharge(s, { kind: 'passenger_recharge', id, amount: input.amount, payerPhone: input.payerPhone, providerId: input.providerId, cityId: u.cityId, role: 'passenger', nowMs: ctx.clock.now() });
           const entry = {
-            id: nextId(s, 'PW'),
+            id,
             amount: input.amount,
-            label: 'Recharge en attente de confirmation',
+            label: `Recharge ${provider.name} · en attente`,
             status: 'pending' as const,
             at: ctx.clock.iso(),
             rideId: null,
-            providerId: input.providerId,
+            providerId: provider.id,
+            providerRef,
+            ...instructions,
           };
           w.entries.push(entry);
-          log(
-            ctx,
-            s,
-            u,
-            'wallet.topup_created',
-            entry.id,
-            'Recharge de démonstration créée',
-          );
+          log(ctx, s, u, 'wallet.topup_created', entry.id, `Recharge ${provider.name} demandée`);
           return entry;
         }),
       ),
@@ -678,24 +647,12 @@ export function mountPrototypeRoutes(
     const { outcome } = z
       .object({ outcome: z.enum(['confirmed', 'failed']) })
       .parse(await c.req.json());
-    return c.json(
-      ctx.store.tx((s) => {
-        const w = passengerWallet(s, u.id);
-        const e = mustFind(
-          w.entries,
-          (x) => x.id === c.req.param('id') && x.amount > 0,
-          'recharge',
-        );
-        if (e.status !== 'pending') return w;
-        e.status = outcome;
-        const option = ensurePrototype(s).catalog.payments.find(
-          (x) => x.id === e.providerId,
-        );
-        e.label = `Recharge ${option?.name ?? ''} · ${outcome === 'confirmed' ? 'confirmée' : 'refusée'}`;
-        log(ctx, s, u, `wallet.topup_${outcome}`, e.id, e.label);
-        return passengerWallet(s, u.id);
-      }),
-    );
+    // Sandbox standing in for the provider: the outcome goes through the provider event path.
+    const w = passengerWallet(ctx.store.state, u.id);
+    const e = mustFind(w.entries, (x) => x.id === c.req.param('id') && x.amount > 0 && !!x.providerRef, 'recharge');
+    if (e.status === 'pending')
+      resolveManually(ctx, 'passenger_recharge', e.providerRef!, outcome, outcome === 'failed' ? 'Paiement refusé par le prestataire (simulation).' : null);
+    return c.json(passengerWallet(ctx.store.state, u.id));
   });
   app.get('/prototype/family', (c) =>
     c.json(family(ctx.store.state, userOf(c))),
@@ -1242,7 +1199,6 @@ export function mountPrototypeRoutes(
         if (index < 0) list.push(row);
         else list[index] = row;
         p.catalog.version++;
-        prototypeProviders(s, true);
         log(
           ctx,
           s,

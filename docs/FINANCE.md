@@ -42,6 +42,10 @@ The wallet is a projection, never a mutable number:
 | Cancellation fee confirmed | +fee − commission to the driver who travelled |
 | Exceptional correction | ±amount, permission `finance.correct`, reason ≥ 10 chars, audit with before/after |
 
+## Recharge providers
+
+Passengers (prepaid wallet) and drivers (commission wallet) recharge through the **same providers**: card, Moroccan wallet, mobile payment, Cash Plus, Wafacash. Each provider can be restricted to one audience and to a minimum / maximum amount. A recharge is *pending* until the provider confirms; a failure or an expired agency code credits nothing. See `docs/INTEGRATIONS.md` for the adapter architecture.
+
 ## Required fixtures (all asserted in `services/demo-api/test/scenarios.test.ts` and `packages/domain/test/wallet.test.ts`)
 
 - NY-001 cash 100 → wallet −15, net 85. NY-002 card 100 → +85, wallet 70.

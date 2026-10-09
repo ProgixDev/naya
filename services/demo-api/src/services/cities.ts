@@ -7,12 +7,19 @@ import {
   type CityRules,
   type CityStatusInput,
   type CreateCityInput,
+  type PaymentProviderConfig,
+  type ProviderCreateInput,
+  type ProviderSettingsInput,
   type ProviderToggleInput,
   type UpdateRulesInput,
+  providerCreateSchema,
+  providerSettingsSchema,
   type ZoneInput,
 } from '@naya/domain';
 import type { Ctx } from '../context';
 import { mustFind, nextId } from '../store';
+import { ADAPTERS, defaultProviders } from './payments';
+import type { State } from '../state';
 import { appendAudit } from '../audit';
 import { requirePermission } from './permissions';
 
@@ -58,18 +65,8 @@ export function createCity(ctx: Ctx, admin: AdminUser, input: CreateCityInput) {
     };
     s.cities.push(city);
     s.cityRuleVersions.push({ cityId: city.id, version: 1, rules: input.rules, createdAt: now, createdBy: admin.id, reason: input.reason });
-    for (const purpose of ['ride', 'recharge', 'withdrawal'] as const) {
-      s.providers.push({
-        id: `${city.id}-${purpose}-demo`,
-        cityId: city.id,
-        purpose,
-        kind: purpose === 'withdrawal' ? 'bank_transfer' : 'card',
-        name: purpose === 'withdrawal' ? 'Virement bancaire (démo)' : 'Carte bancaire (démo)',
-        enabled: false,
-        mode: 'demo',
-        configured: true,
-      });
-    }
+    // Same provider set as other cities, all disabled until the team enables them.
+    s.providers.push(...defaultProviders(city.id).map((p) => ({ ...p, enabled: false })));
     appendAudit(s, now, { actor: actorOf(admin), action: 'city.created', entityType: 'city', entityId: city.id, cityId: city.id, reason: input.reason, summary: `Ville ${city.name} ajoutée (${city.status === 'test' ? 'test' : 'inactive'}) · règles v1`, after: input.rules });
     return city;
   });
@@ -139,6 +136,71 @@ export function setZoneActive(ctx: Ctx, admin: AdminUser, zoneId: string, active
     zone.active = active;
     appendAudit(s, ctx.clock.iso(), { actor: actorOf(admin), action: active ? 'zone.activated' : 'zone.deactivated', entityType: 'zone', entityId: zoneId, cityId: zone.cityId, reason, summary: `Zone « ${zone.name} » ${active ? 'activée' : 'désactivée'}` });
     return zone;
+  });
+}
+
+function checkSettings(s: State, purpose: PaymentProviderConfig['purpose'], input: ProviderSettingsInput) {
+  const adapter = ADAPTERS.find((a) => a.id === input.adapter);
+  if (!adapter) throw new DomainError('VALIDATION', 'Adaptateur de paiement inconnu.');
+  if (!adapter.purposes.includes(purpose)) throw new DomainError('VALIDATION', `${adapter.name} ne gère pas cet usage.`);
+  if (input.minAmount != null && input.maxAmount != null && input.minAmount > input.maxAmount) throw new DomainError('VALIDATION', 'Le minimum dépasse le maximum.');
+  return adapter;
+}
+
+/** Adds a provider to a city, disabled until the team enables it. */
+export function createProvider(ctx: Ctx, admin: AdminUser, raw: ProviderCreateInput) {
+  requirePermission(admin, 'config.edit');
+  const input = providerCreateSchema.parse(raw);
+  return ctx.store.tx((s) => {
+    mustFind(s.cities, (c) => c.id === input.cityId, 'ville');
+    const adapter = checkSettings(s, input.purpose, input);
+    const slug = input.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    let id = `${input.cityId}-${input.purpose}-${slug}`;
+    for (let i = 2; s.providers.some((p) => p.id === id); i++) id = `${input.cityId}-${input.purpose}-${slug}-${i}`;
+    const p: PaymentProviderConfig = {
+      id,
+      cityId: input.cityId,
+      purpose: input.purpose,
+      kind: adapter.kinds[0]!,
+      name: input.name,
+      enabled: false,
+      mode: adapter.mode,
+      configured: adapter.configured(),
+      adapter: adapter.id,
+      audiences: input.audiences,
+      minAmount: input.minAmount,
+      maxAmount: input.maxAmount,
+      instructions: input.instructions,
+    };
+    s.providers.push(p);
+    appendAudit(s, ctx.clock.iso(), { actor: actorOf(admin), action: 'provider.created', entityType: 'provider', entityId: p.id, cityId: p.cityId, reason: input.reason, summary: `${p.name} ajouté (${adapter.name}) pour ${p.purpose}` });
+    return p;
+  });
+}
+
+/** Updates a provider. A new adapter replaces the company behind it; pending operations keep their reference. */
+export function updateProvider(ctx: Ctx, admin: AdminUser, providerId: string, raw: ProviderSettingsInput) {
+  requirePermission(admin, 'config.edit');
+  const input = providerSettingsSchema.parse(raw);
+  return ctx.store.tx((s) => {
+    const p = mustFind(s.providers, (x) => x.id === providerId, 'prestataire');
+    const adapter = checkSettings(s, p.purpose, input);
+    const before = { name: p.name, adapter: p.adapter, audiences: p.audiences, minAmount: p.minAmount, maxAmount: p.maxAmount };
+    Object.assign(p, {
+      name: input.name,
+      adapter: adapter.id,
+      kind: adapter.kinds.includes(p.kind) ? p.kind : adapter.kinds[0]!,
+      mode: adapter.mode,
+      configured: adapter.configured(),
+      audiences: input.audiences,
+      minAmount: input.minAmount,
+      maxAmount: input.maxAmount,
+      instructions: input.instructions,
+    });
+    // A provider without credentials cannot stay offered.
+    if (!p.configured) p.enabled = false;
+    appendAudit(s, ctx.clock.iso(), { actor: actorOf(admin), action: before.adapter !== adapter.id ? 'provider.adapter_changed' : 'provider.updated', entityType: 'provider', entityId: p.id, cityId: p.cityId, reason: input.reason, summary: before.adapter !== adapter.id ? `${p.name} · prestataire remplacé par ${adapter.name}` : `${p.name} · réglages mis à jour`, before, after: { name: p.name, adapter: p.adapter, audiences: p.audiences, minAmount: p.minAmount, maxAmount: p.maxAmount } });
+    return p;
   });
 }
 

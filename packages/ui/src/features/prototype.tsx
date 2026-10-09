@@ -39,6 +39,7 @@ import { toast } from '../Toast';
 import { NayaMap } from '../map';
 import { pickFile, uploadFile } from './uploads';
 import { haptic } from '../haptics';
+import { PaymentInstructionsCard, ProviderIcon, providerSubtitle, sandboxLabel } from './payments';
 
 const key = () => `demo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const panel = new Proxy(
@@ -239,23 +240,29 @@ export function PassengerWalletScreen({
   const qc = useQueryClient();
   const queryKey = ['naya', accountId, 'passenger-wallet'];
   const wallet = useQuery({ queryKey, queryFn: api.prototype.wallet });
-  const catalog = useQuery({
-    queryKey: ['naya', accountId, 'catalog'],
-    queryFn: api.prototype.catalog,
+  const providers = useQuery({
+    queryKey: ['naya', accountId, 'recharge-providers', cityId],
+    queryFn: api.prototype.rechargeProviders,
   });
   const [amount, setAmount] = useState('100');
-  const [provider, setProvider] = useState('demo-mobile');
+  const [providerId, setProviderId] = useState<string | null>(null);
+  const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
+  const chosen = providers.data?.find((p) => p.id === providerId) ?? providers.data?.[0];
   const run = async (id?: string, outcome?: 'confirmed' | 'failed') => {
     setBusy(true);
     try {
       if (id && outcome) await api.prototype.resolveTopup(id, outcome);
-      else
+      else {
+        if (!chosen) throw new Error('Choisissez un moyen de recharge.');
+        if (chosen.needsPhone && !phone.trim()) throw new Error('Indiquez le numéro associé à votre wallet.');
         await api.prototype.topup(
           Math.round(Number(amount.replace(',', '.')) * 100),
-          provider,
+          chosen.id,
           key(),
+          chosen.needsPhone ? phone.trim() : undefined,
         );
+      }
       await qc.invalidateQueries({ queryKey });
     } catch (e) {
       toast(errorMessage(e), 'danger');
@@ -298,22 +305,36 @@ export function PassengerWalletScreen({
               onChangeText={setAmount}
               keyboardType="decimal-pad"
             />
-            {(catalog.data?.payments ?? [])
-              .filter(
-                (p) =>
-                  p.enabled &&
-                  (!p.cityIds.length || p.cityIds.includes(cityId)),
-              )
-              .map((p) => (
-                <Pill
-                  key={p.id}
-                  label={p.name}
-                  selected={provider === p.id}
-                  onPress={() => setProvider(p.id)}
-                />
-              ))}
+            {providers.data && !providers.data.length ? (
+              <StatusBanner compact tone="warning" title="Aucun moyen de recharge" message="aucun prestataire n’est activé dans votre ville" />
+            ) : null}
+            <View accessibilityRole="radiogroup" accessibilityLabel="Moyen de recharge">
+              <ListGroup>
+                {(providers.data ?? []).map((p) => (
+                  <ListRow
+                    key={p.id}
+                    testID={`topup-provider-${p.kind}`}
+                    title={p.name}
+                    subtitle={providerSubtitle(p)}
+                    leading={<ProviderIcon kind={p.kind} />}
+                    trailing={chosen?.id === p.id ? <Text tone="accent" weight="semibold">✓</Text> : undefined}
+                    onPress={() => setProviderId(p.id)}
+                  />
+                ))}
+              </ListGroup>
+            </View>
+            {chosen?.needsPhone ? (
+              <FormField
+                label="Numéro associé à votre wallet"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="06 12 34 56 78"
+                testID="topup-phone"
+              />
+            ) : null}
             <Button
-              label="Créer la recharge de démo"
+              label={chosen ? `Recharger via ${chosen.name}` : 'Recharger'}
               loading={busy}
               onPress={() => run()}
               testID="wallet-topup"
@@ -337,8 +358,13 @@ export function PassengerWalletScreen({
                         : 'Refusée / libérée'}
                   </Text>
                   <Text variant="title">{formatMoney(e.amount)}</Text>
+                  {e.amount > 0 ? <PaymentInstructionsCard op={e} /> : null}
+                  {e.status === 'failed' && e.failureReason ? (
+                    <Text variant="caption" tone="danger">{e.failureReason}</Text>
+                  ) : null}
                   {e.amount > 0 && e.status === 'pending' ? (
                     <View style={{ gap: 8 }}>
+                      <Text variant="micro" tone="muted">{sandboxLabel(e.flow)} :</Text>
                       <Button
                         label="Simuler la confirmation"
                         loading={busy}

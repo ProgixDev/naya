@@ -37,10 +37,10 @@ export default function ProviderSandbox() {
   };
   return (
     <Screen
-      header={<Header title="Prestataire de paiement" subtitle="Environnement de test" onClose={() => router.back()} />}
+      header={<Header title={r.data?.flow === 'voucher' ? 'Guichet d’agence' : r.data?.flow === 'wallet_approval' ? 'Application wallet' : 'Prestataire de paiement'} subtitle="Environnement de test" onClose={() => router.back()} />}
       footer={
         <View style={{ gap: 8 }}>
-          <Button label={r.data ? `Autoriser ${formatMoney(r.data.amount)}` : 'Autoriser'} size="major" full loading={busy === 'approve'} disabled={!r.data || r.data.status !== 'pending' || !!busy} onPress={() => resolve('approve')} testID="sandbox-approve" />
+          <Button label={r.data ? `${r.data.flow === 'voucher' ? 'Payé en espèces' : 'Autoriser'} ${formatMoney(r.data.amount)}` : 'Autoriser'} size="major" full loading={busy === 'approve'} disabled={!r.data || r.data.status !== 'pending' || !!busy} onPress={() => resolve('approve')} testID="sandbox-approve" />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button label="Refuser" variant="secondary" full style={{ flex: 1 }} loading={busy === 'decline'} disabled={!r.data || r.data.status !== 'pending' || !!busy} onPress={() => resolve('decline')} testID="sandbox-decline" />
             <Button label="Fermer sans payer" variant="ghost" full style={{ flex: 1 }} onPress={() => router.back()} testID="sandbox-close" />
@@ -50,7 +50,7 @@ export default function ProviderSandbox() {
       testID="provider-sandbox"
     >
       <View style={{ gap: 14, marginTop: 4 }}>
-        <StatusBanner compact tone="warning" icon={<FlaskConical size={14} color={colors.warning} />} title="Simulation : aucun paiement réel" message="remplace la page sécurisée du prestataire" />
+        <StatusBanner compact tone="warning" icon={<FlaskConical size={14} color={colors.warning} />} title="Simulation : aucun paiement réel" message={r.data?.flow === 'voucher' ? `remplace l’agent au guichet · code ${r.data.voucherCode ?? ''}` : r.data?.flow === 'wallet_approval' ? `remplace l’application wallet du ${r.data.payerPhone ?? ''}` : 'remplace la page sécurisée du prestataire'} />
         {r.data ? (
           <Card style={{ alignItems: 'center', gap: 6, paddingVertical: 20 }}>
             <IconDisc size={44}>

@@ -87,12 +87,13 @@ import {
   withTracking,
 } from './services/rides';
 import { applyProviderEvent, createCorrection, createRecharge, createWithdrawal, earningsOf, resolveManually, verifySignature, walletOf } from './services/finance';
-import { addZone, createCity, setCityStatus, setZoneActive, toggleProvider, updateRules } from './services/cities';
+import { addZone, createCity, setCityStatus, setZoneActive, createProvider, toggleProvider, updateProvider, updateRules } from './services/cities';
 import { ensurePrototype, passengerWallet } from './services/prototype';
 import { agentMessage, createTicket, publicTicket, recordTicketAction, resolveTicket, setTicketStatus, userMessage } from './services/support';
 import { requirePermission } from './services/permissions';
 import { tick } from './services/timers';
-import { mountPrototypeRoutes, prototypeMethods, prototypeProviders } from './services/prototype';
+import { mountPrototypeRoutes, prototypeMethods } from './services/prototype';
+import { adapterCatalog, adapterOf, providerOption, providersFor } from './services/payments';
 import { buildSeed, DEMO_ACCOUNTS, SCENARIOS, type ScenarioId } from './seed';
 
 type Env = { Variables: { principal: Principal | null } };
@@ -362,10 +363,10 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   app.get('/payment-methods', (c) => {
     const user = userOf(c, 'passenger');
     const s = S();
-    const proto = prototypeMethods(s, user);
+    prototypeMethods(s, user);
     const methods = s.paymentMethods.filter((p) => p.userId === user.id);
-    const available = new Set(s.providers.filter((p) => p.cityId === user.cityId && p.purpose === 'ride' && p.enabled && p.configured).map((p) => p.kind));
-    return c.json(methods.map(({ providerToken: _t, ...m }) => ({ ...m, availableInCity: m.kind === 'wallet' || (m.kind === 'mobile_wallet' ? proto.catalog.payments.some(p => p.kind === 'mobile' && p.enabled && (!p.cityIds.length || p.cityIds.includes(user.cityId))) : available.has(m.kind)) })));
+    const available = new Set<string>(s.providers.filter((p) => p.cityId === user.cityId && p.purpose === 'ride' && p.enabled && p.configured).map((p) => p.kind));
+    return c.json(methods.map(({ providerToken: _t, ...m }) => ({ ...m, availableInCity: m.kind === 'wallet' || available.has(m.kind) })));
   });
   app.post('/payment-methods/card', async (c) => {
     const user = userOf(c, 'passenger');
@@ -566,10 +567,10 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     });
   });
   app.get('/payment-providers', (c) => {
-    prototypeProviders(S());
     const user = userOf(c);
-    const purpose = c.req.query('purpose') ?? 'recharge';
-    return c.json(S().providers.filter((p) => p.cityId === user.cityId && p.purpose === purpose && p.enabled && p.configured));
+    const purpose = (c.req.query('purpose') ?? 'recharge') as 'ride' | 'recharge' | 'withdrawal';
+    ensurePrototype(S());
+    return c.json(providersFor(S(), user.cityId, purpose, user.role));
   });
   app.post('/driver/recharges', async (c) => {
     const driver = userOf(c, 'driver');
@@ -598,14 +599,17 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   app.post('/provider-sandbox/:kind/:ref/:outcome', (c) => {
     const p = c.get('principal');
     if (!p) throw new DomainError('UNAUTHORIZED');
-    const kind = c.req.param('kind') as 'recharge' | 'payment';
+    const kind = c.req.param('kind') as 'recharge' | 'payment' | 'passenger_recharge';
     const outcome = c.req.param('outcome') === 'approve' ? 'confirmed' : 'failed';
     const s = S();
+    const ref = c.req.param('ref');
     const owned =
       p.kind === 'user' &&
       (kind === 'recharge'
-        ? s.recharges.some((r) => r.providerRef === c.req.param('ref') && r.driverId === p.user.id)
-        : s.payments.some((x) => x.providerRef === c.req.param('ref') && x.payerId === p.user.id));
+        ? s.recharges.some((r) => r.providerRef === ref && r.driverId === p.user.id)
+        : kind === 'passenger_recharge'
+          ? !!s.prototype?.wallets.some((w) => w.userId === p.user.id && w.entries.some((e) => e.providerRef === ref))
+          : s.payments.some((x) => x.providerRef === ref && x.payerId === p.user.id));
     if (!owned && !ctx.config.devMode) throw new DomainError('FORBIDDEN');
     if (!owned && p.kind === 'user') throw new DomainError('FORBIDDEN');
     return c.json(resolveManually(ctx, kind, c.req.param('ref'), outcome, outcome === 'failed' ? 'Paiement refusé sur la page du prestataire.' : null));
@@ -904,8 +908,15 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   app.get('/admin/providers', (c) => {
     adminOf(c);
     const cityId = c.req.query('cityId');
-    return c.json(S().providers.filter((p) => !cityId || p.cityId === cityId));
+    ensurePrototype(S());
+    return c.json(S().providers.filter((p) => !cityId || p.cityId === cityId).map((p) => ({ ...providerOption(p), adapterName: adapterOf(p).name })));
   });
+  app.get('/admin/payment-adapters', (c) => {
+    adminOf(c);
+    return c.json(adapterCatalog());
+  });
+  app.post('/admin/providers', async (c) => c.json(createProvider(ctx, adminOf(c), await c.req.json())));
+  app.put('/admin/providers/:id', async (c) => c.json(updateProvider(ctx, adminOf(c), c.req.param('id'), await c.req.json())));
   app.post('/admin/providers/:id', async (c) => c.json(toggleProvider(ctx, adminOf(c), c.req.param('id'), await body(c, providerToggleSchema))));
 
   app.get('/admin/audit', (c) => {

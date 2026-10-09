@@ -70,7 +70,7 @@ export interface IdempotencyRecord {
 /** A simulated provider outcome, delivered later through the signed callback path. */
 export interface ProviderJob {
   id: string;
-  kind: 'payment' | 'recharge' | 'withdrawal';
+  kind: 'payment' | 'recharge' | 'withdrawal' | 'passenger_recharge';
   ref: string;
   outcome: 'confirmed' | 'failed' | 'manual';
   reason: string | null;
