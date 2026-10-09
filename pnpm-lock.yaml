@@ -711,6 +711,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@naya/api':
+        specifier: workspace:*
+        version: link:../api
       '@naya/assets':
         specifier: workspace:*
         version: link:../assets

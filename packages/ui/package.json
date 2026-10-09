@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@naya/api": "workspace:*",
     "@naya/assets": "workspace:*",
     "@naya/demo-api": "workspace:*",
     "@naya/domain": "workspace:*",
