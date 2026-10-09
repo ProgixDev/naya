@@ -574,9 +574,24 @@ export interface SupportTicket {
   status: SupportStatus;
   isDispute: boolean;
   messages: SupportMessage[];
-  resolution: { outcome: string; note: string; by: string; at: IsoUtc } | null;
+  resolution: { outcome: string; note: string; by: string; at: IsoUtc; decision?: 'resolved' | 'rejected' } | null;
+  /** Every step of the case: opening, replies, status changes, admin actions, decision. */
+  history?: TicketHistoryEntry[];
   createdAt: IsoUtc;
   updatedAt: IsoUtc;
+}
+
+export type TicketHistoryKind = 'opened' | 'user_reply' | 'agent_reply' | 'info_requested' | 'status' | 'action' | 'internal_note' | 'decision';
+
+export interface TicketHistoryEntry {
+  at: IsoUtc;
+  by: string;
+  byType: 'user' | 'admin' | 'system';
+  kind: TicketHistoryKind;
+  label: string;
+  note?: string;
+  from?: SupportStatus;
+  to?: SupportStatus;
 }
 
 export interface AuditActor {

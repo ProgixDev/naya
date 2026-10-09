@@ -52,6 +52,7 @@ const fields: Record<string, string> = {
   features: 'Avantages (séparés par une virgule)',
   category: 'Catégorie (ride / payment / safety / account / wallet / other)',
   evidenceRequired: 'Preuve obligatoire',
+  roles: 'Visible pour (passenger, driver · vide = toutes)',
   kind: 'Canal (card / mobile / agency)',
 };
 const moneyFields = new Set([

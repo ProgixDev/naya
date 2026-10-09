@@ -1,5 +1,5 @@
 import {
-  type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type FamilyTripKind, type PassengerWallet, type SafetyAlert, type SafetyActionCode, type PrototypeAdmin,
+  type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type FamilyTripKind, type PassengerWallet, type SafetyAlert, type SafetyActionCode, type DisputeReason, type TicketActionInput, type PrototypeAdmin,
   ERROR_MESSAGES,
   type AdminUser,
   type AuditEvent,
@@ -210,6 +210,12 @@ export interface AdminFinanceSummary {
   withdrawals: Withdrawal[];
   failedPayments: Payment[];
   pendingPayments: Payment[];
+}
+
+export interface TicketPerson {
+  id: string;
+  name: string;
+  phone: string;
 }
 
 export interface AdminCityRow {
@@ -482,8 +488,10 @@ export function createApiClient(opts: ClientOptions) {
       scheduled: (cityId?: string) => get<{ booking: ScheduledBooking; passengerName: string }[]>(`/admin/scheduled${qs({ cityId })}`),
       ride: (id: string) => get<AdminRideDetail>(`/admin/rides/${id}`),
       tickets: (p: { status?: string; cityId?: string; disputes?: boolean; cursor?: number }) => get<Page<SupportTicket>>(`/admin/support${qs({ ...p, disputes: p.disputes ? 1 : undefined })}`),
-      ticket: (id: string) => get<{ ticket: SupportTicket; ride: Ride | null; payments: Payment[]; audit: AuditEvent[] }>(`/admin/support/${id}`),
-      replyTicket: (id: string, body: string) => post<SupportTicket>(`/admin/support/${id}/messages`, { body, attachments: [] }),
+      ticket: (id: string) => get<{ ticket: SupportTicket; reason: DisputeReason | null; passenger: TicketPerson | null; driver: TicketPerson | null; ride: Ride | null; payments: Payment[]; audit: AuditEvent[] }>(`/admin/support/${id}`),
+      replyTicket: (id: string, body: string, requestInfo = true) => post<SupportTicket>(`/admin/support/${id}/messages`, { body, attachments: [], requestInfo }),
+      startAnalysis: (id: string, note?: string) => post<SupportTicket>(`/admin/support/${id}/status`, { status: 'in_progress', note }),
+      ticketAction: (id: string, input: TicketActionInput) => post<SupportTicket>(`/admin/support/${id}/actions`, input),
       resolveTicket: (id: string, input: ResolveTicketInput) => post<SupportTicket>(`/admin/support/${id}/resolve`, input),
       financeSummary: (cityId: string) => get<AdminFinanceSummary>(`/admin/finance/summary${qs({ cityId })}`),
       ledger: (p: { driverId?: string; type?: string; cityId?: string; cursor?: number; limit?: number }) => get<Page<{ entry: LedgerEntry; driverName: string }>>(`/admin/finance/ledger${qs(p)}`),

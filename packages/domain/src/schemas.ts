@@ -125,12 +125,24 @@ export const supportTicketSchema = z.object({
   category: z.enum(['ride', 'payment', 'safety', 'account', 'wallet', 'other']),
   subject: z.string().trim().min(3, 'Objet trop court').max(120),
   body: z.string().trim().min(10, 'Décrivez votre demande (10 caractères minimum)').max(2000),
-  attachments: z.array(z.string()).max(3).default([]),
+  attachments: z.array(z.string()).max(5, '5 pièces jointes maximum').default([]),
 });
 
 export const supportMessageSchema = z.object({
   body: z.string().trim().min(1, 'Message vide').max(2000),
-  attachments: z.array(z.string()).max(3).default([]),
+  attachments: z.array(z.string()).max(5, '5 pièces jointes maximum').default([]),
+});
+
+/** Admin reply: by default it asks the person for more information. */
+export const agentMessageSchema = supportMessageSchema.extend({ requestInfo: z.boolean().default(true) });
+
+export const ticketStatusSchema = z.object({ status: z.literal('in_progress'), note: z.string().trim().max(500).optional() });
+
+/** Something the team did on the case (refund, warning…) or an internal note. */
+export const ticketActionSchema = z.object({
+  kind: z.enum(['action', 'internal_note']),
+  label: z.string().trim().min(3, 'Décrivez l’action').max(120),
+  note: z.string().trim().max(1000).optional(),
 });
 
 export const decisionSchema = z
@@ -192,7 +204,7 @@ export const correctionSchema = z.object({
   relatedEntityId: z.string().nullable().default(null),
 });
 
-export const resolveTicketSchema = z.object({ outcome: z.string().trim().min(3).max(80), note: reasonSchema });
+export const resolveTicketSchema = z.object({ outcome: z.string().trim().min(3).max(80), note: reasonSchema, decision: z.enum(['resolved', 'rejected']).optional() });
 
 export const providerCallbackSchema = z.object({
   eventId: z.string().min(1),
@@ -232,4 +244,7 @@ export type ZoneInput = z.infer<typeof zoneSchema>;
 export type ProviderToggleInput = z.infer<typeof providerToggleSchema>;
 export type CorrectionInput = z.input<typeof correctionSchema>;
 export type ResolveTicketInput = z.infer<typeof resolveTicketSchema>;
+export type AgentMessageInput = z.input<typeof agentMessageSchema>;
+export type TicketStatusInput = z.infer<typeof ticketStatusSchema>;
+export type TicketActionInput = z.infer<typeof ticketActionSchema>;
 export type ProviderCallback = z.input<typeof providerCallbackSchema>;

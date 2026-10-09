@@ -33,6 +33,9 @@ import {
   ratingSchema,
   rechargeSchema,
   resolveTicketSchema,
+  agentMessageSchema,
+  ticketActionSchema,
+  ticketStatusSchema,
   savedPlaceSchema,
   scheduleRideSchema,
   supportMessageSchema,
@@ -84,7 +87,8 @@ import {
 } from './services/rides';
 import { applyProviderEvent, createCorrection, createRecharge, createWithdrawal, earningsOf, resolveManually, verifySignature, walletOf } from './services/finance';
 import { addZone, createCity, setCityStatus, setZoneActive, toggleProvider, updateRules } from './services/cities';
-import { agentMessage, createTicket, resolveTicket, userMessage } from './services/support';
+import { ensurePrototype } from './services/prototype';
+import { agentMessage, createTicket, publicTicket, recordTicketAction, resolveTicket, setTicketStatus, userMessage } from './services/support';
 import { requirePermission } from './services/permissions';
 import { tick } from './services/timers';
 import { mountPrototypeRoutes, prototypeMethods, prototypeProviders } from './services/prototype';
@@ -622,14 +626,14 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   /* ───────── Support ───────── */
   app.get('/support/tickets', (c) => {
     const user = userOf(c);
-    return c.json(S().tickets.filter((t) => t.userId === user.id).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+    return c.json(S().tickets.filter((t) => t.userId === user.id).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(publicTicket));
   });
-  app.post('/support/tickets', async (c) => c.json(createTicket(ctx, userOf(c), await body(c, supportTicketSchema))));
+  app.post('/support/tickets', async (c) => c.json(publicTicket(createTicket(ctx, userOf(c), await body(c, supportTicketSchema)))));
   app.get('/support/tickets/:id', (c) => {
     const user = userOf(c);
-    return c.json(mustFind(S().tickets, (t) => t.id === c.req.param('id') && t.userId === user.id, 'demande'));
+    return c.json(publicTicket(mustFind(S().tickets, (t) => t.id === c.req.param('id') && t.userId === user.id, 'demande')));
   });
-  app.post('/support/tickets/:id/messages', async (c) => c.json(userMessage(ctx, userOf(c), c.req.param('id'), await body(c, supportMessageSchema))));
+  app.post('/support/tickets/:id/messages', async (c) => c.json(publicTicket(userMessage(ctx, userOf(c), c.req.param('id'), await body(c, supportMessageSchema)))));
 
   /* ───────── Admin ───────── */
   app.post('/admin/auth/login', async (c) => {
@@ -798,7 +802,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     const disputes = c.req.query('disputes') === '1';
     return c.json(
       paginate(
-        S().tickets.filter((t) => (!status || (status === 'open' ? t.status !== 'resolved' : t.status === status)) && (!cityId || t.cityId === cityId) && (!disputes || t.isDispute)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+        S().tickets.filter((t) => (!status || (status === 'open' ? t.status !== 'resolved' && t.status !== 'rejected' : status === 'new' ? t.status === 'open' : t.status === status)) && (!cityId || t.cityId === cityId) && (!disputes || t.isDispute)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
         c,
       ),
     );
@@ -808,9 +812,17 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     requirePermission(admin, 'support.resolve');
     const s = S();
     const t = mustFind(s.tickets, (x) => x.id === c.req.param('id'), 'demande');
-    return c.json({ ticket: t, ride: t.rideId ? s.rides.find((r) => r.id === t.rideId) ?? null : null, payments: t.rideId ? s.payments.filter((p) => p.rideId === t.rideId) : [], audit: s.audit.filter((e) => e.entityId === t.id) });
+    const reason = t.reasonId ? ensurePrototype(s).catalog.reasons.find((r) => r.id === t.reasonId) ?? null : null;
+    const ride = t.rideId ? s.rides.find((r) => r.id === t.rideId) ?? null : null;
+    const person = (id: string | null | undefined) => {
+      const u = s.users.find((x) => x.id === id);
+      return u ? { id: u.id, name: `${u.firstName} ${u.lastName}`, phone: u.phone } : null;
+    };
+    return c.json({ ticket: t, reason, passenger: person(ride?.passengerId ?? (t.userRole === 'passenger' ? t.userId : null)), driver: person(ride?.driverId ?? (t.userRole === 'driver' ? t.userId : null)), ride, payments: t.rideId ? s.payments.filter((p) => p.rideId === t.rideId) : [], audit: s.audit.filter((e) => e.entityId === t.id) });
   });
-  app.post('/admin/support/:id/messages', async (c) => c.json(agentMessage(ctx, adminOf(c), c.req.param('id'), await body(c, supportMessageSchema))));
+  app.post('/admin/support/:id/messages', async (c) => c.json(agentMessage(ctx, adminOf(c), c.req.param('id'), await body(c, agentMessageSchema))));
+  app.post('/admin/support/:id/status', async (c) => c.json(setTicketStatus(ctx, adminOf(c), c.req.param('id'), await body(c, ticketStatusSchema))));
+  app.post('/admin/support/:id/actions', async (c) => c.json(recordTicketAction(ctx, adminOf(c), c.req.param('id'), await body(c, ticketActionSchema))));
   app.post('/admin/support/:id/resolve', async (c) => c.json(resolveTicket(ctx, adminOf(c), c.req.param('id'), await body(c, resolveTicketSchema))));
 
   app.get('/admin/finance/summary', (c) => {

@@ -430,8 +430,48 @@ describe('feedback prototype workflows', () => {
       (await h.ok('GET', `/support/tickets/${ticket.id}`, { token: p })).status,
     ).toBe('rejected');
     expect(
-      h.ctx.store.state.audit.some((e) => e.action === 'support.replied'),
+      h.ctx.store.state.audit.some((e) => e.action === 'support.info_requested'),
     ).toBe(true);
+  });
+  it('runs a dispute through analysis, information request, logged actions and decision', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const a = await h.adminLogin();
+    const ride = h.ctx.store.state.rides.find((r) => r.passengerId === h.ctx.store.state.users.find((u) => u.phone === PHONES.salma)!.id && r.status === 'completed')!;
+    // Reasons are filtered by role: a driver cannot report « Problème avec la chauffeuse ».
+    const asDriver = await h.call('POST', '/support/tickets', {
+      token: d,
+      body: { rideId: null, reasonId: 'driver_behavior', category: 'ride', subject: 'Test', body: 'Ceci ne doit pas passer.', attachments: [] },
+    });
+    expect(asDriver.status).toBe(422);
+    const t = await h.ok('POST', '/support/tickets', {
+      token: p,
+      body: { rideId: ride.id, reasonId: 'wrong_billing', category: 'payment', subject: 'Course incorrectement facturée', body: 'On m’a facturé un arrêt que je n’ai pas fait.', attachments: [] },
+    });
+    expect(t).toMatchObject({ status: 'open', isDispute: true });
+    await h.ok('POST', `/admin/support/${t.id}/status`, { token: a, body: { status: 'in_progress' } });
+    await h.ok('POST', `/admin/support/${t.id}/messages`, { token: a, body: { body: 'Pouvez-vous envoyer une capture du reçu ?', requestInfo: true } });
+    expect((await h.ok('GET', `/support/tickets/${t.id}`, { token: p })).status).toBe('awaiting_user');
+    const shot = await h.ok('POST', '/uploads', { token: p, body: { purpose: 'support_attachment', mimeType: 'image/jpeg', dataBase64: JPEG_B64, width: null, height: null } });
+    await h.ok('POST', `/support/tickets/${t.id}/messages`, { token: p, body: { body: 'Voici la capture.', attachments: [shot.id] } });
+    await h.ok('POST', `/admin/support/${t.id}/actions`, { token: a, body: { kind: 'internal_note', label: 'Trajet GPS vérifié', note: 'Pas d’arrêt intermédiaire.' } });
+    await h.ok('POST', `/admin/support/${t.id}/actions`, { token: a, body: { kind: 'action', label: 'Remboursement de 15 MAD accordé' } });
+    await h.ok('POST', `/admin/support/${t.id}/resolve`, { token: a, body: { outcome: 'Remboursement accordé', note: 'Arrêt facturé à tort, montant remboursé.', decision: 'resolved' } });
+    const detail = await h.ok('GET', `/admin/support/${t.id}`, { token: a });
+    expect(detail.reason.label).toBe('Course incorrectement facturée');
+    expect(detail.ride.id).toBe(ride.id);
+    expect(detail.ticket.resolution).toMatchObject({ decision: 'resolved', outcome: 'Remboursement accordé' });
+    expect(detail.ticket.history.map((x: any) => x.kind)).toEqual([
+      'opened', 'status', 'info_requested', 'status', 'user_reply', 'status', 'internal_note', 'action', 'decision', 'status',
+    ]);
+    expect(detail.ticket.history.filter((x: any) => x.kind === 'status').map((x: any) => x.to)).toEqual(['in_progress', 'awaiting_user', 'in_progress', 'resolved']);
+    // Every admin step is in the audit log.
+    expect(detail.audit.map((e: any) => e.action)).toEqual(['support.analysis_started', 'support.info_requested', 'support.internal_note', 'support.action', 'support.resolved']);
+    // The person never sees internal notes or internal actions.
+    const mine = await h.ok('GET', `/support/tickets/${t.id}`, { token: p });
+    expect(mine.history.some((x: any) => x.kind === 'internal_note' || x.kind === 'action')).toBe(false);
+    expect(mine.status).toBe('resolved');
   });
   it.each(['wallet', 'mobile_wallet'] as const)(
     'settles %s rides and credits driver net once',

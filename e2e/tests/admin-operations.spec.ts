@@ -12,11 +12,12 @@ test('S14 · reply to and resolve a dispute opened by a passenger', async ({ pag
   await page.getByTestId(`row-${t.id}`).click();
   await page.getByTestId('agent-reply').fill('Le prix accepté était 100 MAD, arrêt Agdal inclus.');
   await page.getByTestId('send-agent-reply').click();
-  await expect(page.getByText('Réponse attendue').first()).toBeVisible();
+  await expect(page.getByText('Informations demandées').first()).toBeVisible();
   await page.getByTestId('resolve').click();
+  await page.getByTestId('resolve-outcome').fill('Tarif confirmé');
   await page.getByTestId('resolve-note').fill('Prix conforme au devis accepté.');
   await page.getByTestId('confirm-resolve').click();
-  await expect(page.getByText(/Résolue · Tarif confirmé/)).toBeVisible();
+  await expect(page.getByText(/Décision : résolu · Tarif confirmé/).first()).toBeVisible();
   const passengerView = await (await salma.get(`/support/tickets/${t.id}`)).json();
   expect(passengerView.status).toBe('resolved');
   expect(await auditActions()).toContain('support.resolved');

@@ -14,7 +14,7 @@ const CATEGORY = { ride: 'Course', payment: 'Paiement', safety: 'Sécurité', ac
 export function SupportPage() {
   const { cityId } = useWorkspace();
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'open' | 'awaiting_user' | 'resolved' | 'rejected' | ''>('open');
+  const [status, setStatus] = useState<'open' | 'new' | 'in_progress' | 'awaiting_user' | 'resolved' | 'rejected' | ''>('open');
   const [disputes, setDisputes] = useState(false);
   const [cursor, setCursor] = useState(0);
   const q = useQuery({ queryKey: ['admin', 'tickets', cityId, status, disputes, cursor], queryFn: () => api.admin.tickets({ status: status || undefined, cityId, disputes, cursor }), refetchInterval: 10_000 });
@@ -23,7 +23,7 @@ export function SupportPage() {
       <PageHeader title="Support et litiges" subtitle="Demandes des passagères et chauffeuses. Les litiges sont liés à une course." />
       <Card padded={false}>
         <div className="flex flex-wrap items-center gap-3 px-5 pt-5">
-          <Segmented label="Statut" value={status} onChange={(v) => (setStatus(v), setCursor(0))} options={[{ value: 'open', label: 'À traiter' }, { value: 'awaiting_user', label: 'Réponse attendue' }, { value: 'resolved', label: 'Résolues' }, { value: 'rejected', label: 'Rejetées' }, { value: '', label: 'Toutes' }]} />
+          <Segmented label="Statut" value={status} onChange={(v) => (setStatus(v), setCursor(0))} options={[{ value: 'open', label: 'À traiter' }, { value: 'new', label: 'Nouveaux' }, { value: 'in_progress', label: 'En analyse' }, { value: 'awaiting_user', label: 'Infos demandées' }, { value: 'resolved', label: 'Résolus' }, { value: 'rejected', label: 'Rejetés' }, { value: '', label: 'Tous' }]} />
           <label className="inline-flex items-center gap-2 text-[14px] font-medium">
             <input type="checkbox" className="h-4 w-4 accent-[#6B3657]" checked={disputes} onChange={(e) => (setDisputes(e.target.checked), setCursor(0))} />
             Litiges uniquement
@@ -42,7 +42,7 @@ export function SupportPage() {
                 empty={<EmptyState title="Aucune demande" message="La file de support est vide pour ces filtres." />}
                 columns={[
                   { key: 'id', header: 'Demande', render: (t) => <span className="font-semibold">{t.id}</span> },
-                  { key: 'sub', header: 'Objet', render: (t) => <div><div className="line-clamp-1">{t.subject}</div><div className="text-[12px] text-muted">{t.userName} · {t.userRole === 'driver' ? 'chauffeuse' : 'passagère'}</div></div> },
+                  { key: 'sub', header: 'Motif / objet', render: (t) => <div><div className="line-clamp-1">{t.subject}</div><div className="text-[12px] text-muted">{t.userName} · {t.userRole === 'driver' ? 'chauffeuse' : 'passagère'}</div></div> },
                   { key: 'cat', header: 'Catégorie', render: (t) => <div className="flex items-center gap-2">{CATEGORY[t.category]}{t.isDispute ? <Badge tone="warning" dot={false}>Litige</Badge> : null}</div> },
                   { key: 'ride', header: 'Course', render: (t) => t.rideId ?? <span className="text-muted">—</span> },
                   { key: 'upd', header: 'Mise à jour', render: (t) => fmtDateTime(t.updatedAt), sort: (t) => t.updatedAt },

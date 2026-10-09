@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Hono, Context } from 'hono';
 import {
+  defaultDisputeReasons,
   defaultPrototypeCatalog,
   demoRoute,
   DomainError,
@@ -74,6 +75,7 @@ const reasonSchema = z.object({
   category: z.enum(['ride', 'payment', 'safety', 'account', 'wallet', 'other']),
   evidenceRequired: z.boolean(),
   enabled: z.boolean(),
+  roles: z.array(z.enum(['passenger', 'driver'])).max(2).default([]),
 });
 const paymentSchema = z.object({
   id: text,
@@ -118,6 +120,9 @@ export function ensurePrototype(s: State): PrototypeState {
   });
   // Stores written before categories had conditions.
   for (const c of p.catalog.categories) c.conditions ??= [];
+  // Stores written before the detailed dispute reasons: add the new ones, keep admin edits.
+  for (const r of defaultDisputeReasons())
+    if (!p.catalog.reasons.some((x) => x.id === r.id)) p.catalog.reasons.push(r);
   return p;
 }
 export function passengerWallet(s: State, userId: string): PassengerWallet {

@@ -39,11 +39,11 @@ export const SCHEDULED_STATUS_LABELS: Record<ScheduledStatus, string> = {
 };
 
 export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
-  open: 'Ouverte',
-  in_progress: 'En cours de traitement',
-  awaiting_user: 'Réponse attendue',
-  resolved: 'Résolue',
-  rejected: 'Rejetée',
+  open: 'Nouveau',
+  in_progress: 'En cours d’analyse',
+  awaiting_user: 'Informations demandées',
+  resolved: 'Résolu',
+  rejected: 'Rejeté',
 };
 
 export const PASSENGER_CANCEL_REASONS = [

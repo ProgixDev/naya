@@ -214,8 +214,7 @@ test.describe('passenger', () => {
     await tid(page, 'history-NY-001').click();
     await expect(tid(page, 'receipt')).toBeVisible();
     await tid(page, 'receipt-help').click();
-    await tid(page, 'category-payment').click();
-    await tid(page, 'ticket-subject').fill('Montant de la course NY-001');
+    await tid(page, 'reason-wrong_fare').click();
     await tid(page, 'ticket-body').fill('Le montant ne correspond pas à ce que j’attendais.');
     await tid(page, 'submit-ticket').click();
     await expect(page.getByText('Demande reçue')).toBeVisible();
@@ -227,7 +226,7 @@ test.describe('passenger', () => {
     const t = tickets.items.find((x: { rideId: string }) => x.rideId === 'NY-001');
     await admin.post(`/admin/support/${t.id}/messages`, { data: { body: 'Le prix affiché était 100 MAD, arrêt Agdal inclus.', attachments: [] } });
     await expect(page.getByText('arrêt Agdal inclus')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText('L’équipe attend votre réponse')).toBeVisible();
+    await expect(page.getByText('Informations demandées').first()).toBeVisible();
     await tid(page, 'reply-input').fill('Merci pour la vérification.');
     await tid(page, 'send-reply').click();
     await expect(page.getByText('Merci pour la vérification.')).toBeVisible();

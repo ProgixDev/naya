@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Platform, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, MessageCircle, Paperclip, X } from 'lucide-react-native';
+import { ArrowUp, Camera, FileText, MessageCircle, Paperclip, X } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatShort, SUPPORT_STATUS_LABELS, supportTicketSchema, type SupportTicket } from '@naya/domain';
@@ -52,30 +52,41 @@ export function TicketListScreen({ accountId, onBack, onOpen, onCreate, emptyIma
   );
 }
 
-const CATEGORIES: { value: SupportTicket['category']; label: string }[] = [
-  { value: 'ride', label: 'Course' },
-  { value: 'payment', label: 'Paiement' },
-  { value: 'safety', label: 'Sécurité' },
-  { value: 'wallet', label: 'Portefeuille' },
-  { value: 'account', label: 'Compte' },
-  { value: 'other', label: 'Autre' },
+const MAX_ATTACHMENTS = 5;
+/** General questions that are not disputes about a ride. */
+const GENERAL: { id: string; label: string; category: SupportTicket['category'] }[] = [
+  { id: 'general-account', label: 'Question sur mon compte', category: 'account' },
 ];
 
-/** P16 creation / D18-form: category, subject, description, up to 3 photo attachments. */
+type Picked = { id: string; uri: string; pdf: boolean };
+
+/** P16 creation / D18-form: reason, concerned ride, what happened, photos, screenshots and documents. */
 export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride', role, onBack, onCreated }: { accountId: string; rideId: string | null; defaultCategory?: SupportTicket['category']; role: 'passenger' | 'driver'; onBack: () => void; onCreated: (id: string) => void }) {
   useTheme();
   const api = useApi();
   const qc = useQueryClient();
-  const [category, setCategory] = useState(defaultCategory);
-  const [reasonId, setReasonId] = useState<string | undefined>();
   const catalog = useQuery({ queryKey: ['naya', accountId, 'catalog'], queryFn: api.prototype.catalog });
-  const [subject, setSubject] = useState('');
+  const rides = useQuery({ queryKey: ['naya', accountId, 'support-rides'], queryFn: () => api.rides.history(0, 5), enabled: !rideId && defaultCategory !== 'account' });
+  const reasons = (catalog.data?.reasons ?? []).filter((r) => r.enabled && (!r.roles?.length || r.roles.includes(role)));
+  const [choice, setChoice] = useState<string | undefined>(defaultCategory === 'account' ? 'general-account' : undefined);
+  const [ride, setRide] = useState<string | null>(rideId);
   const [body, setBody] = useState('');
-  const [attachments, setAttachments] = useState<{ id: string; uri: string }[]>([]);
+  const [attachments, setAttachments] = useState<Picked[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
+  const reason = reasons.find((r) => r.id === choice);
+  const general = GENERAL.find((g) => g.id === choice);
+  const label = reason?.label ?? general?.label ?? '';
+  const input = () => ({
+    rideId: ride,
+    category: reason?.category ?? general?.category ?? defaultCategory,
+    reasonId: reason?.id,
+    subject: `${label}${ride ? ` · ${ride}` : ''}`.slice(0, 120),
+    body,
+    attachments: attachments.map((a) => a.id),
+  });
   const create = useMutation({
-    mutationFn: () => api.support.create({ rideId, category, reasonId, subject, body, attachments: attachments.map((a) => a.id) }),
+    mutationFn: () => api.support.create(input()),
     onSuccess: (t) => {
       haptic.success();
       qc.invalidateQueries({ queryKey: qk.tickets(accountId) });
@@ -85,7 +96,12 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
     onError: (e) => toast(errorMessage(e), 'danger'),
   });
   const submit = () => {
-    const parsed = supportTicketSchema.safeParse({ rideId, category, reasonId, subject, body, attachments: attachments.map((a) => a.id) });
+    if (!label) {
+      setErrors({ reason: 'Choisissez le motif.' });
+      haptic.warning();
+      return;
+    }
+    const parsed = supportTicketSchema.safeParse(input());
     if (!parsed.success) {
       const f: Record<string, string> = {};
       for (const i of parsed.error.issues) f[String(i.path[0])] = i.message;
@@ -93,18 +109,22 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
       haptic.warning();
       return;
     }
-    if (catalog.data?.reasons.find(r=>r.id===reasonId)?.evidenceRequired && !attachments.length) { setErrors({ attachments: 'Une photo ou un PDF est requis pour ce motif.' }); return; }
+    if (reason?.evidenceRequired && !attachments.length) {
+      setErrors({ attachments: 'Une photo ou un document est obligatoire pour ce motif.' });
+      haptic.warning();
+      return;
+    }
     setErrors({});
     create.mutate();
   };
-  const attach = async (kind: 'library'|'document' = 'library') => {
+  const attach = async (kind: 'camera' | 'library' | 'document') => {
     const file = await pickFile(kind);
-    if (file === 'denied') return toast('Autorisez l’accès aux photos dans les réglages pour joindre une image.', 'danger');
+    if (file === 'denied') return toast(kind === 'camera' ? 'Autorisez l’appareil photo dans les réglages.' : 'Autorisez l’accès aux photos dans les réglages pour joindre une image.', 'danger');
     if (!file) return;
     setUploading(true);
     try {
       const up = await uploadFile(api, file, 'support_attachment');
-      setAttachments((a) => [...a, { id: up.id, uri: file.uri }]);
+      setAttachments((a) => [...a, { id: up.id, uri: file.uri, pdf: file.mimeType === 'application/pdf' }]);
     } catch (e) {
       toast(errorMessage(e), 'danger');
     } finally {
@@ -112,41 +132,64 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
     }
   };
   return (
-    <Screen keyboard header={<Header title="Nouvelle demande" subtitle={rideId ? `À propos de la course ${rideId}` : undefined} onBack={onBack} />} footer={<Button label="Envoyer la demande" size="major" full loading={create.isPending} onPress={submit} testID="submit-ticket" />}>
-      <View style={{ gap: 14, marginTop: 4 }}>
-        <View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Sujet">
-            {CATEGORIES.map((c) => (
-              <Pill key={c.value} label={c.label} selected={category === c.value} onPress={() => { setCategory(c.value); setReasonId(undefined); }} testID={`category-${c.value}`} />
+    <Screen keyboard header={<Header title={rideId || ride ? 'Signaler un problème' : 'Nouvelle demande'} subtitle={ride ? `À propos de la course ${ride}` : undefined} onBack={onBack} />} footer={<Button label="Envoyer" size="major" full loading={create.isPending} onPress={submit} testID="submit-ticket" />}>
+      <View style={{ gap: 16, marginTop: 4 }}>
+        <View style={{ gap: 8 }}>
+          <Text variant="label">Motif</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Motif">
+            {[...reasons, ...GENERAL].map((r) => (
+              <Pill key={r.id} label={r.label} selected={choice === r.id} onPress={() => { setChoice(r.id); setErrors({}); }} testID={`reason-${r.id}`} />
             ))}
           </View>
+          {errors.reason ? <Text tone="danger">{errors.reason}</Text> : null}
+          {reason?.evidenceRequired ? <StatusBanner compact tone="warning" title="Photo obligatoire" message="joignez une photo ou un document pour ce motif" /> : null}
+          {reason?.category === 'safety' ? <StatusBanner compact tone="danger" title="Urgence : 19 (police) · 15 (SAMU)" message="signalements de sécurité traités en priorité" /> : null}
         </View>
+        {!rideId && rides.data?.items.length ? (
+          <View style={{ gap: 8 }}>
+            <Text variant="label">Course concernée</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {rides.data.items.map((r) => (
+                <Pill key={r.id} label={`${formatShort(r.completedAt ?? r.requestedAt)} · ${r.route.stops[r.route.stops.length - 1]!.label}`} selected={ride === r.id} onPress={() => setRide(r.id)} testID={`ride-${r.id}`} />
+              ))}
+              <Pill label="Aucune course" selected={!ride} onPress={() => setRide(null)} />
+            </View>
+          </View>
+        ) : null}
+        <FormField label="Décrivez ce qui s’est passé" value={body} onChangeText={setBody} error={errors.body} multiline numberOfLines={6} textAlignVertical="top" placeholder="Quand, où, ce que vous avez constaté, ce que vous attendez de Naya…" testID="ticket-body" maxLength={2000} inputStyle={{ minHeight: 120 }} />
         <View style={{ gap: 8 }}>
-          {catalog.data?.reasons.filter(r=>r.enabled && r.category===category).map(r=><Pill key={r.id} label={`${r.label}${r.evidenceRequired ? ' · preuve requise' : ''}`} selected={r.id===reasonId} onPress={()=>setReasonId(r.id)} />)}
-        </View>
-        <FormField label="Objet" value={subject} onChangeText={setSubject} error={errors.subject} placeholder="Ex. : montant de la course" testID="ticket-subject" maxLength={120} />
-        <FormField label="Votre message" value={body} onChangeText={setBody} error={errors.body} multiline numberOfLines={5} textAlignVertical="top" placeholder="Décrivez ce qui s’est passé." testID="ticket-body" maxLength={2000} inputStyle={{ minHeight: 96 }} />
-        <View style={{ gap: 8 }}>
-          {attachments.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {attachments.map((a) => (
-              <View key={a.id}>
-                <Image source={{ uri: a.uri }} style={{ width: 72, height: 72, borderRadius: radius.row }} contentFit="cover" accessibilityLabel="Pièce jointe" />
-                <View style={{ position: 'absolute', top: -8, right: -8 }}>
-                  <IconButton variant="solid" size={28} icon={<X size={14} color={colors.ink} />} accessibilityLabel="Retirer la pièce jointe" onPress={() => setAttachments((l) => l.filter((x) => x.id !== a.id))} />
+          <Text variant="label">Preuves ({attachments.length}/{MAX_ATTACHMENTS})</Text>
+          {attachments.length ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {attachments.map((a) => (
+                <View key={a.id}>
+                  {a.pdf ? (
+                    <View style={{ width: 72, height: 72, borderRadius: radius.row, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line }}>
+                      <FileText size={24} color={colors.accent} />
+                      <Text variant="micro">PDF</Text>
+                    </View>
+                  ) : (
+                    <Image source={{ uri: a.uri }} style={{ width: 72, height: 72, borderRadius: radius.row }} contentFit="cover" accessibilityLabel="Pièce jointe" />
+                  )}
+                  <View style={{ position: 'absolute', top: -8, right: -8 }}>
+                    <IconButton variant="solid" size={28} icon={<X size={14} color={colors.ink} />} accessibilityLabel="Retirer la pièce jointe" onPress={() => setAttachments((l) => l.filter((x) => x.id !== a.id))} />
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View> : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            {attachments.length < 3 ? <Button label="Photo" variant="secondary" size="compact" icon={<Paperclip size={16} color={colors.accent} />} loading={uploading} onPress={() => attach()} testID="attach" /> : null}
-            {attachments.length < 3 ? <Button label="PDF" variant="secondary" size="compact" loading={uploading} onPress={() => attach('document')} /> : null}
-            <Text variant="caption" tone="muted" style={{ flex: 1 }}>
-              Pièces jointes privées, vues par l’équipe support seulement.
-            </Text>
-          </View>
+              ))}
+            </View>
+          ) : null}
+          {attachments.length < MAX_ATTACHMENTS ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Button label="Prendre une photo" variant="secondary" size="compact" icon={<Camera size={16} color={colors.accent} />} loading={uploading} onPress={() => attach('camera')} testID="attach-camera" />
+              <Button label="Photo ou capture" variant="secondary" size="compact" icon={<Paperclip size={16} color={colors.accent} />} loading={uploading} onPress={() => attach('library')} testID="attach" />
+              <Button label="Document (PDF)" variant="secondary" size="compact" icon={<FileText size={16} color={colors.accent} />} loading={uploading} onPress={() => attach('document')} testID="attach-document" />
+            </View>
+          ) : null}
+          <Text variant="caption" tone="muted">
+            Photos, captures d’écran, reçus ou documents. Privés, vus par l’équipe Naya seulement.
+          </Text>
+          {errors.attachments ? <Text tone="danger">{errors.attachments}</Text> : null}
         </View>
-        {errors.attachments ? <Text tone="danger">{errors.attachments}</Text> : null}
-        {category === 'safety' ? <StatusBanner compact tone="danger" title="Urgence : 19 (police) · 15 (SAMU)" message="signalements traités en priorité" /> : null}
       </View>
     </Screen>
   );
@@ -159,10 +202,13 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
   const qc = useQueryClient();
   const q = useQuery({ queryKey: qk.ticket(accountId, ticketId), queryFn: () => api.support.get(ticketId), refetchInterval: 8000 });
   const [text, setText] = useState('');
+  const [files, setFiles] = useState<Picked[]>([]);
+  const [uploading, setUploading] = useState(false);
   const send = useMutation({
-    mutationFn: () => api.support.message(ticketId, { body: text, attachments: [] }),
+    mutationFn: () => api.support.message(ticketId, { body: text.trim() || 'Pièce(s) jointe(s) ajoutée(s).', attachments: files.map((f) => f.id) }),
     onSuccess: (t) => {
       setText('');
+      setFiles([]);
       qc.setQueryData(qk.ticket(accountId, ticketId), t);
       qc.invalidateQueries({ queryKey: qk.tickets(accountId) });
     },
@@ -175,7 +221,34 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
       header={<Header title={t?.subject ?? 'Demande'} subtitle={t ? `${t.id}${t.rideId ? ` · course ${t.rideId}` : ''}` : undefined} onBack={onBack} />}
       footer={
         t && t.status !== 'resolved' && t.status !== 'rejected' ? (
-          <Composer value={text} onChange={setText} sending={send.isPending} onSend={() => send.mutate()} />
+          <View style={{ gap: 8 }}>
+            {files.length ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {files.map((f) => <Pill key={f.id} label={f.pdf ? 'PDF ✕' : 'Photo ✕'} onPress={() => setFiles((l) => l.filter((x) => x.id !== f.id))} />)}
+              </View>
+            ) : null}
+            <Composer
+              value={text}
+              onChange={setText}
+              sending={send.isPending}
+              canSend={files.length > 0}
+              onSend={() => send.mutate()}
+              onAttach={files.length < MAX_ATTACHMENTS && !uploading ? async () => {
+                const file = await pickFile('library');
+                if (file === 'denied') return toast('Autorisez l’accès aux photos dans les réglages.', 'danger');
+                if (!file) return;
+                setUploading(true);
+                try {
+                  const up = await uploadFile(api, file, 'support_attachment');
+                  setFiles((l) => [...l, { id: up.id, uri: file.uri, pdf: file.mimeType === 'application/pdf' }]);
+                } catch (e) {
+                  toast(errorMessage(e), 'danger');
+                } finally {
+                  setUploading(false);
+                }
+              } : undefined}
+            />
+          </View>
         ) : undefined
       }
     >
@@ -189,8 +262,16 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
               Mise à jour {formatShort(t.updatedAt)}
             </Text>
           </View>
-          {t.status === 'awaiting_user' ? <StatusBanner compact tone="warning" title="L’équipe attend votre réponse" message="répondez ci-dessous" /> : null}
+          {t.status === 'awaiting_user' ? <StatusBanner compact tone="warning" title="Informations demandées" message="répondez ci-dessous, vous pouvez joindre des photos" /> : null}
           {t.resolution ? <StatusBanner tone={t.status === 'rejected' ? 'danger' : 'success'} title={`${t.status === 'rejected' ? 'Rejetée' : 'Résolue'} · ${t.resolution.outcome}`} message={t.resolution.note} /> : null}
+          {t.history?.length ? (
+            <View style={{ gap: 4 }} accessibilityLabel="Suivi du dossier">
+              <Text variant="label">Suivi</Text>
+              {t.history.filter((h) => h.kind === 'opened' || h.kind === 'status' || h.kind === 'decision').map((h, i) => (
+                <Text key={i} variant="caption" tone="muted" numeric>{formatShort(h.at)} · {h.label}</Text>
+              ))}
+            </View>
+          ) : null}
           <View style={{ gap: 10, marginTop: 4 }} accessibilityLabel="Échanges">
               {t.messages.map((m) => {
                 const mine = m.author === 'user';
@@ -224,11 +305,12 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
 }
 
 /** Pill composer: the field and a round glossy send button share one capsule. */
-function Composer({ value, onChange, sending, onSend }: { value: string; onChange: (v: string) => void; sending: boolean; onSend: () => void }) {
+function Composer({ value, onChange, sending, onSend, onAttach, canSend }: { value: string; onChange: (v: string) => void; sending: boolean; onSend: () => void; onAttach?: () => void; canSend?: boolean }) {
   useTheme();
-  const ready = !!value.trim() && !sending;
+  const ready = (!!value.trim() || !!canSend) && !sending;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, paddingVertical: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: onAttach ? 6 : 18, paddingRight: 6, paddingVertical: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
+      {onAttach ? <IconButton size={40} icon={<Paperclip size={18} color={colors.accent} />} accessibilityLabel="Joindre une photo ou une capture" onPress={onAttach} testID="reply-attach" /> : null}
       <TextInput
         value={value}
         onChangeText={onChange}

@@ -50,6 +50,8 @@ export interface DisputeReason {
   category: 'ride' | 'payment' | 'safety' | 'account' | 'wallet' | 'other';
   evidenceRequired: boolean;
   enabled: boolean;
+  /** Who may pick this reason; empty = everyone. */
+  roles?: ('passenger' | 'driver')[];
 }
 export interface DemoPaymentOption {
   id: string;
@@ -259,6 +261,33 @@ export const FAMILY_NEXT: Partial<Record<FamilyTripStatus, FamilyTripStatus>> =
     in_progress: 'completed',
   };
 
+export function defaultDisputeReasons(): DisputeReason[] {
+  return (
+    [
+      ['driver_behavior', 'Problème avec la chauffeuse', 'ride', false, ['passenger']],
+      ['passenger_behavior', 'Problème avec la cliente', 'ride', false, ['driver']],
+      ['payment_issue', 'Problème de paiement', 'payment', false, []],
+      ['wrong_fare', 'Prix incorrect', 'payment', false, []],
+      ['wrong_billing', 'Course incorrectement facturée', 'payment', false, []],
+      ['vehicle_problem', 'Problème avec le véhicule', 'ride', true, ['passenger']],
+      ['lost_item', 'Objet perdu', 'ride', false, []],
+      ['accident', 'Accident', 'safety', true, []],
+      ['inappropriate', 'Comportement inapproprié', 'safety', false, []],
+      ['security', 'Problème de sécurité', 'safety', false, []],
+      ['not_completed', 'Course non effectuée', 'ride', false, []],
+      ['wallet_issue', 'Recharge ou portefeuille', 'wallet', false, []],
+      ['other', 'Autre', 'other', false, []],
+    ] as const
+  ).map(([id, label, category, evidenceRequired, roles]) => ({
+    id,
+    label,
+    category,
+    evidenceRequired,
+    enabled: true,
+    roles: [...roles],
+  }));
+}
+
 export function defaultPrototypeCatalog(): PrototypeCatalog {
   return {
     version: 1,
@@ -339,25 +368,7 @@ export function defaultPrototypeCatalog(): PrototypeCatalog {
         ],
       },
     ],
-    reasons: [
-      ['wrong_fare', 'Prix incorrect', 'payment', false],
-      ['not_completed', 'Course non effectuée', 'ride', false],
-      ['vehicle_problem', 'Problème avec le véhicule', 'ride', true],
-      ['lost_item', 'Objet perdu', 'ride', false],
-      ['driver_behavior', 'Comportement de la chauffeuse', 'safety', false],
-      ['passenger_behavior', 'Comportement de la cliente', 'safety', false],
-      ['accident', 'Accident', 'safety', true],
-      ['security', 'Problème de sécurité', 'safety', false],
-      ['payment_issue', 'Problème de paiement', 'payment', false],
-      ['wallet_issue', 'Recharge ou portefeuille', 'wallet', false],
-      ['other', 'Autre', 'other', false],
-    ].map(([id, label, category, evidenceRequired]) => ({
-      id: String(id),
-      label: String(label),
-      category: category as DisputeReason['category'],
-      evidenceRequired: Boolean(evidenceRequired),
-      enabled: true,
-    })),
+    reasons: defaultDisputeReasons(),
     payments: [
       {
         id: 'demo-card',
