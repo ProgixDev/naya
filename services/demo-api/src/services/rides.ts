@@ -34,6 +34,7 @@ import {
   type Ride,
   type RideTimelineEvent,
   type ScheduledBooking,
+  type ServiceCategory,
   type User,
 } from '@naya/domain';
 import type { Ctx } from '../context';
@@ -77,19 +78,24 @@ export function createQuote(ctx: Ctx, user: User, cityId: string, stops: Place[]
       }
     });
     const category = categoryId ? categoryFor(s, cityId, categoryId) : null;
-    const fareRules = category ? { ...city.rules, baseFare: category.baseFare ?? city.rules.baseFare, perKm: category.perKm ?? city.rules.perKm, perMinute: category.perMinute ?? city.rules.perMinute, minimumFare: category.minimumFare ?? city.rules.minimumFare } : city.rules;
+    // A category tariff left empty falls back to the city tariff.
+    const fareRulesFor = (c: ServiceCategory | null) => c ? { ...city.rules, baseFare: c.baseFare ?? city.rules.baseFare, perKm: c.perKm ?? city.rules.perKm, perMinute: c.perMinute ?? city.rules.perMinute, minimumFare: c.minimumFare ?? city.rules.minimumFare } : city.rules;
     const route = demoRoute(stops);
     const multiplier = city.rules.dynamic.enabled ? city.rules.dynamic.multiplierBp : NO_MULTIPLIER;
     const now = ctx.clock.now();
+    const options = ensurePrototype(s).catalog.categories
+      .filter((c) => c.enabled && (!c.cityIds.length || c.cityIds.includes(city.id)))
+      .map((c) => ({ id: c.id, name: c.name, description: c.description, icon: c.icon, etaMinutes: c.etaMinutes, conditions: c.conditions, total: computeFare(fareRulesFor(c), route.distanceMeters, route.durationSeconds, multiplier).total }));
     const quote: Quote = {
-      ...(category ? { service: { id: category.id, name: category.name, icon: category.icon, etaMinutes: category.etaMinutes, commissionBp: category.commissionBp } } : {}),
+      ...(category ? { service: { id: category.id, name: category.name, icon: category.icon, etaMinutes: category.etaMinutes, commissionBp: category.commissionBp, conditions: category.conditions } } : {}),
+      options,
       id: nextId(s, 'QT', 5),
       passengerId: user.id,
       cityId: city.id,
       currency: 'MAD',
       ruleVersion: city.rulesVersion,
       route,
-      breakdown: computeFare(fareRules, route.distanceMeters, route.durationSeconds, multiplier),
+      breakdown: computeFare(fareRulesFor(category), route.distanceMeters, route.durationSeconds, multiplier),
       conditions: {
         cancellation: city.rules.cancellation,
         dynamic: multiplier > NO_MULTIPLIER ? { multiplierBp: multiplier, reason: city.rules.dynamic.reason } : null,

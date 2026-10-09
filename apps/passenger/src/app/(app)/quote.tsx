@@ -23,7 +23,7 @@ import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Check, ChevronRight, CreditCard, TrendingUp , ArrowLeft } from 'lucide-react-native';
+import { Banknote, Bike, Car, Check, ChevronRight, CreditCard, Gem, TrendingUp , ArrowLeft } from 'lucide-react-native';
 import {
   casablancaLocalToUtc,
   formatDistance,
@@ -31,6 +31,7 @@ import {
   formatMoney,
   formatMultiplier,
   type Quote,
+  type ServiceCategory,
 } from '@naya/domain';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi, useDeadline } from '@naya/api/react';
@@ -52,17 +53,22 @@ export default function QuoteScreen() {
   const cityId = usePrefs((s) => s.cityId);
   const stops = draftStops(draft);
   const stopsKey = JSON.stringify(stops?.map((s) => [s.label, s.location.lat, s.location.lng]));
-  const [categoryId, setCategoryId] = useState('standard');
+  const [picked, setPicked] = useState<string | null>(null);
   const catalog = useQuery({ queryKey: ['naya', a, 'catalog'], queryFn: api.prototype.catalog });
   const cities = useQuery({ queryKey: ['naya', 'cities'], queryFn: api.cities.list });
+  const available = catalog.data?.categories.filter((c) => c.enabled && (!c.cityIds.length || c.cityIds.includes(cityId))) ?? [];
+  // Categories come from the back-office: default to Standard when offered, else the first one.
+  const categoryId = (picked && available.some((c) => c.id === picked) ? picked : null) ?? available.find((c) => c.id === 'standard')?.id ?? available[0]?.id;
   const quote = useQuery({
     queryKey: ['naya', a, 'quote', cityId, stopsKey, categoryId],
     queryFn: () => api.quotes.create(cityId, stops!, categoryId),
-    enabled: !!stops,
+    enabled: !!stops && !!categoryId,
     staleTime: Infinity,
     // A quote is single-use: never reuse one from an earlier booking of the same trip.
     gcTime: 0,
     retry: false,
+    // Keep the previous list of prices on screen while the new category is priced.
+    placeholderData: (prev) => prev,
   });
   const methods = usePaymentMethods();
   const [mode, setMode] = useState<'now' | 'schedule'>(params.schedule ? 'schedule' : 'now');
@@ -70,6 +76,10 @@ export default function QuoteScreen() {
   const [showFare, setShowFare] = useState(false);
   const [showPay, setShowPay] = useState(false);
   const q = quote.data;
+  // The quote on screen belongs to the selected category (not a placeholder from the previous one).
+  const current = !!q && !quote.isPlaceholderData && q.service?.id === categoryId;
+  const cq = current ? q : undefined;
+  const selected = q?.options?.find((o) => o.id === categoryId) ?? available.find((c) => c.id === categoryId);
   const deadline = useDeadline(q?.expiresAt);
   const [day, setDay] = useState(firstDay());
   const [time, setTime] = useState<string | null>(null);
@@ -87,7 +97,8 @@ export default function QuoteScreen() {
   const pm = methods.data?.find((m) => m.id === pmId && m.availableInCity) ?? methods.data?.find(m => m.isDefault && m.availableInCity) ?? methods.data?.find(m => m.availableInCity);
   const book = useSingleFlight(
     async (_v: void, key: string) => {
-      if (!q || !pm) throw new Error('Choisissez un moyen de paiement.');
+      if (!q || !current) throw new Error('Le prix est en cours de calcul.');
+      if (!pm) throw new Error('Choisissez un moyen de paiement.');
       if (mode === 'schedule') {
         if (!time) throw new Error('Choisissez un horaire.');
         return { kind: 'scheduled' as const, result: await api.scheduled.create(q.id, pm.id, casablancaLocalToUtc(day, time), key) };
@@ -126,7 +137,8 @@ export default function QuoteScreen() {
   const center = stops[0]!.location;
   const markers = stops.map((s, i) => ({ id: `s${i}`, kind: (i === 0 ? 'pickup' : i === stops.length - 1 ? 'destination' : 'stop') as 'pickup' | 'stop' | 'destination', coordinate: s.location, label: s.label }));
   const total = q?.breakdown.total ?? 0;
-  const confirmLabel = mode === 'schedule' ? `Planifier · ${formatMoney(total)}` : `Confirmer · ${formatMoney(total)}`;
+  const serviceName = selected?.name ?? 'Naya';
+  const confirmLabel = !current ? 'Calcul du prix…' : mode === 'schedule' ? `Planifier ${serviceName} · ${formatMoney(total)}` : `Confirmer ${serviceName} · ${formatMoney(total)}`;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="quote">
@@ -150,19 +162,37 @@ export default function QuoteScreen() {
             <StatusBanner tone="danger" title={isApiError(quote.error) && quote.error.code === 'OUT_OF_ZONE' ? 'Hors zone desservie' : 'Prix indisponible'} message={errorMessage(quote.error)} action={{ label: 'Modifier l’itinéraire', onPress: () => router.back() }} testID="quote-error" />
           ) : null}
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Catégorie">
-            {catalog.data?.categories.filter(c => c.enabled && (!c.cityIds.length || c.cityIds.includes(cityId))).map(c => <PressableScale key={c.id} onPress={() => setCategoryId(c.id)} testID={`service-${c.id}`} accessibilityRole="radio" accessibilityState={{ checked: categoryId === c.id }} style={{ padding: 12, borderRadius: 18, borderWidth: 1, borderColor: categoryId === c.id ? colors.accent : colors.line, backgroundColor: categoryId === c.id ? colors.selected : colors.surface }}><Text variant="label">{c.name}</Text><Text variant="micro" tone="muted">{c.etaMinutes} min · {c.description}</Text></PressableScale>)}
+          <View style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Type de véhicule">
+            {catalog.isLoading ? <Skeleton width="100%" height={64} /> : null}
+            {catalog.data && !available.length ? <StatusBanner tone="warning" title="Aucun service disponible" message="Aucun type de véhicule n’est proposé dans cette ville pour le moment." /> : null}
+            {available.map((c) => {
+              const on = categoryId === c.id;
+              const price = q?.options?.find((o) => o.id === c.id)?.total;
+              return (
+                <PressableScale key={c.id} onPress={() => { setPicked(c.id); haptic.select(); }} testID={`service-${c.id}`} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${c.name}, arrivée ${c.etaMinutes} min${price != null ? `, ${formatMoney(price)}` : ''}`} pressedScale={0.98} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, borderWidth: on ? 2 : 1, borderColor: on ? colors.accent : colors.line, backgroundColor: on ? colors.selected : colors.surface }}>
+                  <ServiceIcon icon={c.icon} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text variant="label" weight="semibold" numberOfLines={1}>{c.name}</Text>
+                    <Text variant="micro" tone="muted" numberOfLines={1}>{c.etaMinutes} min · {c.description}</Text>
+                  </View>
+                  {price != null ? <Money amount={price} variant="label" /> : <Skeleton width={56} height={18} />}
+                </PressableScale>
+              );
+            })}
           </View>
-          <PressableScale onPress={() => q && setShowFare(true)} accessibilityRole="button" accessibilityLabel={q ? `Naya, ${formatMoney(total)}, ${formatDistance(q.route.distanceMeters)}, ${formatDuration(q.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: colors.mauveSoft, borderRadius: 24, paddingVertical: 18, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line }} testID="fare-card" pressedScale={0.98}>
-            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={112} />
-            <View style={{ flex: 1, gap: 5 }}>
-              <Text variant="label" weight="semibold">{q?.service?.name ?? 'Naya Standard'}</Text>
-              <Text variant="caption" tone="accent">Arrivée estimée · {q?.service?.etaMinutes ?? 5} min (démo)</Text>
-              {q ? <Money amount={total} variant="title" style={{ fontSize: 28, lineHeight: 34 }} /> : <Skeleton width={100} height={32} />}
-              <Text variant="caption" tone="muted" numeric>{q ? `${formatDistance(q.route.distanceMeters)} · ${formatDuration(q.route.durationSeconds)}` : 'Calcul du prix…'}</Text>
-              <Text variant="micro" tone="accent">Voir le détail du prix ›</Text>
-            </View>
-          </PressableScale>
+          {selected ? (
+            <PressableScale onPress={() => current && setShowFare(true)} accessibilityRole="button" accessibilityLabel={cq ? `${serviceName}, ${formatMoney(total)}, arrivée estimée ${selected.etaMinutes} min, ${formatDistance(cq.route.distanceMeters)}, ${formatDuration(cq.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: colors.mauveSoft, borderRadius: 24, paddingVertical: 18, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line }} testID="fare-card" pressedScale={0.98}>
+              {selected.icon === 'scooter' ? <ServiceIcon icon="scooter" size={72} /> : <Illustration source={selected.icon === 'premium' ? cars.plumSmall : cars.pearlSmall} aspect={aspect.carSmall} width={112} />}
+              <View style={{ flex: 1, gap: 5 }}>
+                <Text variant="label" weight="semibold">{serviceName}</Text>
+                <Text variant="caption" tone="accent">Arrivée estimée · {selected.etaMinutes} min (démo)</Text>
+                {current ? <Money amount={total} variant="title" style={{ fontSize: 28, lineHeight: 34 }} /> : <Skeleton width={100} height={32} />}
+                <Text variant="caption" tone="muted" numeric>{cq ? `${formatDistance(cq.route.distanceMeters)} · ${formatDuration(cq.route.durationSeconds)}` : 'Calcul du prix…'}</Text>
+                {selected.conditions?.length ? <Text variant="micro" tone="muted" testID="service-conditions">{selected.conditions.join(' · ')}</Text> : null}
+                <Text variant="micro" tone="accent">Voir le détail du prix ›</Text>
+              </View>
+            </PressableScale>
+          ) : null}
 
           {q?.conditions.dynamic ? (
             <StatusBanner
@@ -196,7 +226,7 @@ export default function QuoteScreen() {
           </PressableScale>
         </ScrollView>
         <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + 10, paddingTop: 6, gap: 6 }}>
-          <Button label={confirmLabel} size="major" full loading={book.isPending} loadingLabel={mode === 'schedule' ? 'Enregistrement…' : 'Envoi de la demande…'} disabled={!q || !pm || (mode === 'schedule' && !time)} disabledReason={!pm ? 'Choisissez un moyen de paiement.' : undefined} onPress={() => book.run()} testID="confirm-booking" />
+          <Button label={confirmLabel} size="major" full loading={book.isPending} loadingLabel={mode === 'schedule' ? 'Enregistrement…' : 'Envoi de la demande…'} disabled={!current || !pm || (mode === 'schedule' && !time)} disabledReason={!pm ? 'Choisissez un moyen de paiement.' : undefined} onPress={() => book.run()} testID="confirm-booking" />
           <Text variant="micro" tone="muted" align="center">
             {mode === 'schedule' ? 'Recherche d’une chauffeuse 15 min avant le départ.' : q ? `Annulation gratuite ${Math.round(q.conditions.cancellation.graceSeconds / 60)} min après l’attribution, puis ${formatMoney(q.conditions.cancellation.feeAfterGrace)}.` : 'Le prix reste visible avant confirmation.'}
           </Text>
@@ -224,6 +254,16 @@ export default function QuoteScreen() {
           <Button label="Gérer mes moyens de paiement" variant="ghost" full onPress={() => { setShowPay(false); router.push('/payments'); }} />
         </View>
       </Sheet>
+    </View>
+  );
+}
+
+function ServiceIcon({ icon, size = 40 }: { icon: ServiceCategory['icon']; size?: number }) {
+  useTheme();
+  const Icon = icon === 'scooter' ? Bike : icon === 'premium' ? Gem : Car;
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+      <Icon size={Math.round(size * 0.5)} color={colors.accent} />
     </View>
   );
 }

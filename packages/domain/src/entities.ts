@@ -262,6 +262,8 @@ export interface QuoteConditions {
 
 export interface Quote {
   service?: import('./prototype').ServiceSelection;
+  /** Estimates for every category available on this route, for comparison before booking. */
+  options?: import('./prototype').ServiceOption[];
   id: string;
   passengerId: UserId;
   cityId: CityId;

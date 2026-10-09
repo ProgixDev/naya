@@ -74,6 +74,47 @@ describe('feedback prototype workflows', () => {
     });
     expect(disabled.status).toBe(404);
   });
+  it('lists an estimate for every available category, including ones added by an admin', async () => {
+    const h = setup('first-ride');
+    const p = await h.login(PHONES.salma, 'passenger');
+    const a = await h.adminLogin();
+    const body = {
+      cityId: 'rabat',
+      stops: [PLACES.gareRabatVille, PLACES.hayRiad],
+      categoryId: 'scooter',
+    };
+    const scooter = await h.ok('POST', '/quotes', { token: p, body });
+    expect(scooter.options.map((o: any) => o.id)).toEqual(['scooter', 'standard', 'premium']);
+    expect(scooter.options.find((o: any) => o.id === 'scooter').total).toBe(scooter.breakdown.total);
+    expect(scooter.service.conditions).toContain('Casque fourni');
+    await h.ok('PUT', '/admin/prototype/catalog/categories', {
+      token: a,
+      body: {
+        id: 'van',
+        name: 'Naya Van',
+        description: 'Pour les groupes',
+        icon: 'car',
+        enabled: true,
+        cityIds: ['rabat'],
+        etaMinutes: 9,
+        commissionBp: 2000,
+        baseFare: 2500,
+        perKm: 700,
+        perMinute: 300,
+        minimumFare: 6000,
+        conditions: ['Jusqu’à 7 passagères'],
+      },
+    });
+    const van = await h.ok('POST', '/quotes', { token: p, body: { ...body, categoryId: 'van' } });
+    expect(van.service).toMatchObject({ id: 'van', commissionBp: 2000, conditions: ['Jusqu’à 7 passagères'] });
+    expect(van.breakdown.total).toBeGreaterThanOrEqual(6000);
+    expect(van.options.map((o: any) => o.id)).toContain('van');
+    const bad = await h.call('PUT', '/admin/prototype/catalog/categories', {
+      token: a,
+      body: { ...van.service, id: 'Van X', name: 'X', description: 'X', enabled: true, cityIds: [], baseFare: null, perKm: null, perMinute: null, minimumFare: null },
+    });
+    expect(bad.status).toBe(422);
+  });
   it('confirms topups once, prevents overspending, reserves and releases wallet funds', async () => {
     const h = setup('first-ride');
     const p = await h.login(PHONES.salma, 'passenger');

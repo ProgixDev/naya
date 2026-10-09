@@ -14,6 +14,8 @@ export interface ServiceCategory {
   perKm: Centimes | null;
   perMinute: Centimes | null;
   minimumFare: Centimes | null;
+  /** Category-specific conditions shown to the passenger before booking. */
+  conditions: string[];
 }
 export interface ServiceSelection {
   id: string;
@@ -21,6 +23,17 @@ export interface ServiceSelection {
   icon: ServiceCategory['icon'];
   etaMinutes: number;
   commissionBp: number;
+  conditions?: string[];
+}
+/** Estimated price of one available category for the same route. */
+export interface ServiceOption {
+  id: string;
+  name: string;
+  description: string;
+  icon: ServiceCategory['icon'];
+  etaMinutes: number;
+  total: Centimes;
+  conditions: string[];
 }
 export interface FamilyPlan {
   id: string;
@@ -191,6 +204,7 @@ export function defaultPrototypeCatalog(): PrototypeCatalog {
         perKm: 200,
         perMinute: 100,
         minimumFare: 1500,
+        conditions: ['1 passagère maximum', 'Casque fourni', 'Petit bagage uniquement'],
       },
       {
         id: 'standard',
@@ -205,6 +219,7 @@ export function defaultPrototypeCatalog(): PrototypeCatalog {
         perKm: null,
         perMinute: null,
         minimumFare: null,
+        conditions: ['Jusqu’à 4 passagères'],
       },
       {
         id: 'premium',
@@ -219,6 +234,7 @@ export function defaultPrototypeCatalog(): PrototypeCatalog {
         perKm: 600,
         perMinute: 250,
         minimumFare: 5000,
+        conditions: ['Jusqu’à 4 passagères', 'Véhicule récent et climatisé', 'Grand coffre'],
       },
     ],
     plans: [

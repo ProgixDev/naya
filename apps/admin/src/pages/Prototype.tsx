@@ -18,6 +18,7 @@ import {
   Dialog,
   Field,
   Input,
+  Textarea,
   toast,
 } from '../components/ui';
 import { DocThumb, DocViewer } from '../components/DocViewer';
@@ -35,15 +36,16 @@ const fields: Record<string, string> = {
   name: 'Nom',
   description: 'Description',
   label: 'Libellé',
-  icon: 'Icône (car / scooter / premium)',
+  icon: 'Visuel',
   enabled: 'Activé',
-  cityIds: 'Villes (identifiants séparés par une virgule, vide = toutes)',
+  cityIds: 'Disponibilité par ville (aucune cochée = toutes les villes)',
   etaMinutes: 'Arrivée estimée (minutes)',
   commissionBp: 'Commission (%)',
   baseFare: 'Prise en charge (MAD)',
   perKm: 'Prix / km (MAD)',
   perMinute: 'Prix / min (MAD)',
-  minimumFare: 'Minimum (MAD)',
+  minimumFare: 'Tarif minimum (MAD)',
+  conditions: 'Conditions spécifiques (une par ligne, affichées à la cliente)',
   price: 'Prix de l’abonnement (MAD)',
   durationDays: 'Durée (jours)',
   includedTrips: 'Trajets inclus',
@@ -168,10 +170,38 @@ export function PrototypePage() {
                   {row.enabled ? 'Activé' : 'Désactivé'} · {row.id}
                 </p>
                 {'description' in row ? (
-                  <p className="mt-2">
-                    {row.description} · {row.etaMinutes} min ·{' '}
-                    {row.commissionBp / 100}% de commission
-                  </p>
+                  <>
+                    <p className="mt-2">
+                      {row.description} · {row.etaMinutes} min ·{' '}
+                      {row.commissionBp / 100}% de commission
+                    </p>
+                    <p className="mt-1 text-sm tabular">
+                      {row.baseFare === null &&
+                      row.perKm === null &&
+                      row.perMinute === null &&
+                      row.minimumFare === null
+                        ? 'Tarifs de la ville'
+                        : [
+                            ['Prise en charge', row.baseFare],
+                            ['km', row.perKm],
+                            ['min', row.perMinute],
+                            ['minimum', row.minimumFare],
+                          ]
+                            .map(
+                              ([l, v]) =>
+                                `${l} ${v === null ? 'ville' : formatMoney(v as number)}`,
+                            )
+                            .join(' · ')}
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      {row.cityIds.length
+                        ? `Villes : ${row.cityIds.join(', ')}`
+                        : 'Toutes les villes'}
+                      {row.conditions?.length
+                        ? ` · ${row.conditions.join(' · ')}`
+                        : ''}
+                    </p>
+                  </>
                 ) : null}
                 {'price' in row ? (
                   <p className="mt-2">
@@ -461,6 +491,68 @@ function CatalogEditor({
   onClose: () => void;
 }) {
   const [row, setRow] = useState(initial);
+  const isNew = initial.id === '';
+  const cities = useQuery({
+    queryKey: ['admin', 'cities'],
+    queryFn: api.admin.cities,
+    enabled: kind === 'categories',
+  });
+  const special = (name: string, id: string) => {
+    if (kind !== 'categories') return null;
+    if (name === 'id' && !isNew)
+      return <Input id={id} value={String(row.id)} disabled readOnly />;
+    if (name === 'icon')
+      return (
+        <select
+          id={id}
+          className="field"
+          value={String(row.icon)}
+          onChange={(e) => setRow({ ...row, icon: e.target.value })}
+        >
+          <option value="scooter">Scooter</option>
+          <option value="car">Voiture</option>
+          <option value="premium">Confort / Premium</option>
+        </select>
+      );
+    if (name === 'conditions')
+      return (
+        <Textarea
+          id={id}
+          value={((row.conditions as string[]) ?? []).join('\n')}
+          onChange={(e) =>
+            setRow({
+              ...row,
+              conditions: e.target.value.split('\n').map((x) => x.trimStart()),
+            })
+          }
+        />
+      );
+    if (name === 'cityIds') {
+      const selected = (row.cityIds as string[]) ?? [];
+      return (
+        <div id={id} className="flex flex-wrap gap-3">
+          {(cities.data ?? []).map(({ city }) => (
+            <label key={city.id} className="flex gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={selected.includes(city.id)}
+                onChange={(e) =>
+                  setRow({
+                    ...row,
+                    cityIds: e.target.checked
+                      ? [...selected, city.id]
+                      : selected.filter((x) => x !== city.id),
+                  })
+                }
+              />
+              {city.name}
+            </label>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
   return (
     <Dialog
       open
@@ -469,7 +561,21 @@ function CatalogEditor({
       title={`Configurer · ${LABELS[kind]}`}
       description="Les montants sont en MAD. Vide sur un tarif = tarif de la ville."
       footer={
-        <Button loading={busy} onClick={() => onSave(row)}>
+        <Button
+          loading={busy}
+          onClick={() =>
+            onSave(
+              Array.isArray(row.conditions)
+                ? {
+                    ...row,
+                    conditions: (row.conditions as string[])
+                      .map((x) => x.trim())
+                      .filter(Boolean),
+                  }
+                : row,
+            )
+          }
+        >
           Enregistrer
         </Button>
       }
@@ -478,7 +584,8 @@ function CatalogEditor({
         {Object.entries(initial).map(([name, value]) => (
           <Field key={name} label={fields[name] ?? name}>
             {(id) =>
-              typeof value === 'boolean' ? (
+              special(name, id) ??
+              (typeof value === 'boolean' ? (
                 <input
                   id={id}
                   type="checkbox"
@@ -519,7 +626,7 @@ function CatalogEditor({
                     });
                   }}
                 />
-              )
+              ))
             }
           </Field>
         ))}

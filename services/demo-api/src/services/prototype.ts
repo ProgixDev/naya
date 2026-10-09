@@ -35,7 +35,10 @@ const place = z.object({
   location,
 });
 const categorySchema = z.object({
-  id: text,
+  id: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9-]{2,40}$/, 'Identifiant : minuscules, chiffres et tirets'),
   name: text,
   description: text,
   icon: z.enum(['car', 'scooter', 'premium']),
@@ -47,6 +50,7 @@ const categorySchema = z.object({
   perKm: cents.nullable(),
   perMinute: cents.nullable(),
   minimumFare: cents.nullable(),
+  conditions: z.array(text).max(8).default([]),
 });
 const planSchema = z.object({
   id: text,
@@ -93,7 +97,7 @@ const childSchema = z.object({
 const closed = (status: string) => status === 'completed';
 
 export function ensurePrototype(s: State): PrototypeState {
-  return (s.prototype ??= {
+  const p = (s.prototype ??= {
     catalog: defaultPrototypeCatalog(),
     children: [],
     subscriptions: [],
@@ -102,6 +106,9 @@ export function ensurePrototype(s: State): PrototypeState {
     wallets: [],
     driverCategories: {},
   });
+  // Stores written before categories had conditions.
+  for (const c of p.catalog.categories) c.conditions ??= [];
+  return p;
 }
 export function passengerWallet(s: State, userId: string): PassengerWallet {
   const p = ensurePrototype(s);
