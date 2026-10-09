@@ -164,18 +164,46 @@ export interface FamilyTrip {
   incident: string | null;
   incidents?: FamilyIncident[];
 }
+export type SafetyActionCode =
+  | 'emergency_call'
+  | 'share_location'
+  | 'trusted_contact'
+  | 'support';
+export const SAFETY_ACTION_LABELS: Record<SafetyActionCode, string> = {
+  emergency_call: 'Appel aux services d’urgence lancé depuis le téléphone',
+  share_location: 'Position partagée depuis le téléphone',
+  trusted_contact: 'Contact de confiance alerté par SMS',
+  support: 'Support Naya contacté',
+};
+export const SAFETY_STATUS_LABELS: Record<SafetyAlert['status'], string> = {
+  new: 'Nouvelle · en attente de Naya',
+  responding: 'Prise en charge par l’équipe Naya',
+  resolved: 'Résolue',
+};
 export interface SafetyAlert {
   id: string;
+  /** Who triggered the alert. */
   userId: string;
   userName: string;
   role: 'passenger' | 'driver';
   rideId: string | null;
   familyTripId: string | null;
+  /** Both people of the trip, frozen when the alert is raised. */
+  passengerId?: string | null;
+  passengerName?: string | null;
+  driverId?: string | null;
+  driverName?: string | null;
+  vehiclePlate?: string | null;
+  /** What the person reported, optional. */
+  note?: string | null;
+  /** GPS position at the moment the alert was raised. */
   location: LatLng;
   createdAt: string;
   status: 'new' | 'responding' | 'resolved';
   actions: { at: string; by: string; label: string }[];
   contactName: string;
+  contactPhone?: string | null;
+  ticketId?: string | null;
 }
 export interface PassengerWalletEntry {
   id: string;

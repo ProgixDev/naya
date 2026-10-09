@@ -175,7 +175,7 @@ export default function RideScreen() {
         {ride.status === 'in_progress' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <CheckCircle2 size={16} color={colors.success} />
-            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Suivi de démonstration · utilisez SOS pour tester une alerte.</Text>
+            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Suivi de démonstration · en cas de problème, maintenez le bouton SOS.</Text>
           </View>
         ) : null}
         {ride.status === 'no_driver' ? (

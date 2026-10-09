@@ -49,14 +49,12 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await expect(
       p.getByText('Lina · Trajet en cours', { exact: true }),
     ).toBeVisible();
-    await d.getByTestId('sos').click();
+    // Hold for 1 s: a simple tap only explains how to trigger the alert.
+    await d.getByTestId('sos').click({ delay: 1200 });
     await d.getByTestId('confirm-sos').click();
     await expect(d.getByText(/Alerte SOS-.* enregistrée/)).toBeVisible();
     await d
-      .getByRole('button', {
-        name: 'Position partagée (simulation)',
-        exact: true,
-      })
+      .getByTestId('sos-support')
       .click();
     await a.goto(URLS.admin + '/connexion');
     await a.getByTestId('email').fill('meryem@naya.demo');
@@ -68,7 +66,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await a.goto(URLS.admin + '/services');
     await a.getByRole('button', { name: 'SOS', exact: true }).click();
     await expect(
-      a.getByText('Position partagée (simulation)', { exact: false }),
+      a.getByText('Support Naya contacté', { exact: false }),
     ).toBeVisible();
     await a
       .getByRole('button', { name: 'Prendre en charge', exact: true })

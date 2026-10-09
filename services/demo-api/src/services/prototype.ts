@@ -8,6 +8,7 @@ import {
   FAMILY_STATUS_LABELS,
   PLACES,
   pointAlong,
+  SAFETY_ACTION_LABELS,
   type FamilyChild,
   type FamilyIncident,
   type FamilyTripKind,
@@ -25,6 +26,7 @@ import type { Ctx } from '../context';
 import { mustFind, nextId } from '../store';
 import { appendAudit } from '../audit';
 import { requirePermission } from './permissions';
+import { createTicket } from './support';
 
 type Env = { Variables: { principal: Principal | null } };
 const text = z.string().trim().min(1).max(300);
@@ -999,6 +1001,8 @@ export function mountPrototypeRoutes(
         familyTripId: z.string().nullable(),
         location,
         contactName: text,
+        contactPhone: z.string().trim().max(30).nullable().optional(),
+        note: z.string().trim().max(500).nullable().optional(),
       })
       .parse(await c.req.json());
     if (!input.rideId && !input.familyTripId)
@@ -1009,24 +1013,41 @@ export function mountPrototypeRoutes(
     return c.json(
       await idempotent(ctx, c, u.id, input, () =>
         ctx.store.tx((s) => {
-          if (input.rideId)
-            mustFind(
-              s.rides,
-              (x) =>
-                x.id === input.rideId &&
-                (x.passengerId === u.id || x.driverId === u.id),
-              'course',
-            );
-          if (input.familyTripId)
-            mustFind(
-              ensurePrototype(s).trips,
-              (x) =>
-                x.id === input.familyTripId &&
-                (x.passengerId === u.id || x.driverId === u.id),
-              'trajet',
-            );
+          const ride = input.rideId
+            ? mustFind(
+                s.rides,
+                (x) =>
+                  x.id === input.rideId &&
+                  (x.passengerId === u.id || x.driverId === u.id),
+                'course',
+              )
+            : null;
+          const trip = input.familyTripId
+            ? mustFind(
+                ensurePrototype(s).trips,
+                (x) =>
+                  x.id === input.familyTripId &&
+                  (x.passengerId === u.id || x.driverId === u.id),
+                'trajet',
+              )
+            : null;
+          const name = (id: string | null | undefined) => {
+            const x = s.users.find((y) => y.id === id);
+            return x ? `${x.firstName} ${x.lastName}` : null;
+          };
+          const passengerId = ride?.passengerId ?? trip?.passengerId ?? null;
+          const driverId = ride?.driverId ?? trip?.driverId ?? null;
           const alert = {
             ...input,
+            contactPhone: input.contactPhone || null,
+            note: input.note || null,
+            passengerId,
+            passengerName: name(passengerId),
+            driverId,
+            driverName: name(driverId),
+            vehiclePlate:
+              ride?.driver?.vehicle.plate ?? trip?.vehicle?.plate ?? null,
+            ticketId: null,
             id: nextId(s, 'SOS'),
             userId: u.id,
             userName: `${u.firstName} ${u.lastName}`,
@@ -1037,12 +1058,12 @@ export function mountPrototypeRoutes(
               {
                 at: ctx.clock.iso(),
                 by: u.firstName,
-                label: 'Alerte de démonstration créée · position enregistrée',
+                label: 'Situation dangereuse signalée à Naya · position enregistrée',
               },
             ],
           };
           ensurePrototype(s).alerts.push(alert);
-          log(ctx, s, u, 'sos.created', alert.id, 'Alerte SOS simulée');
+          log(ctx, s, u, 'sos.created', alert.id, 'Alerte SOS déclenchée');
           return alert;
         }),
       ),
@@ -1059,21 +1080,43 @@ export function mountPrototypeRoutes(
     const { action } = z
       .object({
         action: z.enum([
-          'Appel urgence simulé',
-          'Position partagée (simulation)',
-          'Contact de confiance alerté (simulation)',
-          'Support contacté (simulation)',
+          'emergency_call',
+          'share_location',
+          'trusted_contact',
+          'support',
         ]),
       })
       .parse(await c.req.json());
+    const own = mustFind(
+      ensurePrototype(ctx.store.state).alerts,
+      (x) => x.id === c.req.param('id') && x.userId === u.id,
+      'alerte',
+    );
+    // One safety ticket per alert, linked to the ride so support sees its context.
+    const ticket =
+      action === 'support' && !own.ticketId
+        ? createTicket(ctx, u, {
+            reasonId: 'security',
+            category: 'safety',
+            rideId: own.rideId,
+            subject: `SOS ${own.id} · demande d’aide`,
+            body: `Alerte ${own.id} déclenchée pendant ${own.rideId ? `la course ${own.rideId}` : `le trajet ${own.familyTripId}`}. Position : ${own.location.lat.toFixed(5)}, ${own.location.lng.toFixed(5)}.${own.note ? ` Message : ${own.note}` : ''}`,
+            attachments: [],
+          })
+        : null;
     return c.json(
       ctx.store.tx((s) => {
         const a = mustFind(
           ensurePrototype(s).alerts,
-          (x) => x.id === c.req.param('id') && x.userId === u.id,
+          (x) => x.id === own.id,
         );
-        a.actions.push({ at: ctx.clock.iso(), by: u.firstName, label: action });
-        log(ctx, s, u, 'sos.action', a.id, action);
+        if (ticket) a.ticketId = ticket.id;
+        const label =
+          action === 'support' && a.ticketId
+            ? `${SAFETY_ACTION_LABELS.support} · demande ${a.ticketId}`
+            : SAFETY_ACTION_LABELS[action];
+        a.actions.push({ at: ctx.clock.iso(), by: u.firstName, label });
+        log(ctx, s, u, 'sos.action', a.id, label);
         return a;
       }),
     );

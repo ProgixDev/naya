@@ -282,9 +282,20 @@ export function PrototypePage() {
                 subtitle={`${formatShort(a.createdAt)} · ${{ new: 'Nouvelle', responding: 'Prise en charge', resolved: 'Résolue' }[a.status]}`}
               >
                 <p>
-                  Course {a.rideId ?? a.familyTripId} · contact :{' '}
-                  {a.contactName}
+                  {a.rideId ? `Course ${a.rideId}` : `Trajet famille ${a.familyTripId}`}{' '}
+                  · déclenchée par {a.role === 'driver' ? 'la chauffeuse' : 'la cliente'}
                 </p>
+                <p className="text-sm">
+                  Cliente : {a.passengerName ?? '—'} · Chauffeuse :{' '}
+                  {a.driverName ?? 'non attribuée'}
+                  {a.vehiclePlate ? ` · ${a.vehiclePlate}` : ''}
+                </p>
+                <p className="text-sm">
+                  Contact de confiance : {a.contactName}
+                  {a.contactPhone ? ` · ${a.contactPhone}` : ''}
+                  {a.ticketId ? ` · demande support ${a.ticketId}` : ''}
+                </p>
+                {a.note ? <p className="mt-1 text-sm text-danger">« {a.note} »</p> : null}
                 <p className="my-2 text-sm tabular">
                   Position : {a.location.lat}, {a.location.lng}
                 </p>

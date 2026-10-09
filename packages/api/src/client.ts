@@ -1,5 +1,5 @@
 import {
-  type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type FamilyTripKind, type PassengerWallet, type SafetyAlert, type PrototypeAdmin,
+  type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type FamilyTripKind, type PassengerWallet, type SafetyAlert, type SafetyActionCode, type PrototypeAdmin,
   ERROR_MESSAGES,
   type AdminUser,
   type AuditEvent,
@@ -457,9 +457,9 @@ export function createApiClient(opts: ClientOptions) {
       advance: (id: string, input: { expectedStatus: string; proof?: string; childName?: string; recipientId?: string; code?: string }) => post<FamilyTrip>(`/prototype/family/trips/${id}/advance`, input),
       incident: (id: string, message: string) => post<FamilyTrip>(`/prototype/family/trips/${id}/incident`, { message }),
       stop: (id: string, stopped: boolean) => post<FamilyTrip>(`/prototype/family/trips/${id}/stop`, { stopped }),
-      sos: (input: { rideId: string | null; familyTripId: string | null; location: LatLng; contactName: string }, key: string) => post<SafetyAlert>('/prototype/sos', input, key),
+      sos: (input: { rideId: string | null; familyTripId: string | null; location: LatLng; contactName: string; contactPhone?: string | null; note?: string | null }, key: string) => post<SafetyAlert>('/prototype/sos', input, key),
       alerts: () => get<SafetyAlert[]>('/prototype/sos'),
-      safetyAction: (id: string, action: string) => post<SafetyAlert>(`/prototype/sos/${id}/action`, { action }),
+      safetyAction: (id: string, action: SafetyActionCode) => post<SafetyAlert>(`/prototype/sos/${id}/action`, { action }),
     },
     adminPrototype: {
       get: () => get<PrototypeAdmin>('/admin/prototype'),

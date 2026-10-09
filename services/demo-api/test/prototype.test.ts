@@ -338,7 +338,7 @@ describe('feedback prototype workflows', () => {
     ).toBe(alert.id);
     await h.ok('POST', `/prototype/sos/${alert.id}/action`, {
       token: p,
-      body: { action: 'Position partagée (simulation)' },
+      body: { action: 'share_location' },
     });
     await h.ok('POST', `/admin/prototype/alerts/${alert.id}`, {
       token: a,
@@ -347,6 +347,44 @@ describe('feedback prototype workflows', () => {
     const data = await h.ok('GET', '/admin/prototype', { token: a });
     expect(data.alerts[0].status).toBe('resolved');
     expect(data.alerts[0].actions).toHaveLength(3);
+    expect(data.alerts[0].actions[1].label).toBe('Position partagée depuis le téléphone');
+  });
+  it('records passenger, driver, vehicle, position and one support ticket for a ride SOS', async () => {
+    const h = setup('first-ride');
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const a = await h.adminLogin();
+    await h.ok('POST', '/driver/online', { token: d, body: { online: true, location: PLACES.gareRabatVille.location } });
+    const quote = await h.ok('POST', '/quotes', { token: p, body: { cityId: 'rabat', stops: [PLACES.gareRabatVille, PLACES.hayRiad] } });
+    const methods = await h.ok('GET', '/payment-methods', { token: p });
+    const ride = await h.ok('POST', '/rides', { token: p, body: { quoteId: quote.id, paymentMethodId: methods.find((m: any) => m.kind === 'cash').id } });
+    const status = await h.ok('GET', '/driver/status', { token: d });
+    await h.ok('POST', `/driver/offers/${status.offer.id}/accept`, { token: d });
+    const where = { lat: 33.99, lng: -6.85 };
+    const alert = await h.ok('POST', '/prototype/sos', {
+      token: p,
+      key: 'ride-sos',
+      body: { rideId: ride.id, familyTripId: null, location: where, contactName: 'Ma sœur', contactPhone: '0600000000', note: 'Itinéraire inhabituel' },
+    });
+    expect(alert).toMatchObject({
+      rideId: ride.id,
+      passengerName: 'Salma El Mansouri',
+      driverId: status.offer.driverId,
+      location: where,
+      status: 'new',
+      note: 'Itinéraire inhabituel',
+    });
+    expect(alert.driverName).toMatch(/Amina/);
+    expect(alert.vehiclePlate).toBeTruthy();
+    const once = await h.ok('POST', `/prototype/sos/${alert.id}/action`, { token: p, body: { action: 'support' } });
+    expect(once.ticketId).toBeTruthy();
+    const twice = await h.ok('POST', `/prototype/sos/${alert.id}/action`, { token: p, body: { action: 'support' } });
+    expect(twice.ticketId).toBe(once.ticketId);
+    const tickets = await h.ok('GET', '/support/tickets', { token: p });
+    expect(tickets.filter((t: any) => t.category === 'safety' && t.rideId === ride.id)).toHaveLength(1);
+    expect((await h.call('POST', `/prototype/sos/${alert.id}/action`, { token: d, body: { action: 'support' } })).status).toBe(404);
+    const admin = await h.ok('GET', '/admin/prototype', { token: a });
+    expect(admin.alerts.find((x: any) => x.id === alert.id).passengerName).toBe('Salma El Mansouri');
   });
   it('validates dispute evidence and audits replies and rejected decisions', async () => {
     const h = setup();

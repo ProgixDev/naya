@@ -1,7 +1,7 @@
 import { Attachment } from './Attachment';
 import { useTheme } from './../core/theme';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Animated, Linking, Platform, Pressable, Share, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@naya/api/react';
 import { errorMessage } from '@naya/api';
@@ -10,6 +10,9 @@ import {
   FAMILY_TRIP_KINDS,
   PLACES,
   RECIPIENT_RELATIONSHIPS,
+  SAFETY_ACTION_LABELS,
+  SAFETY_STATUS_LABELS,
+  type SafetyActionCode,
   type AuthorizedRecipient,
   type FamilyTripKind,
   type Place,
@@ -34,6 +37,7 @@ import { Sheet } from '../BottomSheet';
 import { toast } from '../Toast';
 import { NayaMap } from '../map';
 import { pickFile, uploadFile } from './uploads';
+import { haptic } from '../haptics';
 
 const key = () => `demo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const panel = new Proxy(
@@ -50,7 +54,13 @@ const panel = new Proxy(
       )[String(key)],
   },
 );
-/** All emergency actions are simulated and remain inside the demo. */
+const HOLD_MS = 1000;
+
+/**
+ * SOS during a ride. A 1-second hold (with visible progress) then a confirmation
+ * prevents accidental alerts. Calls, sharing and SMS use the phone itself; the
+ * alert, its position and every action are recorded for the Naya safety team.
+ */
 export function SafetyButton({
   rideId = null,
   familyTripId = null,
@@ -64,85 +74,145 @@ export function SafetyButton({
   const api = useApi();
   const [open, setOpen] = useState(false);
   const [alert, setAlert] = useState<SafetyAlert | null>(null);
-  const [contact, setContact] = useState('Contact de confiance');
+  const [note, setNote] = useState('');
+  const [contact, setContact] = useState('');
+  const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
-  const run = async (action?: string) => {
+  const progress = useRef(new Animated.Value(0)).current;
+  // The incident status changes when the safety team takes it.
+  const live = useQuery({
+    queryKey: ['naya', 'sos', alert?.id],
+    queryFn: api.prototype.alerts,
+    enabled: !!alert,
+    refetchInterval: 5000,
+    select: (all) => all.find((x) => x.id === alert?.id) ?? null,
+  });
+  const current = live.data ?? alert;
+  const hold = (on: boolean) =>
+    Animated.timing(progress, { toValue: on ? 1 : 0, duration: on ? HOLD_MS : 150, useNativeDriver: false }).start();
+  const mapsUrl = `https://maps.google.com/?q=${location.lat.toFixed(6)},${location.lng.toFixed(6)}`;
+  const message = `Alerte Naya : j’ai besoin d’aide pendant mon trajet. Ma position : ${mapsUrl}`;
+  const record = async (action: SafetyActionCode) => {
+    if (!current) return;
+    try {
+      setAlert(await api.prototype.safetyAction(current.id, action));
+    } catch (e) {
+      toast(errorMessage(e), 'danger');
+    }
+  };
+  const raise = async () => {
     setBusy(true);
     try {
       setAlert(
-        action && alert
-          ? await api.prototype.safetyAction(alert.id, action)
-          : await api.prototype.sos(
-              { rideId, familyTripId, location, contactName: contact },
-              key(),
-            ),
+        await api.prototype.sos(
+          { rideId, familyTripId, location, contactName: contact.trim() || 'Contact de confiance', contactPhone: phone.trim() || null, note: note.trim() || null },
+          key(),
+        ),
       );
+      haptic.error();
     } catch (e) {
       toast(errorMessage(e), 'danger');
     } finally {
       setBusy(false);
     }
   };
+  const call = (number: string) => {
+    Linking.openURL(`tel:${number}`).catch(() => toast(`Composez le ${number}`, 'danger'));
+    record('emergency_call');
+  };
+  const done = (code: SafetyActionCode) => current?.actions.some((a) => a.label.startsWith(SAFETY_ACTION_LABELS[code]));
   return (
     <>
-      <Button
-        label="SOS · sécurité"
-        variant="secondary"
-        onPress={() => setOpen(true)}
+      <Pressable
+        onPressIn={() => hold(true)}
+        onPressOut={() => hold(false)}
+        onLongPress={() => {
+          hold(false);
+          haptic.warning();
+          setOpen(true);
+        }}
+        delayLongPress={HOLD_MS}
+        onPress={() => toast('Maintenez le bouton SOS 1 seconde pour déclencher une alerte.')}
+        accessibilityRole="button"
+        accessibilityLabel="SOS urgence"
+        accessibilityHint="Maintenir appuyé une seconde pour ouvrir les options d’urgence"
         testID="sos"
-      />
+        style={{ height: 48, borderRadius: 24, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.dangerSoft, justifyContent: 'center' }}
+      >
+        <Animated.View
+          style={{
+            position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: colors.danger, opacity: 0.25,
+            width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+          }}
+        />
+        <Text variant="label" weight="semibold" align="center" style={{ color: colors.danger }}>
+          SOS · maintenir pour alerter
+        </Text>
+      </Pressable>
       <Sheet
         visible={open}
         onClose={() => setOpen(false)}
-        title="SOS · démonstration"
-        subtitle="Les appels et les envois sont simulés."
+        title={current ? `Alerte ${current.id}` : 'Déclencher une alerte ?'}
+        subtitle={current ? SAFETY_STATUS_LABELS[current.status] : 'Naya reçoit votre position et les détails du trajet.'}
+        testID="sos-sheet"
       >
         <View style={{ gap: 12 }}>
-          <StatusBanner
-            tone="warning"
-            title="Tester une alerte"
-            message="La position et les actions apparaîtront dans le back-office de démonstration."
-          />
-          <Text variant="caption" numeric>
-            {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
-          </Text>
-          {!alert ? (
+          {!current ? (
             <>
-              <FormField
-                label="Contact de confiance"
-                value={contact}
-                onChangeText={setContact}
-              />
-              <Button
-                label="Confirmer l’alerte de démo"
-                loading={busy}
-                onPress={() => run()}
-                testID="confirm-sos"
-              />
+              <Text variant="caption" tone="muted" numeric>
+                Position actuelle : {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+              </Text>
+              <FormField label="Que se passe-t-il ? (facultatif)" value={note} onChangeText={setNote} multiline />
+              <Button label="Confirmer l’alerte" variant="danger" loading={busy} onPress={raise} testID="confirm-sos" />
+              <Button label="Annuler" variant="ghost" onPress={() => setOpen(false)} />
             </>
           ) : (
             <>
               <StatusBanner
-                tone="success"
-                title={`Alerte ${alert.id} enregistrée`}
-                message="Position jointe · disponible dans le back-office."
+                tone={current.status === 'resolved' ? 'success' : 'warning'}
+                title={`Alerte ${current.id} enregistrée`}
+                message={`${SAFETY_STATUS_LABELS[current.status]} · position et trajet transmis à l’équipe sécurité.`}
               />
-              {[
-                'Appel urgence simulé',
-                'Position partagée (simulation)',
-                'Contact de confiance alerté (simulation)',
-                'Support contacté (simulation)',
-              ].map((action) => (
-                <Button
-                  key={action}
-                  label={action}
-                  variant="secondary"
-                  loading={busy}
-                  onPress={() => run(action)}
-                />
-              ))}
-              {alert.actions.map((a, i) => (
-                <Text key={i} variant="caption">
+              <Button label="Appeler la police · 19" variant="danger" onPress={() => call('19')} testID="sos-call-19" />
+              <Button label="Ambulance et pompiers · 15" variant="secondary" onPress={() => call('15')} testID="sos-call-15" />
+              <Button
+                label={done('share_location') ? 'Position partagée ✓' : 'Partager ma position'}
+                variant="secondary"
+                testID="sos-share"
+                onPress={async () => {
+                  try {
+                    const r = await Share.share({ message });
+                    if (r.action !== Share.dismissedAction) record('share_location');
+                  } catch (e) {
+                    toast(errorMessage(e), 'danger');
+                  }
+                }}
+              />
+              <Text variant="label">Contact de confiance</Text>
+              <FormField label="Nom" value={contact} onChangeText={setContact} testID="sos-contact-name" />
+              <FormField label="Téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" testID="sos-contact-phone" />
+              <Button
+                label={done('trusted_contact') ? 'Contact alerté ✓' : 'Alerter par SMS'}
+                variant="secondary"
+                disabled={!phone.trim()}
+                disabledReason="Saisissez le numéro du contact."
+                testID="sos-contact"
+                onPress={() => {
+                  const sep = Platform.OS === 'ios' ? '&' : '?';
+                  Linking.openURL(`sms:${phone.trim()}${sep}body=${encodeURIComponent(message)}`).catch(() => toast('SMS indisponible sur cet appareil', 'danger'));
+                  record('trusted_contact');
+                }}
+              />
+              <Button
+                label={current.ticketId ? `Support contacté · ${current.ticketId}` : 'Contacter le support Naya'}
+                variant="secondary"
+                disabled={!!current.ticketId}
+                testID="sos-support"
+                onPress={() => record('support')}
+              />
+              <Text variant="label">Journal</Text>
+              {current.actions.map((a, i) => (
+                <Text key={i} variant="caption" numeric>
                   {formatShort(a.at)} · {a.label}
                 </Text>
               ))}
