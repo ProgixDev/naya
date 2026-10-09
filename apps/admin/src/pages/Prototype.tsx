@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   defaultPrototypeCatalog,
   FAMILY_STATUS_LABELS,
+  SUBSCRIPTION_STATUS_LABELS,
   formatMoney,
   formatShort,
   type PrototypeCatalog,
@@ -52,6 +53,7 @@ const fields: Record<string, string> = {
   features: 'Avantages (séparés par une virgule)',
   category: 'Catégorie (ride / payment / safety / account / wallet / other)',
   evidenceRequired: 'Preuve obligatoire',
+  dedicatedDriver: 'Chauffeuse dédiée (sinon pool de chauffeuses)',
   roles: 'Visible pour (passenger, driver · vide = toutes)',
   kind: 'Canal (card / mobile / agency)',
 };
@@ -70,8 +72,11 @@ export function PrototypePage() {
     refetchInterval: 5000,
   });
   const [tab, setTab] = useState<
-    Kind | 'families' | 'alerts' | 'wallets' | 'brand'
+    Kind | 'families' | 'drivers' | 'alerts' | 'wallets' | 'brand'
   >('categories');
+  const [alertFilter, setAlertFilter] = useState<'' | 'new' | 'responding' | 'resolved'>('');
+  const [subChange, setSubChange] = useState<{ id: string; status: 'active' | 'paused' | 'cancelled' } | null>(null);
+  const [subReason, setSubReason] = useState('');
   const [editing, setEditing] = useState<{
     kind: Kind;
     row: Record<string, unknown>;
@@ -106,6 +111,7 @@ export function PrototypePage() {
           [
             ...Object.keys(LABELS),
             'families',
+            'drivers',
             'alerts',
             'wallets',
             'brand',
@@ -120,6 +126,7 @@ export function PrototypePage() {
               (
                 {
                   families: 'Familles',
+                  drivers: 'Chauffeuses dédiées',
                   alerts: 'SOS',
                   wallets: 'Portefeuilles',
                   brand: '6 pistes de logo',
@@ -156,15 +163,33 @@ export function PrototypePage() {
                 key={row.id}
                 title={'name' in row ? row.name : row.label}
                 action={
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() =>
-                      setEditing({ kind: tab as Kind, row: { ...row } })
-                    }
-                  >
-                    Modifier
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      loading={busy}
+                      data-testid={`toggle-${row.id}`}
+                      onClick={() =>
+                        run(() =>
+                          api.adminPrototype.save(tab as Kind, {
+                            ...row,
+                            enabled: !row.enabled,
+                          }),
+                        )
+                      }
+                    >
+                      {row.enabled ? 'Désactiver' : 'Activer'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        setEditing({ kind: tab as Kind, row: { ...row } })
+                      }
+                    >
+                      Modifier
+                    </Button>
+                  </div>
                 }
               >
                 <p className="text-muted">
@@ -205,10 +230,20 @@ export function PrototypePage() {
                   </>
                 ) : null}
                 {'price' in row ? (
-                  <p className="mt-2">
-                    {formatMoney(row.price)} · {row.includedTrips} trajets /{' '}
-                    {row.durationDays} jours
-                  </p>
+                  <>
+                    <p className="mt-2">
+                      {formatMoney(row.price)} · {row.includedTrips} trajets /{' '}
+                      {row.durationDays} jours ·{' '}
+                      {row.dedicatedDriver !== false
+                        ? 'chauffeuse dédiée'
+                        : 'pool de chauffeuses'}
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      {row.features.join(' · ')} ·{' '}
+                      {p.subscriptions.filter((x) => x.planId === row.id && x.status === 'active').length}{' '}
+                      abonnement(s) actif(s)
+                    </p>
+                  </>
                 ) : null}
                 {'evidenceRequired' in row ? (
                   <p className="mt-2">
@@ -273,7 +308,22 @@ export function PrototypePage() {
               Aucune alerte. Testez SOS depuis une course ou un trajet familial.
             </Card>
           ) : null}
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ['', 'Toutes'],
+                ['new', 'Nouvelles'],
+                ['responding', 'Prises en charge'],
+                ['resolved', 'Résolues'],
+              ] as const
+            ).map(([v, l]) => (
+              <Button key={v} size="sm" variant={alertFilter === v ? 'primary' : 'secondary'} onClick={() => setAlertFilter(v)}>
+                {l} ({p.alerts.filter((a) => !v || a.status === v).length})
+              </Button>
+            ))}
+          </div>
           {p.alerts
+            .filter((a) => !alertFilter || a.status === alertFilter)
             .slice()
             .reverse()
             .map((a) => (
@@ -298,7 +348,16 @@ export function PrototypePage() {
                 </p>
                 {a.note ? <p className="mt-1 text-sm text-danger">« {a.note} »</p> : null}
                 <p className="my-2 text-sm tabular">
-                  Position : {a.location.lat}, {a.location.lng}
+                  Position au déclenchement : {a.location.lat.toFixed(5)},{' '}
+                  {a.location.lng.toFixed(5)} ·{' '}
+                  <a
+                    className="font-semibold text-accent"
+                    href={`https://maps.google.com/?q=${a.location.lat},${a.location.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Voir sur la carte
+                  </a>
                 </p>
                 <div className="my-3 flex gap-2">
                   <Button
@@ -349,8 +408,48 @@ export function PrototypePage() {
             <Card
               key={s.id}
               title={`${p.people.find((u) => u.id === s.passengerId)?.name} · ${s.planName}`}
-              subtitle={`${s.includedTrips} trajets · ${formatShort(s.endsAt)}`}
+              subtitle={`${SUBSCRIPTION_STATUS_LABELS[s.status]} · ${formatMoney(s.price)} · ${p.trips.filter((t) => t.passengerId === s.passengerId && t.pickupAt >= s.startsAt && t.pickupAt < s.endsAt).length} / ${s.includedTrips} trajets · jusqu’au ${formatShort(s.endsAt)}`}
+              action={
+                s.status === 'cancelled' ? null : (
+                  <div className="flex gap-2">
+                    {s.status === 'active' ? (
+                      <Button size="sm" variant="secondary" onClick={() => (setSubChange({ id: s.id, status: 'paused' }), setSubReason(''))}>Suspendre</Button>
+                    ) : (
+                      <Button size="sm" variant="secondary" onClick={() => (setSubChange({ id: s.id, status: 'active' }), setSubReason(''))}>Réactiver</Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => (setSubChange({ id: s.id, status: 'cancelled' }), setSubReason(''))}>Résilier</Button>
+                  </div>
+                )
+              }
             >
+              {s.statusHistory?.length ? (
+                <p className="mb-3 text-xs text-muted">
+                  {s.statusHistory.map((h) => `${formatShort(h.at)} · ${SUBSCRIPTION_STATUS_LABELS[h.status]} · ${h.by} · ${h.reason}`).join(' — ')}
+                </p>
+              ) : null}
+              <div className="mb-4 flex flex-col gap-3">
+                <p className="font-semibold">Enfants et informations de sécurité</p>
+                {p.children
+                  .filter((c) => c.passengerId === s.passengerId)
+                  .map((c) => (
+                    <div key={c.id} className="flex gap-3 rounded-2xl bg-background p-3 text-sm">
+                      {c.photo ? (
+                        <div className="w-24 shrink-0">
+                          <DocThumb uploadId={c.photo} label={`Photo de ${c.firstName}`} onOpen={() => setView(c.photo!)} />
+                        </div>
+                      ) : null}
+                      <div>
+                        <p className="font-semibold">{c.firstName} · {c.age} ans · {c.school}</p>
+                        {c.notes ? <p className="text-danger">{c.notes}</p> : null}
+                        <p className="text-muted">
+                          Personnes autorisées :{' '}
+                          {c.recipients.map((r) => `${r.name} (${r.relationship}${r.phone ? ` · ${r.phone}` : ''})`).join(', ')}
+                        </p>
+                        <p className="text-xs text-muted">Codes de remise masqués · vérifiés uniquement par le serveur.</p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
               <label className="label">
                 Chauffeuse dédiée
                 <select
@@ -444,6 +543,75 @@ export function PrototypePage() {
             </Card>
           ))}
         </div>
+      ) : null}
+      {p && tab === 'drivers' ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {p.dedicatedDrivers.map((d) => (
+            <Card
+              key={d.id}
+              title={d.name}
+              subtitle={`${d.cityId} · ${d.online ? 'en ligne' : 'hors ligne'} · ${d.verified ? 'dossier vérifié' : 'dossier non vérifié'}`}
+              action={
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={d.available}
+                    disabled={busy}
+                    data-testid={`family-available-${d.id}`}
+                    onChange={(e) => run(() => api.adminPrototype.familyAvailability(d.id, e.target.checked))}
+                  />
+                  Disponible pour de nouvelles familles
+                </label>
+              }
+            >
+              <p className="text-sm">
+                {d.phone}
+                {d.vehicle ? ` · ${d.vehicle}` : ''}
+                {d.rating ? ` · note ${String(d.rating).replace('.', ',')}` : ''}
+              </p>
+              <p className="mt-2 text-sm">
+                Familles :{' '}
+                {d.families.length
+                  ? d.families.map((f) => `${f.passengerName} (${SUBSCRIPTION_STATUS_LABELS[f.status].toLowerCase()})`).join(', ')
+                  : 'aucune'}
+              </p>
+              <p className="mt-1 text-sm tabular">
+                Trajets : {d.trips.completed} terminés · {d.trips.upcoming} à venir · {d.trips.total} au total
+                {d.trips.lastAt ? ` · dernier ${formatShort(d.trips.lastAt)}` : ''}
+              </p>
+              <p className={`mt-1 text-sm ${d.incidents || d.sos ? 'text-danger' : 'text-muted'}`}>
+                {d.incidents} incident(s) · {d.sos} alerte(s) SOS
+              </p>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+      {subChange ? (
+        <Dialog
+          open
+          onClose={() => setSubChange(null)}
+          busy={busy}
+          title={{ active: 'Réactiver l’abonnement ?', paused: 'Suspendre l’abonnement ?', cancelled: 'Résilier l’abonnement ?' }[subChange.status]}
+          description={subChange.status === 'cancelled' ? 'La résiliation est définitive : aucun nouveau trajet ne pourra être planifié.' : subChange.status === 'paused' ? 'Aucun nouveau trajet ne pourra être planifié tant que l’abonnement est suspendu.' : 'La famille pourra de nouveau planifier des trajets.'}
+          footer={
+            <Button
+              loading={busy}
+              disabled={subReason.trim().length < 5}
+              onClick={() =>
+                run(async () => {
+                  await api.adminPrototype.subscriptionStatus(subChange.id, subChange.status, subReason.trim());
+                  setSubChange(null);
+                })
+              }
+            >
+              Confirmer
+            </Button>
+          }
+        >
+          <Field label="Motif (inscrit au journal)">
+            {(id) => <Input id={id} value={subReason} onChange={(e) => setSubReason(e.target.value)} />}
+          </Field>
+        </Dialog>
       ) : null}
       {p && tab === 'wallets' ? (
         <div className="grid gap-4 md:grid-cols-2">

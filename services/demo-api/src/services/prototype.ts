@@ -10,6 +10,8 @@ import {
   PLACES,
   pointAlong,
   SAFETY_ACTION_LABELS,
+  SUBSCRIPTION_STATUS_LABELS,
+  type DedicatedDriverSummary,
   type FamilyChild,
   type FamilyIncident,
   type FamilyTripKind,
@@ -68,6 +70,7 @@ const planSchema = z.object({
   includedTrips: z.number().int().min(1).max(500),
   enabled: z.boolean(),
   features: z.array(text).min(1),
+  dedicatedDriver: z.boolean().default(true),
 });
 const reasonSchema = z.object({
   id: text,
@@ -123,6 +126,8 @@ export function ensurePrototype(s: State): PrototypeState {
   // Stores written before the detailed dispute reasons: add the new ones, keep admin edits.
   for (const r of defaultDisputeReasons())
     if (!p.catalog.reasons.some((x) => x.id === r.id)) p.catalog.reasons.push(r);
+  for (const plan of p.catalog.plans) plan.dedicatedDriver ??= true;
+  p.familyAvailability ??= {};
   return p;
 }
 export function passengerWallet(s: State, userId: string): PassengerWallet {
@@ -322,6 +327,47 @@ function log(
     summary: label,
   });
 }
+function verifiedDriver(s: State, x: User) {
+  return (
+    s.cases.some((c) => c.id === x.identityCaseId && c.status === 'approved') &&
+    s.cases.some((c) => c.userId === x.id && c.subject === 'vehicle' && c.status === 'approved')
+  );
+}
+function dedicatedDrivers(s: State): DedicatedDriverSummary[] {
+  const p = ensurePrototype(s);
+  return s.users
+    .filter((u) => u.role === 'driver')
+    .map((u) => {
+      const trips = p.trips.filter((t) => t.driverId === u.id);
+      const v = s.vehicles.find((x) => x.id === u.vehicleId);
+      const done = trips.filter((t) => t.status === 'completed');
+      return {
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        cityId: u.cityId,
+        phone: u.phone,
+        online: !!s.presence.find((x) => x.driverId === u.id)?.online,
+        available: p.familyAvailability?.[u.id] !== false,
+        verified: u.status === 'active' && verifiedDriver(s, u),
+        rating: u.ratingAverage,
+        vehicle: v ? `${v.make} ${v.model} · ${v.color} · ${v.plate}` : null,
+        families: p.subscriptions
+          .filter((x) => x.driverId === u.id)
+          .map((x) => {
+            const owner = s.users.find((o) => o.id === x.passengerId);
+            return { subscriptionId: x.id, passengerId: x.passengerId, passengerName: owner ? `${owner.firstName} ${owner.lastName}` : x.passengerId, status: x.status };
+          }),
+        trips: {
+          total: trips.length,
+          completed: done.length,
+          upcoming: trips.filter((t) => t.status === 'scheduled').length,
+          lastAt: done.map((t) => t.times?.completed ?? t.pickupAt).sort().at(-1) ?? null,
+        },
+        incidents: trips.reduce((n, t) => n + (t.incidents?.length ?? (t.incident ? 1 : 0)), 0),
+        sos: p.alerts.filter((a) => a.driverId === u.id || a.userId === u.id).length,
+      };
+    });
+}
 function addSubscription(ctx: Ctx, s: State, user: User, planId: string) {
   const p = ensurePrototype(s);
   if (
@@ -335,29 +381,27 @@ function addSubscription(ctx: Ctx, s: State, user: User, planId: string) {
     (x) => x.id === planId && x.enabled,
     'abonnement',
   );
-  const driver = mustFind(
-    s.users,
-    (x) =>
-      x.role === 'driver' &&
-      x.cityId === user.cityId &&
-      x.status === 'active' &&
-      s.cases.some(
-        (c) => c.id === x.identityCaseId && c.status === 'approved',
-      ) &&
-      s.cases.some(
-        (c) =>
-          c.userId === x.id &&
-          c.subject === 'vehicle' &&
-          c.status === 'approved',
-      ),
-    'chauffeuse vérifiée',
-  );
+  const load = (id: string) =>
+    p.subscriptions.filter((x) => x.driverId === id && x.status !== 'cancelled').length;
+  const driver = s.users
+    .filter(
+      (x) =>
+        x.role === 'driver' &&
+        x.cityId === user.cityId &&
+        x.status === 'active' &&
+        verifiedDriver(s, x) &&
+        p.familyAvailability?.[x.id] !== false,
+    )
+    .sort((a, b) => load(a.id) - load(b.id))[0];
+  if (!driver)
+    throw new DomainError('NOT_FOUND', 'Aucune chauffeuse vérifiée disponible pour les familles dans votre ville.');
   const current = p.subscriptions.find((x) => x.passengerId === user.id);
   if (
-    current?.status === 'active' &&
+    current &&
+    current.status !== 'cancelled' &&
     Date.parse(current.endsAt) > ctx.clock.now()
   )
-    throw new DomainError('CONFLICT', 'Vous avez déjà un abonnement actif.');
+    throw new DomainError('CONFLICT', current.status === 'paused' ? 'Votre abonnement est suspendu. Contactez le support Naya.' : 'Vous avez déjà un abonnement actif.');
   const subscription = {
     id: nextId(s, 'SUB'),
     passengerId: user.id,
@@ -368,6 +412,7 @@ function addSubscription(ctx: Ctx, s: State, user: User, planId: string) {
     driverId: driver.id,
     driverName: `${driver.firstName} ${driver.lastName}`,
     status: 'active' as const,
+    statusHistory: [{ at: ctx.clock.iso(), by: `${user.firstName} ${user.lastName}`, status: 'active' as const, reason: 'Souscription · paiement simulé' }],
     startsAt: ctx.clock.iso(),
     endsAt: new Date(
       ctx.clock.now() + plan.durationDays * 86400000,
@@ -1137,7 +1182,42 @@ export function mountPrototypeRoutes(
         role: x.role,
         cityId: x.cityId,
       })),
+      dedicatedDrivers: dedicatedDrivers(s),
     });
+  });
+  app.post('/admin/prototype/subscriptions/:id/status', async (c) => {
+    const admin = adminOf(c);
+    requirePermission(admin, 'config.edit');
+    const input = z
+      .object({
+        status: z.enum(['active', 'paused', 'cancelled']),
+        reason: z.string().trim().min(5, 'Motif requis (5 caractères minimum).').max(300),
+      })
+      .parse(await c.req.json());
+    return c.json(
+      ctx.store.tx((s) => {
+        const sub = mustFind(ensurePrototype(s).subscriptions, (x) => x.id === c.req.param('id'), 'abonnement');
+        if (sub.status === 'cancelled') throw new DomainError('INVALID_TRANSITION', 'Un abonnement résilié ne peut pas être réactivé.');
+        if (sub.status === input.status) return sub;
+        sub.status = input.status;
+        (sub.statusHistory ??= []).push({ at: ctx.clock.iso(), by: admin.name, status: input.status, reason: input.reason });
+        log(ctx, s, admin, `family.subscription_${input.status}`, sub.id, `Abonnement ${SUBSCRIPTION_STATUS_LABELS[input.status].toLowerCase()} · ${input.reason}`);
+        return sub;
+      }),
+    );
+  });
+  app.post('/admin/prototype/family-availability/:id', async (c) => {
+    const admin = adminOf(c);
+    requirePermission(admin, 'config.edit');
+    const { available } = z.object({ available: z.boolean() }).parse(await c.req.json());
+    return c.json(
+      ctx.store.tx((s) => {
+        const d = mustFind(s.users, (x) => x.id === c.req.param('id') && x.role === 'driver', 'chauffeuse');
+        (ensurePrototype(s).familyAvailability ??= {})[d.id] = available;
+        log(ctx, s, admin, 'family.availability', d.id, `${d.firstName} ${d.lastName} · ${available ? 'disponible' : 'indisponible'} pour de nouvelles familles`);
+        return dedicatedDrivers(s).find((x) => x.id === d.id);
+      }),
+    );
   });
   app.put('/admin/prototype/catalog/:kind', async (c) => {
     const admin = adminOf(c);

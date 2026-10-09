@@ -210,6 +210,9 @@ export interface AdminFinanceSummary {
   withdrawals: Withdrawal[];
   failedPayments: Payment[];
   pendingPayments: Payment[];
+  payments: Payment[];
+  commissions: { total: Centimes; gross: Centimes; byService: { id: string; name: string; rides: number; gross: Centimes; commission: Centimes }[] };
+  passengerWallets: { passenger: { id: string; name: string }; wallet: PassengerWallet }[];
 }
 
 export interface TicketPerson {
@@ -473,6 +476,8 @@ export function createApiClient(opts: ClientOptions) {
       alert: (id: string, status: SafetyAlert['status'], note: string) => post<SafetyAlert>(`/admin/prototype/alerts/${id}`, { status, note }),
       assign: (id: string, driverId: string) => post(`/admin/prototype/assignment/${id}`, { driverId }),
       categories: (id: string, categoryIds: string[]) => post(`/admin/prototype/driver-categories/${id}`, { categoryIds }),
+      subscriptionStatus: (id: string, status: FamilySubscription['status'], reason: string) => post<FamilySubscription>(`/admin/prototype/subscriptions/${id}/status`, { status, reason }),
+      familyAvailability: (driverId: string, available: boolean) => post(`/admin/prototype/family-availability/${driverId}`, { available }),
     },
     admin: {
       login: (email: string, password: string) => post<{ token: string; admin: AdminUser }>('/admin/auth/login', { email, password }),

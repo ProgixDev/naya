@@ -43,6 +43,8 @@ export interface FamilyPlan {
   includedTrips: number;
   enabled: boolean;
   features: string[];
+  /** One assigned driver for the family (otherwise trips go to the pool of family drivers). */
+  dedicatedDriver?: boolean;
 }
 export interface DisputeReason {
   id: string;
@@ -120,9 +122,32 @@ export interface FamilySubscription {
   includedTrips: number;
   driverId: string;
   driverName: string;
-  status: 'active' | 'paused';
+  status: 'active' | 'paused' | 'cancelled';
   startsAt: string;
   endsAt: string;
+  statusHistory?: { at: string; by: string; status: 'active' | 'paused' | 'cancelled'; reason: string }[];
+}
+export const SUBSCRIPTION_STATUS_LABELS: Record<FamilySubscription['status'], string> = {
+  active: 'Actif',
+  paused: 'Suspendu',
+  cancelled: 'Résilié',
+};
+/** Back-office view of a driver who can serve families. */
+export interface DedicatedDriverSummary {
+  id: string;
+  name: string;
+  cityId: string;
+  phone: string;
+  online: boolean;
+  /** Accepts new families. */
+  available: boolean;
+  verified: boolean;
+  rating: number | null;
+  vehicle: string | null;
+  families: { subscriptionId: string; passengerId: string; passengerName: string; status: FamilySubscription['status'] }[];
+  trips: { total: number; completed: number; upcoming: number; lastAt: string | null };
+  incidents: number;
+  sos: number;
 }
 export type FamilyTripStatus =
   | 'scheduled'
@@ -230,6 +255,8 @@ export interface PrototypeState {
   alerts: SafetyAlert[];
   wallets: PassengerWallet[];
   driverCategories: Record<string, string[]>;
+  /** Driver id → accepts new families (default true). */
+  familyAvailability?: Record<string, boolean>;
 }
 export interface FamilyOverview {
   children: FamilyChild[];
@@ -243,6 +270,7 @@ export interface PrototypeAdmin extends PrototypeState {
     role: 'passenger' | 'driver';
     cityId: string;
   }[];
+  dedicatedDrivers: DedicatedDriverSummary[];
 }
 export const FAMILY_STATUS_LABELS: Record<FamilyTripStatus, string> = {
   scheduled: 'Planifié',
@@ -346,6 +374,7 @@ export function defaultPrototypeCatalog(): PrototypeCatalog {
         durationDays: 30,
         includedTrips: 20,
         enabled: true,
+        dedicatedDriver: true,
         features: [
           'Chauffeuse dédiée',
           '20 trajets par mois',
@@ -360,6 +389,7 @@ export function defaultPrototypeCatalog(): PrototypeCatalog {
         durationDays: 30,
         includedTrips: 40,
         enabled: true,
+        dedicatedDriver: true,
         features: [
           'Chauffeuse dédiée',
           '40 trajets par mois',

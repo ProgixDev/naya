@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PLACES } from '@naya/domain';
-import { PHONES, setup, JPEG_B64 } from './harness';
+import { PHONES, setup, JPEG_B64, START } from './harness';
 
 describe('feedback prototype workflows', () => {
   it('prices categories, freezes terms, and enforces admin category eligibility', async () => {
@@ -385,6 +385,51 @@ describe('feedback prototype workflows', () => {
     expect((await h.call('POST', `/prototype/sos/${alert.id}/action`, { token: d, body: { action: 'support' } })).status).toBe(404);
     const admin = await h.ok('GET', '/admin/prototype', { token: a });
     expect(admin.alerts.find((x: any) => x.id === alert.id).passengerName).toBe('Salma El Mansouri');
+  });
+  it('lets the back-office suspend, resume and cancel subscriptions and set family availability', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const a = await h.adminLogin();
+    const f = await h.ok('POST', '/prototype/family/example', { token: p });
+    const sub = f.subscription;
+    const trip = { childId: f.children[0].id, pickup: PLACES.hayRiad, destination: PLACES.agdal, pickupAt: new Date(Date.parse(START) + 2 * 86400000).toISOString(), weekdays: [], kind: 'home_school' };
+    expect((await h.call('POST', `/admin/prototype/subscriptions/${sub.id}/status`, { token: a, body: { status: 'paused', reason: 'x' } })).status).toBe(422);
+    await h.ok('POST', `/admin/prototype/subscriptions/${sub.id}/status`, { token: a, body: { status: 'paused', reason: 'Impayé simulé' } });
+    expect((await h.call('POST', '/prototype/family/trips', { token: p, key: 'paused-trip', body: trip })).status).toBe(404);
+    await h.ok('POST', `/admin/prototype/subscriptions/${sub.id}/status`, { token: a, body: { status: 'active', reason: 'Paiement reçu' } });
+    await h.ok('POST', '/prototype/family/trips', { token: p, key: 'active-trip', body: trip });
+    await h.ok('POST', `/admin/prototype/subscriptions/${sub.id}/status`, { token: a, body: { status: 'cancelled', reason: 'Demande de la cliente' } });
+    expect((await h.call('POST', `/admin/prototype/subscriptions/${sub.id}/status`, { token: a, body: { status: 'active', reason: 'Erreur de résiliation' } })).status).toBe(409);
+    let admin = await h.ok('GET', '/admin/prototype', { token: a });
+    expect(admin.subscriptions[0].statusHistory.map((x: any) => x.status)).toEqual(['active', 'paused', 'active', 'cancelled']);
+    const driver = admin.dedicatedDrivers.find((d: any) => d.id === sub.driverId);
+    expect(driver).toMatchObject({ available: true, verified: true });
+    expect(driver.families[0]).toMatchObject({ passengerId: sub.passengerId, status: 'cancelled' });
+    expect(driver.trips.total).toBeGreaterThanOrEqual(2);
+    // Every verified driver of the city unavailable → a new subscription cannot be served.
+    for (const d of admin.dedicatedDrivers.filter((x: any) => x.cityId === 'rabat'))
+      await h.ok('POST', `/admin/prototype/family-availability/${d.id}`, { token: a, body: { available: false } });
+    const plan = (await h.ok('GET', '/prototype/catalog', { token: p })).plans[0].id;
+    expect((await h.call('POST', '/prototype/family/subscribe', { token: p, key: 'resub-1', body: { planId: plan } })).status).toBe(404);
+    await h.ok('POST', `/admin/prototype/family-availability/${sub.driverId}`, { token: a, body: { available: true } });
+    const again = await h.ok('POST', '/prototype/family/subscribe', { token: p, key: 'resub-2', body: { planId: plan } });
+    expect(again).toMatchObject({ status: 'active', driverId: sub.driverId });
+    admin = await h.ok('GET', '/admin/prototype', { token: a });
+    expect(h.ctx.store.state.audit.filter((e) => e.action.startsWith('family.subscription_')).length).toBe(3);
+  });
+  it('reports commissions per service, every transaction and passenger wallets in finance', async () => {
+    const h = setup();
+    const a = await h.adminLogin();
+    const p = await h.login(PHONES.salma, 'passenger');
+    await h.ok('POST', '/prototype/wallet/topup', { token: p, key: 'fin-top', body: { amount: 20000, providerId: 'demo-mobile' } });
+    const f = await h.ok('GET', '/admin/finance/summary?cityId=rabat', { token: a });
+    const done = h.ctx.store.state.rides.filter((r) => r.cityId === 'rabat' && r.status === 'completed');
+    expect(f.commissions.gross).toBe(done.reduce((n, r) => n + r.terms.breakdown.total, 0));
+    expect(f.commissions.total).toBeGreaterThan(0);
+    expect(f.commissions.byService.reduce((n: number, r: any) => n + r.rides, 0)).toBe(done.length);
+    expect(f.payments.length).toBeGreaterThanOrEqual(f.failedPayments.length + f.pendingPayments.length);
+    const w = f.passengerWallets.find((x: any) => x.passenger.name === 'Salma El Mansouri');
+    expect(w.wallet.entries.at(-1)).toMatchObject({ amount: 20000, status: 'pending' });
   });
   it('validates dispute evidence and audits replies and rejected decisions', async () => {
     const h = setup();

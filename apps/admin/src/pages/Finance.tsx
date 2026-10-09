@@ -11,7 +11,7 @@ import { fmtDateTime, money, signed, toCentimes } from '../lib/format';
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, Kpi, PageHeader, Pagination, Segmented, Select, Skeleton, TableSkeleton, Textarea, toast } from '../components/ui';
 import { LEDGER_LABELS, METHOD_LABELS, PaymentBadge, TransferBadge } from '../components/status';
 
-type Tab = 'wallets' | 'transfers' | 'payments' | 'ledger';
+type Tab = 'wallets' | 'transfers' | 'transactions' | 'payments' | 'commissions' | 'passengers' | 'ledger';
 type DriverRow = { driver: User; wallet: Wallet };
 
 /** A09 · Finance : portefeuilles, opérations, paiements, grand livre et corrections exceptionnelles. */
@@ -34,20 +34,21 @@ export function FinancePage() {
       ) : (
         <div className="flex flex-col gap-5">
           <Card>
-            <div className="grid grid-cols-2 gap-6 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-6 xl:grid-cols-5">
               {d ? (
                 <>
                   <Kpi label="Soldes comptables cumulés" value={money(d.totals.balances)} hint={`${d.drivers.length} chauffeuse(s)`} />
                   <Kpi label="Réservé (retraits en cours)" value={money(d.totals.reserved)} hint={`${d.withdrawals.filter((w) => w.status === 'pending').length} retrait(s) en attente`} />
                   <Kpi label="Dette de commission" value={money(d.totals.debt)} tone={d.totals.debt > 0 ? 'warning' : undefined} hint="Courses en espèces non compensées" />
                   <Kpi label="Offres bloquées (plafond)" value={d.totals.blocked} tone={d.totals.blocked ? 'danger' : undefined} hint={`${d.failedPayments.length} paiement(s) échoué(s)`} />
+                  <Kpi label="Commissions Naya" value={money(d.commissions.total)} hint={`sur ${money(d.commissions.gross)} de courses terminées`} />
                 </>
               ) : (
-                Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-20 w-full" />)
+                Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-20 w-full" />)
               )}
             </div>
           </Card>
-          <Segmented<Tab> label="Section" value={tab} onChange={setTab} options={[{ value: 'wallets', label: 'Portefeuilles' }, { value: 'transfers', label: 'Recharges et retraits' }, { value: 'payments', label: 'Paiements à suivre' }, { value: 'ledger', label: 'Grand livre' }]} />
+          <Segmented<Tab> label="Section" value={tab} onChange={setTab} options={[{ value: 'wallets', label: 'Portefeuilles chauffeuses' }, { value: 'passengers', label: 'Portefeuilles clientes' }, { value: 'transfers', label: 'Recharges et retraits' }, { value: 'transactions', label: 'Transactions' }, { value: 'payments', label: 'Échecs et en attente' }, { value: 'commissions', label: 'Commissions' }, { value: 'ledger', label: 'Grand livre' }]} />
           <Card padded={false}>
             {!d && tab !== 'ledger' ? <TableSkeleton cols={6} /> : null}
             {d && tab === 'wallets' ? (
@@ -68,8 +69,11 @@ export function FinancePage() {
                 ]}
               />
             ) : null}
-            {d && tab === 'transfers' ? <Transfers recharges={d.recharges} withdrawals={d.withdrawals} /> : null}
+            {d && tab === 'transfers' ? <Transfers recharges={d.recharges} withdrawals={d.withdrawals} names={Object.fromEntries(d.drivers.map((r) => [r.driver.id, `${r.driver.firstName} ${r.driver.lastName}`]))} /> : null}
+            {d && tab === 'transactions' ? <Transactions payments={d.payments} /> : null}
             {d && tab === 'payments' ? <PaymentsToWatch failed={d.failedPayments} pending={d.pendingPayments} /> : null}
+            {d && tab === 'commissions' ? <Commissions data={d.commissions} /> : null}
+            {d && tab === 'passengers' ? <PassengerWallets rows={d.passengerWallets} /> : null}
             {tab === 'ledger' ? <Ledger cityId={cityId} drivers={d?.drivers ?? []} /> : null}
           </Card>
         </div>
@@ -79,7 +83,96 @@ export function FinancePage() {
   );
 }
 
-function Transfers({ recharges, withdrawals }: { recharges: Recharge[]; withdrawals: Withdrawal[] }) {
+function Transactions({ payments }: { payments: Payment[] }) {
+  const [status, setStatus] = useState<'' | Payment['status']>('');
+  const rows = payments.filter((p) => !status || p.status === status);
+  return (
+    <>
+      <div className="px-5 pt-5">
+        <Segmented label="Statut" value={status} onChange={setStatus} options={[{ value: '', label: 'Toutes' }, { value: 'confirmed', label: 'Confirmées' }, { value: 'pending', label: 'En attente' }, { value: 'failed', label: 'Échouées' }]} />
+      </div>
+      <div className="mt-4">
+        <DataTable
+          caption="Transactions"
+          rows={rows}
+          rowKey={(p) => p.id}
+          empty={<EmptyState title="Aucune transaction" />}
+          columns={[
+            { key: 'id', header: 'Paiement', render: (p) => <span className="font-semibold">{p.id}</span> },
+            { key: 'r', header: 'Course', render: (p) => (p.rideId ? <Link className="text-accent" to={`/courses/${p.rideId}`}>{p.rideId}</Link> : '—') },
+            { key: 'm', header: 'Moyen', render: (p) => `${METHOD_LABELS[p.method]} · ${p.purpose === 'ride' ? 'course' : 'frais d’annulation'}` },
+            { key: 'pr', header: 'Prestataire', render: (p) => <div><div>{p.provider}</div>{p.providerRef ? <div className="text-[12px] text-muted">{p.providerRef}</div> : null}</div> },
+            { key: 'at', header: 'Date', render: (p) => fmtDateTime(p.createdAt), sort: (p) => p.createdAt },
+            { key: 's', header: 'Statut', render: (p) => <div className="flex flex-col items-start gap-1"><PaymentBadge status={p.status} />{p.failureReason ? <span className="text-[12px] text-muted">{p.failureReason}</span> : null}</div> },
+            { key: 'a', header: 'Montant', align: 'right', render: (p) => money(p.amount), sort: (p) => p.amount },
+          ]}
+        />
+      </div>
+    </>
+  );
+}
+
+type CommissionData = { total: number; gross: number; byService: { id: string; name: string; rides: number; gross: number; commission: number }[] };
+function Commissions({ data }: { data: CommissionData }) {
+  return (
+    <div className="pt-2">
+      <p className="px-5 py-3 text-[13px] text-muted">Commission calculée sur le prix et le taux figés à la réservation de chaque course terminée. Les espèces créent une dette de commission ; la carte et le portefeuille la prélèvent directement.</p>
+      <DataTable
+        caption="Commissions par type de véhicule"
+        rows={data.byService}
+        rowKey={(r) => r.id}
+        empty={<EmptyState title="Aucune course terminée" />}
+        columns={[
+          { key: 'n', header: 'Service', render: (r) => <span className="font-semibold">{r.name}</span> },
+          { key: 'r', header: 'Courses', align: 'right', render: (r) => r.rides, sort: (r) => r.rides },
+          { key: 'g', header: 'Volume', align: 'right', render: (r) => money(r.gross), sort: (r) => r.gross },
+          { key: 'c', header: 'Commission', align: 'right', render: (r) => <span className="font-semibold">{money(r.commission)}</span>, sort: (r) => r.commission },
+          { key: 'p', header: 'Taux moyen', align: 'right', render: (r) => (r.gross ? `${((r.commission / r.gross) * 100).toFixed(1).replace('.', ',')} %` : '—') },
+        ]}
+      />
+    </div>
+  );
+}
+
+type PassengerWalletRow = { passenger: { id: string; name: string }; wallet: { balance: number; reserved: number; entries: { id: string; amount: number; label: string; status: 'pending' | 'confirmed' | 'failed'; at: string; rideId: string | null }[] } };
+const ENTRY_STATUS = { pending: 'En attente', confirmed: 'Confirmée', failed: 'Échouée' } as const;
+function PassengerWallets({ rows }: { rows: PassengerWalletRow[] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <div className="pt-2">
+      <p className="px-5 py-3 text-[13px] text-muted">Portefeuilles prépayés des clientes : recharges, débits de courses et fonds réservés pendant une course.</p>
+      <DataTable<PassengerWalletRow>
+        caption="Portefeuilles clientes"
+        rows={rows}
+        rowKey={(r) => r.passenger.id}
+        onRowClick={(r) => setOpen(open === r.passenger.id ? null : r.passenger.id)}
+        empty={<EmptyState title="Aucun portefeuille cliente" message="Les portefeuilles apparaissent après une première recharge." />}
+        columns={[
+          { key: 'n', header: 'Cliente', render: (r) => <Link className="font-semibold hover:text-accent" to={`/personnes/${r.passenger.id}`} onClick={(e) => e.stopPropagation()}>{r.passenger.name}</Link> },
+          { key: 'b', header: 'Solde', align: 'right', render: (r) => money(r.wallet.balance), sort: (r) => r.wallet.balance },
+          { key: 'r', header: 'Réservé', align: 'right', render: (r) => money(r.wallet.reserved) },
+          { key: 'f', header: 'Échecs', align: 'right', render: (r) => r.wallet.entries.filter((e) => e.status === 'failed').length },
+          { key: 'e', header: 'Mouvements', align: 'right', render: (r) => r.wallet.entries.length },
+        ]}
+      />
+      {rows.filter((r) => r.passenger.id === open).map((r) => (
+        <div key={r.passenger.id} className="border-t border-line px-5 py-4">
+          <h3 className="font-semibold">Historique · {r.passenger.name}</h3>
+          <ul className="mt-2 flex flex-col gap-1 text-[13px]">
+            {r.wallet.entries.slice().reverse().map((e) => (
+              <li key={e.id} className="flex justify-between gap-4">
+                <span>{fmtDateTime(e.at)} · {e.label}{e.rideId ? ` · ${e.rideId}` : ''} · <span className={e.status === 'failed' ? 'text-danger' : 'text-muted'}>{ENTRY_STATUS[e.status]}</span></span>
+                <span className="tabular">{signed(e.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Transfers({ recharges, withdrawals, names }: { recharges: Recharge[]; withdrawals: Withdrawal[]; names: Record<string, string> }) {
   const rows = [...recharges.map((r) => ({ kind: 'Recharge' as const, id: r.id, driverId: r.driverId, amount: r.amount, via: r.providerName, status: r.status, at: r.createdAt, reason: r.failureReason })), ...withdrawals.map((w) => ({ kind: 'Retrait' as const, id: w.id, driverId: w.driverId, amount: w.amount, via: w.destinationLabel, status: w.status, at: w.createdAt, reason: w.failureReason }))].sort((a, b) => b.at.localeCompare(a.at));
   return (
     <div className="pt-2">
@@ -92,7 +185,7 @@ function Transfers({ recharges, withdrawals }: { recharges: Recharge[]; withdraw
         columns={[
           { key: 'id', header: 'Opération', render: (r) => <span className="font-semibold">{r.id}</span> },
           { key: 'k', header: 'Type', render: (r) => r.kind },
-          { key: 'd', header: 'Chauffeuse', render: (r) => r.driverId },
+          { key: 'd', header: 'Chauffeuse', render: (r) => names[r.driverId] ?? r.driverId },
           { key: 'v', header: 'Via', render: (r) => r.via },
           { key: 'at', header: 'Date', render: (r) => fmtDateTime(r.at), sort: (r) => r.at },
           { key: 's', header: 'Statut', render: (r) => <div className="flex flex-col items-start gap-1"><TransferBadge status={r.status} />{r.reason ? <span className="text-[12px] text-muted">{r.reason}</span> : null}</div> },

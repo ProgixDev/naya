@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { ZodError, type ZodType } from 'zod';
 import type { UploadInput } from '@naya/domain';
 import {
+  splitFare,
   adminLoginSchema,
   cancelSchema,
   cashCollectedSchema,
@@ -87,7 +88,7 @@ import {
 } from './services/rides';
 import { applyProviderEvent, createCorrection, createRecharge, createWithdrawal, earningsOf, resolveManually, verifySignature, walletOf } from './services/finance';
 import { addZone, createCity, setCityStatus, setZoneActive, toggleProvider, updateRules } from './services/cities';
-import { ensurePrototype } from './services/prototype';
+import { ensurePrototype, passengerWallet } from './services/prototype';
 import { agentMessage, createTicket, publicTicket, recordTicketAction, resolveTicket, setTicketStatus, userMessage } from './services/support';
 import { requirePermission } from './services/permissions';
 import { tick } from './services/timers';
@@ -845,6 +846,25 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
       withdrawals: s.withdrawals.filter((w) => w.cityId === cityId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       failedPayments: s.payments.filter((p) => p.status === 'failed' && s.rides.find((r) => r.id === p.rideId)?.cityId === cityId),
       pendingPayments: s.payments.filter((p) => p.status === 'pending' && s.rides.find((r) => r.id === p.rideId)?.cityId === cityId),
+      // Every ride payment of the city, newest first (demo volumes).
+      payments: s.payments.filter((p) => s.rides.find((r) => r.id === p.rideId)?.cityId === cityId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 300),
+      // Commission earned on completed rides, from the terms frozen at booking.
+      commissions: (() => {
+        const byService = new Map<string, { name: string; rides: number; gross: number; commission: number }>();
+        for (const r of s.rides.filter((x) => x.cityId === cityId && x.status === 'completed')) {
+          const key = r.terms.service?.id ?? 'standard';
+          const row = byService.get(key) ?? { name: r.terms.service?.name ?? 'Naya Standard', rides: 0, gross: 0, commission: 0 };
+          row.rides++;
+          row.gross += r.terms.breakdown.total;
+          row.commission += splitFare(r.terms.breakdown.total, r.terms.commissionBp).commission;
+          byService.set(key, row);
+        }
+        const rows = [...byService.entries()].map(([id, v]) => ({ id, ...v }));
+        return { total: rows.reduce((a, r) => a + r.commission, 0), gross: rows.reduce((a, r) => a + r.gross, 0), byService: rows };
+      })(),
+      passengerWallets: s.users
+        .filter((u) => u.role === 'passenger' && u.cityId === cityId && ensurePrototype(s).wallets.some((w) => w.userId === u.id))
+        .map((u) => ({ passenger: { id: u.id, name: `${u.firstName} ${u.lastName}` }, wallet: passengerWallet(s, u.id) })),
     });
   });
   app.get('/admin/finance/ledger', (c) => {

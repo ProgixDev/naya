@@ -12,6 +12,7 @@ import {
   RECIPIENT_RELATIONSHIPS,
   SAFETY_ACTION_LABELS,
   SAFETY_STATUS_LABELS,
+  SUBSCRIPTION_STATUS_LABELS,
   type SafetyActionCode,
   type AuthorizedRecipient,
   type FamilyTripKind,
@@ -465,7 +466,7 @@ export function FamilyScreen({
         ) : null}
         {role === 'passenger' ? (
           <>
-            {data?.subscription ? (
+            {data?.subscription && data.subscription.status !== 'cancelled' ? (
               <View style={panel}>
                 <Text variant="title">{data.subscription.planName}</Text>
                 <Text>Chauffeuse dédiée · {data.subscription.driverName}</Text>
@@ -473,6 +474,14 @@ export function FamilyScreen({
                   {data.subscription.includedTrips} trajets · jusqu’au{' '}
                   {formatShort(data.subscription.endsAt)}
                 </Text>
+                {data.subscription.status !== 'active' ? (
+                  <StatusBanner
+                    compact
+                    tone="warning"
+                    title={`Abonnement ${SUBSCRIPTION_STATUS_LABELS[data.subscription.status].toLowerCase()}`}
+                    message="aucun nouveau trajet ne peut être planifié · contactez le support Naya"
+                  />
+                ) : null}
               </View>
             ) : (
               <Section title="Choisir un abonnement">
