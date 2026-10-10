@@ -1,10 +1,10 @@
 import { Attachment } from './Attachment';
 import { useTheme } from './../core/theme';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, Camera, FileText, MessageCircle, Paperclip, X } from 'lucide-react-native';
+import { ArrowUp, Camera, Car, Check, CreditCard, FileText, HelpCircle, ImageIcon, MessageCircle, Paperclip, ShieldAlert, UserRound, Wallet, X } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatShort, SUPPORT_STATUS_LABELS, supportTicketSchema, type SupportTicket } from '@naya/domain';
@@ -53,6 +53,16 @@ export function TicketListScreen({ accountId, onBack, onOpen, onCreate, emptyIma
 }
 
 const MAX_ATTACHMENTS = 5;
+const shortPlace = (label: string) => label.replace(/^[^·]+·\s*/, '');
+/** Reason groups, in the order a person thinks about them. */
+const CATEGORY_ORDER: { id: SupportTicket['category'] | 'wallet'; label: string; icon: (size?: number) => ReactNode; tile: () => string }[] = [
+  { id: 'safety', label: 'Sécurité', icon: (n = 20) => <ShieldAlert size={n} color={colors.danger} strokeWidth={1.9} />, tile: () => colors.dangerSoft },
+  { id: 'ride', label: 'Course', icon: (n = 20) => <Car size={n} color={colors.accent} strokeWidth={1.9} />, tile: () => colors.mauveSoft },
+  { id: 'payment', label: 'Paiement et prix', icon: (n = 20) => <CreditCard size={n} color={colors.info} strokeWidth={1.9} />, tile: () => colors.infoSoft },
+  { id: 'wallet', label: 'Portefeuille', icon: (n = 20) => <Wallet size={n} color={colors.accent} strokeWidth={1.9} />, tile: () => colors.mauveSoft },
+  { id: 'account', label: 'Compte', icon: (n = 20) => <UserRound size={n} color={colors.accent} strokeWidth={1.9} />, tile: () => colors.mauveSoft },
+  { id: 'other', label: 'Autre', icon: (n = 20) => <HelpCircle size={n} color={colors.muted} strokeWidth={1.9} />, tile: () => colors.background },
+];
 /** General questions that are not disputes about a ride. */
 const GENERAL: { id: string; label: string; category: SupportTicket['category'] }[] = [
   { id: 'general-account', label: 'Question sur mon compte', category: 'account' },
@@ -66,7 +76,7 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
   const api = useApi();
   const qc = useQueryClient();
   const catalog = useQuery({ queryKey: ['naya', accountId, 'catalog'], queryFn: api.prototype.catalog });
-  const rides = useQuery({ queryKey: ['naya', accountId, 'support-rides'], queryFn: () => api.rides.history(0, 5), enabled: !rideId && defaultCategory !== 'account' });
+  const rides = useQuery({ queryKey: ['naya', accountId, 'support-rides'], queryFn: () => api.rides.history(0, 10), enabled: defaultCategory !== 'account' });
   const reasons = (catalog.data?.reasons ?? []).filter((r) => r.enabled && (!r.roles?.length || r.roles.includes(role)));
   const [choice, setChoice] = useState<string | undefined>(defaultCategory === 'account' ? 'general-account' : undefined);
   const [ride, setRide] = useState<string | null>(rideId);
@@ -131,45 +141,110 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
       setUploading(false);
     }
   };
+  const all = [...reasons, ...GENERAL.map((g) => ({ ...g, evidenceRequired: false }))];
+  const groups = CATEGORY_ORDER.map((c) => ({ ...c, items: all.filter((r) => r.category === c.id) })).filter((g) => g.items.length);
+  const [picking, setPicking] = useState(true);
+  const rideInfo = rides.data?.items.find((r) => r.id === ride);
+  const card = { backgroundColor: colors.surface, borderRadius: 20, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 } as const;
+  const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginLeft: 4 };
+  const choose = (id: string) => {
+    haptic.select();
+    setChoice(id);
+    setErrors({});
+    setPicking(false);
+  };
+  const selectedCat = CATEGORY_ORDER.find((c) => c.id === (reason?.category ?? general?.category));
+
   return (
-    <Screen keyboard header={<Header title={rideId || ride ? 'Signaler un problème' : 'Nouvelle demande'} subtitle={ride ? `À propos de la course ${ride}` : undefined} onBack={onBack} />} footer={<Button label="Envoyer" size="major" full loading={create.isPending} onPress={submit} testID="submit-ticket" />}>
-      <View style={{ gap: 16, marginTop: 4 }}>
-        <View style={{ gap: 8 }}>
-          <Text variant="label">Motif</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Motif">
-            {[...reasons, ...GENERAL].map((r) => (
-              <Pill key={r.id} label={r.label} selected={choice === r.id} onPress={() => { setChoice(r.id); setErrors({}); }} testID={`reason-${r.id}`} />
-            ))}
+    <Screen keyboard header={<Header title={rideId || ride ? 'Signaler un problème' : 'Nouvelle demande'} onBack={onBack} />} footer={<Button label="Envoyer" size="major" full loading={create.isPending} onPress={submit} testID="submit-ticket" />}>
+      <View style={{ gap: 22, marginTop: 4 }}>
+        {/* ── Concerned ride ── */}
+        {ride ? (
+          <View style={[card, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }]}>
+            <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><Car size={20} color={colors.accent} strokeWidth={1.9} /></View>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{rideInfo ? `${shortPlace(rideInfo.route.stops[0]!.label)} → ${shortPlace(rideInfo.route.stops[rideInfo.route.stops.length - 1]!.label)}` : `Course ${ride}`}</Text>
+              <Text tone="muted" numberOfLines={1} numeric style={{ fontSize: 13, lineHeight: 18 }}>{rideInfo ? `${formatShort(rideInfo.completedAt ?? rideInfo.requestedAt)} · ${ride}` : 'Course concernée'}</Text>
+            </View>
+            {!rideId ? <PressableScale onPress={() => setRide(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retirer la course"><X size={18} color={colors.muted} /></PressableScale> : null}
           </View>
-          {errors.reason ? <Text tone="danger">{errors.reason}</Text> : null}
-          {reason?.evidenceRequired ? <StatusBanner compact tone="warning" title="Photo obligatoire" message="joignez une photo ou un document pour ce motif" /> : null}
+        ) : null}
+
+        {/* ── Reason ── */}
+        <View style={{ gap: 10 }}>
+          <Text weight="semibold" tone="muted" style={label12}>Motif</Text>
+          {label && !picking ? (
+            <PressableScale onPress={() => { haptic.select(); setPicking(true); }} accessibilityRole="button" accessibilityLabel={`Motif : ${label}. Modifier`} style={[card, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderWidth: 1.5, borderColor: colors.accent }]}>
+              <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: selectedCat?.tile() ?? colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}>{selectedCat?.icon()}</View>
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{label}</Text>
+                <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>{selectedCat?.label}</Text>
+              </View>
+              <Text weight="semibold" tone="accent" style={{ fontSize: 14, lineHeight: 18 }}>Modifier</Text>
+            </PressableScale>
+          ) : (
+            <View style={{ gap: 14 }} accessibilityRole="radiogroup" accessibilityLabel="Motif">
+              {groups.map((g) => (
+                <View key={g.id} style={[card, { overflow: 'hidden' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: g.tile(), alignItems: 'center', justifyContent: 'center' }}>{g.icon(15)}</View>
+                    <Text weight="semibold" tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>{g.label}</Text>
+                  </View>
+                  {g.items.map((r, i) => {
+                    const on = choice === r.id;
+                    return (
+                      <PressableScale key={r.id} testID={`reason-${r.id}`} onPress={() => choose(r.id)} accessibilityRole="radio" accessibilityState={{ selected: on }} pressedScale={0.99} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50, paddingHorizontal: 14, borderTopWidth: i ? 1 : 0, borderTopColor: colors.line }}>
+                        <Text weight={on ? 'semibold' : 'regular'} tone={on ? 'accent' : 'ink'} style={{ flex: 1, fontSize: 15, lineHeight: 20 }}>{r.label}</Text>
+                        {r.evidenceRequired ? <Text tone="muted" style={{ fontSize: 12, lineHeight: 16 }}>Photo requise</Text> : null}
+                        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: on ? 0 : 2, borderColor: colors.line, backgroundColor: on ? colors.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Check size={13} color={colors.inverse} strokeWidth={3} /> : null}</View>
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          )}
+          {errors.reason ? <Text tone="danger" style={{ marginLeft: 4 }}>{errors.reason}</Text> : null}
           {reason?.category === 'safety' ? <StatusBanner compact tone="danger" title="Urgence : 19 (police) · 15 (SAMU)" message="signalements de sécurité traités en priorité" /> : null}
         </View>
+
+        {/* ── Ride picker when opened from Aide ── */}
         {!rideId && rides.data?.items.length ? (
-          <View style={{ gap: 8 }}>
-            <Text variant="label">Course concernée</Text>
+          <View style={{ gap: 10 }}>
+            <Text weight="semibold" tone="muted" style={label12}>Course concernée</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {rides.data.items.map((r) => (
-                <Pill key={r.id} label={`${formatShort(r.completedAt ?? r.requestedAt)} · ${r.route.stops[r.route.stops.length - 1]!.label}`} selected={ride === r.id} onPress={() => setRide(r.id)} testID={`ride-${r.id}`} />
+                <Pill key={r.id} label={`${formatShort(r.completedAt ?? r.requestedAt)} · ${shortPlace(r.route.stops[r.route.stops.length - 1]!.label)}`} selected={ride === r.id} onPress={() => setRide(r.id)} testID={`ride-${r.id}`} />
               ))}
               <Pill label="Aucune course" selected={!ride} onPress={() => setRide(null)} />
             </View>
           </View>
         ) : null}
-        <FormField label="Décrivez ce qui s’est passé" value={body} onChangeText={setBody} error={errors.body} multiline numberOfLines={6} textAlignVertical="top" placeholder="Quand, où, ce que vous avez constaté, ce que vous attendez de Naya…" testID="ticket-body" maxLength={2000} inputStyle={{ minHeight: 120 }} />
-        <View style={{ gap: 8 }}>
-          <Text variant="label">Preuves ({attachments.length}/{MAX_ATTACHMENTS})</Text>
+
+        {/* ── Description ── */}
+        <View style={{ gap: 10 }}>
+          <Text weight="semibold" tone="muted" style={label12}>Ce qui s’est passé</Text>
+          <FormField label="Décrivez la situation" value={body} onChangeText={setBody} error={errors.body} multiline numberOfLines={6} textAlignVertical="top" placeholder="Quand, où, ce que vous avez constaté, ce que vous attendez de Naya…" testID="ticket-body" maxLength={2000} inputStyle={{ minHeight: 120 }} />
+          <Text tone="muted" numeric align="right" style={{ fontSize: 12, lineHeight: 16, marginRight: 4 }}>{body.length} / 2000</Text>
+        </View>
+
+        {/* ── Evidence ── */}
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text weight="semibold" tone="muted" style={label12}>Preuves {reason?.evidenceRequired ? '· obligatoire' : '· facultatif'}</Text>
+            <Text tone="muted" numeric style={{ fontSize: 12, lineHeight: 16, marginRight: 4 }}>{attachments.length}/{MAX_ATTACHMENTS}</Text>
+          </View>
           {attachments.length ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {attachments.map((a) => (
                 <View key={a.id}>
                   {a.pdf ? (
-                    <View style={{ width: 72, height: 72, borderRadius: radius.row, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line }}>
+                    <View style={{ width: 76, height: 76, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line }}>
                       <FileText size={24} color={colors.accent} />
                       <Text variant="micro">PDF</Text>
                     </View>
                   ) : (
-                    <Image source={{ uri: a.uri }} style={{ width: 72, height: 72, borderRadius: radius.row }} contentFit="cover" accessibilityLabel="Pièce jointe" />
+                    <Image source={{ uri: a.uri }} style={{ width: 76, height: 76, borderRadius: 16 }} contentFit="cover" accessibilityLabel="Pièce jointe" />
                   )}
                   <View style={{ position: 'absolute', top: -8, right: -8 }}>
                     <IconButton variant="solid" size={28} icon={<X size={14} color={colors.ink} />} accessibilityLabel="Retirer la pièce jointe" onPress={() => setAttachments((l) => l.filter((x) => x.id !== a.id))} />
@@ -179,16 +254,21 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
             </View>
           ) : null}
           {attachments.length < MAX_ATTACHMENTS ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <Button label="Prendre une photo" variant="secondary" size="compact" icon={<Camera size={16} color={colors.accent} />} loading={uploading} onPress={() => attach('camera')} testID="attach-camera" />
-              <Button label="Photo ou capture" variant="secondary" size="compact" icon={<Paperclip size={16} color={colors.accent} />} loading={uploading} onPress={() => attach('library')} testID="attach" />
-              <Button label="Document (PDF)" variant="secondary" size="compact" icon={<FileText size={16} color={colors.accent} />} loading={uploading} onPress={() => attach('document')} testID="attach-document" />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {([
+                ['camera', 'Photo', <Camera key="c" size={20} color={colors.accent} strokeWidth={1.9} />, 'attach-camera'],
+                ['library', 'Galerie', <ImageIcon key="l" size={20} color={colors.accent} strokeWidth={1.9} />, 'attach'],
+                ['document', 'PDF', <FileText key="d" size={20} color={colors.accent} strokeWidth={1.9} />, 'attach-document'],
+              ] as const).map(([kind, text, icon, id]) => (
+                <PressableScale key={kind} testID={id} disabled={uploading} onPress={() => attach(kind)} accessibilityRole="button" accessibilityLabel={kind === 'camera' ? 'Prendre une photo' : kind === 'library' ? 'Photo ou capture' : 'Document PDF'} style={[card, { flex: 1, height: 76, alignItems: 'center', justifyContent: 'center', gap: 6, opacity: uploading ? 0.5 : 1 }]}>
+                  {uploading ? <ActivityIndicator color={colors.accent} /> : icon}
+                  <Text weight="semibold" style={{ fontSize: 13, lineHeight: 18 }}>{text}</Text>
+                </PressableScale>
+              ))}
             </View>
           ) : null}
-          <Text variant="caption" tone="muted">
-            Photos, captures d’écran, reçus ou documents. Privés, vus par l’équipe Naya seulement.
-          </Text>
-          {errors.attachments ? <Text tone="danger">{errors.attachments}</Text> : null}
+          <Text tone="muted" style={{ fontSize: 13, lineHeight: 18, marginHorizontal: 4 }}>Photos, captures d’écran, reçus ou documents. Privés, vus par l’équipe Naya seulement.</Text>
+          {errors.attachments ? <Text tone="danger" style={{ marginLeft: 4 }}>{errors.attachments}</Text> : null}
         </View>
       </View>
     </Screen>
