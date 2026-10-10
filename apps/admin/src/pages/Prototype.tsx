@@ -18,6 +18,7 @@ import {
   Button,
   Banner,
   ErrorState,
+  EmptyState,
   Dialog,
   Field,
   Input,
@@ -28,6 +29,7 @@ import { DocThumb, DocViewer } from '../components/DocViewer';
 import { DriverCategoryMatrix } from '../components/DriverCategoryMatrix';
 import { CategoryEditor } from '../components/CategoryEditor';
 import { PlanEditor, ReasonEditor } from '../components/CatalogEditors';
+import { DedicatedDriverCard, FamilyCard, PassengerWalletCard, PlanCard, ReasonCard, SosAlertCard } from '../components/ServiceCards';
 import { Badge } from '../components/ui';
 import { Bike, Car, Gem, PauseCircle, PlayCircle, Plus, Users, XCircle } from 'lucide-react';
 import { ImpactList, ReasonField } from '../components/form';
@@ -45,6 +47,17 @@ const SECTION: Record<Kind, { title: string; hint: string; add: string }> = {
   reasons: { title: 'Motifs de litige', hint: 'Motifs proposés à l’ouverture d’un litige, avec preuve obligatoire si nécessaire.', add: 'Nouveau motif' },
 };
 const CATEGORY_ICON = { scooter: Bike, car: Car, premium: Gem } as const;
+
+function SectionHead({ title, count, countLabel, hint }: { title: string; count: number; countLabel?: string; hint: string }) {
+  return (
+    <div>
+      <h2 className="text-[20px] font-semibold">
+        {title} <span className="text-[15px] font-medium text-muted">· {count}{countLabel ? ` ${countLabel}` : ''}</span>
+      </h2>
+      <p className="mt-1 text-[14px] text-muted">{hint}</p>
+    </div>
+  );
+}
 
 function CategoryCard({ category: c, busy, drivers, onToggle, onEdit }: { category: ServiceCategory; busy: boolean; drivers: number; onToggle: () => void; onEdit: () => void }) {
   const Icon = CATEGORY_ICON[c.icon] ?? Car;
@@ -229,106 +242,31 @@ export function PrototypePage() {
                 />
               ))}
             </div>
+          ) : tab === 'plans' ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {p.catalog.plans.map((plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  busy={busy}
+                  activeCount={p.subscriptions.filter((x) => x.planId === plan.id && x.status === 'active').length}
+                  onToggle={() => run(() => api.adminPrototype.save('plans', { ...plan, enabled: !plan.enabled }))}
+                  onEdit={() => setEditing({ kind: 'plans', row: { ...plan } as unknown as Record<string, unknown> })}
+                />
+              ))}
+            </div>
           ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {p.catalog[tab as Kind].map((row) => (
-              <Card
-                key={row.id}
-                title={'name' in row ? row.name : row.label}
-                action={
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      loading={busy}
-                      data-testid={`toggle-${row.id}`}
-                      onClick={() =>
-                        run(() =>
-                          api.adminPrototype.save(tab as Kind, {
-                            ...row,
-                            enabled: !row.enabled,
-                          }),
-                        )
-                      }
-                    >
-                      {row.enabled ? 'Désactiver' : 'Activer'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() =>
-                        setEditing({ kind: tab as Kind, row: { ...row } })
-                      }
-                    >
-                      Modifier
-                    </Button>
-                  </div>
-                }
-              >
-                <p className="text-muted">
-                  {row.enabled ? 'Activé' : 'Désactivé'} · {row.id}
-                </p>
-                {'description' in row ? (
-                  <>
-                    <p className="mt-2">
-                      {row.description} · {row.etaMinutes} min ·{' '}
-                      {row.commissionBp / 100}% de commission
-                    </p>
-                    <p className="mt-1 text-sm tabular">
-                      {row.baseFare === null &&
-                      row.perKm === null &&
-                      row.perMinute === null &&
-                      row.minimumFare === null
-                        ? 'Tarifs de la ville'
-                        : [
-                            ['Prise en charge', row.baseFare],
-                            ['km', row.perKm],
-                            ['min', row.perMinute],
-                            ['minimum', row.minimumFare],
-                          ]
-                            .map(
-                              ([l, v]) =>
-                                `${l} ${v === null ? 'ville' : formatMoney(v as number)}`,
-                            )
-                            .join(' · ')}
-                    </p>
-                    <p className="mt-1 text-sm text-muted">
-                      {row.cityIds.length
-                        ? `Villes : ${row.cityIds.join(', ')}`
-                        : 'Toutes les villes'}
-                      {row.conditions?.length
-                        ? ` · ${row.conditions.join(' · ')}`
-                        : ''}
-                    </p>
-                  </>
-                ) : null}
-                {'price' in row ? (
-                  <>
-                    <p className="mt-2">
-                      {formatMoney(row.price)} · {row.includedTrips} trajets /{' '}
-                      {row.durationDays} jours ·{' '}
-                      {row.dedicatedDriver !== false
-                        ? 'chauffeuse dédiée'
-                        : 'pool de chauffeuses'}
-                    </p>
-                    <p className="mt-1 text-sm text-muted">
-                      {row.features.join(' · ')} ·{' '}
-                      {p.subscriptions.filter((x) => x.planId === row.id && x.status === 'active').length}{' '}
-                      abonnement(s) actif(s)
-                    </p>
-                  </>
-                ) : null}
-                {'evidenceRequired' in row ? (
-                  <p className="mt-2">
-                    {row.category} ·{' '}
-                    {row.evidenceRequired
-                      ? 'Photo ou PDF obligatoire'
-                      : 'Preuve facultative'}
-                  </p>
-                ) : null}
-              </Card>
-            ))}
-          </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {p.catalog.reasons.map((r) => (
+                <ReasonCard
+                  key={r.id}
+                  reason={r}
+                  busy={busy}
+                  onToggle={() => run(() => api.adminPrototype.save('reasons', { ...r, enabled: !r.enabled }))}
+                  onEdit={() => setEditing({ kind: 'reasons', row: { ...r } as unknown as Record<string, unknown> })}
+                />
+              ))}
+            </div>
           )}
           {tab === 'categories' ? (
             <DriverCategoryMatrix
@@ -348,11 +286,7 @@ export function PrototypePage() {
       ) : null}
       {p && tab === 'alerts' ? (
         <div className="flex flex-col gap-4">
-          {!p.alerts.length ? (
-            <Card>
-              Aucune alerte. Testez SOS depuis une course ou un trajet familial.
-            </Card>
-          ) : null}
+          <SectionHead title="Alertes SOS" count={p.alerts.length} hint="Déclenchées pendant une course ou un trajet famille. Position, personnes et actions sont conservées." />
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -362,273 +296,65 @@ export function PrototypePage() {
                 ['resolved', 'Résolues'],
               ] as const
             ).map(([v, l]) => (
-              <Button key={v} size="sm" variant={alertFilter === v ? 'primary' : 'secondary'} onClick={() => setAlertFilter(v)}>
-                {l} ({p.alerts.filter((a) => !v || a.status === v).length})
-              </Button>
+              <button key={v} type="button" onClick={() => setAlertFilter(v)} aria-pressed={alertFilter === v} className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[14px] font-semibold transition ${alertFilter === v ? 'border-accent bg-selected text-accent' : 'border-line hover:bg-background'}`}>
+                {l}
+                <span className={`rounded-full px-1.5 text-[12px] tabular ${v === 'new' && p.alerts.some((a) => a.status === 'new') ? 'bg-danger text-white' : 'bg-line text-muted'}`}>{p.alerts.filter((a) => !v || a.status === v).length}</span>
+              </button>
             ))}
           </div>
+          {!p.alerts.filter((a) => !alertFilter || a.status === alertFilter).length ? (
+            <Card><EmptyState title={p.alerts.length ? 'Aucune alerte pour ce filtre' : 'Aucune alerte SOS'} message={p.alerts.length ? undefined : 'Les alertes déclenchées depuis une course ou un trajet famille apparaîtront ici.'} /></Card>
+          ) : null}
           {p.alerts
             .filter((a) => !alertFilter || a.status === alertFilter)
             .slice()
             .reverse()
             .map((a) => (
-              <Card
+              <SosAlertCard
                 key={a.id}
-                title={`${a.id} · ${a.userName}`}
-                subtitle={`${formatShort(a.createdAt)} · ${{ new: 'Nouvelle', responding: 'Prise en charge', resolved: 'Résolue' }[a.status]}`}
-              >
-                <p>
-                  {a.rideId ? `Course ${a.rideId}` : `Trajet famille ${a.familyTripId}`}{' '}
-                  · déclenchée par {a.role === 'driver' ? 'la chauffeuse' : 'la cliente'}
-                </p>
-                <p className="text-sm">
-                  Cliente : {a.passengerName ?? '—'} · Chauffeuse :{' '}
-                  {a.driverName ?? 'non attribuée'}
-                  {a.vehiclePlate ? ` · ${a.vehiclePlate}` : ''}
-                </p>
-                <p className="text-sm">
-                  Contact de confiance : {a.contactName}
-                  {a.contactPhone ? ` · ${a.contactPhone}` : ''}
-                  {a.ticketId ? ` · demande support ${a.ticketId}` : ''}
-                </p>
-                {a.note ? <p className="mt-1 text-sm text-danger">« {a.note} »</p> : null}
-                <p className="my-2 text-sm tabular">
-                  Position au déclenchement : {a.location.lat.toFixed(5)},{' '}
-                  {a.location.lng.toFixed(5)} ·{' '}
-                  <a
-                    className="font-semibold text-accent"
-                    href={`https://maps.google.com/?q=${a.location.lat},${a.location.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Voir sur la carte
-                  </a>
-                </p>
-                <div className="my-3 flex gap-2">
-                  <Button
-                    loading={busy}
-                    onClick={() =>
-                      run(() =>
-                        api.adminPrototype.alert(
-                          a.id,
-                          'responding',
-                          'Prise en charge par le support de démonstration',
-                        ),
-                      )
-                    }
-                  >
-                    Prendre en charge
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    loading={busy}
-                    onClick={() =>
-                      run(() =>
-                        api.adminPrototype.alert(
-                          a.id,
-                          'resolved',
-                          'Alerte de démonstration résolue',
-                        ),
-                      )
-                    }
-                  >
-                    Résoudre
-                  </Button>
-                </div>
-                {a.actions.map((x, i) => (
-                  <p key={i} className="text-sm text-muted">
-                    {formatShort(x.at)} · {x.by} · {x.label}
-                  </p>
-                ))}
-              </Card>
+                a={a}
+                busy={busy}
+                onStatus={(status) => run(() => api.adminPrototype.alert(a.id, status, status === 'responding' ? 'Prise en charge par l’équipe sécurité' : 'Alerte résolue par l’équipe sécurité'))}
+              />
             ))}
         </div>
       ) : null}
       {p && tab === 'families' ? (
         <div className="flex flex-col gap-4">
+          <SectionHead title="Familles abonnées" count={p.subscriptions.length} hint="Abonnement, chauffeuse dédiée, enfants et traçabilité de chaque trajet." />
           {!p.subscriptions.length ? (
-            <Card>Chargez l’exemple famille depuis l’une des apps.</Card>
+            <Card><EmptyState title="Aucune famille abonnée" message="Les abonnements souscrits depuis l’espace Naya Famille apparaîtront ici. Pour une démonstration, chargez l’exemple depuis l’application." /></Card>
           ) : null}
-          {p.subscriptions.map((s) => (
-            <Card
-              key={s.id}
-              title={`${p.people.find((u) => u.id === s.passengerId)?.name} · ${s.planName}`}
-              subtitle={`${SUBSCRIPTION_STATUS_LABELS[s.status]} · ${formatMoney(s.price)} · ${p.trips.filter((t) => t.passengerId === s.passengerId && t.pickupAt >= s.startsAt && t.pickupAt < s.endsAt).length} / ${s.includedTrips} trajets · jusqu’au ${formatShort(s.endsAt)}`}
-              action={
-                s.status === 'cancelled' ? null : (
-                  <div className="flex gap-2">
-                    {s.status === 'active' ? (
-                      <Button size="sm" variant="secondary" onClick={() => (setSubChange({ id: s.id, status: 'paused' }), setSubReason(''))}>Suspendre</Button>
-                    ) : (
-                      <Button size="sm" variant="secondary" onClick={() => (setSubChange({ id: s.id, status: 'active' }), setSubReason(''))}>Réactiver</Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => (setSubChange({ id: s.id, status: 'cancelled' }), setSubReason(''))}>Résilier</Button>
-                  </div>
-                )
-              }
-            >
-              {s.statusHistory?.length ? (
-                <p className="mb-3 text-xs text-muted">
-                  {s.statusHistory.map((h) => `${formatShort(h.at)} · ${SUBSCRIPTION_STATUS_LABELS[h.status]} · ${h.by} · ${h.reason}`).join(' — ')}
-                </p>
-              ) : null}
-              <div className="mb-4 flex flex-col gap-3">
-                <p className="font-semibold">Enfants et informations de sécurité</p>
-                {p.children
-                  .filter((c) => c.passengerId === s.passengerId)
-                  .map((c) => (
-                    <div key={c.id} className="flex gap-3 rounded-2xl bg-background p-3 text-sm">
-                      {c.photo ? (
-                        <div className="w-24 shrink-0">
-                          <DocThumb uploadId={c.photo} label={`Photo de ${c.firstName}`} onOpen={() => setView(c.photo!)} />
-                        </div>
-                      ) : null}
-                      <div>
-                        <p className="font-semibold">{c.firstName} · {c.age} ans · {c.school}</p>
-                        {c.notes ? <p className="text-danger">{c.notes}</p> : null}
-                        <p className="text-muted">
-                          Personnes autorisées :{' '}
-                          {c.recipients.map((r) => `${r.name} (${r.relationship}${r.phone ? ` · ${r.phone}` : ''})`).join(', ')}
-                        </p>
-                        <p className="text-xs text-muted">Codes de remise masqués · vérifiés uniquement par le serveur.</p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-              <label className="label">
-                Chauffeuse dédiée
-                <select
-                  className="field mt-2"
-                  value={s.driverId}
-                  disabled={busy}
-                  onChange={(e) =>
-                    run(() => api.adminPrototype.assign(s.id, e.target.value))
-                  }
-                >
-                  {p.people
-                    .filter(
-                      (u) =>
-                        u.role === 'driver' &&
-                        u.cityId ===
-                          p.people.find((x) => x.id === s.passengerId)?.cityId,
-                    )
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <div className="mt-4 flex flex-col gap-3">
-                {p.trips
-                  .filter((t) => t.passengerId === s.passengerId)
-                  .map((t) => (
-                    <div key={t.id} className="rounded-2xl bg-background p-4">
-                      <p className="font-semibold">
-                        {t.childName} · {FAMILY_STATUS_LABELS[t.status]}
-                      </p>
-                      <p className="text-sm">
-                        {t.pickup.label} → {t.destination.label} ·{' '}
-                        {formatShort(t.pickupAt)}
-                      </p>
-                      {t.vehicle ? (
-                        <p className="text-sm">
-                          {t.driverName} · {t.vehicle.make} {t.vehicle.model}{' '}
-                          · {t.vehicle.color} · {t.vehicle.plate}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-xs tabular">
-                        {(
-                          [
-                            ['en_route', 'Départ'],
-                            ['arrived', 'Arrivée au point'],
-                            ['picked_up', 'Récupération'],
-                            ['completed', 'Arrivée et remise'],
-                          ] as const
-                        )
-                          .filter(([k]) => t.times?.[k])
-                          .map(([k, l]) => `${l} ${formatShort(t.times![k]!)}`)
-                          .join(' · ') || 'Pas encore démarré'}
-                        {t.pickupVerified ? ' · enfant vérifié' : ''}
-                        {t.recipientId ? ' · remise confirmée par code' : ''}
-                      </p>
-                      {(t.incidents ?? []).map((x, i) => (
-                        <p key={i} className="mt-1 text-xs text-danger">
-                          {formatShort(x.at)} ·{' '}
-                          {x.source === 'auto' ? 'Alerte automatique' : x.by}{' '}
-                          · {x.message}
-                        </p>
-                      ))}
-                      {t.timeline.map((e, i) => (
-                        <p key={i} className="mt-1 text-xs text-muted">
-                          {formatShort(e.at)} · {e.label} ·{' '}
-                          {e.location.lat.toFixed(4)},{' '}
-                          {e.location.lng.toFixed(4)}
-                        </p>
-                      ))}
-                      {t.arrivalProof === 'demo-arrival-photo' ? (
-                        <p className="mt-2 text-sm text-accent">
-                          Photo d’arrivée simulée
-                        </p>
-                      ) : t.arrivalProof ? (
-                        <div className="mt-2 max-w-xs">
-                          <DocThumb
-                            uploadId={t.arrivalProof}
-                            label="Photo d’arrivée"
-                            onOpen={() => setView(t.arrivalProof!)}
-                          />
-                        </div>
-                      ) : null}
-                      {t.incident && !t.incidents?.length ? (
-                        <p className="mt-2 text-danger">{t.incident}</p>
-                      ) : null}
-                    </div>
-                  ))}
-              </div>
-            </Card>
-          ))}
+          {p.subscriptions.map((s) => {
+            const owner = p.people.find((u) => u.id === s.passengerId);
+            return (
+              <FamilyCard
+                key={s.id}
+                sub={s}
+                familyName={owner?.name ?? s.passengerId}
+                children={p.children.filter((c) => c.passengerId === s.passengerId)}
+                trips={p.trips.filter((t) => t.passengerId === s.passengerId)}
+                drivers={p.people.filter((u) => u.role === 'driver' && u.cityId === owner?.cityId)}
+                busy={busy}
+                onAssign={(driverId) => run(() => api.adminPrototype.assign(s.id, driverId))}
+                onStatus={(status) => (setSubChange({ id: s.id, status }), setSubReason(''))}
+                onView={setView}
+              />
+            );
+          })}
         </div>
       ) : null}
       {p && tab === 'drivers' ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {p.dedicatedDrivers.map((d) => (
-            <Card
-              key={d.id}
-              title={d.name}
-              subtitle={`${d.cityId} · ${d.online ? 'en ligne' : 'hors ligne'} · ${d.verified ? 'dossier vérifié' : 'dossier non vérifié'}`}
-              action={
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={d.available}
-                    disabled={busy}
-                    data-testid={`family-available-${d.id}`}
-                    onChange={(e) => run(() => api.adminPrototype.familyAvailability(d.id, e.target.checked))}
-                  />
-                  Disponible pour de nouvelles familles
-                </label>
-              }
-            >
-              <p className="text-sm">
-                {d.phone}
-                {d.vehicle ? ` · ${d.vehicle}` : ''}
-                {d.rating ? ` · note ${String(d.rating).replace('.', ',')}` : ''}
-              </p>
-              <p className="mt-2 text-sm">
-                Familles :{' '}
-                {d.families.length
-                  ? d.families.map((f) => `${f.passengerName} (${SUBSCRIPTION_STATUS_LABELS[f.status].toLowerCase()})`).join(', ')
-                  : 'aucune'}
-              </p>
-              <p className="mt-1 text-sm tabular">
-                Trajets : {d.trips.completed} terminés · {d.trips.upcoming} à venir · {d.trips.total} au total
-                {d.trips.lastAt ? ` · dernier ${formatShort(d.trips.lastAt)}` : ''}
-              </p>
-              <p className={`mt-1 text-sm ${d.incidents || d.sos ? 'text-danger' : 'text-muted'}`}>
-                {d.incidents} incident(s) · {d.sos} alerte(s) SOS
-              </p>
-            </Card>
-          ))}
+        <div className="flex flex-col gap-4">
+          <SectionHead title="Chauffeuses dédiées" count={p.dedicatedDrivers.filter((d) => d.available && d.verified).length} countLabel="disponibles" hint="Les nouveaux abonnements vont à la chauffeuse vérifiée et disponible la moins chargée de la ville." />
+          <div className="grid gap-4 lg:grid-cols-2">
+            {p.dedicatedDrivers
+              .slice()
+              .sort((a, b) => Number(b.verified) - Number(a.verified) || b.families.length - a.families.length)
+              .map((d) => (
+                <DedicatedDriverCard key={d.id} d={d} busy={busy} onAvailable={(v) => run(() => api.adminPrototype.familyAvailability(d.id, v))} />
+              ))}
+          </div>
         </div>
       ) : null}
       {subChange ? (
@@ -678,25 +404,15 @@ export function PrototypePage() {
         })()
       ) : null}
       {p && tab === 'wallets' ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {p.wallets.map((w) => (
-            <Card
-              key={w.userId}
-              title={p.people.find((u) => u.id === w.userId)?.name ?? w.userId}
-              subtitle={`${formatMoney(w.balance)} · ${formatMoney(w.reserved)} réservés`}
-            >
-              <ul>
-                {w.entries
-                  .slice()
-                  .reverse()
-                  .map((e, i) => (
-                    <li key={i} className="border-t border-line py-3 text-sm">
-                      {e.label} · {formatMoney(e.amount)} · {{ pending: 'En attente', confirmed: 'Confirmée', failed: 'Refusée' }[e.status]}
-                    </li>
-                  ))}
-              </ul>
-            </Card>
-          ))}
+        <div className="flex flex-col gap-4">
+          <SectionHead title="Portefeuilles clientes" count={p.wallets.length} hint="Solde prépayé des clientes : recharges, débits des courses et montants réservés. Le détail financier complet est dans Finance." />
+          {!p.wallets.length ? (
+            <Card><EmptyState title="Aucun portefeuille cliente" message="Un portefeuille apparaît après la première recharge d’une cliente." /></Card>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {p.wallets.map((w) => <PassengerWalletCard key={w.userId} w={w} name={p.people.find((u) => u.id === w.userId)?.name ?? w.userId} />)}
+            </div>
+          )}
         </div>
       ) : null}
       {tab === 'brand' ? (

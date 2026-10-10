@@ -72,7 +72,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       .getByRole('button', { name: 'Prendre en charge', exact: true })
       .click();
     await a.getByRole('button', { name: 'Résoudre', exact: true }).click();
-    await expect(a.getByText(/· Résolue$/)).toBeVisible();
+    await expect(a.getByText('Résolue', { exact: true }).first()).toBeVisible();
     // Reload closes the focused safety sheet while retaining the trip.
     await d.reload();
     await d.getByLabel('Code donné par la personne', { exact: true }).fill('1234');
