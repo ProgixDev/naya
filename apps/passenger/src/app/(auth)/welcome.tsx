@@ -4,9 +4,9 @@ import { DEMO_MODE, DemoBadge, PressableScale, WelcomeJourney } from '@naya/ui';
 import { usePrefs } from '@/lib/prefs';
 
 const SLIDES = [
-  { image: illustrations.passengerWelcome, title: 'Vos trajets, entre femmes.', body: 'Des chauffeuses vérifiées à Rabat. Vous voyez son nom, sa voiture et sa plaque avant de monter.', note: 'Chauffeuses vérifiées' },
-  { image: illustrations.passengerPlanning, title: 'À votre rythme.', body: 'Réservez maintenant ou planifiez un départ. Le prix est affiché avant de confirmer.', note: 'Prix annoncé avant le départ' },
-  { image: illustrations.passengerIdentity, title: 'Une communauté vérifiée.', body: 'Chaque compte est examiné par une personne de l’équipe Naya avant la première course.', note: 'Un examen humain' },
+  { image: illustrations.passengerWelcome, title: 'Bienvenue chez Naya', body: 'Réservez une course en quelques secondes, simplement, à votre rythme. Le prix est affiché avant de confirmer.', note: 'Prix annoncé avant le départ' },
+  { image: illustrations.passengerIdentity, title: 'Entre femmes, en confiance', body: 'Des chauffeuses vérifiées. Vous voyez son nom, sa voiture et sa plaque avant de monter, et vous suivez le trajet en direct.', note: 'Chauffeuses vérifiées' },
+  { image: illustrations.passengerPlanning, title: 'Vos enfants, accompagnés', body: 'Avec Naya Famille, une chauffeuse dédiée dépose et récupère vos enfants, avec un code de remise sécurisé et un suivi en direct.', note: 'Remise par code à 4 chiffres' },
 ] as const;
 
 export default function Welcome() {
