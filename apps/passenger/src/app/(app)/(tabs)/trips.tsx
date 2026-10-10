@@ -35,7 +35,7 @@ export default function Trips() {
       testID="trips"
       header={<Header title="Mes trajets" />}
       contentStyle={{ paddingBottom: space + 12 }}
-      refreshControl={<RefreshControl refreshing={scheduled.isRefetching || history.isRefetching} onRefresh={() => (tab === 'upcoming' ? scheduled.refetch() : history.refetch())} tintColor={colors.accent} />}
+      refreshControl={<RefreshControl refreshing={scheduled.isRefetching || history.isRefetching} onRefresh={() => (tab === 'upcoming' ? scheduled.refetch() : Promise.all([scheduled.refetch(), history.refetch()]))} tintColor={colors.accent} />}
     >
       <View style={{ gap: 12, marginTop: 4 }}>
         <SegmentedControl options={[{ value: 'upcoming', label: 'À venir' }, { value: 'history', label: 'Historique' }]} value={tab} onChange={setTab} testID="trips-tabs" />
@@ -71,35 +71,37 @@ export default function Trips() {
             </>
           )
         ) : null}
-        {tab === 'upcoming' && past.length ? (
-          <ListGroup label="Réservations passées">
-            {past.map((b) => (
-              <ListRow key={b.id} title={formatShort(b.pickupAt)} subtitle={`${b.route.stops[0]!.label} → ${b.route.stops[b.route.stops.length - 1]!.label}`} trailing={<StatusPill tone={b.status === 'cancelled' ? 'danger' : 'neutral'} label={SCHEDULED_STATUS_LABELS[b.status]} />} onPress={() => router.push({ pathname: '/scheduled/[id]', params: { id: b.id } })} />
-            ))}
-          </ListGroup>
-        ) : null}
         {tab === 'history' ? (
           history.isLoading ? (
             <SkeletonList rows={4} />
           ) : history.isError ? (
             <ErrorState onRetry={() => history.refetch()} />
-          ) : rides.length === 0 ? (
+          ) : rides.length === 0 && past.length === 0 ? (
             <EmptyState testID="history-empty" title="Pas encore de course" message="Vos courses terminées et annulées apparaîtront ici." />
           ) : (
             <>
-              <ListGroup>
-                {rides.map((r) => (
-                  <ListRow
-                    key={r.id}
-                    testID={`history-${r.id}`}
-                    title={`${r.route.stops[0]!.label} → ${r.route.stops[r.route.stops.length - 1]!.label}`}
-                    subtitle={`${r.id} · ${formatShort(r.completedAt ?? r.cancellation?.at ?? r.requestedAt)}`}
-                    value={r.status === 'cancelled' ? 'Annulée' : formatMoney(r.terms.breakdown.total)}
-                    numericValue
-                    onPress={() => router.push({ pathname: '/receipt/[id]', params: { id: r.id } })}
-                  />
-                ))}
-              </ListGroup>
+              {past.length ? (
+                <ListGroup label="Réservations planifiées">
+                  {past.map((b) => (
+                    <ListRow key={b.id} testID={`past-scheduled-${b.id}`} title={formatShort(b.pickupAt)} subtitle={`${b.route.stops[0]!.label} → ${b.route.stops[b.route.stops.length - 1]!.label}`} trailing={<StatusPill tone={b.status === 'cancelled' ? 'danger' : 'neutral'} label={SCHEDULED_STATUS_LABELS[b.status]} />} onPress={() => router.push({ pathname: '/scheduled/[id]', params: { id: b.id } })} />
+                  ))}
+                </ListGroup>
+              ) : null}
+              {rides.length ? (
+                <ListGroup label={past.length ? 'Courses' : undefined}>
+                  {rides.map((r) => (
+                    <ListRow
+                      key={r.id}
+                      testID={`history-${r.id}`}
+                      title={`${r.route.stops[0]!.label} → ${r.route.stops[r.route.stops.length - 1]!.label}`}
+                      subtitle={`${r.id} · ${formatShort(r.completedAt ?? r.cancellation?.at ?? r.requestedAt)}`}
+                      value={r.status === 'cancelled' ? 'Annulée' : formatMoney(r.terms.breakdown.total)}
+                      numericValue
+                      onPress={() => router.push({ pathname: '/receipt/[id]', params: { id: r.id } })}
+                    />
+                  ))}
+                </ListGroup>
+              ) : null}
               {history.hasNextPage ? <Button label="Voir plus" variant="secondary" full loading={history.isFetchingNextPage} onPress={() => history.fetchNextPage()} /> : null}
             </>
           )
