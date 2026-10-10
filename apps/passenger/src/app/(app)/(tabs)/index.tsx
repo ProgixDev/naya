@@ -9,7 +9,7 @@ import { isInService, isRideActive, PLACES, RIDE_STATUS_LABELS, type Place } fro
 import { qk } from '@naya/api';
 import { cars, aspect } from '@naya/assets';
 import { useApi } from '@naya/api/react';
-import { colors, gutter, radius, shadow } from '@naya/tokens';
+import { colors, gutter, radius, shadow, themedStyles } from '@naya/tokens';
 import { useAccountId, useActiveRide, useCities, useMe } from '@/lib/queries';
 import { useDraft } from '@/lib/draft';
 import { usePrefs } from '@/lib/prefs';
@@ -174,10 +174,11 @@ function QuickPill({ label, icon, onPress, testID, a11y }: { label: string; icon
   );
 }
 
-const styles = {
+// Recomputed on each read so colours follow the active theme (light / dark).
+const styles = themedStyles(() => ({
   card: { backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 16, ...shadow.float },
   activeCard: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, backgroundColor: colors.surface, borderRadius: 22, padding: 14, marginBottom: 8, ...shadow.card },
   search: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 56, borderRadius: 28, paddingLeft: 20, paddingRight: 8, paddingVertical: 8, backgroundColor: colors.accent },
   go: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surface, alignItems: 'center' as const, justifyContent: 'center' as const },
   chip: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const, minHeight: 62, borderRadius: 18, paddingHorizontal: 6, paddingVertical: 8, overflow: 'hidden' as const },
-};
+}));

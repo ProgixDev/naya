@@ -163,5 +163,6 @@ const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark
 
 
 const styles = themedStyles(() => StyleSheet.create({
-  attribution: { position: 'absolute', left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 4, paddingHorizontal: 4 },
+  // Themed glass so the credit stays readable in dark mode.
+  attribution: { position: 'absolute', left: 8, backgroundColor: colors.glass, borderRadius: 4, paddingHorizontal: 4 },
 }));

@@ -7,7 +7,7 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDay, ITEM_LABELS, STATUS_LABELS } from '@naya/domain';
 import { aspect, illustrations } from '@naya/assets';
-import { colors } from '@naya/tokens';
+import { colors, themedStyles } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 
@@ -105,12 +105,13 @@ export default function Status() {
   );
 }
 
-const toneColors = {
+// Recomputed on each read so colours follow the active theme (light / dark).
+const toneColors = themedStyles(() => ({
   info: { bg: colors.infoSoft, fg: colors.info },
   success: { bg: colors.successSoft, fg: colors.success },
   warning: { bg: colors.warningSoft, fg: colors.warning },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
-} as const;
+} as const));
 
 /** One card per decision: tone disc, title, one line. */
 function StatusHero({ tone, Icon, title, message }: { tone: keyof typeof toneColors; Icon: typeof Clock3; title: string; message: string }) {

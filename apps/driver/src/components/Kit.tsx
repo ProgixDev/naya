@@ -111,7 +111,7 @@ export function ChoiceRow({ title, subtitle, leading, selected, onPress, testID,
             {title}
           </Text>
           {subtitle ? (
-            <Text variant="micro" tone="muted" numberOfLines={1}>
+            <Text variant="micro" tone="muted" numberOfLines={2}>
               {subtitle}
             </Text>
           ) : null}
@@ -145,13 +145,14 @@ export function ActionNote({ tone, title, message, action, icon, testID }: { ton
   );
 }
 
-const TONES = {
+// Recomputed on each read so colours follow the active theme (light / dark).
+const TONES = themedStyles(() => ({
   info: { bg: colors.infoSoft, fg: colors.info, Icon: Clock },
   success: { bg: colors.successSoft, fg: colors.success, Icon: CheckCircle2 },
   warning: { bg: colors.warningSoft, fg: colors.warning, Icon: Clock },
   danger: { bg: colors.dangerSoft, fg: colors.danger, Icon: XCircle },
   neutral: { bg: colors.mauveSoft, fg: colors.accent, Icon: Clock },
-} as const;
+} as const));
 
 /** Centred status hero for operation receipts (recharge, withdrawal, ride end). */
 export function OperationHero({ state, amount, kicker, caption, sign, testID }: { state: 'pending' | 'confirmed' | 'failed' | 'neutral'; amount: Centimes; kicker: string; caption?: string; sign?: 'auto' | 'always'; testID?: string }) {
