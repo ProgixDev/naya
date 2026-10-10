@@ -1,9 +1,9 @@
 import { useTheme , Button, ErrorState, Header, IconDisc, Screen, SkeletonList, StatusBanner, Text, haptic, useSingleFlight } from '@naya/ui';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Landmark } from 'lucide-react-native';
+import { Clock, Landmark } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { assertWithdrawable, formatMoney, parseMoneyInput } from '@naya/domain';
 import { useApi } from '@naya/api/react';
@@ -18,9 +18,17 @@ export default function Withdraw() {
   const qc = useQueryClient();
   const a = useAccountId();
   const q = useWallet();
-  const [text, setText] = useState('50');
+  const [text, setText] = useState('');
   const [accountId, setAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Start on what can actually be withdrawn: 50 MAD, or the whole available balance when it is lower.
+  const prefilled = useRef(false);
+  const available = q.data?.wallet.available;
+  useEffect(() => {
+    if (prefilled.current || available === undefined) return;
+    prefilled.current = true;
+    if (available > 0) setText(formatMoney(Math.min(available, 5000), { currency: false }));
+  }, [available]);
   const create = useSingleFlight((vars: { amount: number; accountId: string }, key) => api.driver.withdraw(vars.amount, vars.accountId, key), {
     onSuccess: (w) => {
       haptic.success();
@@ -65,22 +73,67 @@ export default function Withdraw() {
   const shownError = error ?? (amount !== null && localError ? localError : null);
   return (
     <Screen keyboard header={<Header title="Retirer" onBack={() => router.back()} />} footer={<Button label={amount !== null && !localError ? `Retirer ${formatMoney(amount)}` : 'Confirmer le retrait'} size="major" full loading={create.isPending} loadingLabel="Envoi à la banque…" disabled={pending || wallet.available <= 0 || !!localError} disabledReason={pending ? 'Un retrait est déjà en cours de traitement.' : wallet.available <= 0 ? 'Aucun montant disponible au retrait.' : undefined} onPress={submit} testID="withdraw-confirm" />} testID="withdraw-screen">
-      <View style={{ gap: 16, marginTop: 4 }}>
-        <AmountEntry label="Montant à retirer" value={text} onChangeText={(t) => { setText(t); setError(null); }} error={shownError} helper={`Disponible ${formatMoney(wallet.available)} · minimum ${formatMoney(city.minimumWithdrawal)}`} testID="withdraw-amount" />
-        <QuickPills options={quick} selected={quickSelected} onSelect={(k) => { setText(k === 'all' ? allText : k); setError(null); }} />
-        <View style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Compte de destination">
-          <Text variant="caption" weight="semibold" tone="muted" style={{ marginLeft: 4 }}>
-            Vers le compte
-          </Text>
+      <View style={{ gap: 22, marginTop: 4 }}>
+        {/* ── Amount ── */}
+        <View style={[card(), { paddingVertical: 20, gap: 14 }]}>
+          <AmountEntry label="Montant à retirer" value={text} onChangeText={(t) => { setText(t); setError(null); }} error={shownError} testID="withdraw-amount" />
+          <QuickPills options={quick} selected={quickSelected} onSelect={(k) => { setText(k === 'all' ? allText : k); setError(null); }} />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Stat label="Disponible" value={formatMoney(wallet.available)} />
+            <Stat label="Minimum" value={formatMoney(city.minimumWithdrawal)} />
+          </View>
+        </View>
+
+        {/* ── Destination ── */}
+        <View style={{ gap: 10 }} accessibilityRole="radiogroup" accessibilityLabel="Compte de destination">
+          <Text weight="semibold" tone="muted" style={label12}>Vers le compte</Text>
           {payoutAccounts.map((acc) => (
-            <ChoiceRow key={acc.id} title={acc.label} subtitle={`${acc.bankName} · ••${acc.last4}`} leading={<IconDisc size={36}><Landmark size={17} color={colors.accent} /></IconDisc>} selected={chosen === acc.id} onPress={() => setAccountId(acc.id)} testID={`payout-${acc.last4}`} />
+            <ChoiceRow key={acc.id} title={acc.label} subtitle={`${acc.bankName} · ••${acc.last4}`} leading={<View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><Landmark size={20} color={colors.accent} strokeWidth={1.9} /></View>} selected={chosen === acc.id} onPress={() => setAccountId(acc.id)} testID={`payout-${acc.last4}`} />
           ))}
         </View>
+
+        {/* ── Summary ── */}
         {amount !== null && !localError ? (
-          <StatusBanner compact tone="neutral" title={`${formatMoney(amount)} réservés pendant le transfert`} message={`disponible ${formatMoney(wallet.available)} → ${formatMoney(after)}, sans frais`} testID="withdraw-preview" />
+          <View style={{ gap: 10 }} testID="withdraw-preview">
+            <Text weight="semibold" tone="muted" style={label12}>Récapitulatif</Text>
+            <View style={[card(), { gap: 12 }]}>
+              <SummaryRow label="Disponible aujourd’hui" value={formatMoney(wallet.available)} />
+              <SummaryRow label="Retrait" value={`− ${formatMoney(amount)}`} />
+              <SummaryRow label="Frais" value="Gratuit" tone="success" />
+              <View style={{ height: 1, backgroundColor: colors.line }} />
+              <SummaryRow label="Disponible après" value={formatMoney(after)} strong />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.background, borderRadius: 12, padding: 10 }}>
+                <Clock size={15} color={colors.muted} strokeWidth={2} />
+                <Text tone="muted" style={{ flex: 1, fontSize: 13, lineHeight: 18 }}>{formatMoney(amount)} réservés pendant le transfert vers votre banque.</Text>
+              </View>
+            </View>
+          </View>
         ) : null}
         {pending ? <ActionNote tone="info" title="Retrait en cours" message="Attendez la fin du transfert avant d’en demander un nouveau." action={{ label: 'Suivre', onPress: () => router.push({ pathname: '/withdraw/[id]', params: { id: pendingWithdrawals[0]!.id } }) }} /> : null}
       </View>
     </Screen>
+  );
+}
+
+const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginLeft: 4 };
+
+function Stat({ label, value }: { label: string; value: string }) {
+  useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}>
+      <Text tone="muted" style={{ fontSize: 12, lineHeight: 16 }}>{label}</Text>
+      <Text weight="semibold" numeric style={{ fontSize: 15, lineHeight: 20 }}>{value}</Text>
+    </View>
+  );
+}
+
+function SummaryRow({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: 'success' }) {
+  useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <Text tone={strong ? 'ink' : 'muted'} weight={strong ? 'semibold' : 'regular'} style={{ fontSize: 14, lineHeight: 19 }}>{label}</Text>
+      <Text tone={tone ?? 'ink'} weight={strong ? 'bold' : 'semibold'} numeric style={{ fontSize: strong ? 16 : 14, lineHeight: 21 }}>{value}</Text>
+    </View>
   );
 }

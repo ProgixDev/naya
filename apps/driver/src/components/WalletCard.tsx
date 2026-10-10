@@ -19,6 +19,9 @@ const DEFS: Record<Figure, { title: string; short: string; body: string }> = {
  * D12: the accounting balance is the only hero. Each secondary figure opens a one-sentence
  * definition, so the four money concepts stay distinct without paragraphs on the card.
  */
+/** White text on the plum card in both themes (the inverse token turns dark in dark mode). */
+const ON = '#FFFFFF';
+
 export function WalletCard({ wallet }: { wallet: Wallet }) {
   useTheme();
   const { fontScale } = useWindowDimensions();
@@ -27,27 +30,27 @@ export function WalletCard({ wallet }: { wallet: Wallet }) {
   const figures: Figure[] = ['available', 'reserved', 'debt', ...(wallet.pendingRecharges > 0 ? (['pending'] as const) : [])];
   return (
     <View style={styles.card} testID="wallet-card">
-      <LinearGradient colors={getColorScheme() === 'dark' ? ['#E5B6D4', '#CFA3C3', '#BC92B0'] : ['#764D69', '#56354E', '#352331']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.card + 4 }]} />
+      <LinearGradient colors={getColorScheme() === 'dark' ? ['#47203A', '#5E2D4C', '#7C3F5F'] : ['#764D69', '#56354E', '#352331']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.card + 4 }]} />
       <View pointerEvents="none" style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', right: -90, top: -75 }} />
       <View pointerEvents="none" style={{ position: 'absolute', width: 160, height: 160, borderRadius: 80, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', right: -60, top: -45 }} />
-      <Text variant="caption" tone="inverse" style={{ opacity: 0.86 }}>
+      <Text variant="caption" style={{ color: ON, opacity: 0.86 }}>
         Solde comptable
       </Text>
       <View testID="wallet-balance" style={{ marginTop: 10, marginBottom: 14 }}>
-        <Money amount={wallet.balance} variant="display" tone="inverse" />
+        <Money amount={wallet.balance} variant="display" style={{ color: ON }} />
       </View>
       <View style={styles.grid}>
         {figures.map((f) => (
           <PressableScale key={f} pressedScale={0.98} onPress={() => setOpen(f)} accessibilityRole="button" accessibilityLabel={`${DEFS[f].title} ${formatMoney(amountFor(f))}. Afficher la définition`} style={[styles.figure, fontScale > 1.2 ? { flexBasis: '45%' } : null]} testID={`wallet-${f}`}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text variant="micro" tone="inverse" style={{ opacity: 0.82 }}>
+              <Text variant="micro" style={{ color: ON, opacity: 0.82 }}>
                 {DEFS[f].short}
               </Text>
-              <Info size={12} color={colors.inverse} style={{ opacity: 0.8 }} />
+              <Info size={12} color={ON} style={{ opacity: 0.8 }} />
             </View>
-            <Text variant="label" tone="inverse" weight="semibold" numeric>
+            <Text variant="label" weight="semibold" numeric style={{ color: ON }}>
               {formatMoney(amountFor(f))}
-              {f === 'debt' ? <Text variant="micro" tone="inverse" style={{ opacity: 0.75 }}>{` / ${formatMoney(wallet.debtLimit, { currency: false })}`}</Text> : null}
+              {f === 'debt' ? <Text variant="micro" style={{ color: ON, opacity: 0.75 }}>{` / ${formatMoney(wallet.debtLimit, { currency: false })}`}</Text> : null}
             </Text>
           </PressableScale>
         ))}

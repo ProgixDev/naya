@@ -1,10 +1,13 @@
-import { useTheme , ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, Skeleton, StatusBanner, Text } from '@naya/ui';
+import { useTheme , ErrorState, Header, IconDisc, ListGroup, ListRow, PressableScale, Screen, Skeleton, SkeletonList, StatusBanner, Text, TransactionRow } from '@naya/ui';
+import { useQuery } from '@tanstack/react-query';
+import { qk } from '@naya/api';
+import { useApi } from '@naya/api/react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowDownLeft, ArrowUpRight, Clock, ListOrdered } from 'lucide-react-native';
 import { formatMoney, formatShort, TRANSFER_STATUS_LABELS } from '@naya/domain';
-import { colors } from '@naya/tokens';
-import { useWallet } from '@/lib/queries';
+import { colors, shadow } from '@naya/tokens';
+import { useAccountId, useWallet } from '@/lib/queries';
 import { WalletCard } from '@/components/WalletCard';
 import { ActionNote, ActionPill } from '@/components/Kit';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
@@ -13,6 +16,10 @@ import { TAB_BAR_SPACE } from '@/components/TabBar';
 export default function WalletTab() {
   useTheme();
   const q = useWallet();
+  const api = useApi();
+  const a = useAccountId();
+  // Last few confirmed movements; the full list with filters is on Mouvements.
+  const recent = useQuery({ queryKey: [...qk.ledger(a, undefined), 'recent'], queryFn: () => api.driver.ledger(undefined, 0, 5) });
   const w = q.data?.wallet;
   const near = w && w.balance < 0 && !w.offersBlockedByDebt && -w.balance >= w.debtLimit * 0.8;
   return (
@@ -41,6 +48,35 @@ export default function WalletTab() {
                 ))}
               </ListGroup>
             ) : null}
+
+            <View style={{ gap: 10, marginTop: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 }}>
+                <Text weight="semibold" accessibilityRole="header" style={{ fontSize: 18, lineHeight: 24, letterSpacing: -0.3 }}>Mouvements récents</Text>
+                {recent.data?.items.length ? (
+                  <PressableScale onPress={() => router.push('/ledger')} hitSlop={10} accessibilityRole="button" testID="wallet-see-all">
+                    <Text weight="semibold" tone="accent" style={{ fontSize: 15, lineHeight: 20 }}>Voir tout</Text>
+                  </PressableScale>
+                ) : null}
+              </View>
+              {recent.isLoading ? <SkeletonList rows={3} /> : null}
+              {recent.isError ? <ErrorState onRetry={() => recent.refetch()} /> : null}
+              {recent.data && !recent.data.items.length ? (
+                <View style={{ backgroundColor: colors.surface, borderRadius: 22, paddingVertical: 28, paddingHorizontal: 20, alignItems: 'center', gap: 6, ...shadow.card }}>
+                  <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><ListOrdered size={24} color={colors.accent} /></View>
+                  <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Aucun mouvement</Text>
+                  <Text tone="muted" align="center" style={{ fontSize: 13, lineHeight: 18 }}>Vos courses, recharges et retraits confirmés apparaîtront ici.</Text>
+                </View>
+              ) : null}
+              {recent.data?.items.length ? (
+                <View style={{ gap: 10 }}>
+                  {recent.data.items.map((e) => (
+                    <View key={e.id} style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+                      <TransactionRow entry={e} onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: e.id } })} />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           </>
         ) : null}
       </View>
