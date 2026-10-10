@@ -1,43 +1,44 @@
-import { useTheme , Glass, PressableScale, Text, haptic, useA11yPrefs, motionTiming } from '@naya/ui';
-import { useEffect, useState, type ComponentProps } from 'react';
-import { View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { useTheme, PressableScale, Text, haptic, useA11yPrefs } from '@naya/ui';
+import { type ComponentProps } from 'react';
+import { View, useWindowDimensions } from 'react-native';
 import type { Tabs } from 'expo-router';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Route, UserRound, Wallet } from 'lucide-react-native';
-import { colors, gutter, shadow } from '@naya/tokens';
+import { colors, getColorScheme, gutter } from '@naya/tokens';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 const ICONS: Record<string, typeof Home> = { index: Home, trips: Route, wallet: Wallet, account: UserRound };
 const LABELS: Record<string, string> = { index: 'Accueil', trips: 'Trajets', wallet: 'Portefeuille', account: 'Compte' };
 
-/** Floating capsule with visible labels; the selected pill slides on the UI thread (no bounce). */
+/**
+ * Floating capsule (white in light mode, deep plum-black in dark). Inactive tabs are icons only; the active tab grows
+ * into a soft pill with its label. Width changes animate on the UI thread (no bounce).
+ */
 export function CapsuleTabBar({ state, navigation }: TabBarProps) {
   useTheme();
   const insets = useSafeAreaInsets();
   const { reduceMotion } = useA11yPrefs();
-  const [width, setWidth] = useState(0);
-  const count = state.routes.length;
-  const seg = (width - 12) / count;
-  const x = useSharedValue(0);
-  useEffect(() => {
-    x.value = reduceMotion ? state.index * seg : withTiming(state.index * seg, motionTiming.selection);
-  }, [state.index, seg, reduceMotion, x]);
-  const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  const dark = getColorScheme() === 'dark';
+  // Light: white capsule, plum active pill. Dark: deep plum-black capsule, soft light pill.
+  const theme = dark
+    ? { bar: '#2A1E2A', border: 'rgba(255,255,255,0.06)', pill: 'rgba(255,255,255,0.14)', on: '#FFFFFF', off: 'rgba(255,255,255,0.62)', shadow: 0.35 }
+    : { bar: colors.surface, border: 'rgba(41,35,45,0.06)', pill: colors.accent, on: '#FFFFFF', off: colors.muted, shadow: 0.12 };
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: Math.max(insets.bottom, 12) }}>
-      <Glass radius={30} style={shadow.float} contentStyle={{ height: 60, paddingHorizontal: 6, justifyContent: 'flex-start' }}>
-        <View style={{ flex: 1, flexDirection: 'row', height: 60, alignItems: 'center' }} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width + 12)} accessibilityRole="tablist">
-          {width > 0 ? <Animated.View style={[{ position: 'absolute', left: 0, top: 6, bottom: 6, width: seg, borderRadius: 24, backgroundColor: colors.accent }, pill]} /> : null}
-          {state.routes.map((route, i) => {
-            const focused = state.index === i;
-            const Icon = ICONS[route.name] ?? Home;
-            return (
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: gutter, right: gutter, bottom: Math.max(insets.bottom, 12) }}>
+      <View
+        accessibilityRole="tablist"
+        style={{ flexDirection: 'row', alignItems: 'center', height: 64, paddingHorizontal: 8, gap: 4, borderRadius: 32, backgroundColor: theme.bar, borderWidth: 1, borderColor: theme.border, shadowColor: '#2E202C', shadowOpacity: theme.shadow, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 }}
+      >
+        {state.routes.map((route, i) => {
+          const focused = state.index === i;
+          const Icon = ICONS[route.name] ?? Home;
+          return (
+            <Animated.View key={route.key} layout={reduceMotion ? undefined : LinearTransition.duration(220)} style={{ flex: focused ? 2.2 : 1 }}>
               <PressableScale
-                key={route.key}
                 testID={`tab-${route.name}`}
-                pressedScale={1}
+                pressedScale={0.94}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: focused }}
                 accessibilityLabel={LABELS[route.name]}
@@ -48,25 +49,28 @@ export function CapsuleTabBar({ state, navigation }: TabBarProps) {
                     navigation.navigate(route.name, route.params);
                   }
                 }}
-                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: 52, gap: 3 }}
+                style={{ height: 48, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 10, backgroundColor: focused ? theme.pill : 'transparent' }}
               >
-                <Icon size={22} color={focused ? colors.inverse : colors.muted} strokeWidth={focused ? 2.3 : 1.9} />
-                <Text variant="micro" weight={focused ? 'semibold' : 'medium'} tone={focused ? 'inverse' : 'muted'} maxFontSizeMultiplier={1.2}>
-                  {LABELS[route.name]}
-                </Text>
+                <Icon size={22} color={focused ? theme.on : theme.off} strokeWidth={focused ? 2.2 : 1.9} />
+                {focused ? (
+                  <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(180)}>
+                    <Text weight="semibold" numberOfLines={1} maxFontSizeMultiplier={1.2} style={{ fontSize: 14, lineHeight: 18, color: theme.on }}>
+                      {LABELS[route.name]}
+                    </Text>
+                  </Animated.View>
+                ) : null}
               </PressableScale>
-            );
-          })}
-        </View>
-      </Glass>
+            </Animated.View>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
-/** Space reserved at the bottom of tab screens so content clears the floating bar. */
 /** Space reserved under tab content so the floating bar never covers the last row (grows with Dynamic Type). */
 export function useTabBarSpace() {
   const insets = useSafeAreaInsets();
   const { fontScale } = useWindowDimensions();
-  return Math.max(insets.bottom, 12) + Math.round(60 + 16 * Math.max(0, Math.min(fontScale, 1.6) - 1)) + 24;
+  return Math.max(insets.bottom, 12) + Math.round(64 + 16 * Math.max(0, Math.min(fontScale, 1.6) - 1)) + 24;
 }
