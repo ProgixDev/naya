@@ -6,10 +6,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { X } from 'lucide-react-native';
+import { X, AlertTriangle, HelpCircle } from 'lucide-react-native';
 import { motionTiming } from './motion';
 import { Text } from './Text';
-import { Button, IconButton, TextButton } from './Button';
+import { Button, IconButton } from './Button';
 import { useA11yPrefs } from './a11y';
 
 /* ───────────── Modal sheet for focused tasks (rises from the bottom, swipe down to close) ───────────── */
@@ -189,9 +189,11 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
+  /** Icon in the badge above the title (a warning or info glyph by default). */
+  icon?: ReactNode;
 }
 
-export function ConfirmDialog({ visible, title, message, children, confirmLabel, cancelLabel = 'Annuler', destructive, loading, onConfirm, onCancel, testID }: ConfirmDialogProps) {
+export function ConfirmDialog({ visible, title, message, children, confirmLabel, cancelLabel = 'Annuler', destructive, loading, onConfirm, onCancel, testID, icon }: ConfirmDialogProps) {
   useTheme();
   const { reduceMotion } = useA11yPrefs();
   return (
@@ -199,18 +201,27 @@ export function ConfirmDialog({ visible, title, message, children, confirmLabel,
       <View style={styles.center}>
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} onPress={() => !loading && onCancel()} accessibilityLabel={cancelLabel} />
         <View testID={testID} accessibilityViewIsModal style={styles.dialog}>
-          <Text variant="heading" align="center" accessibilityRole="header">
-            {title}
-          </Text>
-          {message ? (
-            <Text variant="label" tone="muted" align="center" style={{ marginTop: 8 }}>
-              {message}
-            </Text>
-          ) : null}
+          <View style={{ alignItems: 'center', gap: 14 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: destructive ? colors.dangerSoft : colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                {icon ?? (destructive ? <AlertTriangle size={22} color={colors.danger} strokeWidth={2.2} /> : <HelpCircle size={22} color={colors.accent} strokeWidth={2.2} />)}
+              </View>
+            </View>
+            <View style={{ gap: 6, alignItems: 'center' }}>
+              <Text weight="bold" align="center" accessibilityRole="header" style={{ fontSize: 20, lineHeight: 26, letterSpacing: -0.3 }}>
+                {title}
+              </Text>
+              {message ? (
+                <Text tone="muted" align="center" style={{ fontSize: 15, lineHeight: 21 }}>
+                  {message}
+                </Text>
+              ) : null}
+            </View>
+          </View>
           {children ? <View style={{ marginTop: 16 }}>{children}</View> : null}
-          <View style={{ marginTop: 20, gap: 4 }}>
-            <Button label={confirmLabel} variant={destructive ? 'danger' : 'primary'} full loading={loading} onPress={onConfirm} testID={testID ? `${testID}-confirm` : undefined} />
-            <TextButton label={cancelLabel} onPress={() => !loading && onCancel()} tone="muted" testID={testID ? `${testID}-cancel` : undefined} />
+          <View style={{ marginTop: 22, flexDirection: 'row', gap: 10 }}>
+            <Button label={cancelLabel} variant="secondary" full style={{ flex: 1 }} disabled={loading} onPress={() => !loading && onCancel()} testID={testID ? `${testID}-cancel` : undefined} />
+            <Button label={confirmLabel} variant={destructive ? 'danger' : 'primary'} full style={{ flex: 1 }} loading={loading} onPress={onConfirm} testID={testID ? `${testID}-confirm` : undefined} />
           </View>
         </View>
       </View>
@@ -224,5 +235,5 @@ const styles = themedStyles(() => StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: gutter, paddingTop: 14, paddingBottom: 12, gap: 12 },
   mapSheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  dialog: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: 24, padding: 22 },
+  dialog: { width: '100%', maxWidth: 360, backgroundColor: colors.surface, borderRadius: 28, paddingTop: 24, paddingHorizontal: 20, paddingBottom: 20, ...shadow.float },
 }));
