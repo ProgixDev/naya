@@ -10,7 +10,7 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
-  backgroundColor: '#FAF4F7',
+  backgroundColor: '#FAF6F2',
   ios: {
     bundleIdentifier: 'ma.naya.chauffeuse',
     supportsTablet: false,
@@ -33,7 +33,7 @@ const config: ExpoConfig = {
     'expo-router',
     ['expo-secure-store', { faceIDPermission: 'Naya utilise Face ID uniquement si vous choisissez de protéger l’accès à votre compte.' }],
     'expo-web-browser',
-    ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 120, backgroundColor: '#FAF4F7' }],
+    ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 120, backgroundColor: '#FAF6F2' }],
     'expo-font',
     'expo-image',
     ['expo-camera', { cameraPermission: 'Naya utilise l’appareil photo pour votre selfie et vos pièces justificatives, uniquement pendant la vérification.' }],
