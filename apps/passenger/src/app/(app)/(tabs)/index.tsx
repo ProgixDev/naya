@@ -1,15 +1,14 @@
-import { useTheme , Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
+import { useTheme, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, ListGroup, ListRow } from '@naya/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search } from 'lucide-react-native';
+import { Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search } from 'lucide-react-native';
 import { isInService, isRideActive, PLACES, RIDE_STATUS_LABELS, type Place } from '@naya/domain';
 import { qk } from '@naya/api';
-import { cars, aspect } from '@naya/assets';
 import { useApi } from '@naya/api/react';
-import { colors, gutter, radius, shadow, themedStyles } from '@naya/tokens';
+import { colors, gutter, shadow, themedStyles } from '@naya/tokens';
 import { useAccountId, useActiveRide, useCities, useMe } from '@/lib/queries';
 import { useDraft } from '@/lib/draft';
 import { usePrefs } from '@/lib/prefs';
@@ -86,51 +85,56 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="home">
-      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={240} testID="home-map" />
+      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={300} testID="home-map" />
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <GlassButton label={city?.name ?? 'Rabat'} icon={<MapPin size={18} color={colors.ink} />} onPress={() => setCityPicker(true)} testID="city-pill" accessibilityHint="Changer de ville" />
         <View style={{ flex: 1 }} />
-        <PressableScale onPress={() => router.push('/(app)/(tabs)/account')} accessibilityRole="button" accessibilityLabel="Mon compte" hitSlop={8}>
-          <Avatar name={user?.firstName ?? 'N'} size={44} source={avatarFor(user?.firstName ?? '')} />
-        </PressableScale>
-      </View>
-      <View style={{ position: 'absolute', right: gutter, bottom: tabSpace + 266 }}>
         <IconButton icon={<LocateFixed size={22} color={colors.ink} />} accessibilityLabel="Utiliser ma position" onPress={() => (loc.status === 'granted' ? applyMyPosition() : setExplainer(true))} testID="locate" />
       </View>
 
       <View style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: tabSpace }}>
         {rideActive ? (
           <PressableScale onPress={() => router.push('/ride')} accessibilityRole="button" style={[styles.activeCard]} testID="resume-ride">
-            <View style={{ flex: 1, gap: 4 }}>
-              <StatusPill tone={ride.status === 'no_driver' ? 'warning' : 'info'} label={RIDE_STATUS_LABELS[ride.status]} />
-              <Text variant="label" numberOfLines={1}>{ride.route.stops.map((s) => s.label).join(' → ')}</Text>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: ride.status === 'no_driver' ? colors.warning : colors.success }} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{RIDE_STATUS_LABELS[ride.status]}</Text>
+              <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{ride.route.stops.map((s) => short(s.label)).join(' → ')}</Text>
             </View>
-            <ChevronRight size={22} color={colors.ink} />
+            <Text weight="semibold" tone="accent" style={{ fontSize: 14, lineHeight: 18 }}>Suivre</Text>
+            <ChevronRight size={18} color={colors.accent} />
           </PressableScale>
         ) : null}
         <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="caption" tone="muted">{user?.firstName ? `Bonjour ${user.firstName}` : 'Bienvenue chez Naya'}</Text>
-              <Text variant="title" style={{ fontSize: 25, lineHeight: 31, letterSpacing: -0.7 }} accessibilityRole="header">On y va ?</Text>
-            </View>
-            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={104} />
+          <View style={{ gap: 2 }}>
+            <Text tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>{user?.firstName ? `Bonjour ${user.firstName}` : 'Bienvenue chez Naya'}</Text>
+            <Text weight="bold" style={{ fontSize: 26, lineHeight: 32, letterSpacing: -0.7 }} accessibilityRole="header">Où allons-nous ?</Text>
           </View>
           {loc.status === 'denied' ? <StatusBanner tone="warning" title="Position non partagée" message="Placez votre point de départ sur la carte." action={{ label: 'Choisir sur la carte', onPress: () => router.push({ pathname: '/route', params: { pin: '1' } }) }} /> : null}
           {city && !canBookHere ? <StatusBanner compact tone="warning" title={`${city.name} en phase de test`} message="réservations réservées aux testeuses" /> : null}
-          <PressableScale onPress={() => goTo(null)} accessibilityRole="search" accessibilityLabel="Où allez-vous ?" style={styles.search} testID="where-to" pressedScale={0.98}>
-            <Search size={20} color={colors.inverse} />
-            <Text variant="bodyStrong" tone="inverse" style={{ flex: 1 }}>
-              Où allez-vous ?
-            </Text>
-            <View style={styles.go}>
-              <ArrowRight size={18} color={colors.accent} />
-            </View>
-          </PressableScale>
+
+          {/* Search field + "Plus tard" */}
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <QuickPill label={home ? 'Maison' : 'Maison +'} icon={<HomeIcon size={16} color={colors.accent} />} onPress={() => (home ? goTo(home.place) : router.push('/places'))} testID="saved-home" a11y={home ? `Maison : ${home.place.label}` : 'Ajouter l’adresse Maison'} />
-            <QuickPill label={work ? 'Travail' : 'Travail +'} icon={<Briefcase size={16} color={colors.accent} />} onPress={() => (work ? goTo(work.place) : router.push('/places'))} testID="saved-work" a11y={work ? `Travail : ${work.place.label}` : 'Ajouter l’adresse Travail'} />
-            <QuickPill label="Plus tard" icon={<CalendarClock size={16} color={colors.accent} />} onPress={() => goTo(null, true)} testID="plan-trip" a11y="Planifier un trajet" />
+            <PressableScale onPress={() => goTo(null)} accessibilityRole="search" accessibilityLabel="Où allez-vous ?" style={styles.search} testID="where-to" pressedScale={0.98}>
+              <Search size={20} color={colors.accent} strokeWidth={2.2} />
+              <Text weight="semibold" style={{ flex: 1, fontSize: 16, lineHeight: 22 }}>Où allez-vous ?</Text>
+            </PressableScale>
+            <PressableScale onPress={() => goTo(null, true)} testID="plan-trip" accessibilityRole="button" accessibilityLabel="Planifier un trajet" style={styles.later} pressedScale={0.97}>
+              <CalendarClock size={18} color={colors.accent} strokeWidth={2} />
+              <Text weight="semibold" tone="accent" style={{ fontSize: 14, lineHeight: 18 }}>Plus tard</Text>
+            </PressableScale>
+          </View>
+
+          {/* Pickup */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4, marginTop: -4 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+            <Text tone="muted" numberOfLines={1} style={{ flex: 1, fontSize: 13, lineHeight: 18 }}>Départ : <Text weight="semibold" style={{ fontSize: 13, lineHeight: 18 }}>{short(pickup.label)}</Text></Text>
+          </View>
+
+          {/* Saved places */}
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.line }}>
+            <PlaceRow icon={<HomeIcon size={18} color={colors.accent} strokeWidth={2} />} title="Maison" subtitle={home ? short(home.place.label) : 'Ajouter l’adresse'} add={!home} onPress={() => (home ? goTo(home.place) : router.push('/places'))} testID="saved-home" a11y={home ? `Maison : ${home.place.label}` : 'Ajouter l’adresse Maison'} />
+            <View style={{ height: 1, backgroundColor: colors.line, marginLeft: 52 }} />
+            <PlaceRow icon={<Briefcase size={18} color={colors.accent} strokeWidth={2} />} title="Travail" subtitle={work ? short(work.place.label) : 'Ajouter l’adresse'} add={!work} onPress={() => (work ? goTo(work.place) : router.push('/places'))} testID="saved-work" a11y={work ? `Travail : ${work.place.label}` : 'Ajouter l’adresse Travail'} />
           </View>
         </View>
       </View>
@@ -157,28 +161,27 @@ export default function Home() {
   );
 }
 
-/** Frosted shortcut pill: one tap to a saved place or to planning. */
-function QuickPill({ label, icon, onPress, testID, a11y }: { label: string; icon: React.ReactNode; onPress: () => void; testID: string; a11y: string }) {
+const short = (label: string) => label.replace(/^[^·]+·\s*/, '');
+
+/** Saved place shortcut: icon tile, name, address (or "Ajouter"), chevron. */
+function PlaceRow({ icon, title, subtitle, add, onPress, testID, a11y }: { icon: React.ReactNode; title: string; subtitle: string; add: boolean; onPress: () => void; testID: string; a11y: string }) {
   useTheme();
   return (
-    <PressableScale onPress={onPress} testID={testID} accessibilityRole="button" accessibilityLabel={a11y} style={[styles.chip, frostOutline]} pressedScale={0.985}>
-      <FrostLayers radius={18} tint="white" />
-      {/* Wrapped so the content paints above the absolutely positioned frost layers (web stacking). */}
-      <View style={{ alignItems: 'center', gap: 6 }}>
-        {icon}
-        <Text variant="caption" weight="semibold" numberOfLines={1}>
-          {label}
-        </Text>
+    <PressableScale onPress={() => { haptic.select(); onPress(); }} testID={testID} accessibilityRole="button" accessibilityLabel={a11y} pressedScale={0.985} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58, paddingTop: 10, paddingHorizontal: 2 }}>
+      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{title}</Text>
+        <Text tone={add ? 'accent' : 'muted'} weight={add ? 'medium' : 'regular'} numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{add ? `+ ${subtitle}` : subtitle}</Text>
       </View>
+      <ChevronRight size={18} color={colors.muted} strokeWidth={2} />
     </PressableScale>
   );
 }
 
 // Recomputed on each read so colours follow the active theme (light / dark).
 const styles = themedStyles(() => ({
-  card: { backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 16, ...shadow.float },
+  card: { backgroundColor: colors.surface, borderRadius: 28, paddingHorizontal: 18, paddingTop: 20, paddingBottom: 12, gap: 14, ...shadow.float },
   activeCard: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, backgroundColor: colors.surface, borderRadius: 22, padding: 14, marginBottom: 8, ...shadow.card },
-  search: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 56, borderRadius: 28, paddingLeft: 20, paddingRight: 8, paddingVertical: 8, backgroundColor: colors.accent },
-  go: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surface, alignItems: 'center' as const, justifyContent: 'center' as const },
-  chip: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const, minHeight: 62, borderRadius: 18, paddingHorizontal: 6, paddingVertical: 8, overflow: 'hidden' as const },
+  search: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, height: 54, borderRadius: 16, paddingHorizontal: 16, backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.line },
+  later: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, height: 54, borderRadius: 16, paddingHorizontal: 14, backgroundColor: colors.mauveSoft },
 }));
