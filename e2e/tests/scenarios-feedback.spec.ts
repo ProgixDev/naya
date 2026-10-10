@@ -22,6 +22,8 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     ).toBeVisible();
     await signInMobile(d, URLS.driver, 'driver', PHONES.amina);
     await d.goto(URLS.driver + '/family');
+    // The hub lists trips; the step actions live on the trip's own screen.
+    await d.locator('[data-testid^="family-trip-summary-"]').first().click();
     await expect(
       d.getByRole('button', { name: 'Je pars chercher l’enfant', exact: true }),
     ).toBeVisible();
@@ -83,6 +85,9 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       })
       .click();
     await expect(p.getByText(/Remis·e à .* \(Mère\)/)).toBeVisible();
+    // The next recurring trip appears first in the driver's list.
+    await d.goto(URLS.driver + '/family');
+    await d.locator('[data-testid^="family-trip-summary-"]').first().click();
     await expect(
       d.getByRole('button', { name: 'Je pars chercher l’enfant', exact: true }),
     ).toBeVisible();

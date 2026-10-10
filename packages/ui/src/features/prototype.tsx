@@ -1237,25 +1237,37 @@ export function FamilyStatusChip({ status }: { status: FamilyTrip['status'] }) {
   );
 }
 
-/** Six steps of a child trip, the current one highlighted. */
+/** Six steps of a child trip, the current one highlighted. One continuous track behind fixed-size dots. */
 function TripStepper({ status }: { status: FamilyTrip['status'] }) {
   useTheme();
-  const current = TRIP_STEPS.findIndex((x) => x.status === status);
+  const current = Math.max(0, TRIP_STEPS.findIndex((x) => x.status === status));
+  const n = TRIP_STEPS.length;
+  const DOT = 12;
   return (
-    <View style={{ flexDirection: 'row' }} accessible accessibilityLabel={`Étape ${current + 1} sur ${TRIP_STEPS.length} : ${TRIP_STEPS[current]?.label}`}>
-      {TRIP_STEPS.map((x, i) => {
-        const done = i <= current;
-        return (
-          <View key={x.status} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' }}>
-              <View style={{ flex: 1, height: 2, backgroundColor: i === 0 ? 'transparent' : i <= current ? colors.accent : colors.line }} />
-              <View style={{ width: i === current ? 14 : 10, height: i === current ? 14 : 10, borderRadius: 7, backgroundColor: done ? colors.accent : colors.line, borderWidth: i === current ? 3 : 0, borderColor: colors.selected }} />
-              <View style={{ flex: 1, height: 2, backgroundColor: i === TRIP_STEPS.length - 1 ? 'transparent' : i < current ? colors.accent : colors.line }} />
+    <View accessible accessibilityLabel={`Étape ${current + 1} sur ${n} : ${TRIP_STEPS[current]?.label}`}>
+      <View style={{ height: 22, justifyContent: 'center' }}>
+        {/* Track from the first to the last dot centre; the done part is filled. */}
+        <View style={{ position: 'absolute', left: `${50 / n}%`, right: `${50 / n}%`, height: 3, borderRadius: 2, backgroundColor: colors.line }} />
+        <View style={{ position: 'absolute', left: `${50 / n}%`, width: `${(100 / n) * current}%`, height: 3, borderRadius: 2, backgroundColor: colors.accent }} />
+        <View style={{ flexDirection: 'row' }}>
+          {TRIP_STEPS.map((x, i) => (
+            <View key={x.status} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              {i === current ? (
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.accent }} />
+                </View>
+              ) : (
+                <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: i < current ? colors.accent : colors.line }} />
+              )}
             </View>
-            <Text weight={i === current ? 'semibold' : 'regular'} tone={i === current ? 'accent' : 'muted'} numberOfLines={1} style={{ fontSize: 10.5, lineHeight: 14 }}>{x.label}</Text>
-          </View>
-        );
-      })}
+          ))}
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', marginTop: 6 }}>
+        {TRIP_STEPS.map((x, i) => (
+          <Text key={x.status} align="center" weight={i === current ? 'semibold' : 'regular'} tone={i === current ? 'accent' : 'muted'} numberOfLines={1} style={{ flex: 1, fontSize: 10.5, lineHeight: 14 }}>{x.label}</Text>
+        ))}
+      </View>
     </View>
   );
 }

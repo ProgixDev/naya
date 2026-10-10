@@ -283,7 +283,7 @@ function HeroStat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function TripSummary({ trip: t, child, accountId, onPress }: { trip: FamilyTrip; child?: FamilyChild; accountId: string; onPress: () => void }) {
+export function TripSummary({ trip: t, child, accountId, onPress }: { trip: FamilyTrip; child?: FamilyChild; accountId: string; onPress: () => void }) {
   useTheme();
   const handedTo = child?.recipients.find((r) => r.id === t.recipientId);
   return (
@@ -306,9 +306,73 @@ function TripSummary({ trip: t, child, accountId, onPress }: { trip: FamilyTrip;
   );
 }
 
+/* ───────── Driver hub ───────── */
+
+/**
+ * Driver "Mes familles", laid out like the passenger hub: trips (each opens its detail with the
+ * step actions: depart, arrival photo, pickup check, handover code), finished trips, then the children.
+ */
+export function FamilyDriverScreen({ accountId, onBack, onOpenTrip }: { accountId: string; onBack: () => void; onOpenTrip: (id: string) => void }) {
+  useTheme();
+  const api = useApi();
+  const { family, data, busy, run } = useFamily(accountId);
+  const trips = (data?.trips ?? []).slice().sort((a, b) => a.pickupAt.localeCompare(b.pickupAt));
+  const open = trips.filter((t) => t.status !== 'completed');
+  const done = trips.filter((t) => t.status === 'completed').slice(-3).reverse();
+  const childOf = (t: FamilyTrip) => data?.children.find((c) => c.id === t.childId);
+  return (
+    <Screen keyboard testID="family" header={<Header title="Mes familles" onBack={onBack} />}>
+      <View style={{ gap: 22, marginTop: 4 }}>
+        {family.isError ? <ErrorState onRetry={() => family.refetch()} /> : null}
+
+        <View style={{ gap: 10 }}>
+          <SectionLabel>Trajets</SectionLabel>
+          {open.map((t) => <TripSummary key={t.id} trip={t} child={childOf(t)} accountId={accountId} onPress={() => onOpenTrip(t.id)} />)}
+          {!open.length ? (
+            <View style={[familyCard(), { alignItems: 'center', paddingVertical: 22, gap: 4 }]}>
+              <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Aucun trajet à venir</Text>
+              <Text tone="muted" align="center" style={{ fontSize: 13, lineHeight: 18, maxWidth: 260 }}>Les trajets des familles qui vous sont confiées apparaîtront ici.</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {done.length ? (
+          <View style={{ gap: 10 }}>
+            <SectionLabel>Terminés</SectionLabel>
+            {done.map((t) => <TripSummary key={t.id} trip={t} child={childOf(t)} accountId={accountId} onPress={() => onOpenTrip(t.id)} />)}
+          </View>
+        ) : null}
+
+        {data?.children.length ? (
+          <View style={{ gap: 10 }}>
+            <SectionLabel>Enfants confiés</SectionLabel>
+            {data.children.map((c) => (
+              <Row
+                key={c.id}
+                icon={<ChildAvatar accountId={accountId} child={c} />}
+                title={`${c.firstName}, ${c.age} ans`}
+                subtitle={`${c.school || 'École non renseignée'} · ${c.recipients.length} ${c.recipients.length > 1 ? 'personnes autorisées' : 'personne autorisée'}`}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        <View style={[familyCard(), { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
+          <Tile bg={colors.successSoft}><ShieldCheck size={20} color={colors.success} strokeWidth={1.9} /></Tile>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Un trajet en confiance</Text>
+            <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>Photo à l’arrivée, vérification de l’enfant, puis remise à une personne autorisée avec son code.</Text>
+          </View>
+        </View>
+        <Row icon={<Tile bg={colors.warningSoft}><FlaskConical size={20} color={colors.warning} strokeWidth={1.9} /></Tile>} title="Charger l’exemple de démo" subtitle="Famille, enfant et trajet prêts à tester" onPress={() => run(api.prototype.example)} testID="family-example" trailing={busy ? <Text tone="muted" style={{ fontSize: 13 }}>…</Text> : undefined} />
+      </View>
+    </Screen>
+  );
+}
+
 /* ───────── Trip detail ───────── */
 
-export function FamilyTripScreen({ accountId, tripId, onBack }: { accountId: string; tripId: string; onBack: () => void }) {
+export function FamilyTripScreen({ accountId, tripId, onBack, role = 'passenger' }: { accountId: string; tripId: string; onBack: () => void; role?: 'passenger' | 'driver' }) {
   useTheme();
   const { family, data, busy, run } = useFamily(accountId);
   const trip = data?.trips.find((t) => t.id === tripId);
@@ -317,7 +381,7 @@ export function FamilyTripScreen({ accountId, tripId, onBack }: { accountId: str
       <View style={{ marginTop: 4 }}>
         {family.isError ? <ErrorState onRetry={() => family.refetch()} /> : null}
         {trip ? (
-          <FamilyTripCard trip={trip} child={data?.children.find((c) => c.id === trip.childId)} role="passenger" accountId={accountId} busy={busy} run={async (a) => { await run(a); }} />
+          <FamilyTripCard trip={trip} child={data?.children.find((c) => c.id === trip.childId)} role={role} accountId={accountId} busy={busy} run={async (a) => { await run(a); }} />
         ) : data ? (
           <Text tone="muted">Ce trajet n’existe plus.</Text>
         ) : null}
