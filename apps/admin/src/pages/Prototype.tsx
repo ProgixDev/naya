@@ -7,6 +7,7 @@ import {
   formatMoney,
   formatShort,
   type PrototypeCatalog,
+  type ServiceCategory,
 } from '@naya/domain';
 import { errorMessage } from '@naya/api';
 import { api } from '../lib/api';
@@ -23,6 +24,10 @@ import {
   toast,
 } from '../components/ui';
 import { DocThumb, DocViewer } from '../components/DocViewer';
+import { DriverCategoryMatrix } from '../components/DriverCategoryMatrix';
+import { CategoryEditor } from '../components/CategoryEditor';
+import { Badge } from '../components/ui';
+import { Bike, Car, Gem, Plus, Users } from 'lucide-react';
 import { logoConcepts, conceptSvg } from '@naya/assets/src/concepts';
 
 type Kind = 'categories' | 'plans' | 'reasons';
@@ -31,6 +36,65 @@ const LABELS: Record<Kind, string> = {
   plans: 'Abonnements',
   reasons: 'Motifs de litige',
 };
+const SECTION: Record<Kind, { title: string; hint: string; add: string }> = {
+  categories: { title: 'Types de véhicules', hint: 'Proposés à la cliente au moment de la commande, chacun avec ses tarifs, sa commission et ses conditions.', add: 'Nouvelle catégorie' },
+  plans: { title: 'Abonnements famille', hint: 'Plans proposés aux familles pour une chauffeuse dédiée.', add: 'Nouvel abonnement' },
+  reasons: { title: 'Motifs de litige', hint: 'Motifs proposés à l’ouverture d’un litige, avec preuve obligatoire si nécessaire.', add: 'Nouveau motif' },
+};
+const CATEGORY_ICON = { scooter: Bike, car: Car, premium: Gem } as const;
+
+function CategoryCard({ category: c, busy, drivers, onToggle, onEdit }: { category: ServiceCategory; busy: boolean; drivers: number; onToggle: () => void; onEdit: () => void }) {
+  const Icon = CATEGORY_ICON[c.icon] ?? Car;
+  const own = [c.baseFare, c.perKm, c.perMinute, c.minimumFare].some((v) => v !== null);
+  const figure = (label: string, value: number | null, suffix = '') => (
+    <div className="rounded-2xl bg-background px-3 py-2.5">
+      <div className="text-[12px] text-muted">{label}</div>
+      <div className="text-[15px] font-semibold tabular">{value === null ? <span className="font-medium text-muted">Ville</span> : `${formatMoney(value)}${suffix}`}</div>
+    </div>
+  );
+  return (
+    <article className={`flex flex-col rounded-3xl border bg-surface p-5 shadow-card transition ${c.enabled ? 'border-line' : 'border-dashed border-line opacity-75'}`} data-testid={`category-card-${c.id}`}>
+      <header className="flex items-start gap-3">
+        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${c.enabled ? 'bg-selected text-accent' : 'bg-line text-muted'}`}>
+          <Icon className="h-6 w-6" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-[17px] font-semibold">{c.name}</h3>
+            <Badge tone={c.enabled ? 'success' : 'neutral'}>{c.enabled ? 'Active' : 'Désactivée'}</Badge>
+          </div>
+          <p className="mt-0.5 line-clamp-2 text-[14px] text-muted">{c.description}</p>
+        </div>
+      </header>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {figure('Prise en charge', c.baseFare)}
+        {figure('Par km', c.perKm)}
+        {figure('Par minute', c.perMinute)}
+        {figure('Minimum', c.minimumFare)}
+      </div>
+      <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
+        <div><dt className="inline text-muted">Commission </dt><dd className="inline font-semibold">{String(c.commissionBp / 100).replace('.', ',')} %</dd></div>
+        <div><dt className="inline text-muted">Arrivée </dt><dd className="inline font-semibold">{c.etaMinutes} min</dd></div>
+        <div><dt className="inline text-muted">Villes </dt><dd className="inline font-semibold capitalize">{c.cityIds.length ? c.cityIds.join(', ') : 'toutes'}</dd></div>
+        <div className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5 text-muted" aria-hidden /><dd className="inline font-semibold">{drivers}</dd><dt className="inline text-muted"> chauffeuse(s)</dt></div>
+        {!own ? <div className="text-muted">Tarifs de la ville</div> : null}
+      </dl>
+      {c.conditions?.length ? (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {c.conditions.map((x) => <li key={x} className="rounded-full bg-mauve-soft px-2.5 py-1 text-[12px] text-ink">{x}</li>)}
+        </ul>
+      ) : null}
+      <footer className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-4 [margin-top:max(1rem,auto)]">
+        <span className="font-mono text-[12px] text-muted">{c.id}</span>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" loading={busy} onClick={onToggle} data-testid={`toggle-${c.id}`}>{c.enabled ? 'Désactiver' : 'Activer'}</Button>
+          <Button size="sm" variant="secondary" onClick={onEdit} data-testid={`edit-${c.id}`}>Modifier</Button>
+        </div>
+      </footer>
+    </article>
+  );
+}
+
 const fields: Record<string, string> = {
   id: 'Identifiant',
   name: 'Nom',
@@ -105,42 +169,70 @@ export function PrototypePage() {
         Paiements, notifications et appels sont simulés. Les alertes, décisions
         et changements sont conservés dans le journal.
       </Banner>
-      <nav aria-label="Services" className="my-5 flex flex-wrap gap-2">
-        {(
-          [
-            ...Object.keys(LABELS),
-            'families',
-            'drivers',
-            'alerts',
-            'wallets',
-            'brand',
-          ] as const
-        ).map((t) => (
-          <Button
-            key={t}
-            variant={tab === t ? 'primary' : 'secondary'}
-            onClick={() => setTab(t as typeof tab)}
-          >
-            {LABELS[t as Kind] ??
-              (
-                {
-                  families: 'Familles',
-                  drivers: 'Chauffeuses dédiées',
-                  alerts: 'SOS',
-                  wallets: 'Portefeuilles',
-                  brand: '6 pistes de logo',
-                } as Record<string, string>
-              )[t]}
-          </Button>
-        ))}
+      <nav aria-label="Sections" className="my-6 overflow-x-auto border-b border-line">
+        <div role="tablist" className="flex min-w-max gap-1">
+          {(
+            [
+              ...Object.keys(LABELS),
+              'families',
+              'drivers',
+              'alerts',
+              'wallets',
+              'brand',
+            ] as const
+          ).map((t) => {
+            const on = tab === t;
+            const count =
+              t === 'alerts' ? p?.alerts.filter((a) => a.status !== 'resolved').length : undefined;
+            return (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setTab(t as typeof tab)}
+                className={`relative -mb-px inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-[15px] font-semibold transition-colors ${on ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-ink'}`}
+              >
+                {LABELS[t as Kind] ??
+                  (
+                    {
+                      families: 'Familles',
+                      drivers: 'Chauffeuses dédiées',
+                      alerts: 'SOS',
+                      wallets: 'Portefeuilles',
+                      brand: 'Pistes de logo',
+                    } as Record<string, string>
+                  )[t]}
+                {count ? (
+                  <span className="rounded-full bg-danger px-1.5 text-[11px] leading-[18px] text-white">{count}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </nav>
       {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
       {p && tab in LABELS ? (
         <>
-          <div className="mb-4">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-[20px] font-semibold">
+                {SECTION[tab as Kind].title}{' '}
+                <span className="text-[15px] font-medium text-muted">· {p.catalog[tab as Kind].length}</span>
+              </h2>
+              <p className="mt-1 text-[14px] text-muted">{SECTION[tab as Kind].hint}</p>
+            </div>
             <Button
+              icon={<Plus className="h-4 w-4" aria-hidden />}
+              data-testid="catalog-add"
               onClick={() => {
                 const kind = tab as Kind;
+                if (kind === 'categories') {
+                  // A new category starts blank: the city tariffs apply until set.
+                  const blank: ServiceCategory = { id: '', name: '', description: '', icon: 'car', enabled: true, cityIds: [], etaMinutes: 5, commissionBp: 1500, baseFare: null, perKm: null, perMinute: null, minimumFare: null, conditions: [] };
+                  setEditing({ kind, row: blank as unknown as Record<string, unknown> });
+                  return;
+                }
                 const template = defaultPrototypeCatalog()[kind][0]!;
                 setEditing({
                   kind,
@@ -153,9 +245,23 @@ export function PrototypePage() {
                 });
               }}
             >
-              Ajouter
+              {SECTION[tab as Kind].add}
             </Button>
           </div>
+          {tab === 'categories' ? (
+            <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+              {p.catalog.categories.map((c) => (
+                <CategoryCard
+                  key={c.id}
+                  category={c}
+                  busy={busy}
+                  drivers={p.people.filter((u) => u.role === 'driver' && (p.driverCategories[u.id] ?? p.catalog.categories.map((x) => x.id)).includes(c.id)).length}
+                  onToggle={() => run(() => api.adminPrototype.save('categories', { ...c, enabled: !c.enabled }))}
+                  onEdit={() => setEditing({ kind: 'categories', row: { ...c } })}
+                />
+              ))}
+            </div>
+          ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {p.catalog[tab as Kind].map((row) => (
               <Card
@@ -255,48 +361,20 @@ export function PrototypePage() {
               </Card>
             ))}
           </div>
+          )}
           {tab === 'categories' ? (
-            <Card className="mt-5" title="Catégories autorisées par chauffeuse">
-              <div className="flex flex-col gap-4">
-                {p.people
-                  .filter((u) => u.role === 'driver')
-                  .map((u) => (
-                    <div key={u.id}>
-                      <p className="font-semibold">
-                        {u.name} · {u.cityId}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-3">
-                        {p.catalog.categories.map((c) => (
-                          <label key={c.id} className="flex gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={(
-                                p.driverCategories[u.id] ??
-                                p.catalog.categories.map((x) => x.id)
-                              ).includes(c.id)}
-                              disabled={busy}
-                              onChange={(e) => {
-                                const current =
-                                  p.driverCategories[u.id] ??
-                                  p.catalog.categories.map((x) => x.id);
-                                run(() =>
-                                  api.adminPrototype.categories(
-                                    u.id,
-                                    e.target.checked
-                                      ? [...current, c.id]
-                                      : current.filter((x) => x !== c.id),
-                                  ),
-                                );
-                              }}
-                            />
-                            {c.name}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </Card>
+            <DriverCategoryMatrix
+              drivers={p.people.filter((u) => u.role === 'driver')}
+              categories={p.catalog.categories}
+              allowed={p.driverCategories}
+              busy={busy}
+              onChange={(changes) =>
+                run(async () => {
+                  for (const c of changes)
+                    await api.adminPrototype.categories(c.driverId, c.categoryIds);
+                })
+              }
+            />
           ) : null}
         </>
       ) : null}
@@ -661,7 +739,27 @@ export function PrototypePage() {
           ))}
         </div>
       ) : null}
-      {editing ? (
+      {editing?.kind === 'categories' ? (
+        <CategoryEditor
+          initial={editing.row as unknown as ServiceCategory}
+          isNew={editing.row.id === ''}
+          busy={busy}
+          onClose={() => setEditing(null)}
+          onSave={async (row) => {
+            setBusy(true);
+            try {
+              await api.adminPrototype.save('categories', row);
+              await qc.invalidateQueries({ queryKey: ['admin'] });
+              toast(editing.row.id === '' ? `Catégorie ${row.name} créée` : 'Catégorie mise à jour', 'success');
+              setEditing(null);
+            } catch (e) {
+              throw new Error(errorMessage(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      ) : editing ? (
         <CatalogEditor
           kind={editing.kind}
           initial={editing.row}
@@ -698,68 +796,6 @@ function CatalogEditor({
   onClose: () => void;
 }) {
   const [row, setRow] = useState(initial);
-  const isNew = initial.id === '';
-  const cities = useQuery({
-    queryKey: ['admin', 'cities'],
-    queryFn: api.admin.cities,
-    enabled: kind === 'categories',
-  });
-  const special = (name: string, id: string) => {
-    if (kind !== 'categories') return null;
-    if (name === 'id' && !isNew)
-      return <Input id={id} value={String(row.id)} disabled readOnly />;
-    if (name === 'icon')
-      return (
-        <select
-          id={id}
-          className="field"
-          value={String(row.icon)}
-          onChange={(e) => setRow({ ...row, icon: e.target.value })}
-        >
-          <option value="scooter">Scooter</option>
-          <option value="car">Voiture</option>
-          <option value="premium">Confort / Premium</option>
-        </select>
-      );
-    if (name === 'conditions')
-      return (
-        <Textarea
-          id={id}
-          value={((row.conditions as string[]) ?? []).join('\n')}
-          onChange={(e) =>
-            setRow({
-              ...row,
-              conditions: e.target.value.split('\n').map((x) => x.trimStart()),
-            })
-          }
-        />
-      );
-    if (name === 'cityIds') {
-      const selected = (row.cityIds as string[]) ?? [];
-      return (
-        <div id={id} className="flex flex-wrap gap-3">
-          {(cities.data ?? []).map(({ city }) => (
-            <label key={city.id} className="flex gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={selected.includes(city.id)}
-                onChange={(e) =>
-                  setRow({
-                    ...row,
-                    cityIds: e.target.checked
-                      ? [...selected, city.id]
-                      : selected.filter((x) => x !== city.id),
-                  })
-                }
-              />
-              {city.name}
-            </label>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
   return (
     <Dialog
       open
@@ -770,18 +806,7 @@ function CatalogEditor({
       footer={
         <Button
           loading={busy}
-          onClick={() =>
-            onSave(
-              Array.isArray(row.conditions)
-                ? {
-                    ...row,
-                    conditions: (row.conditions as string[])
-                      .map((x) => x.trim())
-                      .filter(Boolean),
-                  }
-                : row,
-            )
-          }
+          onClick={() => onSave(row)}
         >
           Enregistrer
         </Button>
@@ -791,8 +816,7 @@ function CatalogEditor({
         {Object.entries(initial).map(([name, value]) => (
           <Field key={name} label={fields[name] ?? name}>
             {(id) =>
-              special(name, id) ??
-              (typeof value === 'boolean' ? (
+              typeof value === 'boolean' ? (
                 <input
                   id={id}
                   type="checkbox"
@@ -833,7 +857,7 @@ function CatalogEditor({
                     });
                   }}
                 />
-              ))
+              )
             }
           </Field>
         ))}

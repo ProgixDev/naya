@@ -64,7 +64,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       a.getByRole('heading', { name: 'Centre des opérations' }),
     ).toBeVisible();
     await a.goto(URLS.admin + '/services');
-    await a.getByRole('button', { name: 'SOS', exact: true }).click();
+    await a.getByRole('tab', { name: 'SOS' }).click();
     await expect(
       a.getByText('Support Naya contacté', { exact: false }),
     ).toBeVisible();
@@ -72,7 +72,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       .getByRole('button', { name: 'Prendre en charge', exact: true })
       .click();
     await a.getByRole('button', { name: 'Résoudre', exact: true }).click();
-    await expect(a.getByText(/Résolue/)).toBeVisible();
+    await expect(a.getByText(/· Résolue$/)).toBeVisible();
     // Reload closes the focused safety sheet while retaining the trip.
     await d.reload();
     await d.getByLabel('Code donné par la personne', { exact: true }).fill('1234');
@@ -119,7 +119,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await p.goto(URLS.passenger + '/brand');
     await expect(p.getByText('06 · La porte', { exact: true })).toBeVisible();
     await a
-      .getByRole('button', { name: '6 pistes de logo', exact: true })
+      .getByRole('tab', { name: 'Pistes de logo' })
       .click();
     await expect(
       a.getByRole('heading', { name: '06 · La porte', exact: true }),

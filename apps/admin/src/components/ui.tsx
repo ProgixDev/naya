@@ -330,19 +330,27 @@ function useFocusTrap(open: boolean, onEscape: () => void) {
   return ref;
 }
 
-export function Dialog({ open, onClose, title, description, children, footer, busy, testId }: { open: boolean; onClose: () => void; title: string; description?: ReactNode; children?: ReactNode; footer?: ReactNode; busy?: boolean; testId?: string }) {
+export function Dialog({ open, onClose, title, description, children, footer, busy, testId, size = 'md' }: { open: boolean; onClose: () => void; title: string; description?: ReactNode; children?: ReactNode; footer?: ReactNode; busy?: boolean; testId?: string; size?: 'md' | 'lg' }) {
   const ref = useFocusTrap(open, () => !busy && onClose());
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/40" onClick={() => !busy && onClose()} aria-hidden />
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="dlg-title" tabIndex={-1} data-testid={testId} className="relative w-full max-w-[460px] rounded-3xl bg-surface p-6 shadow-float">
-        <h2 id="dlg-title" className="text-[19px] font-semibold leading-6">
-          {title}
-        </h2>
-        {description ? <div className="mt-2 text-[14px] text-muted">{description}</div> : null}
-        {children ? <div className="mt-4">{children}</div> : null}
-        {footer ? <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{footer}</div> : null}
+      {/* Title and actions stay visible; only the body scrolls on long forms. */}
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="dlg-title" tabIndex={-1} data-testid={testId} className={cx('relative flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-3xl bg-surface shadow-float', size === 'lg' ? 'max-w-[760px]' : 'max-w-[460px]')}>
+        <div className="flex items-start justify-between gap-3 px-6 pt-6">
+          <div>
+            <h2 id="dlg-title" className="text-[19px] font-semibold leading-6">
+              {title}
+            </h2>
+            {description ? <div className="mt-2 text-[14px] text-muted">{description}</div> : null}
+          </div>
+          <IconButton label="Fermer" onClick={() => !busy && onClose()} className="-mr-2 -mt-1 shrink-0">
+            <X className="h-5 w-5" />
+          </IconButton>
+        </div>
+        {children ? <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-6 pb-1">{children}</div> : null}
+        {footer ? <div className="mt-4 flex flex-col-reverse gap-2 border-t border-line px-6 py-4 sm:flex-row sm:justify-end">{footer}</div> : <div className="pb-6" />}
       </div>
     </div>
   );
