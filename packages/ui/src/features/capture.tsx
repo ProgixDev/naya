@@ -1,8 +1,9 @@
 import { useTheme } from './../core/theme';
 import { useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { Linking, Platform, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import { Camera, FastForward, FileText, IdCard, ImageIcon, ScanFace } from 'lucide-react-native';
+import { Camera, Check, CheckCircle2, FastForward, FileText, IdCard, ImageIcon, Lock, ScanFace } from 'lucide-react-native';
 import { errorMessage } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';
@@ -96,44 +97,78 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
     }
   };
 
-  const frameW = selfie ? FRAME_H * 0.78 : FRAME_H * CARD_RATIO;
+  const frameH = selfie ? 250 : FRAME_H;
+  const frameW = selfie ? frameH * 0.78 : FRAME_H * CARD_RATIO;
   const frame = {
     width: frameW,
     maxWidth: '100%' as const,
-    height: FRAME_H,
-    borderRadius: selfie ? FRAME_H / 2 : 22,
+    height: frameH,
+    borderRadius: selfie ? frameH / 2 : 22,
     alignSelf: 'center' as const,
     overflow: 'hidden' as const,
   };
+  const tips = selfie
+    ? ['Visage centré, de face', 'Bonne lumière, sans contre-jour', 'Sans lunettes de soleil ni casquette']
+    : ['Pièce à plat, quatre coins visibles', 'Sans reflet ni flou', 'Texte lisible en entier'];
+  const corner = (pos: object) => <View pointerEvents="none" style={[{ position: 'absolute', width: 26, height: 26, borderColor: '#FFFFFF' }, pos]} />;
 
   return (
-    <View style={{ gap: 14 }} testID={`capture-${item}`}>
+    <View style={{ gap: 16 }} testID={`capture-${item}`}>
       {correctionNote ? <StatusBanner compact tone="warning" title={`${ITEM_LABELS[item]} à reprendre`} message={correctionNote} /> : null}
 
-      {file ? (
-        file.mimeType === 'application/pdf' ? (
-          <View style={[frame, { backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 8 }]}>
-            <FileText size={34} color={colors.accent} />
-            <Text variant="label">Document PDF prêt</Text>
-          </View>
+      {/* ── Stage ── */}
+      <View style={{ borderRadius: 28, overflow: 'hidden', paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center' }}>
+        <LinearGradient colors={['#3F1B34', '#6B3657']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', top: -120, right: -110 }} />
+        {file ? (
+          file.mimeType === 'application/pdf' ? (
+            <View style={[frame, { backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 8 }]}>
+              <FileText size={34} color={colors.accent} />
+              <Text variant="label">Document PDF prêt</Text>
+            </View>
+          ) : (
+            <View style={[frame, { backgroundColor: colors.selected, borderWidth: 3, borderColor: '#FFFFFF' }]}>
+              <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" accessibilityLabel={`Aperçu : ${ITEM_LABELS[item]}`} />
+            </View>
+          )
         ) : (
-          <View style={[frame, { backgroundColor: colors.selected }]}>
-            <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" accessibilityLabel={`Aperçu : ${ITEM_LABELS[item]}`} />
+          <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <View style={[frame, { borderWidth: 2, borderStyle: 'dashed', borderColor: existingUploadId ? '#9AD5B4' : 'rgba(255,255,255,0.55)', backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 10 }]}>
+              <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}>
+                {existingUploadId ? <CheckCircle2 size={28} color="#FFFFFF" /> : selfie ? <ScanFace size={28} color="#FFFFFF" /> : <IdCard size={28} color="#FFFFFF" />}
+              </View>
+              <Text weight="medium" align="center" style={{ fontSize: 13, lineHeight: 18, color: 'rgba(255,255,255,0.88)' }}>
+                {existingUploadId ? 'Pièce ajoutée · vous pouvez la remplacer' : guidance}
+              </Text>
+            </View>
+            {!selfie ? (
+              <>
+                {corner({ top: -6, left: -6, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 12 })}
+                {corner({ top: -6, right: -6, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 12 })}
+                {corner({ bottom: -6, left: -6, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 12 })}
+                {corner({ bottom: -6, right: -6, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 12 })}
+              </>
+            ) : null}
           </View>
-        )
-      ) : (
-        <View style={[frame, { borderWidth: 2, borderStyle: 'dashed', borderColor: existingUploadId ? colors.success : colors.mauve, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 10 }]}>
-          {selfie ? <ScanFace size={34} color={colors.accent} /> : <IdCard size={34} color={colors.accent} />}
-          <Text variant="caption" tone="muted" align="center">
-            {existingUploadId ? 'Pièce ajoutée · vous pouvez la remplacer' : guidance}
-          </Text>
+        )}
+      </View>
+
+      {/* ── Tips (before capture) ── */}
+      {!file ? (
+        <View style={{ gap: 8, paddingHorizontal: 4 }}>
+          {tips.map((t) => (
+            <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: colors.successSoft, alignItems: 'center', justifyContent: 'center' }}><Check size={12} color={colors.success} strokeWidth={3} /></View>
+              <Text style={{ flex: 1, fontSize: 14, lineHeight: 20 }}>{t}</Text>
+            </View>
+          ))}
         </View>
-      )}
+      ) : null}
 
       {file ? (
         <View style={{ gap: 8 }}>
-          <Text variant="caption" tone="muted" align="center">
-            Tout est lisible, sans reflet ni coin coupé ?
+          <Text tone="muted" align="center" style={{ fontSize: 14, lineHeight: 20 }}>
+            {selfie ? 'Votre visage est net et bien éclairé ?' : 'Tout est lisible, sans reflet ni coin coupé ?'}
           </Text>
           <Button label="Utiliser cette photo" full size="major" loading={busy === 'upload'} loadingLabel="Envoi sécurisé…" onPress={confirm} testID="use-photo" />
           <Button label="Reprendre" variant="secondary" full onPress={() => setFile(null)} disabled={busy === 'upload'} />
@@ -162,6 +197,10 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
           ) : null}
         </View>
       )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 }}>
+        <Lock size={14} color={colors.success} strokeWidth={2.2} />
+        <Text tone="muted" style={{ flex: 1, fontSize: 12, lineHeight: 17 }}>Chiffrée et vue uniquement par l’équipe de vérification Naya.</Text>
+      </View>
       {denied ? <StatusBanner tone="warning" title="Accès refusé" message="Autorisez l’appareil photo ou les photos dans les réglages pour continuer." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}
       {error ? <StatusBanner compact tone="danger" title="Envoi impossible" message={error} /> : null}
     </View>
