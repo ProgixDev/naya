@@ -61,6 +61,9 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
   return (
     <View style={[full ? { alignSelf: 'stretch' } : { alignItems: 'flex-start' }, style]}>
       <PressableScale
+        // Remount when the look changes: Android keeps stale elevation/clipping layers otherwise
+        // (a primary ↔ secondary switch rendered as an empty white box).
+        key={`${variant}-${disabled ? 'off' : 'on'}`}
         testID={testID}
         onPress={() => {
           if (inactive) return;
