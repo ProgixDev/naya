@@ -1,10 +1,11 @@
 import { Attachment } from './Attachment';
 import { useTheme } from './../core/theme';
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, Camera, Car, Check, CreditCard, FileText, HelpCircle, ImageIcon, MessageCircle, Paperclip, ShieldAlert, UserRound, Wallet, X } from 'lucide-react-native';
+import { ArrowUp, Camera, Car, Check, CreditCard, FileText, Headphones, HelpCircle, ImageIcon, Inbox, MessageCircle, Paperclip, Phone, Plus, ShieldAlert, UserRound, Wallet, X } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatShort, SUPPORT_STATUS_LABELS, supportTicketSchema, type SupportTicket } from '@naya/domain';
@@ -29,24 +30,101 @@ export function TicketStatus({ ticket }: { ticket: SupportTicket }) {
   return <StatusPill tone={statusTone(ticket.status)} label={SUPPORT_STATUS_LABELS[ticket.status]} />;
 }
 
-/** P16 / D18 list. */
-export function TicketListScreen({ accountId, onBack, onOpen, onCreate, emptyImage }: { accountId: string; onBack: () => void; onOpen: (id: string) => void; onCreate: () => void; emptyImage?: number }) {
+/** Help topics shown on the requests screen; each opens a new request with that category. */
+const TOPICS: { category: SupportTicket['category']; label: string; hint: string; icon: (c: string) => ReactNode; tile: () => string; fg: () => string }[] = [
+  { category: 'ride', label: 'Une course', hint: 'Trajet, retard, objet oublié', icon: (c) => <Car size={20} color={c} strokeWidth={1.9} />, tile: () => colors.mauveSoft, fg: () => colors.accent },
+  { category: 'payment', label: 'Paiement', hint: 'Prix, débit, remboursement', icon: (c) => <CreditCard size={20} color={c} strokeWidth={1.9} />, tile: () => colors.infoSoft, fg: () => colors.info },
+  { category: 'account', label: 'Mon compte', hint: 'Profil, documents, accès', icon: (c) => <UserRound size={20} color={c} strokeWidth={1.9} />, tile: () => colors.successSoft, fg: () => colors.success },
+  { category: 'safety', label: 'Sécurité', hint: 'Incident, comportement', icon: (c) => <ShieldAlert size={20} color={c} strokeWidth={1.9} />, tile: () => colors.dangerSoft, fg: () => colors.danger },
+];
+
+/** P16 / D18 list: help topics, then the person's requests with their status. */
+export function TicketListScreen({ accountId, onBack, onOpen, onCreate, emptyImage: _emptyImage }: { accountId: string; onBack: () => void; onOpen: (id: string) => void; onCreate: (category?: SupportTicket['category']) => void; emptyImage?: number }) {
   useTheme();
   const api = useApi();
   const q = useQuery({ queryKey: qk.tickets(accountId), queryFn: api.support.list });
+  const tickets = q.data ?? [];
+  const open = tickets.filter((t) => t.status !== 'resolved' && t.status !== 'rejected');
+  const closed = tickets.filter((t) => t.status === 'resolved' || t.status === 'rejected');
+  const card = { backgroundColor: colors.surface, borderRadius: 20, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 } as const;
+  const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginLeft: 4 };
+  const row = (t: SupportTicket) => {
+    const last = t.messages[t.messages.length - 1];
+    const topic = TOPICS.find((x) => x.category === t.category) ?? TOPICS[0]!;
+    const unread = t.status === 'awaiting_user';
+    return (
+      <PressableScale key={t.id} testID={`ticket-${t.id}`} onPress={() => onOpen(t.id)} accessibilityRole="button" accessibilityLabel={`${t.subject}, ${SUPPORT_STATUS_LABELS[t.status]}`} pressedScale={0.985} style={[card, { padding: 14, gap: 10 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: topic.tile(), alignItems: 'center', justifyContent: 'center' }}>{topic.icon(topic.fg())}</View>
+          <View style={{ flex: 1, gap: 1 }}>
+            <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{t.subject}</Text>
+            <Text tone="muted" numeric numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{t.id}{t.rideId ? ` · ${t.rideId}` : ''} · {formatShort(t.updatedAt)}</Text>
+          </View>
+          <TicketStatus ticket={t} />
+        </View>
+        {last ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: unread ? colors.warningSoft : colors.background, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+            <MessageCircle size={14} color={unread ? colors.warning : colors.muted} />
+            <Text tone={unread ? 'warning' : 'muted'} numberOfLines={1} style={{ flex: 1, fontSize: 13, lineHeight: 18 }}>{last.author === 'agent' ? 'Naya : ' : 'Vous : '}{last.body}</Text>
+          </View>
+        ) : null}
+      </PressableScale>
+    );
+  };
   return (
-    <Screen header={<Header title="Mes demandes" onBack={onBack} />} footer={<Button label="Nouvelle demande" full onPress={onCreate} testID="new-ticket" />}>
-      <View style={{ marginTop: 4 }}>
+    <Screen testID="tickets" header={<Header title="Aide et demandes" onBack={onBack} />} footer={<Button label="Nouvelle demande" full size="major" icon={<Plus size={18} color={colors.inverse} strokeWidth={2.4} />} onPress={() => onCreate()} testID="new-ticket" />}>
+      <View style={{ gap: 22, marginTop: 4 }}>
+        {/* ── Hero ── */}
+        <View style={{ borderRadius: 26, overflow: 'hidden', padding: 20, gap: 6 }}>
+          <LinearGradient colors={['#47203A', '#7C3F5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <View pointerEvents="none" style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', top: -80, right: -60 }} />
+          <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}><Headphones size={22} color="#FFFFFF" strokeWidth={1.9} /></View>
+          <Text weight="bold" style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.4, color: '#FFFFFF' }}>Comment pouvons-nous vous aider ?</Text>
+          <Text style={{ fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.82)' }}>Une personne de l’équipe Naya répond à chaque demande, en général sous 24 h.</Text>
+        </View>
+
+        {/* ── Topics ── */}
+        <View style={{ gap: 10 }}>
+          <Text weight="semibold" tone="muted" style={label12}>Sujets fréquents</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {TOPICS.map((t) => (
+              <PressableScale key={t.category} testID={`topic-${t.category}`} onPress={() => { haptic.select(); onCreate(t.category); }} accessibilityRole="button" accessibilityLabel={`${t.label}, ${t.hint}`} pressedScale={0.97} style={[card, { width: '48.4%', padding: 14, gap: 10 }]}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: t.tile(), alignItems: 'center', justifyContent: 'center' }}>{t.icon(t.fg())}</View>
+                <View style={{ gap: 1 }}>
+                  <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{t.label}</Text>
+                  <Text tone="muted" numberOfLines={2} style={{ fontSize: 12, lineHeight: 16 }}>{t.hint}</Text>
+                </View>
+              </PressableScale>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Requests ── */}
         {q.isLoading ? <SkeletonList rows={3} /> : null}
         {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
-        {q.data && q.data.length === 0 ? <EmptyState title="Aucune demande" message="Vos échanges avec l’équipe Naya apparaîtront ici." image={emptyImage} /> : null}
-        {q.data && q.data.length > 0 ? (
-          <ListGroup>
-            {q.data.map((t) => (
-              <ListRow key={t.id} testID={`ticket-${t.id}`} title={t.subject} subtitle={`${t.id}${t.rideId ? ` · ${t.rideId}` : ''} · ${formatShort(t.updatedAt)}`} trailing={<TicketStatus ticket={t} />} onPress={() => onOpen(t.id)} />
-            ))}
-          </ListGroup>
+        {q.data ? (
+          <View style={{ gap: 10 }}>
+            <Text weight="semibold" tone="muted" style={label12}>Mes demandes</Text>
+            {open.map(row)}
+            {!tickets.length ? (
+              <View style={[card, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }]}>
+                <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}><Inbox size={20} color={colors.muted} strokeWidth={1.9} /></View>
+                <View style={{ flex: 1, gap: 1 }}>
+                  <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Aucune demande</Text>
+                  <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>Vos échanges avec l’équipe Naya apparaîtront ici.</Text>
+                </View>
+              </View>
+            ) : null}
+            {closed.length ? <Text weight="semibold" tone="muted" style={[label12, { marginTop: 8 }]}>Clôturées</Text> : null}
+            {closed.map(row)}
+          </View>
         ) : null}
+
+        {/* ── Emergency ── */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.dangerSoft, borderRadius: 18, padding: 14 }}>
+          <Phone size={18} color={colors.danger} strokeWidth={2} />
+          <Text style={{ flex: 1, fontSize: 13, lineHeight: 18 }}><Text weight="semibold" tone="danger" style={{ fontSize: 13, lineHeight: 18 }}>Urgence ?</Text> Police 19 · SAMU 15. Pendant une course, utilisez le bouton SOS.</Text>
+        </View>
       </View>
     </Screen>
   );

@@ -6,5 +6,5 @@ import { useAccountId } from '@/lib/queries';
 /** D18 · list */
 export default function Support() {
   const a = useAccountId();
-  return <TicketListScreen accountId={a} onBack={() => router.back()} onOpen={(id) => router.push({ pathname: '/support/[id]', params: { id } })} onCreate={() => router.push('/support/new')} emptyImage={illustrations.driverWallet} />;
+  return <TicketListScreen accountId={a} onBack={() => router.back()} onOpen={(id) => router.push({ pathname: '/support/[id]', params: { id } })} onCreate={(category) => router.push(category ? { pathname: '/support/new', params: { category } } : '/support/new')} emptyImage={illustrations.driverWallet} />;
 }
