@@ -1,11 +1,11 @@
-import { useTheme , SafetyButton , Button, DemoBadge, Glass, IconButton, IconDisc, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
+import { useTheme , SafetyButton , Button, DemoBadge, Glass, IconButton, NayaMap, PressableScale, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, MapPin, Navigation, Phone, Route as RouteIcon, UserRound } from 'lucide-react-native';
+import { CheckCircle2, ChevronLeft, Flag, MapPin, Navigation, Phone } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { DRIVER_CANCEL_REASONS, formatMoney, formatTime, type LatLng, type Ride } from '@naya/domain';
@@ -142,73 +142,67 @@ export default function RideScreen() {
         topInset={insets.top + 56}
       />
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Retour à l’accueil (la course continue)" onPress={home} />
+        <IconButton icon={<ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} />} accessibilityLabel="Retour à l’accueil (la course continue)" onPress={home} />
         <Glass radius={999} style={{ flex: 1 }} contentStyle={{ height: 44, paddingHorizontal: 16, justifyContent: 'flex-start', gap: 8 }}>
-          <Text variant="label" numberOfLines={1} style={{ flex: 1 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ride.status === 'in_progress' ? colors.success : colors.accent }} />
+          <Text weight="semibold" numberOfLines={1} style={{ flex: 1, fontSize: 15, lineHeight: 20 }}>
             {title}
           </Text>
           {ride.driverLocation?.source === 'demo' ? <DemoBadge label="Trajet simulé" /> : null}
         </Glass>
       </View>
 
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 16, gap: 12, ...shadow.float }}>
+      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: 30, padding: 18, gap: 14, ...shadow.float }}>
         {stale ? <StatusBanner compact tone="warning" title="Connexion instable" message="actions envoyées au retour du réseau" testID="stale-banner" /> : null}
 
-        {approaching || ride.status === 'driver_arrived' ? (
-          <View style={{ gap: 4 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <RouteIcon size={18} color={colors.accent} />
-              <Text variant="caption" tone="muted" weight="semibold">
-                {approaching ? 'Prise en charge' : `Arrivée à ${ride.arrivedAt ? formatTime(ride.arrivedAt) : ''}`}
-              </Text>
-            </View>
-            <Text variant="heading">{pickup.label}</Text>
-            <Text variant="caption" tone="muted">
-              {pickup.address}
-            </Text>
-          </View>
-        ) : (
-          <View style={{ gap: 10 }}>
-            <View style={{ gap: 4 }}>
-              <Text variant="caption" tone="muted" weight="semibold">
-                {pendingStop ? 'Prochain arrêt' : 'Destination'}
-              </Text>
-              <Text variant="heading" testID="next-target">
-                {pendingStop ? `Arrêt : ${pendingStop.label}` : destination.label}
-              </Text>
-              <Text variant="caption" tone="muted">
-                {pendingStop ? `Puis ${destination.label} · ${destination.address}` : destination.address}
-              </Text>
-            </View>
-            {intermediate > 0 ? (
-              <View style={{ gap: 6 }}>
-                {stops.slice(1, -1).map((s, i) => (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {i < ride.completedStops ? <CheckCircle2 size={16} color={colors.success} /> : <View style={{ width: 12, height: 12, borderRadius: 3, borderWidth: 2, borderColor: colors.accent, marginHorizontal: 2 }} />}
-                    <Text variant="caption" tone={i < ride.completedStops ? 'muted' : 'ink'}>
-                      {s.label}
-                      {i < ride.completedStops ? ' · effectué' : ''}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        )}
+        {/* ── Progress ── */}
+        <RideSteps step={approaching ? 0 : ride.status === 'driver_arrived' ? 1 : 2} />
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.background, borderRadius: 20, paddingVertical: 10, paddingLeft: 12, paddingRight: 10 }}>
-          <IconDisc size={40}>
-            <UserRound size={20} color={colors.accent} />
-          </IconDisc>
-          <View style={{ flex: 1 }}>
-            <Text variant="label">{ride.passenger.firstName}</Text>
-            <Text variant="caption" tone="muted" numeric>
-              {ride.passenger.ratingAverage ? `${String(ride.passenger.ratingAverage).replace('.', ',')} · ` : ''}
-              {ride.paymentMethod.kind === 'cash' ? `Espèces · ${formatMoney(ride.terms.breakdown.total)}` : `${ride.paymentMethod.label} · via Naya`}
+        {/* ── Target ── */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: ride.status === 'in_progress' ? colors.successSoft : colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+            {ride.status === 'in_progress' ? <Flag size={21} color={colors.success} strokeWidth={2} /> : <MapPin size={21} color={colors.accent} strokeWidth={2} />}
+          </View>
+          <View style={{ flex: 1, gap: 1 }}>
+            <Text tone="muted" weight="medium" style={{ fontSize: 12, lineHeight: 16 }}>
+              {approaching ? 'Prise en charge' : ride.status === 'driver_arrived' ? `Arrivée à ${ride.arrivedAt ? formatTime(ride.arrivedAt) : ''} · elle arrive` : pendingStop ? 'Prochain arrêt' : 'Destination'}
+            </Text>
+            <Text weight="bold" numberOfLines={1} style={{ fontSize: 19, lineHeight: 25, letterSpacing: -0.3 }} testID={ride.status === 'in_progress' ? 'next-target' : undefined}>
+              {ride.status === 'in_progress' ? (pendingStop ? `Arrêt : ${pendingStop.label}` : destination.label) : pickup.label}
+            </Text>
+            <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>
+              {ride.status === 'in_progress' ? (pendingStop ? `Puis ${destination.label}` : destination.address) : pickup.address}
             </Text>
           </View>
-          <IconButton variant="solid" icon={<Phone size={18} color={colors.accent} />} accessibilityLabel={`Contacter ${ride.passenger.firstName}`} onPress={() => setContactOpen(true)} testID="contact-passenger" />
-          <IconButton variant="solid" icon={<Navigation size={18} color={colors.accent} />} accessibilityLabel="Ouvrir la navigation" onPress={() => openNavigation(target.location, target.label)} testID="open-navigation" />
+          <PressableScale onPress={() => openNavigation(target.location, target.label)} accessibilityRole="button" accessibilityLabel="Ouvrir la navigation" testID="open-navigation" pressedScale={0.94} style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+            <Navigation size={22} color={colors.inverse} strokeWidth={2.2} />
+          </PressableScale>
+        </View>
+        {ride.status === 'in_progress' && intermediate > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {stops.slice(1, -1).map((st, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: i < ride.completedStops ? colors.successSoft : colors.background }}>
+                {i < ride.completedStops ? <CheckCircle2 size={14} color={colors.success} /> : <View style={{ width: 10, height: 10, borderRadius: 3, borderWidth: 2, borderColor: colors.accent }} />}
+                <Text weight="medium" tone={i < ride.completedStops ? 'success' : 'ink'} style={{ fontSize: 12, lineHeight: 16 }}>{st.label}{i < ride.completedStops ? ' · effectué' : ''}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* ── Passenger ── */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, borderRadius: 20, padding: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+            <Text weight="bold" tone="accent" style={{ fontSize: 17, lineHeight: 22 }}>{ride.passenger.firstName.charAt(0)}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 1 }}>
+            <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{ride.passenger.firstName}{ride.passenger.ratingAverage ? `  ★ ${String(ride.passenger.ratingAverage).replace('.', ',')}` : ''}</Text>
+            <Text tone="muted" numeric numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>
+              {ride.paymentMethod.kind === 'cash' ? `Espèces à encaisser · ${formatMoney(ride.terms.breakdown.total)}` : `${ride.paymentMethod.label} · via Naya`}
+            </Text>
+          </View>
+          <PressableScale onPress={() => setContactOpen(true)} accessibilityRole="button" accessibilityLabel={`Contacter ${ride.passenger.firstName}`} testID="contact-passenger" pressedScale={0.94} style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
+            <Phone size={19} color={colors.accent} strokeWidth={2} />
+          </PressableScale>
         </View>
 
         <SafetyButton rideId={ride.id} location={ride.driverLocation?.location ?? ride.route.stops[0]!.location} />
@@ -216,7 +210,7 @@ export default function RideScreen() {
         {ride.status === 'driver_arrived' ? <Button label="Commencer la course" size="major" full loading={step.isPending} onPress={() => step.run('start')} testID="ride-start" /> : null}
         {ride.status === 'in_progress' && pendingStop ? <Button label={`Arrêt effectué · ${pendingStop.label}`} size="major" full loading={step.isPending} onPress={() => step.run('stop')} testID="ride-stop" /> : null}
         {ride.status === 'in_progress' && !pendingStop ? <Button label="Terminer la course" size="major" full loading={step.isPending} onPress={() => step.run('complete')} testID="ride-complete" /> : null}
-        {ride.status !== 'in_progress' ? <TextButton label="Annuler avec un motif" onPress={() => setCancelOpen(true)} testID="ride-cancel" /> : <TextButton label="Contacter le support" onPress={() => router.push({ pathname: '/support/new', params: { rideId: ride.id } })} />}
+        {ride.status !== 'in_progress' ? <TextButton label="Annuler avec un motif" tone="muted" onPress={() => setCancelOpen(true)} testID="ride-cancel" /> : <TextButton label="Contacter le support" tone="muted" onPress={() => router.push({ pathname: '/support/new', params: { rideId: ride.id } })} />}
       </View>
 
       <Sheet visible={contactOpen} onClose={() => setContactOpen(false)} title={`Contacter ${ride.passenger.firstName}`} subtitle="Votre numéro reste masqué des deux côtés.">
@@ -247,20 +241,36 @@ export default function RideScreen() {
 function Ended({ title, message, onHome, top, testID, cta }: { title: string; message: string; onHome: () => void; top: number; testID?: string; cta?: string }) {
   useTheme();
   return (
-    <View testID={testID} style={{ flex: 1, backgroundColor: colors.background, paddingTop: top + 40, paddingHorizontal: gutter, gap: 16 }}>
-      <IconDisc size={56}>
-        <MapPin size={26} color={colors.accent} />
-      </IconDisc>
-      <Text variant="hero" accessibilityRole="header">
-        {title}
-      </Text>
-      <Text variant="body" tone="muted">
-        {message}
-      </Text>
-      <View style={{ flex: 1 }} />
-      <View style={{ paddingBottom: 40 }}>
+    <View testID={testID} style={{ flex: 1, backgroundColor: colors.background, paddingTop: top, paddingHorizontal: gutter }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+        <View style={{ width: 132, height: 132, borderRadius: 66, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.card }}>
+            <MapPin size={36} color={colors.accent} strokeWidth={1.9} />
+          </View>
+        </View>
+        <View style={{ alignItems: 'center', gap: 8, paddingHorizontal: 8 }}>
+          <Text weight="bold" align="center" accessibilityRole="header" style={{ fontSize: 28, lineHeight: 34, letterSpacing: -0.8 }}>{title}</Text>
+          <Text tone="muted" align="center" style={{ fontSize: 15, lineHeight: 22, maxWidth: 320 }}>{message}</Text>
+        </View>
+      </View>
+      <View style={{ paddingBottom: 32 }}>
         <Button label={cta ?? 'Retour à l’accueil'} size="major" full onPress={onHome} testID="ride-home" />
       </View>
+    </View>
+  );
+}
+
+const STEPS = ['Rejoindre', 'Prise en charge', 'Destination'];
+function RideSteps({ step }: { step: number }) {
+  useTheme();
+  return (
+    <View style={{ flexDirection: 'row', gap: 6 }} accessible accessibilityLabel={`Étape ${step + 1} sur 3 : ${STEPS[step]}`}>
+      {STEPS.map((l, i) => (
+        <View key={l} style={{ flex: 1, gap: 6 }}>
+          <View style={{ height: 4, borderRadius: 2, backgroundColor: i <= step ? colors.accent : colors.line }} />
+          <Text weight={i === step ? 'semibold' : 'regular'} tone={i === step ? 'accent' : 'muted'} numberOfLines={1} style={{ fontSize: 11, lineHeight: 14 }}>{l}</Text>
+        </View>
+      ))}
     </View>
   );
 }
