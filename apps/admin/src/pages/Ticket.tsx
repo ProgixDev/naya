@@ -9,6 +9,8 @@ import { fmtDateTime, money } from '../lib/format';
 import { Banner, Button, Card, DefinitionList, Dialog, ErrorState, Field, Input, PageHeader, Skeleton, Textarea, toast, cx } from '../components/ui';
 import { PaymentBadge, RideBadge, TicketBadge } from '../components/status';
 import { AuditList } from './Audit';
+import { CheckCircle2, XCircle } from 'lucide-react';
+import { ReasonField } from '../components/form';
 
 const OUTCOMES = {
   resolved: ['Remboursement accordé', 'Tarif corrigé', 'Avertissement envoyé à la chauffeuse', 'Avertissement envoyé à la cliente', 'Objet restitué', 'Signalement traité', 'Compte mis à jour'],
@@ -216,7 +218,9 @@ export function TicketPage() {
         onClose={() => setDecide(null)}
         busy={resolve.isPending}
         testId="resolve-dialog"
-        title={decide === 'rejected' ? 'Rejeter le litige ?' : 'Résoudre le litige ?'}
+        tone={decide === 'rejected' ? 'danger' : 'success'}
+        icon={decide === 'rejected' ? <XCircle /> : <CheckCircle2 />}
+        title={decide === 'rejected' ? 'Rejeter le litige ?' : 'Résoudre le litige ?'}
         description="La personne verra la décision et la note. La décision est inscrite à l’historique et au journal d’audit."
         footer={
           <>
@@ -237,17 +241,18 @@ export function TicketPage() {
         }
       >
         <div className="flex flex-col gap-4">
-          <Field label="Décision prise">
-            {(fid) => (
-              <>
-                <Input id={fid} list="outcomes" value={outcome} onChange={(e) => setOutcome(e.target.value)} data-testid="resolve-outcome" />
-                <datalist id="outcomes">{(decide ? OUTCOMES[decide] : []).map((o) => <option key={o} value={o} />)}</datalist>
-              </>
-            )}
-          </Field>
-          <Field label="Explication pour la personne" error={noteError}>
-            {(fid, d) => <Textarea id={fid} aria-describedby={d} value={note} onChange={(e) => setNote(e.target.value)} data-testid="resolve-note" />}
-          </Field>
+          <div>
+            <p className="label mb-2">Décision prise</p>
+            <div className="mb-2 flex flex-wrap gap-2">
+              {(decide ? OUTCOMES[decide] : []).map((o) => (
+                <button key={o} type="button" onClick={() => setOutcome(o)} aria-pressed={outcome === o} className={cx('rounded-full border px-3 py-1.5 text-[13px] font-semibold transition', outcome === o ? 'border-accent bg-selected text-accent' : 'border-line hover:bg-background')}>
+                  {o}
+                </button>
+              ))}
+            </div>
+            <Input aria-label="Décision prise" value={outcome} onChange={(e) => setOutcome(e.target.value)} placeholder="Ou saisissez une autre décision" data-testid="resolve-outcome" />
+          </div>
+          <ReasonField label="Explication pour la personne" value={note} onChange={setNote} error={noteError} placeholder="Ce qui a été vérifié et ce qui a été décidé." hint="Visible par la personne avec la décision." testId="resolve-note" />
         </div>
       </Dialog>
     </>

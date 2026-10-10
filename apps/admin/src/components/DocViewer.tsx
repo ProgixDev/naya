@@ -41,7 +41,7 @@ export function DocViewer({ uploadId, label, open, onClose }: { uploadId?: strin
     }
   }, [open]);
   return (
-    <Dialog open={open} onClose={onClose} title={label} description="Document fictif de démonstration · accès journalisé côté serveur." footer={<Button variant="secondary" onClick={onClose}>Fermer</Button>}>
+    <Dialog open={open} onClose={onClose} size="lg" icon={<FileText />} title={label} description="Document fictif de démonstration · accès journalisé côté serveur." footer={<Button variant="secondary" onClick={onClose}>Fermer</Button>}>
       <div className="mb-3 flex items-center gap-1">
         <IconButton label="Dézoomer" onClick={() => setScale((s) => Math.max(0.5, s - 0.25))}><Minus className="h-4 w-4" /></IconButton>
         <span className="w-14 text-center text-[13px] tabular">{Math.round(scale * 100)} %</span>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Plus, SlidersHorizontal } from 'lucide-react';
+import { Map as MapIcon, MapPin, Plus, SlidersHorizontal } from 'lucide-react';
 import { errorMessage, type AdminCityRow } from '@naya/api';
 import { CASABLANCA_RULES, computeFare, formatBp, RABAT_RULES, type CityRules, type CityStatus, type LatLng } from '@naya/domain';
 import { api } from '../lib/api';
@@ -11,6 +11,7 @@ import { fmtDateTime, money, toCentimes, fromCentimes } from '../lib/format';
 import { Badge, Banner, Button, Card, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Select, Skeleton, Textarea, toast } from '../components/ui';
 import { CityBadge, cityStatusLabel } from '../components/status';
 import { MiniMap } from '../components/MiniMap';
+import { ChoiceCards, ChoiceChips, FormSection, ImpactList, ReasonField, UnitInput, slugify } from '../components/form';
 
 /** Rectangle around a centre, half-size in km, as a simple zone editor. */
 export function rectangle(center: LatLng, halfKm: number): LatLng[] {
@@ -100,6 +101,7 @@ function AddCityDialog({ onClose, onCreated }: { onClose: () => void; onCreated:
   const [id, setId] = useState('casablanca');
   const [name, setName] = useState('Casablanca');
   const [status, setStatus] = useState<'test' | 'inactive'>('test');
+  const [idTouched, setIdTouched] = useState(false);
   const [lat, setLat] = useState('33.5883');
   const [lng, setLng] = useState('-7.6114');
   const [template, setTemplate] = useState<'casablanca' | 'rabat'>('casablanca');
@@ -152,33 +154,53 @@ function AddCityDialog({ onClose, onCreated }: { onClose: () => void; onCreated:
   return (
     <Dialog
       open
+      size="lg"
+      icon={<MapPin />}
       onClose={onClose}
       busy={m.isPending}
       testId="add-city-dialog"
       title="Ajouter une ville"
-      description="Une nouvelle ville commence en test ou inactive. Elle ne devient active qu’après une décision explicite."
-      footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button loading={m.isPending} onClick={submit} data-testid="confirm-add-city">Ajouter la ville</Button></>}
+      description="Une nouvelle ville commence en test ou inactive. Une zone pilote de 7 km est créée autour du centre ; vous pourrez l’ajuster ensuite."
+      footer={<><Button variant="ghost" onClick={onClose} disabled={m.isPending}>Annuler</Button><Button loading={m.isPending} onClick={submit} data-testid="confirm-add-city">Ajouter la ville</Button></>}
     >
-      <div className="grid max-h-[60vh] grid-cols-2 gap-3 overflow-y-auto pr-1">
-        <Field label="Identifiant">{(f) => <Input id={f} value={id} onChange={(e) => setId(e.target.value)} data-testid="city-id" />}</Field>
-        <Field label="Nom">{(f) => <Input id={f} value={name} onChange={(e) => setName(e.target.value)} data-testid="city-name" />}</Field>
-        <Field label="Statut initial">{(f) => <Select id={f} value={status} onChange={(e) => setStatus(e.target.value as 'test')}><option value="test">En test (comptes testeurs)</option><option value="inactive">Inactive</option></Select>}</Field>
-        <Field label="Modèle de règles">{(f) => <Select id={f} value={template} onChange={(e) => applyTemplate(e.target.value as 'rabat')}><option value="casablanca">Casablanca (démo)</option><option value="rabat">Copier Rabat</option></Select>}</Field>
-        <Field label="Latitude du centre">{(f) => <Input id={f} value={lat} onChange={(e) => setLat(e.target.value)} />}</Field>
-        <Field label="Longitude du centre">{(f) => <Input id={f} value={lng} onChange={(e) => setLng(e.target.value)} />}</Field>
-        <Field label="Prise en charge (MAD)">{(f) => <Input id={f} value={base} onChange={(e) => setBase(e.target.value)} data-testid="city-base" />}</Field>
-        <Field label="Prix par km (MAD)">{(f) => <Input id={f} value={perKm} onChange={(e) => setPerKm(e.target.value)} data-testid="city-perkm" />}</Field>
-        <Field label="Prix par minute (MAD)">{(f) => <Input id={f} value={perMin} onChange={(e) => setPerMin(e.target.value)} />}</Field>
-        <Field label="Tarif minimum (MAD)">{(f) => <Input id={f} value={minimum} onChange={(e) => setMinimum(e.target.value)} />}</Field>
-        <Field label="Commission (%)">{(f) => <Input id={f} value={commission} onChange={(e) => setCommission(e.target.value)} data-testid="city-commission" />}</Field>
-        <Field label="Plafond de dette (MAD)">{(f) => <Input id={f} value={debt} onChange={(e) => setDebt(e.target.value)} data-testid="city-debt" />}</Field>
-        <div className="col-span-2 rounded-2xl bg-background p-3 text-[13px]">
-          Exemple 10 km · 25 min : <strong className="tabular">{preview ? money(computeFare(preview, 10_000, 1500).total) : '—'}</strong> · avec ×1,2 : <strong className="tabular">{preview ? money(computeFare(preview, 10_000, 1500, 12_000).total) : '—'}</strong>
-        </div>
-        <div className="col-span-2">
-          <Field label="Motif" error={r.error}>{(f) => <Textarea id={f} value={r.reason} onChange={(e) => r.setReason(e.target.value)} placeholder="Ex. : préparation du pilote à Casablanca" data-testid="city-reason" />}</Field>
-        </div>
-        {error ? <div className="col-span-2"><Banner tone="danger" title={error} /></div> : null}
+      <div className="flex flex-col gap-6 pb-2">
+        {error ? <Banner tone="danger" title={error} /> : null}
+        <FormSection title="Ville">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Nom">{(f) => <Input id={f} value={name} onChange={(e) => { setName(e.target.value); if (!idTouched) setId(slugify(e.target.value)); }} data-testid="city-name" />}</Field>
+            <Field label="Identifiant" hint="Minuscules, sans espace.">{(f, d) => <Input id={f} aria-describedby={d} value={id} className="font-mono text-[14px]" onChange={(e) => { setIdTouched(true); setId(e.target.value.toLowerCase()); }} data-testid="city-id" />}</Field>
+          </div>
+          <div>
+            <p className="label mb-2">Statut initial</p>
+            <ChoiceCards<'test' | 'inactive'> label="Statut initial" value={status} onChange={setStatus} columns={2} options={[{ value: 'test', label: 'En test', hint: 'Réservée aux comptes testeurs.' }, { value: 'inactive', label: 'Inactive', hint: 'Configurée, aucune réservation.' }]} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Latitude du centre">{(f) => <Input id={f} value={lat} onChange={(e) => setLat(e.target.value)} className="tabular" />}</Field>
+            <Field label="Longitude du centre">{(f) => <Input id={f} value={lng} onChange={(e) => setLng(e.target.value)} className="tabular" />}</Field>
+          </div>
+        </FormSection>
+        <FormSection title="Tarification" hint="Montants en MAD. Modifiables ensuite dans les règles de la ville (versionnées).">
+          <div>
+            <p className="label mb-2">Partir des règles de</p>
+            <ChoiceChips<'casablanca' | 'rabat'> label="Modèle de règles" value={template} onChange={(v) => applyTemplate(v)} options={[{ value: 'casablanca', label: 'Casablanca (démo)' }, { value: 'rabat', label: 'Rabat' }]} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Prise en charge">{(f) => <UnitInput id={f} unit="MAD" value={base} onChange={(e) => setBase(e.target.value)} data-testid="city-base" />}</Field>
+            <Field label="Prix par km">{(f) => <UnitInput id={f} unit="MAD" value={perKm} onChange={(e) => setPerKm(e.target.value)} data-testid="city-perkm" />}</Field>
+            <Field label="Prix par minute">{(f) => <UnitInput id={f} unit="MAD" value={perMin} onChange={(e) => setPerMin(e.target.value)} />}</Field>
+            <Field label="Tarif minimum">{(f) => <UnitInput id={f} unit="MAD" value={minimum} onChange={(e) => setMinimum(e.target.value)} />}</Field>
+            <Field label="Commission Naya">{(f) => <UnitInput id={f} unit="%" value={commission} onChange={(e) => setCommission(e.target.value)} data-testid="city-commission" />}</Field>
+            <Field label="Plafond de dette" hint="Au-delà, la chauffeuse ne reçoit plus d’offres.">{(f, d) => <UnitInput id={f} aria-describedby={d} unit="MAD" value={debt} onChange={(e) => setDebt(e.target.value)} data-testid="city-debt" />}</Field>
+          </div>
+          <div className="rounded-2xl border border-accent/20 bg-selected/60 px-4 py-3">
+            <div className="text-[12px] font-semibold uppercase tracking-wide text-accent">Exemple · 10 km, 25 min</div>
+            <div className="mt-0.5 flex items-baseline gap-3">
+              <span className="text-[22px] font-semibold tabular">{preview ? money(computeFare(preview, 10_000, 1500).total) : '—'}</span>
+              <span className="text-[13px] text-muted">avec ×1,2 : <strong className="tabular">{preview ? money(computeFare(preview, 10_000, 1500, 12_000).total) : '—'}</strong></span>
+            </div>
+          </div>
+        </FormSection>
+        <ReasonField value={r.reason} onChange={r.setReason} placeholder="Ex. : préparation du pilote à Casablanca" testId="city-reason" />
       </div>
     </Dialog>
   );
@@ -197,13 +219,24 @@ function ZoneDialog({ row, onClose }: { row: AdminCityRow; onClose: () => void }
     onError: (e) => setError(errorMessage(e)),
   });
   return (
-    <Dialog open onClose={onClose} busy={m.isPending} title={`Nouvelle zone · ${row.city.name}`} description="Zone rectangulaire autour du centre-ville. Les adresses hors de toutes les zones actives sont refusées." footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button loading={m.isPending} onClick={() => (r.valid ? m.mutate() : setError('Indiquez un motif (10 caractères minimum).'))}>Ajouter la zone</Button></>}>
-      <div className="flex flex-col gap-3">
-        <Field label="Nom de la zone">{(f) => <Input id={f} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
-        <Field label="Demi-côté (km)">{(f) => <Input id={f} value={half} onChange={(e) => setHalf(e.target.value)} inputMode="decimal" />}</Field>
-        <MiniMap label="Aperçu de la zone" center={row.city.center} zoom={11} polygons={[polygon]} height={180} />
-        <Field label="Motif" error={r.error}>{(f) => <Textarea id={f} value={r.reason} onChange={(e) => r.setReason(e.target.value)} />}</Field>
+    <Dialog
+      open
+      icon={<MapIcon />}
+      onClose={onClose}
+      busy={m.isPending}
+      title={`Nouvelle zone · ${row.city.name}`}
+      description="Zone carrée autour du centre-ville. Les adresses hors de toutes les zones actives sont refusées."
+      footer={<><Button variant="ghost" onClick={onClose} disabled={m.isPending}>Annuler</Button><Button loading={m.isPending} disabled={!r.valid} onClick={() => m.mutate()}>Ajouter la zone</Button></>}
+    >
+      <div className="flex flex-col gap-4 pb-2">
         {error ? <Banner tone="danger" title={error} /> : null}
+        <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+          <Field label="Nom de la zone">{(f) => <Input id={f} value={name} onChange={(e) => setName(e.target.value)} />}</Field>
+          <Field label="Demi-côté">{(f) => <UnitInput id={f} unit="km" value={half} onChange={(e) => setHalf(e.target.value)} />}</Field>
+        </div>
+        <MiniMap label="Aperçu de la zone" center={row.city.center} zoom={11} polygons={[polygon]} height={200} />
+        <p className="text-[13px] text-muted">Environ {Math.round((2 * (Number(half.replace(',', '.')) || 0)) ** 2)} km² couverts.</p>
+        <ReasonField value={r.reason} onChange={r.setReason} />
       </div>
     </Dialog>
   );
@@ -218,8 +251,20 @@ function ZoneToggleDialog({ zone, onClose }: { zone: { id: string; name: string;
     onError: (e) => toast(errorMessage(e), 'danger'),
   });
   return (
-    <Dialog open onClose={onClose} busy={m.isPending} title={`${zone.active ? 'Activer' : 'Désactiver'} « ${zone.name} » ?`} description={zone.active ? 'Les adresses de cette zone pourront être desservies.' : 'Les nouveaux devis dans cette zone seront refusés. Les courses déjà acceptées ne sont pas modifiées.'} footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button variant={zone.active ? 'primary' : 'danger'} disabled={!r.valid} loading={m.isPending} onClick={() => m.mutate()}>Confirmer</Button></>}>
-      <Field label="Motif" error={r.error}>{(f) => <Textarea id={f} value={r.reason} onChange={(e) => r.setReason(e.target.value)} />}</Field>
+    <Dialog
+      open
+      size="sm"
+      tone={zone.active ? 'success' : 'danger'}
+      icon={<MapIcon />}
+      onClose={onClose}
+      busy={m.isPending}
+      title={`${zone.active ? 'Activer' : 'Désactiver'} « ${zone.name} » ?`}
+      footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button variant={zone.active ? 'primary' : 'danger'} disabled={!r.valid} loading={m.isPending} onClick={() => m.mutate()}>{zone.active ? 'Activer la zone' : 'Désactiver la zone'}</Button></>}
+    >
+      <div className="flex flex-col gap-4">
+        <ImpactList tone={zone.active ? 'success' : 'danger'} items={zone.active ? ['Les adresses de cette zone peuvent être desservies.'] : ['Les nouveaux devis dans cette zone sont refusés.', 'Les courses déjà acceptées ne sont pas modifiées.']} />
+        <ReasonField value={r.reason} onChange={r.setReason} />
+      </div>
     </Dialog>
   );
 }
@@ -234,11 +279,28 @@ function StatusDialog({ row, onClose }: { row: AdminCityRow; onClose: () => void
     onError: (e) => toast(errorMessage(e), 'danger'),
   });
   return (
-    <Dialog open onClose={onClose} busy={m.isPending} title={`Statut de ${row.city.name}`} description="Active : ouverte à toutes. En test : comptes testeurs uniquement. Inactive : aucune réservation." footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button disabled={!r.valid || status === row.city.status} loading={m.isPending} onClick={() => m.mutate()}>Enregistrer</Button></>}>
-      <div className="flex flex-col gap-3">
-        <Field label="Nouveau statut">{(f) => <Select id={f} value={status} onChange={(e) => setStatus(e.target.value as CityStatus)}><option value="active">Active</option><option value="test">En test</option><option value="inactive">Inactive</option></Select>}</Field>
+    <Dialog
+      open
+      icon={<MapPin />}
+      tone={status === 'inactive' && row.city.status !== 'inactive' ? 'danger' : status === 'active' && row.city.status !== 'active' ? 'warning' : 'accent'}
+      onClose={onClose}
+      busy={m.isPending}
+      title={`Statut de ${row.city.name}`}
+      footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button variant={status === 'inactive' && row.city.status !== 'inactive' ? 'danger' : 'primary'} disabled={!r.valid || status === row.city.status} loading={m.isPending} onClick={() => m.mutate()}>Enregistrer</Button></>}
+    >
+      <div className="flex flex-col gap-4">
+        <ChoiceCards<CityStatus>
+          label="Statut"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: 'active', label: 'Active', hint: 'Ouverte à toutes les passagères et chauffeuses vérifiées de la ville.' },
+            { value: 'test', label: 'En test', hint: 'Réservée aux comptes testeurs.' },
+            { value: 'inactive', label: 'Inactive', hint: 'Aucune nouvelle réservation. Les courses en cours se terminent.' },
+          ].map((o) => (o.value === row.city.status ? { ...o, label: `${o.label} · actuel` } : o)) as { value: CityStatus; label: string; hint: string }[]}
+        />
         {status === 'active' && row.city.status !== 'active' ? <Banner tone="warning" title="Ouverture au public">Toutes les passagères et chauffeuses vérifiées de la ville pourront utiliser Naya.</Banner> : null}
-        <Field label="Motif" error={r.error}>{(f) => <Textarea id={f} value={r.reason} onChange={(e) => r.setReason(e.target.value)} />}</Field>
+        <ReasonField value={r.reason} onChange={r.setReason} />
       </div>
     </Dialog>
   );

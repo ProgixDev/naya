@@ -8,6 +8,8 @@ import { useAuth } from '../lib/auth';
 import { fmtDateTime, fromCentimes, money, toCentimes } from '../lib/format';
 import { Banner, Button, Card, Dialog, ErrorState, Field, Input, PageHeader, Skeleton, Textarea, toast, cx } from '../components/ui';
 import { CityBadge } from '../components/status';
+import { ImpactList, ReasonField } from '../components/form';
+import { SlidersHorizontal } from 'lucide-react';
 
 type Form = Record<'baseFare' | 'perKm' | 'perMinute' | 'minimumFare' | 'debtLimit' | 'feeAfterGrace' | 'feeAfterArrival' | 'minimumWithdrawal', string> & {
   commission: string;
@@ -262,19 +264,25 @@ export function RulesPage() {
         onClose={() => setConfirm(false)}
         busy={save.isPending}
         testId="rules-confirm"
-        title={`Enregistrer la version ${row.city.rulesVersion + 1} ?`}
-        description="Les nouveaux devis utiliseront ces règles. Les courses et réservations acceptées gardent leurs conditions."
+        tone="warning"
+        icon={<SlidersHorizontal />}
+        title={`Enregistrer la version ${row.city.rulesVersion + 1} ?`}
+        description={`${row.city.name} · ${diff.length} changement${diff.length > 1 ? 's' : ''}`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirm(false)}>Annuler</Button>
-            <Button disabled={reason.trim().length < 10} loading={save.isPending} onClick={() => save.mutate()} data-testid="confirm-rules">Confirmer</Button>
+            <Button disabled={reason.trim().length < 10} loading={save.isPending} onClick={() => save.mutate()} data-testid="confirm-rules">Enregistrer la version {row.city.rulesVersion + 1}</Button>
           </>
         }
       >
-        <ul className="mb-4 flex flex-col gap-1 text-[14px]">{diff.map((d) => <li key={d}>• {d}</li>)}</ul>
-        <Field label="Motif" hint="10 caractères minimum, inscrit au journal.">
-          {(f, d) => <Textarea id={f} aria-describedby={d} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="rules-reason" />}
-        </Field>
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="label mb-2">Changements</p>
+            <ImpactList items={diff} />
+          </div>
+          <p className="text-[13px] text-muted">Les nouveaux devis utiliseront ces règles. Les courses et réservations déjà acceptées gardent leurs conditions.</p>
+          <ReasonField value={reason} onChange={setReason} testId="rules-reason" />
+        </div>
       </Dialog>
     </>
   );

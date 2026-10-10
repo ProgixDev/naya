@@ -10,6 +10,7 @@ import { useWorkspace } from '../lib/context';
 import { fmtDateTime, money, signed, toCentimes } from '../lib/format';
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, Kpi, PageHeader, Pagination, Segmented, Select, Skeleton, TableSkeleton, Textarea, toast } from '../components/ui';
 import { LEDGER_LABELS, METHOD_LABELS, PaymentBadge, TransferBadge } from '../components/status';
+import { ReasonField, UnitInput } from '../components/form';
 
 type Tab = 'wallets' | 'transfers' | 'transactions' | 'payments' | 'commissions' | 'passengers' | 'ledger';
 type DriverRow = { driver: User; wallet: Wallet };
@@ -296,6 +297,8 @@ function CorrectionDialog({ drivers, initial, onClose }: { drivers: DriverRow[];
       onClose={onClose}
       busy={m.isPending}
       testId="correction-dialog"
+      tone={step === 'confirm' ? (direction === 'debit' ? 'danger' : 'success') : 'warning'}
+      icon={<Wrench />}
       title={step === 'form' ? 'Correction exceptionnelle' : 'Confirmer la correction ?'}
       description={step === 'form' ? 'Réservée aux régularisations justifiées. Elle crée un mouvement au grand livre et un événement d’audit avec votre motif.' : undefined}
       footer={
@@ -323,12 +326,10 @@ function CorrectionDialog({ drivers, initial, onClose }: { drivers: DriverRow[];
             )}
           </Field>
           <Segmented label="Sens" value={direction} onChange={setDirection} options={[{ value: 'credit', label: 'Crédit' }, { value: 'debit', label: 'Débit' }]} />
-          <Field label="Montant (MAD)" error={errors.amount}>
-            {(fid, d) => <Input id={fid} aria-describedby={d} inputMode="decimal" value={amountText} onChange={(e) => setAmountText(e.target.value)} placeholder="25,00" data-testid="correction-amount" />}
+          <Field label="Montant" error={errors.amount}>
+            {(fid, d) => <UnitInput id={fid} aria-describedby={d} unit="MAD" value={amountText} onChange={(e) => setAmountText(e.target.value)} placeholder="25,00" data-testid="correction-amount" />}
           </Field>
-          <Field label="Motif" error={errors.reason} hint="Ex. : remboursement d’un péage justifié par ticket.">
-            {(fid, d) => <Textarea id={fid} aria-describedby={d} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="correction-reason" />}
-          </Field>
+          <ReasonField value={reason} onChange={setReason} error={errors.reason} placeholder="Ex. : remboursement d’un péage justifié par ticket." testId="correction-reason" />
         </div>
       ) : (
         <div className="flex flex-col gap-3 text-[14px]">

@@ -330,16 +330,29 @@ function useFocusTrap(open: boolean, onEscape: () => void) {
   return ref;
 }
 
-export function Dialog({ open, onClose, title, description, children, footer, busy, testId, size = 'md' }: { open: boolean; onClose: () => void; title: string; description?: ReactNode; children?: ReactNode; footer?: ReactNode; busy?: boolean; testId?: string; size?: 'md' | 'lg' }) {
+const DIALOG_TONE = {
+  danger: 'bg-danger-soft text-danger',
+  warning: 'bg-warning-soft text-warning',
+  success: 'bg-success-soft text-success',
+  info: 'bg-info-soft text-info',
+  accent: 'bg-selected text-accent',
+} as const;
+
+/**
+ * Modal used by the whole back-office. `tone` + `icon` show what is at stake (a destructive
+ * confirmation reads differently from an approval); `size` fits short confirmations and long forms.
+ */
+export function Dialog({ open, onClose, title, description, children, footer, busy, testId, size = 'md', tone, icon }: { open: boolean; onClose: () => void; title: string; description?: ReactNode; children?: ReactNode; footer?: ReactNode; busy?: boolean; testId?: string; size?: 'sm' | 'md' | 'lg'; tone?: keyof typeof DIALOG_TONE; icon?: ReactNode }) {
   const ref = useFocusTrap(open, () => !busy && onClose());
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/40" onClick={() => !busy && onClose()} aria-hidden />
       {/* Title and actions stay visible; only the body scrolls on long forms. */}
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="dlg-title" tabIndex={-1} data-testid={testId} className={cx('relative flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-3xl bg-surface shadow-float', size === 'lg' ? 'max-w-[760px]' : 'max-w-[460px]')}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="dlg-title" tabIndex={-1} data-testid={testId} className={cx('relative flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-3xl bg-surface shadow-float', size === 'lg' ? 'max-w-[760px]' : size === 'sm' ? 'max-w-[420px]' : 'max-w-[540px]')}>
         <div className="flex items-start justify-between gap-3 px-6 pt-6">
-          <div>
+          {icon ? <span className={cx('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl [&>svg]:h-5 [&>svg]:w-5', DIALOG_TONE[tone ?? 'accent'])} aria-hidden>{icon}</span> : null}
+          <div className="min-w-0 flex-1">
             <h2 id="dlg-title" className="text-[19px] font-semibold leading-6">
               {title}
             </h2>

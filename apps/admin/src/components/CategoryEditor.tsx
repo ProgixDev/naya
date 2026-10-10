@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bike, Car, Gem, Plus, X } from 'lucide-react';
+import { Bike, Car, Gem, Tags } from 'lucide-react';
 import { computeFare, formatMoney, type ServiceCategory } from '@naya/domain';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/context';
 import { toCentimes } from '../lib/format';
 import { Banner, Button, Dialog, Field, Input, cx } from './ui';
+import { FormSection, SwitchRow, TagInput, UnitInput, slugify } from './form';
 
 const VISUALS: { value: ServiceCategory['icon']; label: string; hint: string; Icon: typeof Car }[] = [
   { value: 'scooter', label: 'Scooter', hint: 'Deux-roues', Icon: Bike },
@@ -21,28 +22,7 @@ const TARIFFS = [
 type TariffKey = (typeof TARIFFS)[number][0];
 
 const mad = (c: number | null) => (c === null ? '' : String(c / 100).replace('.', ','));
-const slugify = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^naya\s+/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
-
-/** Input with a unit shown inside the field (MAD, %, min). */
-function UnitInput({ unit, ...p }: React.InputHTMLAttributes<HTMLInputElement> & { unit: string }) {
-  return (
-    <div className="relative">
-      <Input {...p} inputMode="decimal" className="pr-14 tabular" />
-      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-muted">{unit}</span>
-    </div>
-  );
-}
-
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <section className="border-t border-line pt-5 first:border-0 first:pt-0">
-      <h3 className="text-[15px] font-semibold">{title}</h3>
-      {hint ? <p className="mt-0.5 text-[13px] text-muted">{hint}</p> : null}
-      <div className="mt-4 flex flex-col gap-4">{children}</div>
-    </section>
-  );
-}
+const toId = (s: string) => slugify(s.replace(/^naya\s+/i, ''));
 
 /** Create or edit a vehicle category: identity, pricing with a live example, availability, conditions. */
 export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { initial: ServiceCategory; isNew: boolean; busy: boolean; onSave: (c: ServiceCategory) => Promise<void>; onClose: () => void }) {
@@ -61,7 +41,6 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
   const [custom, setCustom] = useState(isNew ? true : ownTariff);
   const [tariff, setTariff] = useState<Record<TariffKey, string>>(() => Object.fromEntries(TARIFFS.map(([k]) => [k, mad(initial[k])])) as Record<TariffKey, string>);
   const [conditions, setConditions] = useState(initial.conditions ?? []);
-  const [draft, setDraft] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [server, setServer] = useState<string | null>(null);
 
@@ -79,13 +58,6 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
         25 * 60,
       ).total
     : null;
-
-  const addCondition = () => {
-    const v = draft.trim();
-    if (!v || conditions.includes(v) || conditions.length >= 8) return;
-    setConditions([...conditions, v]);
-    setDraft('');
-  };
 
   const submit = async () => {
     const e: Record<string, string> = {};
@@ -115,7 +87,7 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
         perKm: cents('perKm'),
         perMinute: cents('perMinute'),
         minimumFare: cents('minimumFare'),
-        conditions: draft.trim() && !conditions.includes(draft.trim()) ? [...conditions, draft.trim()] : conditions,
+        conditions,
       });
     } catch (err) {
       setServer((err as Error).message);
@@ -126,6 +98,7 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
     <Dialog
       open
       size="lg"
+      icon={<Tags />}
       onClose={onClose}
       busy={busy}
       testId="category-editor"
@@ -140,7 +113,7 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
     >
       <div className="flex flex-col gap-6 pb-2">
         {server ? <Banner tone="danger" title={server} /> : null}
-        <Section title="Identité">
+        <FormSection title="Identité">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Nom affiché" error={errors.name}>
               {(f, d) => (
@@ -152,7 +125,7 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
                   data-testid="category-name"
                   onChange={(e) => {
                     setName(e.target.value);
-                    if (!idTouched) setId(slugify(e.target.value));
+                    if (!idTouched) setId(toId(e.target.value));
                   }}
                 />
               )}
@@ -183,9 +156,9 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
               ))}
             </div>
           </div>
-        </Section>
+        </FormSection>
 
-        <Section title="Tarification" hint="Montants en MAD, figés à la confirmation de chaque course.">
+        <FormSection title="Tarification" hint="Montants en MAD, figés à la confirmation de chaque course.">
           <div className="flex gap-2" role="radiogroup" aria-label="Tarifs">
             {([['custom', true, 'Tarifs propres à la catégorie'], ['city', false, 'Tarifs de la ville']] as const).map(([k, v, l]) => (
               <button key={k} type="button" role="radio" aria-checked={custom === v} onClick={() => setCustom(v)} className={cx('rounded-full border px-4 py-2 text-[14px] font-semibold transition', custom === v ? 'border-accent bg-accent text-white' : 'border-line text-ink hover:bg-background')}>
@@ -220,18 +193,10 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
               </div>
             ) : null}
           </div>
-        </Section>
+        </FormSection>
 
-        <Section title="Disponibilité">
-          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-line px-4 py-3">
-            <span>
-              <span className="block text-[14px] font-semibold">Catégorie active</span>
-              <span className="block text-[13px] text-muted">Désactivée, elle disparaît des nouvelles commandes.</span>
-            </span>
-            <button type="button" role="switch" aria-checked={enabled} onClick={() => setEnabled(!enabled)} data-testid="category-enabled" className={cx('relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors', enabled ? 'bg-accent' : 'bg-line')}>
-              <span className={cx('inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', enabled ? 'translate-x-[22px]' : 'translate-x-[2px]')} />
-            </button>
-          </label>
+        <FormSection title="Disponibilité">
+          <SwitchRow title="Catégorie active" hint="Désactivée, elle disparaît des nouvelles commandes." checked={enabled} onChange={setEnabled} testId="category-enabled" />
           <div>
             <p className="label mb-2">Villes</p>
             <div className="flex flex-wrap gap-2">
@@ -248,28 +213,11 @@ export function CategoryEditor({ initial, isNew, busy, onSave, onClose }: { init
               {(f, d) => <UnitInput id={f} aria-describedby={d} unit="min" value={eta} onChange={(e) => setEta(e.target.value)} data-testid="category-eta" />}
             </Field>
           </div>
-        </Section>
+        </FormSection>
 
-        <Section title="Conditions spécifiques" hint="Affichées à la cliente avec la catégorie, par exemple le nombre de passagères ou les bagages.">
-          {conditions.length ? (
-            <ul className="flex flex-wrap gap-2">
-              {conditions.map((c) => (
-                <li key={c} className="inline-flex items-center gap-1 rounded-full bg-background py-1.5 pl-3 pr-1.5 text-[14px]">
-                  {c}
-                  <button type="button" aria-label={`Retirer ${c}`} onClick={() => setConditions(conditions.filter((x) => x !== c))} className="flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-line hover:text-ink">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {conditions.length < 8 ? (
-            <div className="flex gap-2">
-              <Input value={draft} placeholder="Ex. : Jusqu’à 7 passagères" onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCondition(); } }} data-testid="category-condition" />
-              <Button type="button" variant="secondary" icon={<Plus className="h-4 w-4" />} onClick={addCondition} disabled={!draft.trim()}>Ajouter</Button>
-            </div>
-          ) : null}
-        </Section>
+        <FormSection title="Conditions spécifiques" hint="Affichées à la cliente avec la catégorie, par exemple le nombre de passagères ou les bagages.">
+          <TagInput values={conditions} onChange={setConditions} placeholder="Ex. : Jusqu’à 7 passagères" testId="category-condition" />
+        </FormSection>
       </div>
     </Dialog>
   );

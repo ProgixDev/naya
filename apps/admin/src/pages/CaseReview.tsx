@@ -10,6 +10,7 @@ import { Badge, Banner, Button, Card, DefinitionList, Dialog, ErrorState, Field,
 import { DocThumb, DocViewer } from '../components/DocViewer';
 import { SUBJECT_LABELS, VerificationBadge } from '../components/status';
 import { AuditList } from './Audit';
+import { ReasonField } from '../components/form';
 
 const itemTone = { missing: 'neutral', provided: 'info', accepted: 'success', needs_correction: 'warning' } as const;
 const itemLabel = { missing: 'Manquante', provided: 'À examiner', accepted: 'Acceptée', needs_correction: 'À corriger' } as const;
@@ -205,7 +206,10 @@ export function CaseReviewPage() {
         onClose={() => setDialog(null)}
         busy={decide.isPending}
         testId="decision-dialog"
-        title={dialog === 'approved' ? `Approuver ${subjectWord} ?` : dialog === 'rejected' ? 'Refuser le dossier ?' : 'Demander un complément ?'}
+        size={dialog === 'more_info_requested' ? 'lg' : 'md'}
+        tone={dialog === 'approved' ? 'success' : dialog === 'rejected' ? 'danger' : 'warning'}
+        icon={dialog === 'approved' ? <CheckCircle2 /> : dialog === 'rejected' ? <XCircle /> : <CircleAlert />}
+        title={dialog === 'approved' ? `Approuver ${subjectWord} ?` : dialog === 'rejected' ? 'Refuser le dossier ?' : 'Demander un complément ?'}
         description={dialog === 'approved' ? `${who} sera informée. ${c.subject === 'vehicle' ? 'Le véhicule pourra recevoir des courses si l’identité est aussi approuvée.' : 'Le compte pourra être utilisé.'}` : 'Le message sera affiché à la personne avec l’action à faire.'}
         footer={
           <>
@@ -237,15 +241,16 @@ export function CaseReviewPage() {
             </Field>
           ) : null}
           {dialog === 'more_info_requested' ? (
-            <fieldset className="flex flex-col gap-3">
-              <legend className="label mb-1">Pièces à corriger</legend>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="label mb-2">Pièces à corriger</legend>
               {keys.map((key) => {
                 const on = corrections[key] !== undefined;
                 return (
-                  <div key={key} className="rounded-2xl border border-line p-3">
-                    <label className="flex items-center gap-2 text-[14px] font-medium">
-                      <input type="checkbox" className="h-4 w-4 accent-[#6B3657]" checked={on} onChange={(e) => setCorrections((m) => ({ ...m, [key]: e.target.checked ? '' : undefined }))} data-testid={`correct-${key}`} />
-                      {ITEM_LABELS[key]}
+                  <div key={key} className={`rounded-2xl border p-3 transition ${on ? 'border-accent bg-selected/50' : 'border-line'}`}>
+                    <label className="flex cursor-pointer items-center gap-3 text-[14px] font-medium">
+                      <input type="checkbox" className="h-[18px] w-[18px] rounded accent-[#6B3657]" checked={on} onChange={(e) => setCorrections((m) => ({ ...m, [key]: e.target.checked ? '' : undefined }))} data-testid={`correct-${key}`} />
+                      <span className="flex-1">{ITEM_LABELS[key]}</span>
+                      {on ? <Badge tone="warning" dot={false}>À reprendre</Badge> : null}
                     </label>
                     {on ? <Textarea aria-label={`Consigne pour ${ITEM_LABELS[key]}`} className="mt-2 min-h-[64px]" placeholder="Ex. : reprenez la photo sans reflet" value={corrections[key]} onChange={(e) => setCorrections((m) => ({ ...m, [key]: e.target.value }))} data-testid={`note-${key}`} /> : null}
                   </div>
@@ -253,9 +258,11 @@ export function CaseReviewPage() {
               })}
             </fieldset>
           ) : null}
-          <Field label={dialog === 'approved' ? 'Note interne (facultative)' : 'Message à la personne'} hint={dialog === 'approved' ? undefined : '10 caractères minimum, sans jargon.'}>
-            {(fid, d) => <Textarea id={fid} aria-describedby={d} value={message} onChange={(e) => setMessage(e.target.value)} data-testid="decision-message" />}
-          </Field>
+          {dialog === 'approved' ? (
+            <Field label="Note interne (facultative)">{(fid) => <Textarea id={fid} value={message} onChange={(e) => setMessage(e.target.value)} data-testid="decision-message" />}</Field>
+          ) : (
+            <ReasonField label="Message à la personne" value={message} onChange={setMessage} placeholder="Ce qu’elle doit faire, en mots simples." hint="Affiché à la personne, sans jargon." testId="decision-message" />
+          )}
           {formError ? <Banner tone="danger" title={formError} /> : null}
         </div>
       </Dialog>

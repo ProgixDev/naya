@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  defaultPrototypeCatalog,
   FAMILY_STATUS_LABELS,
   SUBSCRIPTION_STATUS_LABELS,
   formatMoney,
   formatShort,
   type PrototypeCatalog,
   type ServiceCategory,
+  type FamilyPlan,
+  type DisputeReason,
 } from '@naya/domain';
 import { errorMessage } from '@naya/api';
 import { api } from '../lib/api';
@@ -26,8 +27,10 @@ import {
 import { DocThumb, DocViewer } from '../components/DocViewer';
 import { DriverCategoryMatrix } from '../components/DriverCategoryMatrix';
 import { CategoryEditor } from '../components/CategoryEditor';
+import { PlanEditor, ReasonEditor } from '../components/CatalogEditors';
 import { Badge } from '../components/ui';
-import { Bike, Car, Gem, Plus, Users } from 'lucide-react';
+import { Bike, Car, Gem, PauseCircle, PlayCircle, Plus, Users, XCircle } from 'lucide-react';
+import { ImpactList, ReasonField } from '../components/form';
 import { logoConcepts, conceptSvg } from '@naya/assets/src/concepts';
 
 type Kind = 'categories' | 'plans' | 'reasons';
@@ -95,38 +98,6 @@ function CategoryCard({ category: c, busy, drivers, onToggle, onEdit }: { catego
   );
 }
 
-const fields: Record<string, string> = {
-  id: 'Identifiant',
-  name: 'Nom',
-  description: 'Description',
-  label: 'Libellé',
-  icon: 'Visuel',
-  enabled: 'Activé',
-  cityIds: 'Disponibilité par ville (aucune cochée = toutes les villes)',
-  etaMinutes: 'Arrivée estimée (minutes)',
-  commissionBp: 'Commission (%)',
-  baseFare: 'Prise en charge (MAD)',
-  perKm: 'Prix / km (MAD)',
-  perMinute: 'Prix / min (MAD)',
-  minimumFare: 'Tarif minimum (MAD)',
-  conditions: 'Conditions spécifiques (une par ligne, affichées à la cliente)',
-  price: 'Prix de l’abonnement (MAD)',
-  durationDays: 'Durée (jours)',
-  includedTrips: 'Trajets inclus',
-  features: 'Avantages (séparés par une virgule)',
-  category: 'Catégorie (ride / payment / safety / account / wallet / other)',
-  evidenceRequired: 'Preuve obligatoire',
-  dedicatedDriver: 'Chauffeuse dédiée (sinon pool de chauffeuses)',
-  roles: 'Visible pour (passenger, driver · vide = toutes)',
-  kind: 'Canal (card / mobile / agency)',
-};
-const moneyFields = new Set([
-  'baseFare',
-  'perKm',
-  'perMinute',
-  'minimumFare',
-  'price',
-]);
 export function PrototypePage() {
   const qc = useQueryClient();
   const q = useQuery({
@@ -233,16 +204,13 @@ export function PrototypePage() {
                   setEditing({ kind, row: blank as unknown as Record<string, unknown> });
                   return;
                 }
-                const template = defaultPrototypeCatalog()[kind][0]!;
-                setEditing({
-                  kind,
-                  row: {
-                    ...template,
-                    id: '',
-                    ...('name' in template ? { name: '' } : {}),
-                    ...('label' in template ? { label: '' } : {}),
-                  },
-                });
+                if (kind === 'plans') {
+                  const blank: FamilyPlan = { id: '', name: '', price: 0, durationDays: 30, includedTrips: 20, enabled: true, dedicatedDriver: true, features: ['Chauffeuse dédiée', 'Suivi et confirmations'] };
+                  setEditing({ kind, row: blank as unknown as Record<string, unknown> });
+                  return;
+                }
+                const blank: DisputeReason = { id: '', label: '', category: 'ride', evidenceRequired: false, enabled: true, roles: [] };
+                setEditing({ kind, row: blank as unknown as Record<string, unknown> });
               }}
             >
               {SECTION[tab as Kind].add}
@@ -664,31 +632,50 @@ export function PrototypePage() {
         </div>
       ) : null}
       {subChange ? (
-        <Dialog
-          open
-          onClose={() => setSubChange(null)}
-          busy={busy}
-          title={{ active: 'Réactiver l’abonnement ?', paused: 'Suspendre l’abonnement ?', cancelled: 'Résilier l’abonnement ?' }[subChange.status]}
-          description={subChange.status === 'cancelled' ? 'La résiliation est définitive : aucun nouveau trajet ne pourra être planifié.' : subChange.status === 'paused' ? 'Aucun nouveau trajet ne pourra être planifié tant que l’abonnement est suspendu.' : 'La famille pourra de nouveau planifier des trajets.'}
-          footer={
-            <Button
-              loading={busy}
-              disabled={subReason.trim().length < 5}
-              onClick={() =>
-                run(async () => {
-                  await api.adminPrototype.subscriptionStatus(subChange.id, subChange.status, subReason.trim());
-                  setSubChange(null);
-                })
+        (() => {
+          const sub = p?.subscriptions.find((x) => x.id === subChange.id);
+          const family = p?.people.find((u) => u.id === sub?.passengerId)?.name ?? 'la famille';
+          const cfg = {
+            active: { title: 'Réactiver l’abonnement ?', tone: 'success' as const, icon: <PlayCircle />, cta: 'Réactiver', variant: 'primary' as const, impact: [`${family} peut de nouveau planifier des trajets.`, 'Les trajets récurrents reprennent après chaque remise.'] },
+            paused: { title: 'Suspendre l’abonnement ?', tone: 'warning' as const, icon: <PauseCircle />, cta: 'Suspendre', variant: 'primary' as const, impact: ['Aucun nouveau trajet ne peut être planifié.', 'Les trajets déjà planifiés sont conservés.', 'Réactivable à tout moment.'] },
+            cancelled: { title: 'Résilier l’abonnement ?', tone: 'danger' as const, icon: <XCircle />, cta: 'Résilier définitivement', variant: 'danger' as const, impact: ['Résiliation définitive : l’abonnement ne pourra pas être réactivé.', 'Aucun nouveau trajet ne pourra être planifié.', 'La famille pourra souscrire un nouvel abonnement.'] },
+          }[subChange.status];
+          return (
+            <Dialog
+              open
+              size="sm"
+              tone={cfg.tone}
+              icon={cfg.icon}
+              onClose={() => setSubChange(null)}
+              busy={busy}
+              title={cfg.title}
+              description={sub ? `${family} · ${sub.planName}` : undefined}
+              footer={
+                <>
+                  <Button variant="ghost" onClick={() => setSubChange(null)} disabled={busy}>Annuler</Button>
+                  <Button
+                    variant={cfg.variant}
+                    loading={busy}
+                    disabled={subReason.trim().length < 5}
+                    onClick={() =>
+                      run(async () => {
+                        await api.adminPrototype.subscriptionStatus(subChange.id, subChange.status, subReason.trim());
+                        setSubChange(null);
+                      })
+                    }
+                  >
+                    {cfg.cta}
+                  </Button>
+                </>
               }
             >
-              Confirmer
-            </Button>
-          }
-        >
-          <Field label="Motif (inscrit au journal)">
-            {(id) => <Input id={id} value={subReason} onChange={(e) => setSubReason(e.target.value)} />}
-          </Field>
-        </Dialog>
+              <div className="flex flex-col gap-4">
+                <ImpactList items={cfg.impact} tone={cfg.tone === 'danger' ? 'danger' : cfg.tone === 'warning' ? 'warning' : 'success'} />
+                <ReasonField value={subReason} onChange={setSubReason} min={5} testId="sub-reason" />
+              </div>
+            </Dialog>
+          );
+        })()
       ) : null}
       {p && tab === 'wallets' ? (
         <div className="grid gap-4 md:grid-cols-2">
@@ -739,39 +726,27 @@ export function PrototypePage() {
           ))}
         </div>
       ) : null}
-      {editing?.kind === 'categories' ? (
-        <CategoryEditor
-          initial={editing.row as unknown as ServiceCategory}
-          isNew={editing.row.id === ''}
-          busy={busy}
-          onClose={() => setEditing(null)}
-          onSave={async (row) => {
+      {editing ? (
+        (() => {
+          const isNew = editing.row.id === '';
+          const save = async (row: object, name: string) => {
             setBusy(true);
             try {
-              await api.adminPrototype.save('categories', row);
+              await api.adminPrototype.save(editing.kind, row);
               await qc.invalidateQueries({ queryKey: ['admin'] });
-              toast(editing.row.id === '' ? `Catégorie ${row.name} créée` : 'Catégorie mise à jour', 'success');
+              toast(isNew ? `${name} créé·e` : `${name} mis·e à jour`, 'success');
               setEditing(null);
             } catch (e) {
               throw new Error(errorMessage(e));
             } finally {
               setBusy(false);
             }
-          }}
-        />
-      ) : editing ? (
-        <CatalogEditor
-          kind={editing.kind}
-          initial={editing.row}
-          busy={busy}
-          onClose={() => setEditing(null)}
-          onSave={(row) =>
-            run(async () => {
-              await api.adminPrototype.save(editing.kind, row);
-              setEditing(null);
-            })
-          }
-        />
+          };
+          const common = { isNew, busy, onClose: () => setEditing(null) };
+          if (editing.kind === 'categories') return <CategoryEditor {...common} initial={editing.row as unknown as ServiceCategory} onSave={(r) => save(r, r.name)} />;
+          if (editing.kind === 'plans') return <PlanEditor {...common} initial={editing.row as unknown as FamilyPlan} onSave={(r) => save(r, r.name)} />;
+          return <ReasonEditor {...common} initial={editing.row as unknown as DisputeReason} onSave={(r) => save(r, r.label)} />;
+        })()
       ) : null}
       <DocViewer
         uploadId={view}
@@ -780,88 +755,5 @@ export function PrototypePage() {
         onClose={() => setView(undefined)}
       />
     </>
-  );
-}
-function CatalogEditor({
-  kind,
-  initial,
-  busy,
-  onSave,
-  onClose,
-}: {
-  kind: Kind;
-  initial: Record<string, unknown>;
-  busy: boolean;
-  onSave: (row: Record<string, unknown>) => Promise<void>;
-  onClose: () => void;
-}) {
-  const [row, setRow] = useState(initial);
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      busy={busy}
-      title={`Configurer · ${LABELS[kind]}`}
-      description="Les montants sont en MAD. Vide sur un tarif = tarif de la ville."
-      footer={
-        <Button
-          loading={busy}
-          onClick={() => onSave(row)}
-        >
-          Enregistrer
-        </Button>
-      }
-    >
-      <div className="grid gap-4">
-        {Object.entries(initial).map(([name, value]) => (
-          <Field key={name} label={fields[name] ?? name}>
-            {(id) =>
-              typeof value === 'boolean' ? (
-                <input
-                  id={id}
-                  type="checkbox"
-                  checked={Boolean(row[name])}
-                  onChange={(e) => setRow({ ...row, [name]: e.target.checked })}
-                />
-              ) : (
-                <Input
-                  id={id}
-                  value={
-                    Array.isArray(row[name])
-                      ? (row[name] as string[]).join(', ')
-                      : row[name] === null
-                        ? ''
-                        : String(
-                            typeof row[name] === 'number' &&
-                              (moneyFields.has(name) || name === 'commissionBp')
-                              ? Number(row[name]) / 100
-                              : (row[name] ?? ''),
-                          )
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setRow({
-                      ...row,
-                      [name]: Array.isArray(value)
-                        ? val
-                            .split(',')
-                            .map((x) => x.trim())
-                            .filter(Boolean)
-                        : typeof value === 'number' || value === null
-                          ? val === '' && value === null
-                            ? null
-                            : moneyFields.has(name) || name === 'commissionBp'
-                              ? Math.round(Number(val) * 100)
-                              : Number(val)
-                          : val,
-                    });
-                  }}
-                />
-              )
-            }
-          </Field>
-        ))}
-      </div>
-    </Dialog>
   );
 }
