@@ -22,16 +22,11 @@ type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'accent';
 
 /* ───────── Shared pieces ───────── */
 
-function Shell({ children, muted, accent, testId }: { children: ReactNode; muted?: boolean; accent?: 'danger' | 'warning'; testId?: string }) {
+function Shell({ children, muted, testId }: { children: ReactNode; muted?: boolean; testId?: string }) {
   return (
     <article
       data-testid={testId}
-      className={cx(
-        'flex flex-col rounded-3xl border bg-surface p-5 shadow-card',
-        muted ? 'border-dashed border-line opacity-75' : 'border-line',
-        accent === 'danger' && 'border-l-4 border-l-danger',
-        accent === 'warning' && 'border-l-4 border-l-warning',
-      )}
+      className={cx('flex flex-col rounded-3xl border bg-surface p-5 shadow-card', muted ? 'border-dashed border-line opacity-75' : 'border-line')}
     >
       {children}
     </article>
@@ -371,7 +366,7 @@ export function SosAlertCard({ a, busy, onStatus }: { a: SafetyAlert; busy: bool
     ['Demande support', a.ticketId ?? '—'],
   ];
   return (
-    <Shell accent={a.status === 'new' ? 'danger' : a.status === 'responding' ? 'warning' : undefined} testId={`sos-card-${a.id}`}>
+    <Shell testId={`sos-card-${a.id}`}>
       <header className="flex flex-wrap items-start gap-3">
         <IconTile tone={SOS_TONE[a.status]}><ShieldAlert /></IconTile>
         <div className="min-w-0 flex-1">
