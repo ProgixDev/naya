@@ -55,7 +55,7 @@ export function conceptSvg(
     .replaceAll('COLOR', color)
     .replaceAll(
       'BACKGROUND',
-      background === 'transparent' ? '#F8F7F9' : background,
+      background === 'transparent' ? '#FAF6F2' : background,
     );
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${horizontal ? 260 : 100} 100"><rect width="${horizontal ? 260 : 100}" height="100" rx="22" fill="${background}"/>${symbol}${horizontal ? `<text x="110" y="66" font-family="Inter,Arial,sans-serif" font-weight="600" font-size="46" letter-spacing="-2" fill="${color}">naya</text>` : ''}</svg>`;
 }

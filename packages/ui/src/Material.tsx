@@ -15,28 +15,19 @@ import { useGlassKind } from './Glass';
 
 const fill = StyleSheet.absoluteFill;
 
+/** Main-action fill: one flat solid colour, no sheen or rim, so every primary pill looks the same. */
 export function GlossLayers({ tone, radius }: { tone: 'accent' | 'danger'; radius: number }) {
   useTheme();
-  const dark = getColorScheme() === 'dark';
-  const stops = dark ? (tone === 'danger' ? [colors.danger, colors.danger, colors.danger] as const : [colors.accent, colors.accent, colors.accent] as const) : tone === 'danger' ? (['#AF3C49', colors.danger, '#982D3A'] as const) : (['#794462', colors.accent, '#61304F'] as const);
-  return (
-    <View pointerEvents="none" style={[fill, { borderRadius: radius, overflow: 'hidden' }]}>
-      <LinearGradient colors={stops} locations={[0, 0.5, 1]} style={fill} />
-      {/* top inner highlight */}
-      <LinearGradient colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']} locations={[0, 0.45, 0.6]} style={fill} />
-      {/* bottom inner shade */}
-      <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(20,0,14,0.04)']} locations={[0.55, 1]} style={fill} />
-      <View style={[fill, { borderRadius: radius, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }]} />
-    </View>
-  );
+  return <View pointerEvents="none" style={[fill, { borderRadius: radius, backgroundColor: tone === 'danger' ? colors.danger : colors.accent }]} />;
 }
 
+/** Soft, wide drop shadow under a main action (lifts the pill off the page without a hard edge). */
 export const glossShadow = (tone: 'accent' | 'danger'): ViewStyle => ({
-  shadowColor: tone === 'danger' ? colors.danger : colors.accent,
-  shadowOpacity: 0.14,
-  shadowRadius: 8,
-  shadowOffset: { width: 0, height: 3 },
-  elevation: 2,
+  shadowColor: tone === 'danger' ? colors.danger : colors.accentDeep,
+  shadowOpacity: getColorScheme() === 'dark' ? 0 : 0.24,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 8 },
+  elevation: getColorScheme() === 'dark' ? 0 : 6,
 });
 
 export function FrostLayers({ radius, tint = 'white' }: { radius: number; tint?: 'white' | 'mauve' }) {

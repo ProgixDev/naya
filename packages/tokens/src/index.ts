@@ -5,7 +5,7 @@
  */
 export const lightColors = {
   // Figma variables
-  background: '#F8F7F9', // quiet pearl; plum is reserved for actions and artwork
+  background: '#FAF6F2', // warm cream; plum is reserved for actions and artwork
   surface: '#FFFFFF', // --naya-surface-critical (legible surface for money and decisions)
   selected: '#EDE3EA',
   ink: '#29232D',

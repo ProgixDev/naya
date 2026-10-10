@@ -1,7 +1,7 @@
 import { themedStyles , colors, gutter, radius, shadow } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,9 +24,11 @@ export interface SheetProps {
   /** Prevent closing by swipe or scrim while a request is in flight. */
   dismissible?: boolean;
   testID?: string;
+  /** Wrap content in a vertical ScrollView when it exceeds sheet height. */
+  scrollable?: boolean;
 }
 
-export function Sheet({ visible, onClose, title, subtitle, children, footer, dismissible = true, testID }: SheetProps) {
+export function Sheet({ visible, onClose, title, subtitle, children, footer, dismissible = true, testID, scrollable }: SheetProps) {
   useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -84,7 +86,18 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, dis
               ) : null}
             </View>
           </GestureDetector>
-          <View style={{ paddingHorizontal: gutter, flexShrink: 1 }}>{children}</View>
+          {scrollable ? (
+            <ScrollView
+              style={{ flexShrink: 1 }}
+              contentContainerStyle={{ paddingHorizontal: gutter }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            <View style={{ paddingHorizontal: gutter, flexShrink: 1 }}>{children}</View>
+          )}
           {footer ? <View style={{ paddingHorizontal: gutter, paddingTop: 16, gap: 8 }}>{footer}</View> : null}
         </Animated.View>
       </KeyboardAvoidingView>

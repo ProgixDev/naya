@@ -33,7 +33,7 @@ export interface ButtonProps {
 const heights: Record<Size, number> = { major: control.major, standard: control.standard, compact: control.compact };
 
 /**
- * One component for every pill button. Primary = glossy plum (the one action per screen);
+ * One component for every button (16 pt corners). Primary = solid plum with a soft shadow (the one action per screen);
  * secondary/tonal = frosted glass; ghost = text. Loading keeps the width (label stays in
  * layout, hidden); disabled is a neutral grey, never a paler plum.
  */
@@ -42,7 +42,8 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
   const [focused, setFocused] = useState(false);
   const inactive = disabled || loading;
   const h = heights[size];
-  const r = h / 2;
+  // Rounded rectangle, not a full pill: 16 pt (12 on compact buttons).
+  const r = size === 'compact' ? 12 : 16;
   const gloss = !disabled && (variant === 'primary' || variant === 'danger');
   const frost = !disabled && (variant === 'secondary' || variant === 'tonal');
   const textTone = disabled ? 'disabled' : gloss ? 'inverse' : variant === 'ghost' ? 'accent' : 'accent';
@@ -50,7 +51,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
     <View style={[styles.row, { minHeight: h, paddingVertical: 10, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
       <View style={[styles.row, { opacity: loading ? 0 : 1, gap: 8, flexShrink: 1 }]}>
         {icon}
-        <Text variant="action" tone={textTone} maxFontSizeMultiplier={1.4} align="center" style={[{ flexShrink: 1 }, size === 'major' ? { fontSize: 16 } : undefined]}>
+        <Text variant="action" weight={gloss ? 'bold' : undefined} tone={textTone} maxFontSizeMultiplier={1.4} align="center" style={[{ flexShrink: 1 }, size === 'major' ? { fontSize: 17, lineHeight: 22 } : undefined]}>
           {label}
         </Text>
       </View>
