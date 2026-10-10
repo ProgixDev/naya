@@ -1,10 +1,13 @@
 import { Attachment } from './Attachment';
 import { useTheme } from './../core/theme';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Linking, Platform, Pressable, Share, View } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Animated, Linking, Platform, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Banknote, Bell, Check, ChevronLeft, ChevronRight, CreditCard, Eye, EyeOff, Lock, Plus, Sparkles, Wallet } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@naya/api/react';
-import { errorMessage } from '@naya/api';
+import { errorMessage, qk } from '@naya/api';
 import {
   FAMILY_STATUS_LABELS,
   FAMILY_TRIP_KINDS,
@@ -26,14 +29,15 @@ import {
   type LatLng,
   type SafetyAlert,
 } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { colors, getColorScheme, gutter, radius, shadow } from '@naya/tokens';
 import { Screen, Section } from '../Screen';
-import { Header } from '../Header';
+import { Header, headerButtonStyle } from '../Header';
 import { Text } from '../Text';
 import { Button } from '../Button';
 import { FormField, Pill } from '../Form';
 import { StatusBanner, ErrorState } from '../Feedback';
-import { ListGroup, ListRow } from '../List';
+import { Card, IconDisc, ListGroup, ListRow } from '../List';
+import { PressableScale } from '../PressableScale';
 import { Sheet } from '../BottomSheet';
 import { toast } from '../Toast';
 import { NayaMap } from '../map';
@@ -230,38 +234,61 @@ export function PassengerWalletScreen({
   accountId,
   cityId,
   onBack,
+  bottomSpace,
+  onManagePayments,
 }: {
   accountId: string;
   cityId: string;
-  onBack: () => void;
+  /** Opens the payment methods screen (Gérer, or a tap on a method). */
+  onManagePayments?: () => void;
+  /** Omitted when the wallet is a tab: no back button. */
+  onBack?: () => void;
+  /** Extra bottom padding so content clears a floating tab bar. */
+  bottomSpace?: number;
 }) {
   useTheme();
+  const insets = useSafeAreaInsets();
   const api = useApi();
   const qc = useQueryClient();
   const queryKey = ['naya', accountId, 'passenger-wallet'];
   const wallet = useQuery({ queryKey, queryFn: api.prototype.wallet });
+  // Same cache key as the Moyens de paiement screen, so a change there shows here at once.
+  const methods = useQuery({ queryKey: qk.paymentMethods(accountId), queryFn: api.paymentMethods.list });
   const providers = useQuery({
     queryKey: ['naya', accountId, 'recharge-providers', cityId],
     queryFn: api.prototype.rechargeProviders,
   });
+  const [topupSheetOpen, setTopupSheetOpen] = useState(false);
+  const [balanceVisible, setBalanceVisible] = useState(true);
   const [amount, setAmount] = useState('100');
   const [providerId, setProviderId] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const chosen = providers.data?.find((p) => p.id === providerId) ?? providers.data?.[0];
+
+  const availableBalance = (wallet.data?.balance ?? 0) - (wallet.data?.reserved ?? 0);
+  const parsedAmount = Math.max(0, Math.round(Number(amount.replace(',', '.')) * 100));
+  const isDark = getColorScheme() === 'dark';
+
   const run = async (id?: string, outcome?: 'confirmed' | 'failed') => {
     setBusy(true);
     try {
-      if (id && outcome) await api.prototype.resolveTopup(id, outcome);
-      else {
+      if (id && outcome) {
+        await api.prototype.resolveTopup(id, outcome);
+        toast(outcome === 'confirmed' ? 'Recharge confirmée ✓' : 'Recharge annulée', outcome === 'confirmed' ? 'success' : 'default');
+      } else {
         if (!chosen) throw new Error('Choisissez un moyen de recharge.');
+        const num = Number(amount.replace(',', '.'));
+        if (isNaN(num) || num <= 0) throw new Error('Indiquez un montant supérieur à 0 MAD.');
         if (chosen.needsPhone && !phone.trim()) throw new Error('Indiquez le numéro associé à votre wallet.');
         await api.prototype.topup(
-          Math.round(Number(amount.replace(',', '.')) * 100),
+          Math.round(num * 100),
           chosen.id,
           key(),
           chosen.needsPhone ? phone.trim() : undefined,
         );
+        toast(`Demande de recharge de ${num} MAD initiée`, 'success');
+        setTopupSheetOpen(false);
       }
       await qc.invalidateQueries({ queryKey });
     } catch (e) {
@@ -270,120 +297,442 @@ export function PassengerWalletScreen({
       setBusy(false);
     }
   };
+
+  const sectionTitle = { fontSize: 18, lineHeight: 24, letterSpacing: -0.3 } as const;
+  const onPlum = 'rgba(255,255,255,0.92)';
+  const chevron = isDark ? colors.muted : '#A8A0A6';
+  const roundButton = headerButtonStyle();
+
+  const walletHeader = (
+    <View style={{ paddingTop: insets.top + 8, paddingHorizontal: gutter, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      {onBack ? (
+        <PressableScale onPress={() => { haptic.select(); onBack(); }} accessibilityRole="button" accessibilityLabel="Retour" testID="header-back" style={roundButton}>
+          <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+        </PressableScale>
+      ) : null}
+      <Text weight="bold" accessibilityRole="header" numberOfLines={1} style={{ flex: 1, fontSize: 32, lineHeight: 40, letterSpacing: -0.9 }}>
+        Portefeuille
+      </Text>
+      <PressableScale onPress={() => { haptic.tap(); toast('Aucune nouvelle notification'); }} accessibilityRole="button" accessibilityLabel="Notifications" style={[roundButton, { marginLeft: 0, marginRight: -10 }]}>
+        <Bell size={20} color={colors.ink} strokeWidth={1.9} />
+      </PressableScale>
+    </View>
+  );
+
   return (
     <Screen
       keyboard
-      header={<Header title="Portefeuille Naya" onBack={onBack} />}
+      testID="passenger-wallet"
+      header={walletHeader}
+      contentStyle={bottomSpace ? { paddingBottom: bottomSpace + 16 } : undefined}
     >
-      <View style={{ gap: 16 }}>
-        <StatusBanner
-          tone="info"
-          title="Paiements de démonstration"
-          message="Aucun argent réel n’est débité. Confirmez ou refusez une recharge pour tester son résultat."
-        />
+      <View style={{ gap: 28 }}>
         {wallet.isError ? (
           <ErrorState onRetry={() => wallet.refetch()} />
         ) : null}
-        <View style={{ ...panel, backgroundColor: colors.selected }}>
-          <Text variant="caption" tone="accent">
-            Solde disponible
-          </Text>
-          <Text variant="display">
-            {formatMoney(
-              (wallet.data?.balance ?? 0) - (wallet.data?.reserved ?? 0),
-            )}
-          </Text>
-          <Text variant="caption" tone="muted">
-            {formatMoney(wallet.data?.reserved ?? 0)} réservés pour vos courses
-          </Text>
-        </View>
-        <Section title="Recharger">
-          <View style={{ gap: 12 }}>
-            <FormField
-              label="Montant (MAD)"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
+
+        {/* ── Plum balance card ── */}
+        <View style={{ borderRadius: 26, backgroundColor: '#5A2A47', shadowColor: '#3F1B34', shadowOpacity: isDark ? 0 : 0.22, shadowRadius: 22, shadowOffset: { width: 0, height: 12 }, elevation: 8 }}>
+          <View style={{ borderRadius: 26, overflow: 'hidden', paddingHorizontal: 22, paddingTop: 22, paddingBottom: 22 }}>
+            <LinearGradient
+              colors={isDark ? ['#2E1426', '#552A47'] : ['#47203A', '#7C3F5F']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
+            <PressableScale
+              onPress={() => { haptic.select(); setBalanceVisible((v) => !v); }}
+              accessibilityRole="button"
+              accessibilityLabel={balanceVisible ? 'Masquer le solde' : 'Afficher le solde'}
+              hitSlop={8}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' }}
+            >
+              <Text weight="medium" style={{ fontSize: 15, lineHeight: 20, color: onPlum }}>Solde Naya</Text>
+              {balanceVisible ? <Eye size={17} color={onPlum} strokeWidth={1.9} /> : <EyeOff size={17} color={onPlum} strokeWidth={1.9} />}
+            </PressableScale>
+
+            <Text
+              testID="wallet-balance-row"
+              weight="bold"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{ marginTop: 8, fontSize: 40, lineHeight: 48, letterSpacing: -1.2, color: '#FFFFFF' }}
+            >
+              {balanceVisible ? `${(availableBalance / 100).toFixed(2).replace('.', ',')} MAD` : '•••••• MAD'}
+            </Text>
+
+            <PressableScale
+              onPress={() => { haptic.tap(); setTopupSheetOpen(true); }}
+              testID="wallet-open-topup"
+              accessibilityRole="button"
+              accessibilityLabel="Ajouter de l'argent"
+              style={{ marginTop: 16, height: 36, paddingLeft: 16, paddingRight: 20, borderRadius: radius.pill, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' }}
+            >
+              <Plus size={17} color="#5A2A47" strokeWidth={2.3} />
+              <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20, color: '#5A2A47' }}>Ajouter de l'argent</Text>
+            </PressableScale>
+
+            <View style={{ marginTop: 11, height: 26, paddingHorizontal: 11, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.14)', flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start' }}>
+              <Lock size={12} color={onPlum} strokeWidth={2.1} />
+              <Text weight="medium" style={{ fontSize: 12.5, lineHeight: 16, color: onPlum }}>Paiements 100% sécurisés</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Payment methods (same data as the Moyens de paiement screen) ── */}
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 2 }}>
+            <Text weight="semibold" accessibilityRole="header" style={sectionTitle}>Moyens de paiement</Text>
+            {onManagePayments ? (
+              <PressableScale onPress={() => { haptic.select(); onManagePayments(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Gérer les moyens de paiement" testID="wallet-manage-payments">
+                <Text weight="semibold" tone="accent" style={{ fontSize: 15, lineHeight: 20 }}>Gérer</Text>
+              </PressableScale>
+            ) : null}
+          </View>
+
+          <View style={{ gap: 12 }}>
+            {(methods.data ?? []).map((m) => {
+              const brand = m.kind === 'card' ? (/visa/i.test(m.label) ? 'VISA' : /master/i.test(m.label) ? 'MC' : null) : null;
+              const icon =
+                m.kind === 'cash' ? <Banknote size={22} color={isDark ? colors.success : '#4F7D62'} strokeWidth={1.8} />
+                : m.kind === 'card' ? (brand ? <Text weight="bold" style={{ fontSize: brand === 'VISA' ? 15 : 16, lineHeight: 20, letterSpacing: 0.2, color: isDark ? colors.info : '#1F3B7A' }}>{brand}</Text> : <CreditCard size={21} color={isDark ? colors.info : '#1F3B7A'} strokeWidth={1.8} />)
+                : <Wallet size={21} color={colors.accent} strokeWidth={1.8} />;
+              const tile = m.kind === 'cash' ? (isDark ? colors.successSoft : '#E7F0EA') : m.kind === 'card' ? (isDark ? colors.infoSoft : '#EAF0FB') : isDark ? colors.mauveSoft : '#F3E7ED';
+              const subtitle = !m.availableInCity ? 'Indisponible dans votre ville' : m.kind === 'card' ? `Expire ${String(m.expMonth).padStart(2, '0')}/${String(m.expYear).slice(-2)}` : m.kind === 'cash' ? 'Payer à la fin du trajet' : m.kind === 'wallet' ? 'Débité de votre solde Naya' : 'Payez depuis votre wallet';
+              return (
+                <PaymentMethodRow
+                  key={m.id}
+                  icon={icon}
+                  tile={tile}
+                  title={m.kind === 'card' && m.last4 ? <MaskedCardNumber last4={m.last4} /> : m.label}
+                  accessibilityTitle={m.kind === 'card' ? `Carte bancaire ${m.last4}` : m.label}
+                  subtitle={subtitle}
+                  badge={m.isDefault ? <Text weight="semibold" style={{ fontSize: 13, lineHeight: 18, color: isDark ? colors.warning : '#8A6421' }}>Préféré</Text> : undefined}
+                  chevron={chevron}
+                  onPress={() => { haptic.select(); onManagePayments?.(); }}
+                />
+              );
+            })}
+            {methods.isError ? <ErrorState onRetry={() => methods.refetch()} /> : null}
+          </View>
+        </View>
+
+        {/* ── Transactions Section ── */}
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 2 }}>
+            <Text weight="semibold" accessibilityRole="header" style={sectionTitle}>Transactions récentes</Text>
+            {wallet.data?.entries && wallet.data.entries.length > 0 ? (
+              <Text weight="semibold" tone="accent" style={{ fontSize: 15, lineHeight: 20 }}>Voir tout</Text>
+            ) : null}
+          </View>
+
+          {wallet.data?.entries && wallet.data.entries.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {wallet.data.entries
+                .slice()
+                .reverse()
+                .map((e) => {
+                  const isPositive = e.amount > 0;
+                  return (
+                    <Card key={`${e.id}-${e.status}`} style={{ paddingVertical: 12, paddingLeft: 14, paddingRight: 16, borderRadius: 20, gap: 12, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 48 }}>
+                        <View style={{ width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: isPositive ? (isDark ? colors.successSoft : '#E7F0EA') : (isDark ? colors.mauveSoft : '#F3E7ED') }}>
+                          {isPositive ? (
+                            <ArrowDownLeft size={20} color={isDark ? colors.success : '#4F7D62'} strokeWidth={2} />
+                          ) : (
+                            <ArrowUpRight size={20} color={colors.accent} strokeWidth={2} />
+                          )}
+                        </View>
+                        <View style={{ flex: 1, gap: 1 }}>
+                          <Text weight="semibold" numberOfLines={1} style={{ fontSize: 16, lineHeight: 22 }}>
+                            {e.label}
+                          </Text>
+                          <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>
+                            {formatShort(e.at)} ·{' '}
+                            <Text
+                              weight="medium"
+                              tone={e.status === 'confirmed' ? 'success' : e.status === 'pending' ? 'warning' : 'danger'}
+                              style={{ fontSize: 13, lineHeight: 18 }}
+                            >
+                              {e.status === 'confirmed'
+                                ? 'Confirmée'
+                                : e.status === 'pending'
+                                  ? 'En attente'
+                                  : 'Refusée / libérée'}
+                            </Text>
+                          </Text>
+                        </View>
+                        <Text
+                          weight="semibold"
+                          numeric
+                          style={{ fontSize: 16, lineHeight: 22, color: isPositive ? (isDark ? colors.success : '#3F7A57') : colors.ink }}
+                        >
+                          {isPositive ? '+' : ''}{formatMoney(e.amount)}
+                        </Text>
+                      </View>
+
+                      {e.amount > 0 ? <PaymentInstructionsCard op={e} /> : null}
+
+                      {e.status === 'failed' && e.failureReason ? (
+                        <Text variant="caption" tone="danger">{e.failureReason}</Text>
+                      ) : null}
+
+                      {e.amount > 0 && e.status === 'pending' ? (
+                        <View style={{ gap: 8, backgroundColor: colors.background, padding: 12, borderRadius: 14 }}>
+                          <Text variant="micro" tone="muted">{sandboxLabel(e.flow)} :</Text>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <Button
+                              label="Simuler la confirmation"
+                              loading={busy}
+                              onPress={() => run(e.id, 'confirmed')}
+                              style={{ flex: 1 }}
+                            />
+                            <Button
+                              label="Simuler le refus"
+                              variant="secondary"
+                              loading={busy}
+                              onPress={() => run(e.id, 'failed')}
+                              style={{ flex: 1 }}
+                            />
+                          </View>
+                        </View>
+                      ) : null}
+                    </Card>
+                  );
+                })}
+            </View>
+          ) : (
+            <Card style={{ alignItems: 'center', paddingVertical: 32, gap: 10, borderRadius: 20 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+                <Wallet size={28} color={colors.accent} />
+              </View>
+              <Text variant="label" weight="semibold">
+                Aucune transaction récente
+              </Text>
+              <Text variant="caption" tone="muted" align="center" style={{ maxWidth: 260 }}>
+                Vos recharges et paiements de courses apparaîtront ici dès vos premières opérations.
+              </Text>
+            </Card>
+          )}
+        </View>
+      </View>
+
+      {/* ── Recharge Modal Bottom Sheet (Clean BottomSheet matching design) ── */}
+      <Sheet
+        visible={topupSheetOpen}
+        onClose={() => setTopupSheetOpen(false)}
+        title="Recharger"
+        subtitle="Créditer votre compte portefeuille"
+        testID="topup-sheet"
+        scrollable
+        footer={
+          <Button
+            label={chosen && Number(amount.replace(',', '.')) > 0 ? `Recharger ${amount} MAD` : 'Recharger'}
+            loading={busy}
+            disabled={!chosen || !amount || Number(amount.replace(',', '.')) <= 0}
+            onPress={() => run()}
+            testID="wallet-topup"
+          />
+        }
+      >
+        <View style={{ gap: 18, paddingBottom: 16 }}>
+          {/* Amount input card with Moroccan MAD indicator */}
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: radius.card,
+              borderWidth: 1.5,
+              borderColor: colors.line,
+              padding: 16,
+              gap: 12,
+              ...shadow.card,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 14, borderRightWidth: 1, borderRightColor: colors.line }}>
+                <Text style={{ fontSize: 24 }}>🇲🇦</Text>
+                <Text variant="heading" weight="semibold" tone="accent">MAD</Text>
+              </View>
+              <TextInput
+                value={amount}
+                onChangeText={(val) => setAmount(val.replace(/[^0-9.,]/g, ''))}
+                keyboardType="decimal-pad"
+                style={{
+                  flex: 1,
+                  fontSize: 30,
+                  fontFamily: 'Inter_700Bold',
+                  color: colors.ink,
+                  textAlign: 'right',
+                  paddingVertical: 2,
+                  paddingHorizontal: 8,
+                }}
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                testID="topup-amount-input"
+              />
+            </View>
+
+            <View style={{ height: 1, backgroundColor: colors.line, opacity: 0.6 }} />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text variant="caption" tone="muted">
+                Solde actuel : {formatMoney(availableBalance)}
+              </Text>
+              {Number(amount.replace(',', '.')) > 0 ? (
+                <Text variant="caption" tone="accent" weight="semibold">
+                  + {formatMoney(parsedAmount)}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Quick preset amount chips */}
+          <View style={{ gap: 8 }}>
+            <Text variant="caption" tone="muted" weight="medium">Montants rapides</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {['50', '100', '200', '500'].map((preset) => {
+                const isSelected = amount === preset;
+                return (
+                  <PressableScale
+                    key={preset}
+                    onPress={() => {
+                      haptic.select();
+                      setAmount(preset);
+                    }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      borderRadius: radius.pill,
+                      borderWidth: 1.5,
+                      borderColor: isSelected ? colors.accent : colors.line,
+                      backgroundColor: isSelected ? colors.selected : colors.surface,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text
+                      variant="caption"
+                      weight={isSelected ? 'bold' : 'medium'}
+                      style={{ color: isSelected ? colors.accent : colors.ink }}
+                    >
+                      {preset} MAD
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Payment providers selection list */}
+          <View style={{ gap: 10 }}>
+            <Text variant="label" weight="semibold">Moyen de recharge</Text>
             {providers.data && !providers.data.length ? (
               <StatusBanner compact tone="warning" title="Aucun moyen de recharge" message="aucun prestataire n’est activé dans votre ville" />
             ) : null}
-            <View accessibilityRole="radiogroup" accessibilityLabel="Moyen de recharge">
-              <ListGroup>
-                {(providers.data ?? []).map((p) => (
-                  <ListRow
+            <View accessibilityRole="radiogroup" accessibilityLabel="Moyen de recharge" style={{ gap: 8 }}>
+              {(providers.data ?? []).map((p) => {
+                const isChosen = chosen?.id === p.id;
+                return (
+                  <PressableScale
                     key={p.id}
                     testID={`topup-provider-${p.kind}`}
-                    title={p.name}
-                    subtitle={providerSubtitle(p)}
-                    leading={<ProviderIcon kind={p.kind} />}
-                    trailing={chosen?.id === p.id ? <Text tone="accent" weight="semibold">✓</Text> : undefined}
-                    onPress={() => setProviderId(p.id)}
-                  />
-                ))}
-              </ListGroup>
-            </View>
-            {chosen?.needsPhone ? (
-              <FormField
-                label="Numéro associé à votre wallet"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                placeholder="06 12 34 56 78"
-                testID="topup-phone"
-              />
-            ) : null}
-            <Button
-              label={chosen ? `Recharger via ${chosen.name}` : 'Recharger'}
-              loading={busy}
-              onPress={() => run()}
-              testID="wallet-topup"
-            />
-          </View>
-        </Section>
-        <Section title="Opérations">
-          <View style={{ gap: 12 }}>
-            {wallet.data?.entries
-              .slice()
-              .reverse()
-              .map((e) => (
-                <View key={`${e.id}-${e.status}`} style={panel}>
-                  <Text variant="label">{e.label}</Text>
-                  <Text variant="caption" tone="muted">
-                    {formatShort(e.at)} ·{' '}
-                    {e.status === 'confirmed'
-                      ? 'Confirmée'
-                      : e.status === 'pending'
-                        ? 'En attente'
-                        : 'Refusée / libérée'}
-                  </Text>
-                  <Text variant="title">{formatMoney(e.amount)}</Text>
-                  {e.amount > 0 ? <PaymentInstructionsCard op={e} /> : null}
-                  {e.status === 'failed' && e.failureReason ? (
-                    <Text variant="caption" tone="danger">{e.failureReason}</Text>
-                  ) : null}
-                  {e.amount > 0 && e.status === 'pending' ? (
-                    <View style={{ gap: 8 }}>
-                      <Text variant="micro" tone="muted">{sandboxLabel(e.flow)} :</Text>
-                      <Button
-                        label="Simuler la confirmation"
-                        loading={busy}
-                        onPress={() => run(e.id, 'confirmed')}
-                      />
-                      <Button
-                        label="Simuler le refus"
-                        variant="secondary"
-                        loading={busy}
-                        onPress={() => run(e.id, 'failed')}
-                      />
+                    onPress={() => {
+                      haptic.select();
+                      setProviderId(p.id);
+                    }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isChosen }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 14,
+                      borderRadius: radius.card,
+                      borderWidth: 1.5,
+                      borderColor: isChosen ? colors.accent : colors.line,
+                      backgroundColor: isChosen ? colors.selected : colors.surface,
+                    }}
+                  >
+                    <ProviderIcon kind={p.kind} size={40} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text variant="label" weight="semibold">
+                        {p.name}
+                      </Text>
+                      <Text variant="caption" tone="muted" numberOfLines={2}>
+                        {providerSubtitle(p)}
+                      </Text>
                     </View>
-                  ) : null}
-                </View>
-              ))}
+                    <View
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: isChosen ? 0 : 2,
+                        borderColor: colors.line,
+                        backgroundColor: isChosen ? colors.accent : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isChosen ? <Check size={14} color="#FFFFFF" strokeWidth={3} /> : null}
+                    </View>
+                  </PressableScale>
+                );
+              })}
+            </View>
           </View>
-        </Section>
-      </View>
+
+          {/* Phone field if required */}
+          {chosen?.needsPhone ? (
+            <FormField
+              label="Numéro associé à votre wallet"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder="06 12 34 56 78"
+              testID="topup-phone"
+            />
+          ) : null}
+        </View>
+      </Sheet>
     </Screen>
+  );
+}
+
+/** One saved payment method on the wallet screen: tinted tile, two lines, optional badge, chevron. */
+function PaymentMethodRow({ icon, tile, title, accessibilityTitle, subtitle, badge, chevron, onPress }: { icon: ReactNode; tile: string; title: ReactNode; accessibilityTitle?: string; subtitle: string; badge?: ReactNode; chevron: string; onPress: () => void }) {
+  useTheme();
+  const label = [accessibilityTitle ?? (typeof title === 'string' ? title : ''), subtitle].filter(Boolean).join(', ');
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ minHeight: 72, paddingVertical: 12, paddingLeft: 14, paddingRight: 16, borderRadius: 20, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}
+    >
+      <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: tile, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
+      <View style={{ flex: 1, gap: 1 }}>
+        {typeof title === 'string' ? <Text weight="semibold" numberOfLines={1} style={{ fontSize: 16, lineHeight: 22 }}>{title}</Text> : title}
+        <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{subtitle}</Text>
+      </View>
+      {badge}
+      <ChevronRight size={18} color={chevron} strokeWidth={2} style={{ marginLeft: badge ? 6 : 0 }} />
+    </PressableScale>
+  );
+}
+
+/** "●●●● ●●●● ●●●● 4242" with real round dots, so the mask reads the same on every font. */
+function MaskedCardNumber({ last4 }: { last4: string }) {
+  useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', height: 22, gap: 7 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {[0, 1, 2].map((g) => (
+        <View key={g} style={{ flexDirection: 'row', gap: 2.5 }}>
+          {[0, 1, 2, 3].map((d) => <View key={d} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.ink }} />)}
+        </View>
+      ))}
+      <Text weight="semibold" numeric style={{ fontSize: 16, lineHeight: 22, letterSpacing: 0.3 }}>{last4}</Text>
+    </View>
   );
 }
 

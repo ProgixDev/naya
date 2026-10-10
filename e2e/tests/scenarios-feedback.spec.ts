@@ -87,6 +87,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       d.getByRole('button', { name: 'Je pars chercher l’enfant', exact: true }),
     ).toBeVisible();
     await p.goto(URLS.passenger + '/wallet');
+    await p.getByTestId('wallet-open-topup').click();
     await p.getByTestId('wallet-topup').click();
     await p
       .getByRole('button', { name: 'Simuler la confirmation', exact: true })

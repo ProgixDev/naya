@@ -4,13 +4,13 @@ import { View, useWindowDimensions, type LayoutChangeEvent } from 'react-native'
 import type { Tabs } from 'expo-router';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Route, UserRound } from 'lucide-react-native';
+import { Home, Route, UserRound, Wallet } from 'lucide-react-native';
 import { colors, gutter, shadow } from '@naya/tokens';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-const ICONS: Record<string, typeof Home> = { index: Home, trips: Route, account: UserRound };
-const LABELS: Record<string, string> = { index: 'Accueil', trips: 'Trajets', account: 'Compte' };
+const ICONS: Record<string, typeof Home> = { index: Home, trips: Route, wallet: Wallet, account: UserRound };
+const LABELS: Record<string, string> = { index: 'Accueil', trips: 'Trajets', wallet: 'Portefeuille', account: 'Compte' };
 
 /** Floating capsule with visible labels; the selected pill slides on the UI thread (no bounce). */
 export function CapsuleTabBar({ state, navigation }: TabBarProps) {
