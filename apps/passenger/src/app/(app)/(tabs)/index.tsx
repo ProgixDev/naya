@@ -85,7 +85,7 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="home">
-      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={300} testID="home-map" />
+      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={420} testID="home-map" />
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <GlassButton label={city?.name ?? 'Rabat'} icon={<MapPin size={18} color={colors.ink} />} onPress={() => setCityPicker(true)} testID="city-pill" accessibilityHint="Changer de ville" />
         <View style={{ flex: 1 }} />

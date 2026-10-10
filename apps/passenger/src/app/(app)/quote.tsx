@@ -3,7 +3,6 @@ import { useTheme ,
   ErrorState,
   FareBreakdown,
   IconButton,
-  Illustration,
   ListGroup,
   ListRow,
   Money,
@@ -23,7 +22,7 @@ import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Bike, Car, Check, ChevronRight, CreditCard, Gem, TrendingUp , ArrowLeft } from 'lucide-react-native';
+import { Banknote, Bike, Car, Check, ChevronRight, CreditCard, Gem, TrendingUp, Wallet, ChevronLeft } from 'lucide-react-native';
 import {
   casablancaLocalToUtc,
   formatDistance,
@@ -35,12 +34,15 @@ import {
 } from '@naya/domain';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi, useDeadline } from '@naya/api/react';
-import { cars, aspect } from '@naya/assets';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { draftStops, useDraft } from '@/lib/draft';
 import { useAccountId, usePaymentMethods } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
 import { SchedulePicker, firstDay } from '@/features/schedule/SchedulePicker';
+import { RouteSummary } from '@/components/RouteSummary';
+
+/** 17:45 in Casablanca time, shown as 17h45. */
+const clock = (ms: number) => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Casablanca' }).format(new Date(ms)).replace(':', 'h');
 
 export default function QuoteScreen() {
   useTheme();
@@ -145,54 +147,51 @@ export default function QuoteScreen() {
       <View style={{ height: '36%' }}>
         <NayaMap center={center} markers={markers} route={q?.route.polyline} fitTo={q?.route.polyline ?? stops.map((s) => s.location)} topInset={insets.top + 8} bottomInset={36} />
         <View style={{ position: 'absolute', top: insets.top + 8, left: gutter }}>
-          <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Modifier l’itinéraire" onPress={() => router.back()} testID="quote-back" />
+          <IconButton icon={<ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} />} accessibilityLabel="Modifier l’itinéraire" onPress={() => router.back()} testID="quote-back" />
         </View>
       </View>
       <View style={{ flex: 1, marginTop: -28, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float }}>
-        <ScrollView bounces={false} overScrollMode="never" contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 20, paddingBottom: 12, gap: 16 }} showsVerticalScrollIndicator={false}>
-          <Text variant="title" accessibilityRole="header">Votre trajet, tout simplement.</Text>
-          <PressableScale onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={`Itinéraire : ${stops.map((s) => s.label).join(', ')}. Modifier`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text variant="label" weight="semibold" numberOfLines={1} style={{ flex: 1 }}>
-              {stops.map((s) => s.label.replace(/^(Rabat|Casablanca) · /, '')).join(' → ')}
-            </Text>
-            <Text variant="caption" weight="semibold" tone="accent">Modifier</Text>
+        <ScrollView bounces={false} overScrollMode="never" contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 18, paddingBottom: 12, gap: 18 }} showsVerticalScrollIndicator={false}>
+          {/* ── Route ── */}
+          <PressableScale onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={`Itinéraire : ${stops.map((s) => s.label).join(', ')}. Modifier`} pressedScale={0.99} style={{ backgroundColor: colors.surface, borderRadius: 20, borderWidth: 1, borderColor: colors.line, paddingVertical: 14, paddingHorizontal: 14 }}>
+            <RouteSummary
+              stops={stops}
+              times={mode === 'now' && selected ? [`${clock(Date.now() + selected.etaMinutes * 60_000)}`, cq ? clock(Date.now() + selected.etaMinutes * 60_000 + cq.route.durationSeconds * 1000) : null] : undefined}
+              right={<Text weight="semibold" tone="accent" style={{ fontSize: 14, lineHeight: 18 }}>Modifier</Text>}
+            />
           </PressableScale>
 
           {quote.isError ? (
             <StatusBanner tone="danger" title={isApiError(quote.error) && quote.error.code === 'OUT_OF_ZONE' ? 'Hors zone desservie' : 'Prix indisponible'} message={errorMessage(quote.error)} action={{ label: 'Modifier l’itinéraire', onPress: () => router.back() }} testID="quote-error" />
           ) : null}
 
+          {/* ── When ── */}
+          <View style={{ gap: 10 }}>
+            <SegmentedControl options={[{ value: 'now', label: 'Maintenant' }, { value: 'schedule', label: 'Planifier' }]} value={mode} onChange={setMode} testID="mode" />
+            {mode === 'schedule' ? <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} /> : null}
+          </View>
+
+          {/* ── Vehicle ── */}
           <View style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Type de véhicule">
+            <Text weight="semibold" tone="muted" style={label12}>Véhicule</Text>
             {catalog.isLoading ? <Skeleton width="100%" height={64} /> : null}
             {catalog.data && !available.length ? <StatusBanner tone="warning" title="Aucun service disponible" message="Aucun type de véhicule n’est proposé dans cette ville pour le moment." /> : null}
             {available.map((c) => {
               const on = categoryId === c.id;
               const price = q?.options?.find((o) => o.id === c.id)?.total;
               return (
-                <PressableScale key={c.id} onPress={() => { setPicked(c.id); haptic.select(); }} testID={`service-${c.id}`} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${c.name}, arrivée ${c.etaMinutes} min${price != null ? `, ${formatMoney(price)}` : ''}`} pressedScale={0.98} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, borderWidth: on ? 2 : 1, borderColor: on ? colors.accent : colors.line, backgroundColor: on ? colors.selected : colors.surface }}>
-                  <ServiceIcon icon={c.icon} />
+                <PressableScale key={c.id} onPress={() => { setPicked(c.id); haptic.select(); }} testID={`service-${c.id}`} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${c.name}, arrivée ${c.etaMinutes} min${price != null ? `, ${formatMoney(price)}` : ''}`} pressedScale={0.98} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1.5, borderColor: on ? colors.accent : colors.line, backgroundColor: on ? colors.selected : colors.surface }}>
+                  <ServiceIcon icon={c.icon} on={on} />
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text variant="label" weight="semibold" numberOfLines={1}>{c.name}</Text>
-                    <Text variant="micro" tone="muted" numberOfLines={1}>{c.etaMinutes} min · {c.description}</Text>
+                    <Text weight="semibold" numberOfLines={1} style={{ fontSize: 16, lineHeight: 21 }}>{c.name}</Text>
+                    <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{c.etaMinutes} min · {c.description}</Text>
                   </View>
-                  {price != null ? <Money amount={price} variant="label" /> : <Skeleton width={56} height={18} />}
+                  {price != null ? <Text weight="semibold" numeric style={{ fontSize: 16, lineHeight: 21 }}>{formatMoney(price)}</Text> : <Skeleton width={56} height={18} />}
                 </PressableScale>
               );
             })}
+            {selected?.conditions?.length ? <Text tone="muted" style={{ fontSize: 12, lineHeight: 16, marginHorizontal: 4 }} testID="service-conditions">{serviceName} · {selected.conditions.join(' · ')}</Text> : null}
           </View>
-          {selected ? (
-            <PressableScale onPress={() => current && setShowFare(true)} accessibilityRole="button" accessibilityLabel={cq ? `${serviceName}, ${formatMoney(total)}, arrivée estimée ${selected.etaMinutes} min, ${formatDistance(cq.route.distanceMeters)}, ${formatDuration(cq.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: colors.mauveSoft, borderRadius: 24, paddingVertical: 18, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line }} testID="fare-card" pressedScale={0.98}>
-              {selected.icon === 'scooter' ? <ServiceIcon icon="scooter" size={72} /> : <Illustration source={selected.icon === 'premium' ? cars.plumSmall : cars.pearlSmall} aspect={aspect.carSmall} width={112} />}
-              <View style={{ flex: 1, gap: 5 }}>
-                <Text variant="label" weight="semibold">{serviceName}</Text>
-                <Text variant="caption" tone="accent">Arrivée estimée · {selected.etaMinutes} min (démo)</Text>
-                {current ? <Money amount={total} variant="title" style={{ fontSize: 28, lineHeight: 34 }} /> : <Skeleton width={100} height={32} />}
-                <Text variant="caption" tone="muted" numeric>{cq ? `${formatDistance(cq.route.distanceMeters)} · ${formatDuration(cq.route.durationSeconds)}` : 'Calcul du prix…'}</Text>
-                {selected.conditions?.length ? <Text variant="micro" tone="muted" testID="service-conditions">{selected.conditions.join(' · ')}</Text> : null}
-                <Text variant="micro" tone="accent">Voir le détail du prix ›</Text>
-              </View>
-            </PressableScale>
-          ) : null}
 
           {q?.conditions.dynamic ? (
             <StatusBanner
@@ -205,25 +204,28 @@ export default function QuoteScreen() {
             />
           ) : null}
 
-          <SegmentedControl
-            options={[
-              { value: 'now', label: 'Maintenant' },
-              { value: 'schedule', label: 'Planifier' },
-            ]}
-            value={mode}
-            onChange={setMode}
-            testID="mode"
-          />
-          {mode === 'schedule' ? <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} /> : null}
-
-          <PressableScale onPress={() => setShowPay(true)} accessibilityRole="button" accessibilityLabel={`Paiement : ${pm?.label ?? 'à choisir'}. Changer`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 52, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.background }} testID="payment-row" pressedScale={0.98}>
-            {pm?.kind === 'card' ? <CreditCard size={20} color={colors.ink} /> : <Banknote size={20} color={colors.ink} />}
-            <View style={{ flex: 1 }}>
-              <Text variant="label" weight="semibold" numberOfLines={1}>{pm?.label ?? 'Moyen de paiement'}</Text>
-              <Text variant="micro" tone="muted" numberOfLines={1}>{pm ? (pm.kind === 'cash' ? 'À régler à la fin du trajet' : 'Débitée à l’arrivée') : 'À choisir'}</Text>
-            </View>
-            <ChevronRight size={18} color={colors.muted} />
-          </PressableScale>
+          {/* ── Payment + fare ── */}
+          <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
+            <PressableScale onPress={() => setShowPay(true)} accessibilityRole="button" accessibilityLabel={`Paiement : ${pm?.label ?? 'à choisir'}. Changer`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14 }} testID="payment-row" pressedScale={0.99}>
+              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: pm?.kind === 'cash' ? colors.successSoft : pm?.kind === 'card' ? colors.infoSoft : colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}>
+                {pm?.kind === 'card' ? <CreditCard size={18} color={colors.info} /> : pm?.kind === 'cash' ? <Banknote size={18} color={colors.success} /> : <Wallet size={18} color={colors.accent} />}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{pm?.label ?? 'Moyen de paiement'}</Text>
+                <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{pm ? (pm.kind === 'cash' ? 'À régler à la fin du trajet' : 'Débité à l’arrivée') : 'À choisir'}</Text>
+              </View>
+              <Text weight="semibold" tone="accent" style={{ fontSize: 14, lineHeight: 18 }}>Changer</Text>
+            </PressableScale>
+            <View style={{ height: 1, backgroundColor: colors.line }} />
+            <PressableScale onPress={() => current && setShowFare(true)} accessibilityRole="button" accessibilityLabel={cq ? `${serviceName}, ${formatMoney(total)}, ${formatDistance(cq.route.distanceMeters)}, ${formatDuration(cq.route.durationSeconds)}. Voir le détail du prix` : 'Calcul du prix'} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14 }} testID="fare-card" pressedScale={0.99}>
+              <View style={{ flex: 1 }}>
+                <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Détail du prix</Text>
+                <Text tone="muted" numeric style={{ fontSize: 13, lineHeight: 18 }}>{cq ? `${formatDistance(cq.route.distanceMeters)} · ${formatDuration(cq.route.durationSeconds)} · prix garanti` : 'Calcul du prix…'}</Text>
+              </View>
+              {current ? <Money amount={total} variant="label" /> : <Skeleton width={64} height={18} />}
+              <ChevronRight size={18} color={colors.muted} />
+            </PressableScale>
+          </View>
         </ScrollView>
         <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + 10, paddingTop: 6, gap: 6 }}>
           <Button label={confirmLabel} size="major" full loading={book.isPending} loadingLabel={mode === 'schedule' ? 'Enregistrement…' : 'Envoi de la demande…'} disabled={!current || !pm || (mode === 'schedule' && !time)} disabledReason={!pm ? 'Choisissez un moyen de paiement.' : undefined} onPress={() => book.run()} testID="confirm-booking" />
@@ -258,11 +260,13 @@ export default function QuoteScreen() {
   );
 }
 
-function ServiceIcon({ icon, size = 40 }: { icon: ServiceCategory['icon']; size?: number }) {
+const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginLeft: 4, marginBottom: 2 };
+
+function ServiceIcon({ icon, size = 44, on }: { icon: ServiceCategory['icon']; size?: number; on?: boolean }) {
   useTheme();
   const Icon = icon === 'scooter' ? Bike : icon === 'premium' ? Gem : Car;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+    <View style={{ width: size, height: size, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.surface : colors.mauveSoft }}>
       <Icon size={Math.round(size * 0.5)} color={colors.accent} />
     </View>
   );
