@@ -28,6 +28,8 @@ import {
   otpVerifySchema,
   PLACES,
   profileUpdateSchema,
+  phoneChangeRequestSchema,
+  phoneChangeVerifySchema,
   providerCallbackSchema,
   providerToggleSchema,
   quoteRequestSchema,
@@ -57,7 +59,7 @@ import type { Ctx } from './context';
 import type { State } from './state';
 import { mustFind, nextId } from './store';
 import { appendAudit, verifyAuditChain } from './audit';
-import { adminLogin, authenticate, logout, requestOtp, verifyOtp, type Principal } from './services/auth';
+import { adminLogin, authenticate, confirmPhoneChange, logout, requestOtp, requestPhoneChange, verifyOtp, type Principal } from './services/auth';
 import { createUpload, readUpload } from './services/uploads';
 import { casesForUser, decideCase, ensureVehicleCase, reopenCase, saveDetails, setItem, startReview, submitCase, REJECTION_REASONS, RECOVERABLE_REJECTIONS } from './services/verification';
 import {
@@ -270,10 +272,21 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
         if (input.firstName) u.firstName = input.firstName;
         if (input.lastName) u.lastName = input.lastName;
         if (input.cityId) u.cityId = input.cityId;
+        if (input.avatarUploadId === null) u.avatarUploadId = null;
+        else if (input.avatarUploadId) {
+          const up = s.uploads.find((x) => x.id === input.avatarUploadId);
+          if (!up || up.ownerId !== u.id || up.purpose !== 'avatar' || !up.mimeType.startsWith('image/')) throw new DomainError('VALIDATION', 'Photo de profil invalide.');
+          u.avatarUploadId = up.id;
+        }
         if (input.notifications) u.notifications = { ...u.notifications, ...input.notifications };
         return u;
       }),
     );
+  });
+  app.post('/me/phone/request', async (c) => c.json(requestPhoneChange(ctx, userOf(c), (await body(c, phoneChangeRequestSchema)).phone)));
+  app.post('/me/phone/verify', async (c) => {
+    const { phone, code } = await body(c, phoneChangeVerifySchema);
+    return c.json(confirmPhoneChange(ctx, userOf(c), phone, code));
   });
   app.post('/me/places', async (c) => {
     const user = userOf(c, 'passenger');

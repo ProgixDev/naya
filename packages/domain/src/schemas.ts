@@ -17,6 +17,8 @@ export const phoneSchema = z.string().regex(/^\+[1-9]\d{7,14}$/, 'Numéro invali
 
 export const otpRequestSchema = z.object({ phone: phoneSchema, role: z.enum(['passenger', 'driver']) });
 export const otpVerifySchema = otpRequestSchema.extend({ code: z.string().regex(/^\d{6}$/, 'Le code contient 6 chiffres') });
+export const phoneChangeRequestSchema = z.object({ phone: phoneSchema });
+export const phoneChangeVerifySchema = phoneChangeRequestSchema.extend({ code: z.string().regex(/^\d{6}$/, 'Le code contient 6 chiffres') });
 
 export const adminLoginSchema = z.object({
   email: z.email('Adresse e-mail invalide'),
@@ -27,6 +29,8 @@ export const profileUpdateSchema = z.object({
   firstName: z.string().trim().min(1, 'Prénom requis').max(60).optional(),
   lastName: z.string().trim().min(1, 'Nom requis').max(60).optional(),
   cityId: z.string().min(1).optional(),
+  /** An `avatar` upload id to set the profile photo, or null to remove it. */
+  avatarUploadId: z.string().min(1).nullable().optional(),
   notifications: z
     .object({
       rideUpdates: z.boolean(),
@@ -80,7 +84,7 @@ export const verificationItemKeySchema = z.enum([
 ]);
 
 export const uploadSchema = z.object({
-  purpose: z.union([verificationItemKeySchema, z.literal('support_attachment')]),
+  purpose: z.union([verificationItemKeySchema, z.literal('support_attachment'), z.literal('avatar')]),
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
   dataBase64: z.string().min(16).max(14_000_000),
   width: z.number().int().positive().nullable(),

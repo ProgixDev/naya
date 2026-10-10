@@ -41,6 +41,9 @@ export interface OtpChallenge {
   expiresAt: string;
   resendAvailableAt: string;
   attempts: number;
+  /** Absent for sign-in codes; `phone_change` codes confirm a signed-in user's new number. */
+  purpose?: 'phone_change';
+  userId?: string;
 }
 
 export interface Session {

@@ -48,6 +48,8 @@ export interface User {
   vehicleId: string | null;
   ratingAverage: number | null;
   ratingCount: number;
+  /** Profile photo (an `avatar` upload owned by this user); null or absent shows the initial. */
+  avatarUploadId?: string | null;
 }
 
 export type AdminPermission =
@@ -659,7 +661,7 @@ export interface AuditEvent {
 export interface Upload {
   id: UploadId;
   ownerId: UserId;
-  purpose: VerificationItemKey | 'support_attachment';
+  purpose: VerificationItemKey | 'support_attachment' | 'avatar';
   mimeType: string;
   width: number | null;
   height: number | null;

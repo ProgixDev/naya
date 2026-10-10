@@ -376,6 +376,10 @@ export function createApiClient(opts: ClientOptions) {
     me: {
       get: () => get<MeResponse>('/me'),
       update: (input: ProfileUpdate) => request<User>('PATCH', '/me', input),
+      /** Sends a code to the new number (it must not belong to another account). */
+      requestPhoneChange: (phone: string) => post<OtpRequestResponse>('/me/phone/request', { phone }),
+      /** Confirms the code and switches the account to the new number. */
+      confirmPhoneChange: (phone: string, code: string) => post<User>('/me/phone/verify', { phone, code }),
       addPlace: (input: SavedPlaceInput) => post<User>('/me/places', input),
       removePlace: (id: string) => request<User>('DELETE', `/me/places/${id}`),
     },
