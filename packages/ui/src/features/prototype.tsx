@@ -387,18 +387,21 @@ export function PassengerWalletScreen({
   );
 }
 
-/** Demo addresses in Rabat. `home` stands for the family home. */
-const HOME = { ...PLACES.hayRiad, label: 'Maison', address: PLACES.hayRiad.address };
-const DEMO_PLACES = [
-  HOME,
-  PLACES.agdal,
-  PLACES.souissi,
-  PLACES.ocean,
-  PLACES.centreVille,
-  PLACES.medina,
-];
-const schoolOf = (c?: FamilyChild) =>
-  c?.schoolPlace ? { ...c.schoolPlace, label: c.school } : { ...PLACES.agdal, label: c?.school || 'École' };
+/** Addresses offered for child trips: places of the parent's city from the API (any city added in the back-office). */
+type CityPlaces = { home: Place; list: Place[]; school: Place; activity: Place };
+function cityPlaces(found?: Place[]): CityPlaces {
+  const base = found?.length ? found : [PLACES.hayRiad, PLACES.agdal, PLACES.souissi, PLACES.ocean, PLACES.centreVille, PLACES.medina];
+  const homeSrc = base.find((p) => p.id === PLACES.hayRiad.id) ?? base[0]!;
+  const list = base.filter((p) => p !== homeSrc).slice(0, 6);
+  return {
+    home: { ...homeSrc, label: 'Maison' },
+    list,
+    school: list.find((p) => p.id === PLACES.agdal.id) ?? list[0] ?? homeSrc,
+    activity: list.find((p) => p.id === PLACES.souissi.id) ?? list[1] ?? list[0] ?? homeSrc,
+  };
+}
+const schoolOf = (c: FamilyChild | undefined, places: CityPlaces) =>
+  c?.schoolPlace ? { ...c.schoolPlace, label: c.school } : { ...places.school, label: c?.school || 'École' };
 const STEP_TIMES: [keyof NonNullable<FamilyTrip['times']>, string][] = [
   ['en_route', 'Départ de la chauffeuse'],
   ['arrived', 'Arrivée au point de récupération'],
@@ -412,10 +415,13 @@ export function FamilyScreen({
   role,
   onBack,
   onNotify,
+  cityId,
 }: {
   accountId: string;
   role: 'passenger' | 'driver';
   onBack: () => void;
+  /** Parent's city: child trip addresses come from it. */
+  cityId?: string;
   /** Called for each new trip notification, so the app can show a system notification. */
   onNotify?: (title: string) => void;
 }) {
@@ -432,6 +438,12 @@ export function FamilyScreen({
     queryKey: ['naya', accountId, 'catalog'],
     queryFn: api.prototype.catalog,
   });
+  const placesQ = useQuery({
+    queryKey: ['naya', accountId, 'family-places', cityId],
+    queryFn: () => api.places.search('', cityId!),
+    enabled: role === 'passenger' && !!cityId,
+  });
+  const places = cityPlaces(placesQ.data);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<FamilyChild | 'new' | null>(null);
   const [tripForm, setTripForm] = useState(false);
@@ -552,6 +564,7 @@ export function FamilyScreen({
             {editing ? (
               <ChildForm
                 accountId={accountId}
+                places={places}
                 initial={editing === 'new' ? null : editing}
                 busy={busy}
                 onCancel={() => setEditing(null)}
@@ -581,6 +594,7 @@ export function FamilyScreen({
             {tripForm && data?.children.length ? (
               <TripForm
                 children={data.children}
+                places={places}
                 busy={busy}
                 onSave={(input) =>
                   run(async () => {
@@ -619,12 +633,14 @@ type ChildInput = Omit<FamilyChild, 'id' | 'passengerId'>;
 
 function ChildForm({
   accountId,
+  places,
   initial,
   busy,
   onSave,
   onCancel,
 }: {
   accountId: string;
+  places: CityPlaces;
   initial: FamilyChild | null;
   busy: boolean;
   onSave: (input: ChildInput) => void;
@@ -637,7 +653,7 @@ function ChildForm({
   const [photo, setPhoto] = useState<string | null>(initial?.photo ?? null);
   const [school, setSchool] = useState(initial?.school ?? '');
   const [schoolPlace, setSchoolPlace] = useState<Place>(
-    initial?.schoolPlace ?? PLACES.agdal,
+    initial?.schoolPlace ?? places.school,
   );
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [recipients, setRecipients] = useState<AuthorizedRecipient[]>(
@@ -679,7 +695,7 @@ function ChildForm({
       <FormField label="École ou destination habituelle" value={school} onChangeText={setSchool} testID="child-school" />
       <Text variant="caption">Adresse (démo)</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {DEMO_PLACES.slice(1).map((p) => (
+        {places.list.map((p) => (
           <Pill key={p.id} label={p.label} selected={schoolPlace.id === p.id} onPress={() => setSchoolPlace(p)} />
         ))}
       </View>
@@ -749,10 +765,12 @@ function ChildForm({
 
 function TripForm({
   children,
+  places: cp,
   busy,
   onSave,
 }: {
   children: FamilyChild[];
+  places: CityPlaces;
   busy: boolean;
   onSave: (input: {
     childId: string;
@@ -767,21 +785,22 @@ function TripForm({
   const [childId, setChildId] = useState(children[0]!.id);
   const child = children.find((c) => c.id === childId);
   const [kind, setKind] = useState<FamilyTripKind>('home_school');
+  const HOME = cp.home;
   const [pickup, setPickup] = useState<Place>(HOME);
-  const [destination, setDestination] = useState<Place>(schoolOf(child));
+  const [destination, setDestination] = useState<Place>(schoolOf(child, cp));
   const [date, setDate] = useState(
     () => toCasablancaParts(new Date(Date.now() + 86400000).toISOString()).date,
   );
   const [pickupTime, setPickupTime] = useState('08:00');
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const places = [HOME, schoolOf(child), ...DEMO_PLACES.slice(1)].filter(
+  const places = [HOME, schoolOf(child, cp), ...cp.list].filter(
     (p, i, all) => all.findIndex((x) => x.label === p.label) === i,
   );
   const preset = (k: FamilyTripKind, c = child) => {
     setKind(k);
-    if (k === 'home_school') { setPickup(HOME); setDestination(schoolOf(c)); setPickupTime('08:00'); }
-    if (k === 'school_home') { setPickup(schoolOf(c)); setDestination(HOME); setPickupTime('16:30'); }
-    if (k === 'activity_home') { setPickup(PLACES.souissi); setDestination(HOME); setPickupTime('18:00'); }
+    if (k === 'home_school') { setPickup(HOME); setDestination(schoolOf(c, cp)); setPickupTime('08:00'); }
+    if (k === 'school_home') { setPickup(schoolOf(c, cp)); setDestination(HOME); setPickupTime('16:30'); }
+    if (k === 'activity_home') { setPickup(cp.activity); setDestination(HOME); setPickupTime('18:00'); }
   };
   const pick = (value: Place, onPick: (p: Place) => void) => (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

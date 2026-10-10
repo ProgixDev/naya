@@ -350,8 +350,14 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     const lat = Number(c.req.query('lat'));
     const lng = Number(c.req.query('lng'));
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new DomainError('VALIDATION');
-    const nearest = (Object.values(PLACES) as Place[]).map((p) => ({ p, d: haversineMeters(p.location, { lat, lng }) })).sort((a, b) => a.d - b.d)[0]!;
-    const place: Place = { id: null, label: nearest.d < 150 ? nearest.p.label : `Près de ${nearest.p.label}`, address: nearest.d < 150 ? nearest.p.address : `Point choisi sur la carte · ${Math.round(nearest.d)} m de ${nearest.p.label}`, location: { lat, lng } };
+    const at = { lat, lng };
+    const nearest = (Object.values(PLACES) as Place[]).map((p) => ({ p, d: haversineMeters(p.location, at) })).sort((a, b) => a.d - b.d)[0]!;
+    // Far from every demo landmark (a city added from the back-office): name the nearest configured city instead.
+    if (nearest.d > 5_000) {
+      const city = S().cities.map((x) => ({ x, d: haversineMeters(x.center, at) })).sort((a, b) => a.d - b.d)[0]?.x;
+      return c.json({ id: null, label: city ? `${city.name} · point sur la carte` : 'Point sur la carte', address: `Point choisi sur la carte${city ? ` · ${city.name}` : ''}`, location: at } satisfies Place);
+    }
+    const place: Place = { id: null, label: nearest.d < 150 ? nearest.p.label : `Près de ${nearest.p.label}`, address: nearest.d < 150 ? nearest.p.address : `Point choisi sur la carte · ${Math.round(nearest.d)} m de ${nearest.p.label}`, location: at };
     return c.json(place);
   });
 

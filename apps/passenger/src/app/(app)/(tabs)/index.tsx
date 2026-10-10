@@ -18,6 +18,9 @@ import { useForegroundLocation } from '@/features/location/useLocation';
 import { LocationExplainer } from '@/features/location/LocationExplainer';
 
 const CITY_DEFAULT_PICKUP: Record<string, Place> = { rabat: PLACES.centreVille, casablanca: PLACES.casaPort };
+/** Known demo landmark when there is one, otherwise the configured centre of the city (any city added from the back-office). */
+const defaultPickup = (city: { id: string; name: string; center: Place['location'] }): Place =>
+  CITY_DEFAULT_PICKUP[city.id] ?? { id: null, label: `${city.name} · Centre-ville`, address: `Centre-ville, ${city.name}`, location: city.center };
 
 export default function Home() {
   useTheme();
@@ -39,10 +42,10 @@ export default function Home() {
   const city = cities.data?.find((c) => c.id === cityId) ?? cities.data?.[0];
   const user = me.data?.user;
   const canBookHere = city && (city.status === 'active' || user?.testerCities.includes(city.id));
-  const pickup = draft.pickup ?? CITY_DEFAULT_PICKUP[city?.id ?? 'rabat'] ?? PLACES.centreVille;
+  const pickup = draft.pickup ?? (city ? defaultPickup(city) : PLACES.centreVille);
 
   useEffect(() => {
-    if (!draft.pickup && city) draft.setPickup(CITY_DEFAULT_PICKUP[city.id] ?? { id: null, label: city.name, address: city.name, location: city.center }, 'default');
+    if (!draft.pickup && city) draft.setPickup(defaultPickup(city), 'default');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city?.id]);
 
