@@ -3,7 +3,7 @@ import { useTheme } from './../core/theme';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Linking, Platform, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Banknote, Bell, Check, ChevronLeft, ChevronRight, CreditCard, Eye, EyeOff, Lock, Plus, Sparkles, Wallet } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Banknote, Bell, Check, ChevronLeft, ChevronRight, CreditCard, Eye, EyeOff, Lock, Plus, Sparkles, Wallet } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@naya/api/react';
@@ -308,7 +308,7 @@ export function PassengerWalletScreen({
     <View style={{ paddingTop: insets.top + 8, paddingHorizontal: gutter, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       {onBack ? (
         <PressableScale onPress={() => { haptic.select(); onBack(); }} accessibilityRole="button" accessibilityLabel="Retour" testID="header-back" style={roundButton}>
-          <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          <ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} />
         </PressableScale>
       ) : null}
       <Text weight="bold" accessibilityRole="header" numberOfLines={1} style={{ flex: 1, fontSize: 32, lineHeight: 40, letterSpacing: -0.9 }}>

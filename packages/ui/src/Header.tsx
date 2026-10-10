@@ -2,7 +2,7 @@ import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, ChevronLeft, X } from 'lucide-react-native';
+import { ChevronLeft, X } from 'lucide-react-native';
 import { colors, gutter } from '@naya/tokens';
 import { IconButton } from './Button';
 import { Text } from './Text';
@@ -75,7 +75,7 @@ export function Header({ title, large = true, subtitle, onBack, onClose, right, 
     <View style={{ paddingTop: insets.top + 6, paddingHorizontal: gutter, paddingBottom: large && title ? 18 : 8, position: overlay ? 'absolute' : 'relative', left: 0, right: 0, zIndex: 10 }}>
       {hasBar ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 12 }}>
-          {onBack ? <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Retour" onPress={onBack} testID="header-back" /> : null}
+          {onBack ? <IconButton icon={<ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} />} accessibilityLabel="Retour" onPress={onBack} testID="header-back" /> : null}
           {!large && title ? (
             <Text variant="action" weight="semibold" align="center" style={{ flex: 1 }} accessibilityRole="header" numberOfLines={1}>
               {title}

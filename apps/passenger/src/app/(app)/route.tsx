@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-n
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Briefcase, ChevronLeft, ChevronRight, Home as HomeIcon, MapPin, Plus, Search, Star, X } from 'lucide-react-native';
+import { Briefcase, ChevronLeft, ChevronRight, Home as HomeIcon, MapPin, Plus, Search, Star, X } from 'lucide-react-native';
 import { isInService, PLACES, type LatLng, type Place } from '@naya/domain';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';

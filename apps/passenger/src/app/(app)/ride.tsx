@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
-import { ArrowLeft, CheckCircle2, Clock, MapPinned, Phone, Signal } from 'lucide-react-native';
+import { CheckCircle2, Clock, MapPinned, Phone, Signal, ChevronLeft } from 'lucide-react-native';
 import { formatDuration, formatMoney, haversineMeters, RIDE_STATUS_LABELS, secondsBetween, type Ride } from '@naya/domain';
 import { errorMessage, newIdempotencyKey, qk, serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';
@@ -114,7 +114,7 @@ export default function RideScreen() {
       <View style={{ flex: 1, minHeight: '38%' }}>
         <NayaMap center={pickup.location} markers={markers} route={ride.status === 'in_progress' || ride.status === 'searching' || ride.status === 'no_driver' ? ride.route.polyline : undefined} fitTo={fit} topInset={insets.top + 8} bottomInset={36} interactive />
         <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Retour à l’accueil" onPress={() => router.navigate('/')} testID="ride-back" />
+          <IconButton icon={<ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} />} accessibilityLabel="Retour à l’accueil" onPress={() => router.navigate('/')} testID="ride-back" />
           <View style={{ flex: 1, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.96)', justifyContent: 'center', paddingHorizontal: 16, ...shadow.card }}>
             <Text variant="label" numberOfLines={1}>{RIDE_STATUS_LABELS[ride.status]}</Text>
           </View>
