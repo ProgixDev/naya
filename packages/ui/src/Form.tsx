@@ -173,7 +173,12 @@ export function PhoneField({ value, onChangeText, country, onCountryChange, erro
         label="Numéro de téléphone"
         testID="phone-input"
         value={formatNational(country, value)}
-        onChangeText={(t) => onChangeText(t.replace(/\D/g, ''))}
+        onChangeText={(t) => {
+          // Keep only what is shown: digits, the optional national 0, capped at the country's length.
+          const d = t.replace(/\D/g, '');
+          const max = Math.max(...country.lengths) + (d.startsWith('0') ? 1 : 0);
+          onChangeText(d.slice(0, max));
+        }}
         keyboardType="phone-pad"
         textContentType="telephoneNumber"
         autoComplete="tel"

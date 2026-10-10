@@ -1,5 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import { ChevronRight, Clock, FlaskConical, Lock } from 'lucide-react-native';
+import { colors } from '@naya/tokens';
+import { useTheme } from '../core/theme';
+import { PressableScale } from '../PressableScale';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { COUNTRIES, toE164, type MobileRole } from '@naya/domain';
 import { errorMessage, isApiError, serverClock } from '@naya/api';
@@ -54,7 +58,7 @@ export function PhoneSignInScreen({ role, title, subtitle, onCodeSent, onBack, p
   return (
     <Screen
       keyboard
-      header={<Header title={title} subtitle={subtitle} onBack={onBack} />}
+      header={<Header onBack={onBack} />}
       footer={
         <>
           <Button label="Recevoir le code" size="major" full loading={send.isPending} onPress={submit} testID="send-code" />
@@ -62,15 +66,39 @@ export function PhoneSignInScreen({ role, title, subtitle, onCodeSent, onBack, p
         </>
       }
     >
-      <View style={{ gap: 14, marginTop: 16 }}>
+      <View style={{ gap: 22, marginTop: onBack ? 0 : 12 }}>
+        <AuthIntro title={title} subtitle={subtitle} />
         <PhoneField value={digits} onChangeText={(v) => { setDigits(v); if (error) setError(null); }} country={country} onCountryChange={setCountry} error={error} onSubmitEditing={submit} autoFocus />
-        {STANDALONE_DEMO ? <View style={{ gap: 12 }}>
-          <Text variant="caption" tone="muted">Démo sur votre appareil. Aucun SMS n’est envoyé ; le code est prérempli.</Text>
-          <Button label="Utiliser un compte démo" variant="secondary" full loading={send.isPending} testID="demo-account" onPress={() => { setError(null); send.mutate(role === 'passenger' ? '+212612345678' : '+212661234567'); }} />
-        </View> : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 }}>
+          <Lock size={15} color={colors.success} strokeWidth={2.2} />
+          <Text tone="muted" style={{ flex: 1, fontSize: 13, lineHeight: 18 }}>Votre numéro n’est jamais montré à la chauffeuse : les appels passent par Naya.</Text>
+        </View>
+        {STANDALONE_DEMO ? (
+          <PressableScale testID="demo-account" disabled={send.isPending} onPress={() => { haptic.tap(); setError(null); send.mutate(role === 'passenger' ? '+212612345678' : '+212661234567'); }} accessibilityRole="button" accessibilityLabel="Utiliser un compte démo" pressedScale={0.985} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 20, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.mauve }}>
+            <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: colors.warningSoft, alignItems: 'center', justifyContent: 'center' }}><FlaskConical size={20} color={colors.warning} strokeWidth={1.9} /></View>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text weight="semibold" tone="accent" style={{ fontSize: 15, lineHeight: 20 }}>Utiliser un compte démo</Text>
+              <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>Sans SMS, code prérempli</Text>
+            </View>
+            {send.isPending ? <ActivityIndicator color={colors.accent} /> : <ChevronRight size={18} color={colors.muted} />}
+          </PressableScale>
+        ) : null}
         {providers}
       </View>
     </Screen>
+  );
+}
+
+/** Large left-aligned title and supporting line (sign-in steps). */
+function AuthIntro({ title, subtitle, action }: { title: string; subtitle: ReactNode; action?: ReactNode }) {
+  useTheme();
+  return (
+    <View style={{ gap: 14, marginTop: 8 }}>
+      <View style={{ gap: 6 }}>
+        <Text weight="bold" accessibilityRole="header" style={{ fontSize: 30, lineHeight: 36, letterSpacing: -0.8 }}>{title}</Text>
+        <Text tone="muted" style={{ fontSize: 16, lineHeight: 23 }}>{subtitle}{action}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -126,22 +154,26 @@ export function OtpScreen({ role, phone, demoCode, onVerified, onBack }: OtpProp
   const wait = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const masked = phone.replace(/^(\+\d{3})(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/, '$1 $2 $3 $4 $5 $6');
   return (
-    <Screen keyboard header={<Header title="Entrez le code" subtitle={`Envoyé par SMS au ${masked}`} onBack={onBack} />} footer={<Button label="Vérifier" size="major" full loading={verify.isPending} disabled={code.length !== 6} onPress={() => verify.mutate(code)} testID="verify-code" />}>
-      <View style={{ gap: 14, marginTop: 18 }}>
+    <Screen keyboard header={<Header onBack={onBack} />} footer={<Button label="Vérifier" size="major" full loading={verify.isPending} disabled={code.length !== 6} onPress={() => verify.mutate(code)} testID="verify-code" />}>
+      <View style={{ gap: 22 }}>
+        <AuthIntro
+          title="Entrez le code"
+          subtitle={<>Envoyé par SMS au <Text weight="semibold" numeric style={{ fontSize: 16, lineHeight: 23 }}>{masked}</Text>. </>}
+          action={<Text weight="semibold" tone="accent" onPress={onBack} accessibilityRole="link" style={{ fontSize: 16, lineHeight: 23 }}>Modifier</Text>}
+        />
         <OTPField value={code} onChange={(v) => { setCode(v); if (error) setError(null); }} error={error} onComplete={(c) => !verify.isPending && verify.mutate(c)} />
         {expired ? <StatusBanner compact tone="warning" title="Code expiré" message="demandez-en un nouveau (valable 5 min)" /> : null}
-        {wait > 0 ? (
-          <Text variant="caption" tone="muted" align="center" numeric accessibilityLiveRegion="polite">
-            Nouveau code possible dans {wait} s
-          </Text>
-        ) : (
-          <TextButton label={resend.isPending ? 'Envoi…' : 'Renvoyer le code'} onPress={() => resend.mutate()} testID="resend-code" />
-        )}
-        {Platform.OS === 'ios' ? (
-          <Text variant="micro" tone="muted" align="center">
-            Le code reçu par SMS est proposé automatiquement au-dessus du clavier.
-          </Text>
-        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          {wait > 0 ? (
+            <>
+              <Clock size={15} color={colors.muted} strokeWidth={2} />
+              <Text tone="muted" numeric accessibilityLiveRegion="polite" style={{ fontSize: 14, lineHeight: 19 }}>Nouveau code dans 0:{String(wait).padStart(2, '0')}</Text>
+            </>
+          ) : (
+            <TextButton label={resend.isPending ? 'Envoi…' : 'Renvoyer le code'} onPress={() => resend.mutate()} testID="resend-code" />
+          )}
+        </View>
+        {Platform.OS === 'ios' ? <Text tone="muted" align="center" style={{ fontSize: 12, lineHeight: 16 }}>Le code reçu par SMS est proposé automatiquement au-dessus du clavier.</Text> : null}
       </View>
     </Screen>
   );

@@ -75,7 +75,7 @@ export function Header({ title, large = true, subtitle, onBack, onClose, right, 
     <View style={{ paddingTop: insets.top + 6, paddingHorizontal: gutter, paddingBottom: large && title ? 18 : 8, position: overlay ? 'absolute' : 'relative', left: 0, right: 0, zIndex: 10 }}>
       {hasBar ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 12 }}>
-          {onBack ? <IconButton icon={<ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} />} accessibilityLabel="Retour" onPress={onBack} testID="header-back" /> : null}
+          {onBack ? <PressableScale onPress={() => { haptic.select(); onBack(); }} accessibilityRole="button" accessibilityLabel="Retour" testID="header-back" hitSlop={8} pressedScale={0.92} style={[headerButtonStyle(), { marginLeft: -10 }]}><ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} /></PressableScale> : null}
           {!large && title ? (
             <Text variant="action" weight="semibold" align="center" style={{ flex: 1 }} accessibilityRole="header" numberOfLines={1}>
               {title}
