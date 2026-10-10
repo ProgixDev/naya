@@ -301,9 +301,8 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
         {!debounced && saved.length ? (
           <View style={{ gap: 2 }}>
             <Text
-              style={{
+              style={{ fontFamily: 'Inter_700Bold',
                 fontSize: 12,
-                fontWeight: '700',
                 color: colors.muted,
                 letterSpacing: 1.1,
                 textTransform: 'uppercase',
@@ -363,7 +362,7 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
                         )}
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: colors.ink }}>
+                        <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
                           {s.label}
                         </Text>
                         <Text style={{ fontSize: 14, color: colors.muted, marginTop: 2 }} numberOfLines={1}>
@@ -386,9 +385,8 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
         {results.data && results.data.length ? (
           <View style={{ gap: 2 }}>
             <Text
-              style={{
+              style={{ fontFamily: 'Inter_700Bold',
                 fontSize: 12,
-                fontWeight: '700',
                 color: colors.muted,
                 letterSpacing: 1.1,
                 textTransform: 'uppercase',
@@ -440,7 +438,7 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
                       <MapPin size={22} color={isDark ? colors.ink : '#5C5550'} strokeWidth={1.8} />
                     </View>
                     <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: colors.ink }}>
+                      <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
                         {p.label}
                       </Text>
                       <Text style={{ fontSize: 14, color: colors.muted, marginTop: 2 }} numberOfLines={1}>

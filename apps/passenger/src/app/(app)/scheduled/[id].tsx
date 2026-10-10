@@ -83,7 +83,6 @@ export default function ScheduledDetail() {
         <Text
           style={{
             fontSize: 28,
-            fontWeight: '700',
             fontFamily: 'Inter_700Bold',
             color: colors.ink,
             letterSpacing: -0.6,
@@ -129,7 +128,6 @@ export default function ScheduledDetail() {
           <Text
             style={{
               fontSize: 24,
-              fontWeight: '700',
               fontFamily: 'Inter_700Bold',
               color: colors.ink,
               letterSpacing: -0.5,
@@ -255,7 +253,7 @@ export default function ScheduledDetail() {
               <CalendarClock size={22} color={colors.accent} strokeWidth={1.8} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.ink }}>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
                 {formatDateTime(b.pickupAt)}
               </Text>
               <Text style={{ fontSize: 14, color: colors.muted }}>
@@ -281,7 +279,7 @@ export default function ScheduledDetail() {
               <RouteIcon size={22} color={colors.accent} strokeWidth={1.8} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.ink }} numberOfLines={1}>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }} numberOfLines={1}>
                 {b.route.stops.map((s) => s.label).join(' → ')}
               </Text>
               <Text style={{ fontSize: 14, color: colors.muted }} numberOfLines={1}>
@@ -322,7 +320,7 @@ export default function ScheduledDetail() {
               <CreditCard size={22} color={colors.accent} strokeWidth={1.8} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.ink }}>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
                 {b.paymentMethod.label}
               </Text>
               <Text style={{ fontSize: 14, color: colors.muted }}>
@@ -337,9 +335,8 @@ export default function ScheduledDetail() {
         {b.history.length > 0 ? (
           <View style={{ gap: 10, marginTop: 8 }}>
             <Text
-              style={{
+              style={{ fontFamily: 'Inter_700Bold',
                 fontSize: 12,
-                fontWeight: '700',
                 color: colors.muted,
                 letterSpacing: 1.1,
                 textTransform: 'uppercase',
@@ -361,7 +358,7 @@ export default function ScheduledDetail() {
             >
               {b.history.map((h, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.ink, flex: 1 }}>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.ink, flex: 1 }}>
                     {h.label}
                   </Text>
                   <Text style={{ fontSize: 13, color: colors.muted }}>
