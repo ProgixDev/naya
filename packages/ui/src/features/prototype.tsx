@@ -45,7 +45,8 @@ import { pickFile, uploadFile } from './uploads';
 import { haptic } from '../haptics';
 import { PaymentInstructionsCard, ProviderIcon, providerSubtitle, sandboxLabel } from './payments';
 
-const key = () => `demo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+export const demoKey = () => `demo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const key = demoKey;
 const panel = new Proxy(
   { backgroundColor: colors.surface, borderRadius: 22, padding: 18, gap: 12 },
   {
@@ -737,8 +738,8 @@ function MaskedCardNumber({ last4 }: { last4: string }) {
 }
 
 /** Addresses offered for child trips: places of the parent's city from the API (any city added in the back-office). */
-type CityPlaces = { home: Place; list: Place[]; school: Place; activity: Place };
-function cityPlaces(found?: Place[]): CityPlaces {
+export type CityPlaces = { home: Place; list: Place[]; school: Place; activity: Place };
+export function cityPlaces(found?: Place[]): CityPlaces {
   const base = found?.length ? found : [PLACES.hayRiad, PLACES.agdal, PLACES.souissi, PLACES.ocean, PLACES.centreVille, PLACES.medina];
   const homeSrc = base.find((p) => p.id === PLACES.hayRiad.id) ?? base[0]!;
   const list = base.filter((p) => p !== homeSrc).slice(0, 6);
@@ -749,7 +750,7 @@ function cityPlaces(found?: Place[]): CityPlaces {
     activity: list.find((p) => p.id === PLACES.souissi.id) ?? list[1] ?? list[0] ?? homeSrc,
   };
 }
-const schoolOf = (c: FamilyChild | undefined, places: CityPlaces) =>
+export const schoolOf = (c: FamilyChild | undefined, places: CityPlaces) =>
   c?.schoolPlace ? { ...c.schoolPlace, label: c.school } : { ...places.school, label: c?.school || 'École' };
 const STEP_TIMES: [keyof NonNullable<FamilyTrip['times']>, string][] = [
   ['en_route', 'Départ de la chauffeuse'],
@@ -1212,7 +1213,54 @@ function TripForm({
   );
 }
 
-function FamilyTripCard({
+const TRIP_STEPS: { status: FamilyTrip['status']; label: string }[] = [
+  { status: 'scheduled', label: 'Planifié' },
+  { status: 'en_route', label: 'En route' },
+  { status: 'arrived', label: 'Arrivée' },
+  { status: 'picked_up', label: 'Récupéré' },
+  { status: 'in_progress', label: 'En trajet' },
+  { status: 'completed', label: 'Remis' },
+];
+
+/** White section card used by the family screens (a function: colours follow the theme). */
+export const familyCard = () => ({ backgroundColor: colors.surface, borderRadius: 20, padding: 16, gap: 12, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+
+export function FamilyStatusChip({ status }: { status: FamilyTrip['status'] }) {
+  useTheme();
+  const live = status === 'en_route' || status === 'in_progress';
+  const tone = status === 'completed' ? { bg: colors.successSoft, fg: colors.success } : live ? { bg: colors.selected, fg: colors.accent } : status === 'scheduled' ? { bg: colors.background, fg: colors.muted } : { bg: colors.warningSoft, fg: colors.warning };
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: tone.bg }}>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tone.fg }} />
+      <Text weight="semibold" style={{ fontSize: 12, lineHeight: 16, color: tone.fg }} numberOfLines={1}>{FAMILY_STATUS_LABELS[status]}</Text>
+    </View>
+  );
+}
+
+/** Six steps of a child trip, the current one highlighted. */
+function TripStepper({ status }: { status: FamilyTrip['status'] }) {
+  useTheme();
+  const current = TRIP_STEPS.findIndex((x) => x.status === status);
+  return (
+    <View style={{ flexDirection: 'row' }} accessible accessibilityLabel={`Étape ${current + 1} sur ${TRIP_STEPS.length} : ${TRIP_STEPS[current]?.label}`}>
+      {TRIP_STEPS.map((x, i) => {
+        const done = i <= current;
+        return (
+          <View key={x.status} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' }}>
+              <View style={{ flex: 1, height: 2, backgroundColor: i === 0 ? 'transparent' : i <= current ? colors.accent : colors.line }} />
+              <View style={{ width: i === current ? 14 : 10, height: i === current ? 14 : 10, borderRadius: 7, backgroundColor: done ? colors.accent : colors.line, borderWidth: i === current ? 3 : 0, borderColor: colors.selected }} />
+              <View style={{ flex: 1, height: 2, backgroundColor: i === TRIP_STEPS.length - 1 ? 'transparent' : i < current ? colors.accent : colors.line }} />
+            </View>
+            <Text weight={i === current ? 'semibold' : 'regular'} tone={i === current ? 'accent' : 'muted'} numberOfLines={1} style={{ fontSize: 10.5, lineHeight: 14 }}>{x.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+export function FamilyTripCard({
   trip: t,
   child,
   role,
@@ -1234,6 +1282,7 @@ function FamilyTripCard({
   const [code, setCode] = useState('');
   const [incident, setIncident] = useState('');
   const [contact, setContact] = useState(false);
+  const [journal, setJournal] = useState(false);
   const advance = (
     extra: {
       proof?: string;
@@ -1248,183 +1297,185 @@ function FamilyTripCard({
   const driverFirstName = t.driverName.split(' ')[0];
   const live = t.status === 'en_route' || t.status === 'in_progress';
   const handedTo = child?.recipients.find((r) => r.id === t.recipientId);
+  const card = familyCard();
   return (
-    <View style={{ ...panel, backgroundColor: colors.surface }} testID={`family-trip-${t.id}`}>
-      <Text variant="title">
-        {t.childName} · {FAMILY_STATUS_LABELS[t.status]}
-      </Text>
-      <Text variant="caption" tone="muted">
-        {t.kind ? `${FAMILY_TRIP_KINDS[t.kind]} · ` : ''}
-        {formatShort(t.pickupAt)} · {t.driverName}
-      </Text>
-      <Text>
-        {t.pickup.label} → {t.destination.label}
-      </Text>
-      {t.vehicle ? (
-        <Text variant="caption" tone="muted">
-          {t.vehicle.make} {t.vehicle.model} · {t.vehicle.color} · {t.vehicle.plate}
+    <View style={{ gap: 14 }} testID={`family-trip-${t.id}`}>
+      {/* ── Status ── */}
+      <View style={card}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text weight="semibold" numberOfLines={1} style={{ flex: 1, fontSize: 17, lineHeight: 23 }} accessibilityLabel={`${t.childName} · ${FAMILY_STATUS_LABELS[t.status]}`}>
+            {t.childName}
+          </Text>
+          <FamilyStatusChip status={t.status} />
+        </View>
+        <Text tone="muted" numeric style={{ fontSize: 13, lineHeight: 18, marginTop: -6 }}>
+          {t.kind ? `${FAMILY_TRIP_KINDS[t.kind]} · ` : ''}
+          {formatShort(t.pickupAt)}
         </Text>
-      ) : null}
-      {t.stoppedAt ? (
-        <StatusBanner compact tone="warning" title="Véhicule à l’arrêt" message="La famille est prévenue en cas d’arrêt prolongé." />
-      ) : null}
-      <View style={{ height: 180, borderRadius: 18, overflow: 'hidden' }}>
+        <TripStepper status={t.status} />
+      </View>
+
+      {/* ── Map ── */}
+      <View style={{ height: 200, borderRadius: 20, overflow: 'hidden' }}>
         <NayaMap
           center={t.location}
           route={t.route ?? [t.pickup.location, t.destination.location]}
           fitTo={[t.pickup.location, t.destination.location]}
           markers={[
             { id: 'pickup', kind: 'pickup', coordinate: t.pickup.location },
-            {
-              id: 'destination',
-              kind: 'destination',
-              coordinate: t.destination.location,
-            },
+            { id: 'destination', kind: 'destination', coordinate: t.destination.location },
             { id: 'driver', kind: 'driver', coordinate: t.location },
           ]}
         />
+        {live ? (
+          <View style={{ position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: colors.surface, ...shadow.card }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success }} />
+            <Text weight="semibold" style={{ fontSize: 12, lineHeight: 16 }}>En direct · démo</Text>
+          </View>
+        ) : null}
       </View>
-      {live ? (
-        <Text variant="caption" tone="accent">
-          Position en direct (démo) · mise à jour toutes les 4 secondes
-        </Text>
+      {t.stoppedAt ? (
+        <StatusBanner compact tone="warning" title="Véhicule à l’arrêt" message="La famille est prévenue en cas d’arrêt prolongé." />
       ) : null}
-      {child ? (
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-          {child.photo ? <Attachment id={child.photo} accountId={accountId} label={`Photo de ${child.firstName}`} /> : null}
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text variant="label">{child.firstName} · {child.age} ans</Text>
-            <Text variant="caption" tone="muted">{child.school}</Text>
-            {child.notes ? <Text variant="caption">{child.notes}</Text> : null}
+
+      {/* ── Route and driver ── */}
+      <View style={card}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ alignItems: 'center', paddingTop: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent }} />
+            <View style={{ width: 2, flex: 1, minHeight: 18, backgroundColor: colors.line, marginVertical: 3 }} />
+            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: colors.ink }} />
+          </View>
+          <View style={{ flex: 1, gap: 14 }}>
+            <View>
+              <Text tone="muted" style={{ fontSize: 12, lineHeight: 16 }}>Départ</Text>
+              <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{t.pickup.label}</Text>
+            </View>
+            <View>
+              <Text tone="muted" style={{ fontSize: 12, lineHeight: 16 }}>Arrivée</Text>
+              <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{t.destination.label}</Text>
+            </View>
           </View>
         </View>
-      ) : null}
-      {role === 'passenger' && t.status !== 'completed' ? (
-        <Button label={`Contacter ${driverFirstName}`} variant="secondary" onPress={() => setContact(true)} testID="family-contact" />
-      ) : null}
-      {t.status !== 'completed' ? (
-        <>
-          {role === 'passenger' ? (
-            <Text variant="caption" tone="accent">
-              Simuler les étapes de la chauffeuse
+        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.line }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+            <Text weight="bold" tone="accent" style={{ fontSize: 17, lineHeight: 22 }}>{t.driverName.charAt(0)}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 1 }}>
+            <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{t.driverName}</Text>
+            <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>
+              {t.vehicle ? `${t.vehicle.make} ${t.vehicle.model} · ${t.vehicle.color} · ${t.vehicle.plate}` : 'Chauffeuse dédiée'}
             </Text>
+          </View>
+          {role === 'passenger' && t.status !== 'completed' ? (
+            <Button label="Contacter" size="compact" variant="secondary" onPress={() => setContact(true)} testID="family-contact" accessibilityHint={`Contacter ${driverFirstName}`} />
           ) : null}
+        </View>
+      </View>
+
+      {/* ── Child ── */}
+      {child ? (
+        <View style={card}>
+          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+            {child.photo ? <Attachment id={child.photo} accountId={accountId} label={`Photo de ${child.firstName}`} /> : null}
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{child.firstName} · {child.age} ans</Text>
+              <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>{child.school}</Text>
+            </View>
+          </View>
+          {child.notes ? (
+            <View style={{ backgroundColor: colors.warningSoft, borderRadius: 14, padding: 12, gap: 2 }}>
+              <Text weight="semibold" tone="warning" style={{ fontSize: 12, lineHeight: 16 }}>Informations importantes</Text>
+              <Text style={{ fontSize: 14, lineHeight: 20 }}>{child.notes}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* ── Next step ── */}
+      {t.status !== 'completed' ? (
+        <View style={card}>
+          <Text weight="semibold" tone={role === 'passenger' ? 'accent' : 'ink'} style={{ fontSize: 13, lineHeight: 18 }}>
+            {role === 'passenger' ? 'Démo · simuler les étapes de la chauffeuse' : 'Étape suivante'}
+          </Text>
           {t.status === 'scheduled' ? (
-            <Button
-              label="Je pars chercher l’enfant"
-              loading={busy}
-              onPress={() => advance()}
-              testID="family-depart"
-            />
+            <Button label="Je pars chercher l’enfant" full loading={busy} onPress={() => advance()} testID="family-depart" />
           ) : null}
           {t.status === 'en_route' ? (
             <>
-              <Text variant="caption" tone="muted">
-                À l’arrivée, une photo du point de récupération est envoyée au parent.
-              </Text>
+              <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>À l’arrivée, une photo du point de récupération est envoyée au parent.</Text>
               <Button
                 label="Prendre une photo d’arrivée"
+                full
                 loading={busy}
                 onPress={() =>
                   run(async () => {
                     const f = await pickFile('camera');
                     if (!f || f === 'denied') return;
                     const u = await uploadFile(api, f, 'support_attachment');
-                    await api.prototype.advance(t.id, {
-                      expectedStatus: t.status,
-                      proof: u.id,
-                    });
+                    await api.prototype.advance(t.id, { expectedStatus: t.status, proof: u.id });
                   })
                 }
               />
-              <Button
-                label="Photo d’arrivée (simulation)"
-                variant="secondary"
-                loading={busy}
-                onPress={() => advance({ proof: 'demo-arrival-photo' })}
-                testID="family-arrived"
-              />
+              <Button label="Photo d’arrivée (simulation)" full variant="secondary" loading={busy} onPress={() => advance({ proof: 'demo-arrival-photo' })} testID="family-arrived" />
             </>
           ) : null}
           {t.status === 'arrived' ? (
             <>
-              <Text variant="caption" tone="muted">
-                Vérifiez l’enfant avec sa photo, puis saisissez son prénom.
-              </Text>
-              <FormField
-                label="Prénom de l’enfant vérifié"
-                value={name}
-                onChangeText={setName}
-                testID="family-child-name"
-              />
-              <Button
-                label="Enfant récupéré"
-                loading={busy}
-                onPress={() => advance({ childName: name })}
-                testID="family-picked-up"
-              />
+              <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>Vérifiez l’enfant avec sa photo, puis saisissez son prénom.</Text>
+              <FormField label="Prénom de l’enfant vérifié" value={name} onChangeText={setName} testID="family-child-name" />
+              <Button label="Enfant récupéré" full loading={busy} onPress={() => advance({ childName: name })} testID="family-picked-up" />
             </>
           ) : null}
           {t.status === 'picked_up' ? (
-            <Button
-              label="Démarrer le trajet"
-              loading={busy}
-              onPress={() => advance()}
-              testID="family-start"
-            />
+            <Button label="Démarrer le trajet" full loading={busy} onPress={() => advance()} testID="family-start" />
           ) : null}
           {t.status === 'in_progress' ? (
             <>
-              <Text variant="label">Remise à une personne autorisée</Text>
-              {child?.recipients.map((r) => (
-                <Pill
-                  key={r.id}
-                  label={`${r.name} · ${r.relationship}${r.phone ? ` · ${r.phone}` : ''}`}
-                  selected={recipient === r.id}
-                  onPress={() => setRecipient(r.id)}
-                />
-              ))}
-              <FormField
-                label="Code donné par la personne"
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                maxLength={4}
-                testID="family-code"
-              />
+              <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Remise à une personne autorisée</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {child?.recipients.map((r) => (
+                  <Pill key={r.id} label={`${r.name} · ${r.relationship}${r.phone ? ` · ${r.phone}` : ''}`} selected={recipient === r.id} onPress={() => setRecipient(r.id)} />
+                ))}
+              </View>
+              <FormField label="Code donné par la personne" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={4} testID="family-code" />
               {role === 'passenger' ? (
-                <Text variant="caption" tone="muted">
-                  Code démo à communiquer :{' '}
-                  {
-                    child?.recipients.find((r) => r.id === recipient)
-                      ?.verificationCode
-                  }
+                <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>
+                  Code démo à communiquer : {child?.recipients.find((r) => r.id === recipient)?.verificationCode}
                 </Text>
               ) : null}
-              <Button
-                label="Confirmer l’arrivée et la remise"
-                loading={busy}
-                onPress={() => advance({ recipientId: recipient, code })}
-                testID="family-complete"
-              />
+              <Button label="Confirmer l’arrivée et la remise" full loading={busy} onPress={() => advance({ recipientId: recipient, code })} testID="family-complete" />
               <Button
                 label={t.stoppedAt ? 'Reprendre le trajet (démo)' : 'Simuler un arrêt inhabituel (démo)'}
                 variant="ghost"
+                full
                 loading={busy}
                 onPress={() => run(() => api.prototype.stop(t.id, !t.stoppedAt))}
                 testID="family-stop"
               />
             </>
           ) : null}
+        </View>
+      ) : (
+        <StatusBanner
+          compact
+          tone="success"
+          title={handedTo ? `Remis·e à ${handedTo.name} (${handedTo.relationship})` : 'Remise confirmée'}
+          message="Le prochain trajet récurrent apparaît dans la liste."
+        />
+      )}
+
+      {/* ── Safety ── */}
+      {t.status !== 'completed' ? (
+        <View style={card}>
+          <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Sécurité</Text>
           <SafetyButton familyTripId={t.id} location={t.location} />
-          <FormField
-            label="Retard ou incident"
-            value={incident}
-            onChangeText={setIncident}
-          />
+          <FormField label="Retard ou incident" value={incident} onChangeText={setIncident} />
           <Button
             label={role === 'driver' ? 'Signaler à la famille' : 'Signaler à Naya'}
             variant="secondary"
+            full
             loading={busy}
             disabled={!incident.trim()}
             onPress={() =>
@@ -1434,63 +1485,63 @@ function FamilyTripCard({
               })
             }
           />
-        </>
-      ) : (
-        <StatusBanner
-          compact
-          tone="success"
-          title={handedTo ? `Remis·e à ${handedTo.name} (${handedTo.relationship})` : 'Remise confirmée'}
-          message="Le prochain trajet récurrent apparaît dans la liste."
-        />
-      )}
+        </View>
+      ) : null}
+
+      {/* ── Notifications ── */}
       {role === 'passenger' && t.notifications.length ? (
-        <>
-          <Text variant="label">Notifications</Text>
+        <View style={card}>
+          <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Notifications</Text>
           {t.notifications
             .slice()
             .reverse()
             .map((n, i) => (
-              <Text key={i} variant="caption" numeric>
-                {formatShort(n.at)} · {n.title}
+              <View key={i} style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 6, backgroundColor: i === 0 ? colors.accent : colors.line }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, lineHeight: 20 }}>{n.title}</Text>
+                  <Text tone="muted" numeric style={{ fontSize: 12, lineHeight: 16 }}>{formatShort(n.at)}</Text>
+                </View>
+              </View>
+            ))}
+        </View>
+      ) : null}
+
+      {/* ── Traceability (collapsed) ── */}
+      <View style={card}>
+        <PressableScale onPress={() => { haptic.select(); setJournal(!journal); }} accessibilityRole="button" accessibilityState={{ expanded: journal }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }} testID="family-journal">
+          <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Traçabilité</Text>
+          <Text weight="semibold" tone="accent" style={{ fontSize: 13, lineHeight: 18 }}>{journal ? 'Masquer' : 'Afficher'}</Text>
+        </PressableScale>
+        {(t.incidents ?? []).map((x, i) => (
+          <Text key={i} tone="danger" numeric style={{ fontSize: 13, lineHeight: 18 }}>
+            {formatShort(x.at)} · {x.source === 'auto' ? 'Alerte automatique' : x.by} · {x.message}
+          </Text>
+        ))}
+        {journal ? (
+          <View style={{ gap: 6 }}>
+            {STEP_TIMES.map(([step, label]) =>
+              t.times?.[step] ? (
+                <Text key={step} tone="muted" numeric style={{ fontSize: 13, lineHeight: 18 }}>{label} · {formatShort(t.times[step]!)}</Text>
+              ) : null,
+            )}
+            <Text weight="semibold" tone="muted" style={{ fontSize: 12, lineHeight: 16, marginTop: 6 }}>Journal GPS</Text>
+            {t.timeline.map((e, i) => (
+              <Text key={i} tone="muted" numeric style={{ fontSize: 12, lineHeight: 17 }}>
+                {formatShort(e.at)} · {e.label} · {e.location.lat.toFixed(4)}, {e.location.lng.toFixed(4)}
+                {e.proof ? ' · preuve jointe' : ''}
               </Text>
             ))}
-        </>
-      ) : null}
-      <Text variant="label">Traçabilité</Text>
-      {STEP_TIMES.map(([step, label]) =>
-        t.times?.[step] ? (
-          <Text key={step} variant="caption" tone="muted" numeric>
-            {label} · {formatShort(t.times[step]!)}
-          </Text>
-        ) : null,
-      )}
-      {(t.incidents ?? []).map((x, i) => (
-        <Text key={i} variant="caption" tone="danger" numeric>
-          {formatShort(x.at)} · {x.source === 'auto' ? 'Alerte automatique' : x.by} · {x.message}
-        </Text>
-      ))}
-      <Text variant="caption" tone="muted">Journal GPS</Text>
-      {t.timeline.map((e, i) => (
-        <Text key={i} variant="caption" tone="muted" numeric>
-          {formatShort(e.at)} · {e.label} · {e.location.lat.toFixed(4)},{' '}
-          {e.location.lng.toFixed(4)}
-          {e.proof ? ' · preuve jointe' : ''}
-        </Text>
-      ))}
-      {t.arrivalProof && t.arrivalProof !== 'demo-arrival-photo' ? (
-        <Attachment
-          id={t.arrivalProof}
-          accountId={role === 'driver' ? t.driverId : t.passengerId}
-          label="Photo d’arrivée"
-        />
-      ) : null}
-      {t.arrivalProof ? (
-        <Text variant="caption" tone="accent">
-          {t.arrivalProof === 'demo-arrival-photo'
-            ? 'Photo d’arrivée simulée'
-            : 'Photo d’arrivée enregistrée'}
-        </Text>
-      ) : null}
+          </View>
+        ) : null}
+        {t.arrivalProof && t.arrivalProof !== 'demo-arrival-photo' ? (
+          <Attachment id={t.arrivalProof} accountId={role === 'driver' ? t.driverId : t.passengerId} label="Photo d’arrivée" />
+        ) : null}
+        {t.arrivalProof ? (
+          <Text tone="accent" style={{ fontSize: 13, lineHeight: 18 }}>{t.arrivalProof === 'demo-arrival-photo' ? 'Photo d’arrivée simulée' : 'Photo d’arrivée enregistrée'}</Text>
+        ) : null}
+      </View>
+
       <Sheet visible={contact} onClose={() => setContact(false)} title={`Contacter ${driverFirstName}`} subtitle="Vos numéros restent masqués.">
         <View style={{ gap: 12 }}>
           <StatusBanner compact tone="warning" title="Démo" message="appel masqué : fournisseur non configuré" />
