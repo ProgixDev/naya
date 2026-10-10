@@ -43,3 +43,4 @@ export * from './core/theme';
 export * from './features/brand';
 
 export * from './features/ThemePicker';
+export * from './DatePickerSheet';
