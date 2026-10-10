@@ -71,7 +71,7 @@ export default function Trips() {
       refreshControl={<RefreshControl refreshing={scheduled.isRefetching || history.isRefetching} onRefresh={() => (tab === 'upcoming' ? scheduled.refetch() : Promise.all([scheduled.refetch(), history.refetch()]))} tintColor={colors.accent} />}
     >
       <View style={{ gap: 16, marginTop: 4 }}>
-        <SegmentedControl options={[{ value: 'upcoming', label: upcoming.length ? `À venir · ${upcoming.length}` : 'À venir' }, { value: 'history', label: 'Historique' }]} value={tab} onChange={setTab} testID="trips-tabs" />
+        <SegmentedControl variant="underline" options={[{ value: 'upcoming', label: 'À venir', count: upcoming.length }, { value: 'history', label: 'Historique' }]} value={tab} onChange={setTab} testID="trips-tabs" />
 
         {tab === 'upcoming' ? (
           scheduled.isLoading ? (
