@@ -22,6 +22,14 @@ import { useAnimatedCoordinate, bearing } from './useAnimatedCoordinate';
  */
 export const TILE_URL = process.env.EXPO_PUBLIC_MAP_TILE_URL ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const TILE_ATTRIBUTION = process.env.EXPO_PUBLIC_MAP_ATTRIBUTION ?? '© OpenStreetMap contributors';
+/**
+ * The OSMF tile policy requires an identifying User-Agent. Android's default HTTP client
+ * (okhttp / Dalvik) is refused with an "Access blocked" image, so native builds identify the
+ * app. Browsers send their own User-Agent and Referer and must not override them.
+ */
+const TILE_HEADERS = Platform.OS === 'web' ? undefined : { 'User-Agent': process.env.EXPO_PUBLIC_MAP_USER_AGENT ?? 'Naya/1.0 (+https://github.com/ProgixDev/naya)' };
+/** Bumped when cached tiles must not be reused (blocked images were cached under the bare URL). */
+const TILE_CACHE_VERSION = 'ua1';
 
 export function TileMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, onCenterChange, onPress, interactive = true, bottomInset = 0, topInset = 0, testID }: NayaMapProps) {
   useTheme();
@@ -116,7 +124,7 @@ const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark
       <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
         <Animated.View style={[StyleSheet.absoluteFill, layer]}>
           {tiles.map((t) => (
-            <Image key={t.key} source={{ uri: url(t) }} style={[{ position: 'absolute', left: t.left, top: t.top, width: TILE, height: TILE }, tileFilter]} transition={Platform.OS === 'web' ? 0 : 120} cachePolicy="memory-disk" />
+            <Image key={t.key} source={{ uri: url(t), headers: TILE_HEADERS, cacheKey: `${TILE_CACHE_VERSION}:${url(t)}` }} style={[{ position: 'absolute', left: t.left, top: t.top, width: TILE, height: TILE }, tileFilter]} transition={Platform.OS === 'web' ? 0 : 120} cachePolicy="memory-disk" />
           ))}
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: getColorScheme() === 'dark' ? 'rgba(15,10,20,0.55)' : Platform.OS === 'web' ? 'rgba(250,244,247,0.18)' : 'rgba(250,244,247,0.42)' }]} />
           {route && route.length > 1 ? (
