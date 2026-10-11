@@ -36,8 +36,12 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
         exact: true,
       })
       .click();
+    // Identity check: tick what was verified, then the first name given by the child.
+    const face = d.getByTestId('family-check-face');
+    if (await face.count()) await face.click();
+    await d.getByTestId('family-check-said').click();
     await d
-      .getByLabel('Prénom de l’enfant vérifié', { exact: true })
+      .getByLabel('Prénom donné par l’enfant', { exact: true })
       .fill('Lina');
     await d
       .getByRole('button', {
@@ -65,8 +69,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await expect(
       a.getByRole('heading', { name: 'Centre des opérations' }),
     ).toBeVisible();
-    await a.goto(URLS.admin + '/services');
-    await a.getByRole('tab', { name: 'SOS' }).click();
+    await a.goto(URLS.admin + '/securite');
     await expect(
       a.getByText('Support Naya contacté', { exact: false }),
     ).toBeVisible();
@@ -77,10 +80,13 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await expect(a.getByText('Résolue', { exact: true }).first()).toBeVisible();
     // Reload closes the focused safety sheet while retaining the trip.
     await d.reload();
+    // Arrival at the destination is confirmed first; the parent is told before the handover.
+    await d.getByTestId('family-at-destination').click();
+    await expect(p.getByText(/arrivé·e à destination/).first()).toBeVisible();
     await d.getByLabel('Code donné par la personne', { exact: true }).fill('1234');
     await d
       .getByRole('button', {
-        name: 'Confirmer l’arrivée et la remise',
+        name: 'Confirmer la remise',
         exact: true,
       })
       .click();
@@ -105,12 +111,12 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       'rgb(22, 18, 26)',
     );
     await expect(p.getByTestId('theme-dark')).toHaveAttribute(
-      'aria-selected',
+      'aria-checked',
       'true',
     );
     await p.reload();
     await expect(p.getByTestId('theme-dark')).toHaveAttribute(
-      'aria-selected',
+      'aria-checked',
       'true',
     );
     await p.goto(URLS.passenger + '/family');
@@ -119,11 +125,12 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await d.getByTestId('theme-dark').click();
     await expect(d.getByTestId('preferences')).toHaveCSS('background-color', 'rgb(22, 18, 26)');
     await d.reload();
-    await expect(d.getByTestId('theme-dark')).toHaveAttribute('aria-selected', 'true');
+    await expect(d.getByTestId('theme-dark')).toHaveAttribute('aria-checked', 'true');
     await d.goto(URLS.driver + '/family');
     await d.screenshot({ path: '/tmp/naya-driver-family.png', fullPage: true });
     await p.goto(URLS.passenger + '/brand');
     await expect(p.getByText('06 · La porte', { exact: true })).toBeVisible();
+    await a.goto(URLS.admin + '/services');
     await a
       .getByRole('tab', { name: 'Pistes de logo' })
       .click();

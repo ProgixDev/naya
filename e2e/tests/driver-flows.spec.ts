@@ -117,7 +117,7 @@ test.describe('driver app', () => {
     await expect(byTestId(page, 'reason-vehicle_not_approved')).toBeVisible();
     await expect(byTestId(page, 'toggle-online')).toHaveAttribute('aria-disabled', 'true');
     await page.goto(`${URLS.driver}/docs/status`);
-    await expect(byTestId(page, 'review-driver_identity')).toContainText('Chauffeuse approuvée');
+    await expect(byTestId(page, 'review-driver_identity')).toContainText('Approuvé');
     await expect(byTestId(page, 'review-vehicle')).toContainText('en attente');
     await expect(byTestId(page, 'blocked-banner')).toBeVisible();
 
@@ -135,7 +135,7 @@ test.describe('driver app', () => {
     await signInMobile(page, URLS.driver, 'driver', PHONES.samira);
     await expect(byTestId(page, 'reason-identity_not_approved')).toBeVisible();
     await page.goto(`${URLS.driver}/docs/status`);
-    await expect(byTestId(page, 'review-vehicle')).toContainText('Véhicule approuvé');
+    await expect(byTestId(page, 'review-vehicle')).toContainText('Approuvé');
     await expect(byTestId(page, 'review-driver_identity')).toContainText('flou');
   });
 
