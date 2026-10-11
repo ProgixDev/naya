@@ -115,7 +115,7 @@ export default function RideScreen() {
         <NayaMap center={pickup.location} markers={markers} route={ride.status === 'in_progress' || ride.status === 'searching' || ride.status === 'no_driver' ? ride.route.polyline : undefined} fitTo={fit} topInset={insets.top + 8} bottomInset={36} interactive />
         <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <IconButton icon={<ChevronLeft size={28} color={colors.accent} strokeWidth={2.4} />} accessibilityLabel="Retour à l’accueil" onPress={() => router.navigate('/')} testID="ride-back" />
-          <View style={{ flex: 1, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.96)', justifyContent: 'center', paddingHorizontal: 16, ...shadow.card }}>
+          <View style={{ flex: 1, height: 44, borderRadius: 22, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassBorder, justifyContent: 'center', paddingHorizontal: 16, ...shadow.card }}>
             <Text variant="label" numberOfLines={1}>{RIDE_STATUS_LABELS[ride.status]}</Text>
           </View>
         </View>

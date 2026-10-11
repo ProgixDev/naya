@@ -29,6 +29,11 @@ export const PressableScale = forwardRef<View, PressableScaleProps>(function Pre
       ref={ref}
       disabled={disabled}
       accessibilityState={{ disabled: !!disabled }}
+      // react-native-web ignores accessibilityState: mirror it as aria-* (also read on native).
+      aria-disabled={!!disabled || undefined}
+      aria-checked={(rest as { accessibilityState?: { checked?: boolean | 'mixed' } }).accessibilityState?.checked}
+      aria-selected={(rest as { accessibilityState?: { selected?: boolean } }).accessibilityState?.selected}
+      aria-expanded={(rest as { accessibilityState?: { expanded?: boolean } }).accessibilityState?.expanded}
       onPressIn={(e) => {
         if (!reduceMotion) scale.value = withTiming(pressedScale, motionTiming.pressIn);
         onPressIn?.(e);

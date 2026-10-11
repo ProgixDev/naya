@@ -1,3 +1,6 @@
+import * as Location from 'expo-location';
+import { Image } from 'expo-image';
+import { DEMO_MODE } from '../core/apiBase';
 import { Attachment } from './Attachment';
 import { useTheme } from './../core/theme';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -85,6 +88,11 @@ export function SafetyButton({
   const [contact, setContact] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
+  const me = useQuery({ queryKey: ['naya', 'sos', 'me'], queryFn: api.me.get, staleTime: 60_000 });
+  const saved = me.data?.user.trustedContacts ?? [];
+  const [here, setHere] = useState<{ location: LatLng; accuracy: number | null } | null>(null);
+  const position = here?.location ?? location;
   const progress = useRef(new Animated.Value(0)).current;
   // The incident status changes when the safety team takes it.
   const live = useQuery({
@@ -97,7 +105,33 @@ export function SafetyButton({
   const current = live.data ?? alert;
   const hold = (on: boolean) =>
     Animated.timing(progress, { toValue: on ? 1 : 0, duration: on ? HOLD_MS : 150, useNativeDriver: false }).start();
-  const mapsUrl = `https://maps.google.com/?q=${location.lat.toFixed(6)},${location.lng.toFixed(6)}`;
+  const mapsUrl = `https://maps.google.com/?q=${position.lat.toFixed(6)},${position.lng.toFixed(6)}`;
+  // The phone's own position when SOS is held; the trip position stays the fallback.
+  const locate = async () => {
+    try {
+      const perm = await Location.getForegroundPermissionsAsync();
+      const ok = perm.granted || (perm.canAskAgain && (await Location.requestForegroundPermissionsAsync()).granted);
+      if (!ok) return;
+      const pos = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+        new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+      ]);
+      if (pos) setHere({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude }, accuracy: pos.coords.accuracy ?? null });
+    } catch {
+      /* no GPS: the trip position is used */
+    }
+  };
+  const saveContact = async () => {
+    const entry = { name: contact.trim() || 'Contact de confiance', phone: phone.trim() };
+    if (!entry.phone || saved.some((x) => x.phone.replace(/\s/g, '') === entry.phone.replace(/\s/g, ''))) return;
+    try {
+      await api.me.update({ trustedContacts: [...saved, entry].slice(-3) });
+      await qc.invalidateQueries({ queryKey: ['naya'] });
+      toast('Contact enregistré pour vos prochains trajets', 'success');
+    } catch (e) {
+      toast(errorMessage(e), 'danger');
+    }
+  };
   const message = `Alerte Naya : j’ai besoin d’aide pendant mon trajet. Ma position : ${mapsUrl}`;
   const record = async (action: SafetyActionCode) => {
     if (!current) return;
@@ -112,7 +146,7 @@ export function SafetyButton({
     try {
       setAlert(
         await api.prototype.sos(
-          { rideId, familyTripId, location, contactName: contact.trim() || 'Contact de confiance', contactPhone: phone.trim() || null, note: note.trim() || null },
+          { rideId, familyTripId, location: position, locationSource: here ? 'device' : 'trip', locationAccuracy: here?.accuracy ?? null, contactName: contact.trim() || saved[0]?.name || 'Contact de confiance', contactPhone: phone.trim() || saved[0]?.phone || null, note: note.trim() || null },
           key(),
         ),
       );
@@ -137,6 +171,8 @@ export function SafetyButton({
           hold(false);
           haptic.warning();
           setOpen(true);
+          locate();
+          if (!phone && saved[0]) { setContact(saved[0].name); setPhone(saved[0].phone); }
         }}
         delayLongPress={HOLD_MS}
         onPress={() => toast('Maintenez le bouton SOS 1 seconde pour déclencher une alerte.')}
@@ -166,8 +202,8 @@ export function SafetyButton({
         <View style={{ gap: 12 }}>
           {!current ? (
             <>
-              <Text variant="caption" tone="muted" numeric>
-                Position actuelle : {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+              <Text variant="caption" tone="muted" numeric testID="sos-position">
+                {here ? `Position du téléphone${here.accuracy ? ` (±${Math.round(here.accuracy)} m)` : ''}` : 'Position du trajet'} : {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
               </Text>
               <FormField label="Que se passe-t-il ? (facultatif)" value={note} onChangeText={setNote} multiline />
               <Button label="Confirmer l’alerte" variant="danger" loading={busy} onPress={raise} testID="confirm-sos" />
@@ -196,6 +232,13 @@ export function SafetyButton({
                 }}
               />
               <Text variant="label">Contact de confiance</Text>
+              {saved.length ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {saved.map((x) => (
+                    <Pill key={x.phone} label={x.name} selected={phone === x.phone} onPress={() => { setContact(x.name); setPhone(x.phone); }} />
+                  ))}
+                </View>
+              ) : null}
               <FormField label="Nom" value={contact} onChangeText={setContact} testID="sos-contact-name" />
               <FormField label="Téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" testID="sos-contact-phone" />
               <Button
@@ -210,6 +253,9 @@ export function SafetyButton({
                   record('trusted_contact');
                 }}
               />
+              {phone.trim() && !saved.some((x) => x.phone.replace(/\s/g, '') === phone.trim().replace(/\s/g, '')) && saved.length < 3 ? (
+                <Button label="Enregistrer ce contact" variant="ghost" onPress={saveContact} testID="sos-contact-save" />
+              ) : null}
               <Button
                 label={current.ticketId ? `Support contacté · ${current.ticketId}` : 'Contacter le support Naya'}
                 variant="secondary"
@@ -757,7 +803,8 @@ const STEP_TIMES: [keyof NonNullable<FamilyTrip['times']>, string][] = [
   ['arrived', 'Arrivée au point de récupération'],
   ['picked_up', 'Récupération de l’enfant'],
   ['in_progress', 'Début du trajet'],
-  ['completed', 'Arrivée et remise'],
+  ['at_destination', 'Arrivée à destination'],
+  ['completed', 'Remise à une personne autorisée'],
 ];
 
 export function FamilyScreen({
@@ -1219,6 +1266,7 @@ const TRIP_STEPS: { status: FamilyTrip['status']; label: string }[] = [
   { status: 'arrived', label: 'Arrivée' },
   { status: 'picked_up', label: 'Récupéré' },
   { status: 'in_progress', label: 'En trajet' },
+  { status: 'at_destination', label: 'Arrivée' },
   { status: 'completed', label: 'Remis' },
 ];
 
@@ -1293,11 +1341,15 @@ export function FamilyTripCard({
   const [recipient, setRecipient] = useState(child?.recipients[0]?.id ?? '');
   const [code, setCode] = useState('');
   const [incident, setIncident] = useState('');
+  const [idChecks, setIdChecks] = useState<Record<IdCheck, boolean>>({ face: false, said: false });
+  const [pickupPhoto, setPickupPhoto] = useState<{ id: string; uri: string } | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [contact, setContact] = useState(false);
   const [journal, setJournal] = useState(false);
   const advance = (
     extra: {
       proof?: string;
+      pickupProof?: string;
       childName?: string;
       recipientId?: string;
       code?: string;
@@ -1405,8 +1457,8 @@ export function FamilyTripCard({
         </View>
       ) : null}
 
-      {/* ── Next step ── */}
-      {t.status !== 'completed' ? (
+      {/* ── Next step ── (the parent only sees the driver's controls in the demo) */}
+      {t.status !== 'completed' && (role === 'driver' || DEMO_MODE) ? (
         <View style={card}>
           <Text weight="semibold" tone={role === 'passenger' ? 'accent' : 'ink'} style={{ fontSize: 13, lineHeight: 18 }}>
             {role === 'passenger' ? 'Démo · simuler les étapes de la chauffeuse' : 'Étape suivante'}
@@ -1430,20 +1482,63 @@ export function FamilyTripCard({
                   })
                 }
               />
-              <Button label="Photo d’arrivée (simulation)" full variant="secondary" loading={busy} onPress={() => advance({ proof: 'demo-arrival-photo' })} testID="family-arrived" />
+              {DEMO_MODE ? <Button label="Photo d’arrivée (simulation)" full variant="secondary" loading={busy} onPress={() => advance({ proof: 'demo-arrival-photo' })} testID="family-arrived" /> : null}
             </>
           ) : null}
           {t.status === 'arrived' ? (
             <>
-              <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>Vérifiez l’enfant avec sa photo, puis saisissez son prénom.</Text>
-              <FormField label="Prénom de l’enfant vérifié" value={name} onChangeText={setName} testID="family-child-name" />
-              <Button label="Enfant récupéré" full loading={busy} onPress={() => advance({ childName: name })} testID="family-picked-up" />
+              <IdentityCheck child={child} accountId={accountId} name={name} onName={setName} checks={idChecks} onChecks={setIdChecks} />
+              {/* Optional verification photo at pickup, kept in the trip record and shown to the parent. */}
+              {pickupPhoto ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Image source={{ uri: pickupPhoto.uri }} style={{ width: 56, height: 56, borderRadius: 14 }} contentFit="cover" accessibilityLabel="Photo de vérification" />
+                  <Text style={{ flex: 1, fontSize: 13, lineHeight: 18 }}>Photo de vérification jointe</Text>
+                  <Button label="Retirer" size="compact" variant="ghost" onPress={() => setPickupPhoto(null)} />
+                </View>
+              ) : (
+                <Button
+                  label="Photo de vérification (facultatif)"
+                  variant="secondary"
+                  full
+                  loading={photoBusy}
+                  testID="family-pickup-photo"
+                  onPress={async () => {
+                    const f = await pickFile('camera');
+                    if (f === 'denied') return toast('Autorisez l’appareil photo dans les réglages.', 'danger');
+                    if (!f) return;
+                    setPhotoBusy(true);
+                    try {
+                      const u = await uploadFile(api, f, 'support_attachment');
+                      setPickupPhoto({ id: u.id, uri: f.uri });
+                    } catch (e) {
+                      toast(errorMessage(e), 'danger');
+                    } finally {
+                      setPhotoBusy(false);
+                    }
+                  }}
+                />
+              )}
+              <Button label="Enfant récupéré" full loading={busy} disabled={!identityReady(child, name, idChecks) || photoBusy} onPress={() => advance({ childName: name, ...(pickupPhoto ? { pickupProof: pickupPhoto.id } : {}) })} testID="family-picked-up" />
             </>
           ) : null}
           {t.status === 'picked_up' ? (
             <Button label="Démarrer le trajet" full loading={busy} onPress={() => advance()} testID="family-start" />
           ) : null}
           {t.status === 'in_progress' ? (
+            <>
+              <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>À destination, confirmez l’arrivée : le parent est prévenu avant la remise.</Text>
+              <Button label="Je suis arrivée à destination" full loading={busy} onPress={() => advance()} testID="family-at-destination" />
+              {DEMO_MODE ? <Button
+                label={t.stoppedAt ? 'Reprendre le trajet (démo)' : 'Simuler un arrêt inhabituel (démo)'}
+                variant="ghost"
+                full
+                loading={busy}
+                onPress={() => run(() => api.prototype.stop(t.id, !t.stoppedAt))}
+                testID="family-stop"
+              /> : null}
+            </>
+          ) : null}
+          {t.status === 'at_destination' ? (
             <>
               <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Remise à une personne autorisée</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -1452,20 +1547,12 @@ export function FamilyTripCard({
                 ))}
               </View>
               <FormField label="Code donné par la personne" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={4} testID="family-code" />
-              {role === 'passenger' ? (
+              {role === 'passenger' && DEMO_MODE ? (
                 <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>
                   Code démo à communiquer : {child?.recipients.find((r) => r.id === recipient)?.verificationCode}
                 </Text>
               ) : null}
-              <Button label="Confirmer l’arrivée et la remise" full loading={busy} onPress={() => advance({ recipientId: recipient, code })} testID="family-complete" />
-              <Button
-                label={t.stoppedAt ? 'Reprendre le trajet (démo)' : 'Simuler un arrêt inhabituel (démo)'}
-                variant="ghost"
-                full
-                loading={busy}
-                onPress={() => run(() => api.prototype.stop(t.id, !t.stoppedAt))}
-                testID="family-stop"
-              />
+              <Button label="Confirmer la remise" full loading={busy} onPress={() => advance({ recipientId: recipient, code })} testID="family-complete" />
             </>
           ) : null}
         </View>
@@ -1552,6 +1639,8 @@ export function FamilyTripCard({
         {t.arrivalProof ? (
           <Text tone="accent" style={{ fontSize: 13, lineHeight: 18 }}>{t.arrivalProof === 'demo-arrival-photo' ? 'Photo d’arrivée simulée' : 'Photo d’arrivée enregistrée'}</Text>
         ) : null}
+        {t.pickupProof ? <Attachment id={t.pickupProof} accountId={role === 'driver' ? t.driverId : t.passengerId} label="Photo de vérification à la récupération" /> : null}
+        {t.liveAt ? <Text tone="muted" style={{ fontSize: 12, lineHeight: 16 }}>Position GPS réelle du téléphone de la chauffeuse · {t.track?.length ?? 0} point(s) enregistrés</Text> : null}
       </View>
 
       <Sheet visible={contact} onClose={() => setContact(false)} title={`Contacter ${driverFirstName}`} subtitle="Vos numéros restent masqués.">
@@ -1564,6 +1653,52 @@ export function FamilyTripCard({
           </ListGroup>
         </View>
       </Sheet>
+    </View>
+  );
+}
+
+/* ───────── Child identity check (driver, at pickup) ───────── */
+
+type IdCheck = 'face' | 'said';
+const normName = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+/** Ready when every check is ticked and the typed first name matches the child's. */
+function identityReady(child: FamilyChild | undefined, name: string, checks: Record<IdCheck, boolean>) {
+  if (!child) return false;
+  return (!child.photo || checks.face) && checks.said && normName(name) === normName(child.firstName);
+}
+
+function IdentityCheck({ child, accountId, name, onName, checks, onChecks }: { child: FamilyChild | undefined; accountId: string; name: string; onName: (v: string) => void; checks: Record<IdCheck, boolean>; onChecks: (c: Record<IdCheck, boolean>) => void }) {
+  useTheme();
+  if (!child) return null;
+  const typed = name.trim().length > 0;
+  const match = normName(name) === normName(child.firstName);
+  const items: { id: IdCheck; label: string }[] = [
+    ...(child.photo ? [{ id: 'face' as const, label: 'Le visage correspond à la photo' }] : []),
+    { id: 'said', label: 'L’enfant me dit son prénom' },
+  ];
+  return (
+    <View style={{ gap: 12 }} testID="family-identity-check">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, borderRadius: 16, padding: 12 }}>
+        {child.photo ? <Attachment id={child.photo} accountId={accountId} label={`Photo de ${child.firstName}`} /> : (
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><Text weight="bold" tone="accent" style={{ fontSize: 20 }}>{child.firstName.charAt(0)}</Text></View>
+        )}
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Vérifier l’identité</Text>
+          <Text tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>{child.age} ans · {child.school}{child.photo ? '' : ' · pas de photo, demandez son prénom'}</Text>
+        </View>
+      </View>
+      {items.map((it) => {
+        const on = checks[it.id];
+        return (
+          <PressableScale key={it.id} onPress={() => { haptic.select(); onChecks({ ...checks, [it.id]: !on }); }} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={it.label} testID={`family-check-${it.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
+            <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: on ? colors.accent : colors.line, backgroundColor: on ? colors.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+              {on ? <Check size={15} color={colors.inverse} strokeWidth={3} /> : null}
+            </View>
+            <Text style={{ flex: 1, fontSize: 15, lineHeight: 20 }}>{it.label}</Text>
+          </PressableScale>
+        );
+      })}
+      <FormField label="Prénom donné par l’enfant" value={name} onChangeText={onName} autoCapitalize="words" error={typed && !match ? 'Ce prénom ne correspond pas. Ne confiez pas le trajet : appelez le parent.' : undefined} testID="family-child-name" />
     </View>
   );
 }

@@ -26,9 +26,16 @@ export function Attachment({
     queryFn: () => api.uploadPreview(id),
   });
   const pdf = q.data?.mimeType === 'application/pdf';
+  const video = !!q.data?.mimeType.startsWith('video/');
   return (
     <View style={{ gap: 8 }}>
-      {q.data && !pdf ? (
+      {video ? (
+        <View style={{ width: 120, height: 90, borderRadius: 12, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', gap: 4 }} accessibilityLabel={`${label} · vidéo`}>
+          <Text weight="semibold" tone="accent" style={{ fontSize: 13 }}>▶ Vidéo</Text>
+          <Text tone="muted" style={{ fontSize: 11 }}>Visible par l’équipe Naya</Text>
+        </View>
+      ) : null}
+      {q.data && !pdf && !video ? (
         <Image
           source={{ uri: q.data.uri }}
           style={{
@@ -42,12 +49,12 @@ export function Attachment({
         />
       ) : null}
       {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
-      <Button
+      {video ? null : <Button
         label={pdf ? 'Document PDF' : label}
         variant="secondary"
         size="compact"
         onPress={() => setOpen(true)}
-      />
+      />}
       <Sheet visible={open} onClose={() => setOpen(false)} title={label}>
         {q.data ? (
           pdf ? (

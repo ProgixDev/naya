@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Baby, Camera, Check, ChevronRight, FlaskConical, Home, ImageIcon, MapPin, Minus, Pencil, Plus, School, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react-native';
+import { Baby, Camera, Check, ChevronRight, FlaskConical, Home, ImageIcon, MapPin, Minus, Pencil, Plus, School, Search, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react-native';
 import { useApi } from '@naya/api/react';
-import { errorMessage } from '@naya/api';
+import { errorMessage, qk } from '@naya/api';
 import {
   FAMILY_STATUS_LABELS,
   FAMILY_TRIP_KINDS,
@@ -144,12 +144,19 @@ export interface FamilyNav {
   trip: (id: string) => void;
 }
 
-/** Naya Famille home: subscription, children and trips; each opens its own screen. */
-export function FamilyHubScreen({ accountId, onBack, onNotify, nav }: { accountId: string; onBack: () => void; onNotify?: (title: string) => void; nav: FamilyNav }) {
-  useTheme();
+/**
+ * Notifies the parent of every new step or alert of a child trip (not the ones already there),
+ * on whatever screen is open. Polls quickly only while a family subscription exists.
+ */
+export function useFamilyNotifications(accountId: string, onNotify?: (title: string) => void, enabled = true) {
   const api = useApi();
-  const { family, data, busy, run } = useFamily(accountId);
-  // Notify the parent of every new step or alert (not the ones already there on open).
+  const q = useQuery({
+    queryKey: ['naya', accountId, 'family'],
+    queryFn: api.prototype.family,
+    enabled,
+    refetchInterval: (query) => ((query.state.data as FamilyOverview | undefined)?.subscription?.status === 'active' ? 4000 : 60_000),
+  });
+  const data = q.data as FamilyOverview | undefined;
   const seen = useRef<Record<string, number> | null>(null);
   useEffect(() => {
     if (!data) return;
@@ -162,6 +169,52 @@ export function FamilyHubScreen({ accountId, onBack, onNotify, nav }: { accountI
         }
     seen.current = counts;
   }, [data, onNotify]);
+}
+
+/** Mount once in the signed-in app: family trip steps reach the parent on every screen. */
+export function FamilyNotifier({ accountId, onNotify }: { accountId: string; onNotify?: (title: string) => void }) {
+  useFamilyNotifications(accountId, onNotify);
+  return null;
+}
+
+/**
+ * Driver side: tells the dedicated driver when a parent reports a delay or an incident on one
+ * of her trips (only new reports, on any screen while the app is open).
+ */
+export function DriverFamilyAlerts({ accountId, onNotify }: { accountId: string; onNotify?: (title: string, body: string) => void }) {
+  const api = useApi();
+  const q = useQuery({
+    queryKey: ['naya', accountId, 'family'],
+    queryFn: api.prototype.family,
+    refetchInterval: (query) => ((query.state.data as FamilyOverview | undefined)?.trips.some((t) => t.status !== 'completed') ? 8000 : 60_000),
+  });
+  const data = q.data as FamilyOverview | undefined;
+  const seen = useRef<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const fromParent = (t: FamilyTrip) => (t.incidents ?? []).filter((x) => x.source === 'parent');
+    const counts = Object.fromEntries(data.trips.map((t) => [t.id, fromParent(t).length]));
+    if (seen.current)
+      for (const t of data.trips) {
+        const child = data.children.find((c) => c.id === t.childId)?.firstName ?? 'l’enfant';
+        for (const x of fromParent(t).slice(seen.current[t.id] ?? fromParent(t).length)) {
+          const title = `Message du parent · ${child}`;
+          toast(`${title} : ${x.message}`, 'danger');
+          onNotify?.(title, x.message);
+        }
+      }
+    seen.current = counts;
+  }, [data, onNotify]);
+  return null;
+}
+
+/** Naya Famille home: subscription, children and trips; each opens its own screen. */
+export function FamilyHubScreen({ accountId, onBack, onNotify, nav }: { accountId: string; onBack: () => void; onNotify?: (title: string) => void; nav: FamilyNav }) {
+  useTheme();
+  const api = useApi();
+  const { family, data, busy, run } = useFamily(accountId);
+  // Without an app-level FamilyNotifier (older callers), the hub notifies by itself.
+  useFamilyNotifications(accountId, onNotify, !!onNotify);
 
   const sub = data?.subscription && data.subscription.status !== 'cancelled' ? data.subscription : null;
   const children = data?.children ?? [];
@@ -452,6 +505,40 @@ export function FamilyPlansScreen({ accountId, onBack, onDone }: { accountId: st
   );
 }
 
+/* ───────── Address search ───────── */
+
+/** Search any address in the city (same search as ride booking). */
+function AddressSheet({ visible, cityId, onClose, onPick }: { visible: boolean; cityId: string; onClose: () => void; onPick: (p: Place) => void }) {
+  useTheme();
+  const api = useApi();
+  const [q, setQ] = useState('');
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 200);
+    return () => clearTimeout(t);
+  }, [q]);
+  useEffect(() => { if (!visible) setQ(''); }, [visible]);
+  const results = useQuery({ queryKey: qk.places(debounced, cityId), queryFn: () => api.places.search(debounced, cityId), enabled: visible });
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Adresse de l’école" subtitle="École, activité ou toute autre destination." scrollable>
+      <View style={{ gap: 12 }}>
+        <FormField label="Rechercher une adresse" value={q} onChangeText={setQ} autoFocus returnKeyType="search" testID="child-address-search" />
+        {results.isError ? <Text tone="danger" style={{ fontSize: 13 }}>Recherche indisponible. Réessayez.</Text> : null}
+        {(results.data ?? []).slice(0, 8).map((p, i) => (
+          <PressableScale key={`${p.id ?? p.label}-${i}`} onPress={() => { haptic.select(); onPick(p); }} accessibilityRole="button" accessibilityLabel={`${p.label}, ${p.address}`} pressedScale={0.985} testID={`child-address-result-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><MapPin size={17} color={colors.accent} strokeWidth={2} /></View>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{p.label}</Text>
+              <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{p.address}</Text>
+            </View>
+          </PressableScale>
+        ))}
+        {results.data && results.data.length === 0 && debounced ? <Text tone="muted" align="center" style={{ fontSize: 13, paddingVertical: 8 }}>Aucune adresse trouvée pour « {debounced} ».</Text> : null}
+      </View>
+    </Sheet>
+  );
+}
+
 /* ───────── Child form ───────── */
 
 type ChildInput = Omit<FamilyChild, 'id' | 'passengerId'>;
@@ -469,6 +556,7 @@ export function FamilyChildScreen({ accountId, cityId, childId, onBack, onDone }
   const [photo, setPhoto] = useState<string | null>(null);
   const [school, setSchool] = useState('');
   const [schoolPlace, setSchoolPlace] = useState<Place>(places.school);
+  const [addressSheet, setAddressSheet] = useState(false);
   const [notes, setNotes] = useState('');
   const [recipients, setRecipients] = useState<AuthorizedRecipient[]>([newRecipient()]);
   const [photoSheet, setPhotoSheet] = useState(false);
@@ -563,6 +651,14 @@ export function FamilyChildScreen({ accountId, cityId, childId, onBack, onDone }
           <SectionLabel>École</SectionLabel>
           <FormField label="École ou destination habituelle" value={school} onChangeText={setSchool} testID="child-school" />
           <Text tone="muted" style={{ fontSize: 13, lineHeight: 18, marginHorizontal: 4 }}>Adresse</Text>
+          <PressableScale onPress={() => { haptic.select(); setAddressSheet(true); }} accessibilityRole="button" accessibilityLabel={`Adresse : ${schoolPlace.label}. Modifier`} pressedScale={0.985} testID="child-school-address" style={[familyCard(), { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }]}>
+            <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><MapPin size={18} color={colors.accent} strokeWidth={2} /></View>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text weight="semibold" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>{schoolPlace.label}</Text>
+              <Text tone="muted" numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{schoolPlace.address || 'Rechercher une adresse'}</Text>
+            </View>
+            <Search size={18} color={colors.muted} strokeWidth={2} />
+          </PressableScale>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {places.list.map((p) => (
               <Pill key={p.id} label={p.label} selected={schoolPlace.id === p.id} onPress={() => setSchoolPlace(p)} />
@@ -607,6 +703,7 @@ export function FamilyChildScreen({ accountId, cityId, childId, onBack, onDone }
         </View>
       </View>
 
+      <AddressSheet visible={addressSheet} cityId={cityId ?? 'rabat'} onClose={() => setAddressSheet(false)} onPick={(p) => { setSchoolPlace(p); if (!school.trim()) setSchool(p.label); setAddressSheet(false); }} />
       <Sheet visible={photoSheet} onClose={() => setPhotoSheet(false)} title="Photo de l’enfant" subtitle="Recadrée en carré.">
         <View style={{ gap: 10, paddingBottom: 8 }}>
           <Row icon={<Tile><Camera size={20} color={colors.accent} strokeWidth={1.9} /></Tile>} title="Prendre une photo" onPress={() => choose('camera')} trailing={null} />

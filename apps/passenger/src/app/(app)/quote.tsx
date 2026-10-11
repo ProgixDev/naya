@@ -15,8 +15,7 @@ import { useTheme ,
   Text,
   haptic,
   toast,
-  useSingleFlight,
-} from '@naya/ui';
+  useSingleFlight, SERVICE_ICON } from '@naya/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -264,7 +263,7 @@ const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransfor
 
 function ServiceIcon({ icon, size = 44, on }: { icon: ServiceCategory['icon']; size?: number; on?: boolean }) {
   useTheme();
-  const Icon = icon === 'scooter' ? Bike : icon === 'premium' ? Gem : Car;
+  const Icon = SERVICE_ICON[icon] ?? Car;
   return (
     <View style={{ width: size, height: size, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.surface : colors.mauveSoft }}>
       <Icon size={Math.round(size * 0.5)} color={colors.accent} />

@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, Flag, MapPin, Navigation, Phone } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { DRIVER_CANCEL_REASONS, formatMoney, formatTime, type LatLng, type Ride } from '@naya/domain';
+import { cancelReasonsFor, formatMoney, formatTime, type LatLng, type Ride } from '@naya/domain';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { useAccountId, useDriverStatus } from '@/lib/queries';
 import { startRideTracking, stopRideTracking } from '@/lib/backgroundLocation';
@@ -29,6 +29,7 @@ export default function RideScreen() {
   const status = useDriverStatus();
   const [lastRideId, setLastRideId] = useState<string | null>(status.data?.activeRide?.id ?? null);
   const [contactOpen, setContactOpen] = useState(false);
+  const cancelCatalog = useQuery({ queryKey: ['naya', 'public', 'catalog'], queryFn: api.prototype.catalog, staleTime: 60_000 });
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState<string>('passenger_unreachable');
   const [cancelledByMe, setCancelledByMe] = useState<Ride | null>(null);
@@ -225,7 +226,7 @@ export default function RideScreen() {
       <Sheet visible={cancelOpen} onClose={() => !cancel.isPending && setCancelOpen(false)} dismissible={!cancel.isPending} title="Annuler la course" subtitle="La passagère sera reprise en charge par une autre chauffeuse." footer={<Button label="Annuler la course" variant="danger" full loading={cancel.isPending} onPress={() => cancel.mutate()} testID="confirm-driver-cancel" />}>
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {DRIVER_CANCEL_REASONS.map((r) => (
+            {cancelReasonsFor(cancelCatalog.data, 'driver').map((r) => (
               <Pill key={r.code} label={r.label} selected={reason === r.code} onPress={() => setReason(r.code)} testID={`cancel-reason-${r.code}`} />
             ))}
           </View>

@@ -23,6 +23,13 @@ import { useAnimatedCoordinate, bearing } from './useAnimatedCoordinate';
 export const TILE_URL = process.env.EXPO_PUBLIC_MAP_TILE_URL ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const TILE_ATTRIBUTION = process.env.EXPO_PUBLIC_MAP_ATTRIBUTION ?? '© OpenStreetMap contributors';
 /**
+ * Optional dark-mode tiles on native, where CSS filters are unavailable. Needs a keyed provider
+ * (e.g. CARTO or Stadia "dark" styles); without one, the standard tiles are dimmed instead.
+ */
+const TILE_URL_DARK = process.env.EXPO_PUBLIC_MAP_TILE_URL_DARK;
+const TILE_ATTRIBUTION_DARK = process.env.EXPO_PUBLIC_MAP_ATTRIBUTION_DARK ?? TILE_ATTRIBUTION;
+const darkTiles = () => !!TILE_URL_DARK && Platform.OS !== 'web' && getColorScheme() === 'dark';
+/**
  * The OSMF tile policy requires an identifying User-Agent. Android's default HTTP client
  * (okhttp / Dalvik) is refused with an "Access blocked" image, so native builds identify the
  * app. Browsers send their own User-Agent and Referer and must not override them.
@@ -115,7 +122,7 @@ export function TileMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animatedDriver?.lat, animatedDriver?.lng]);
 
-  const url = (t: { x: number; y: number }) => TILE_URL.replace('{z}', String(view.zoom)).replace('{x}', String(t.x)).replace('{y}', String(t.y)).replace('{s}', 'a');
+  const url = (t: { x: number; y: number }) => (darkTiles() ? TILE_URL_DARK! : TILE_URL).replace('{z}', String(view.zoom)).replace('{x}', String(t.x)).replace('{y}', String(t.y)).replace('{s}', 'a');
   const routePts = route?.map(toScreen).map((p) => `${p.x},${p.y}`).join(' ');
 
 const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark' ? 'invert(0.92) hue-rotate(185deg) brightness(0.68) contrast(0.9)' : 'grayscale(0.92) sepia(0.12) hue-rotate(250deg) brightness(1.06) contrast(0.92)' } as object) : null;
@@ -126,7 +133,7 @@ const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark
           {tiles.map((t) => (
             <Image key={t.key} source={{ uri: url(t), headers: TILE_HEADERS, cacheKey: `${TILE_CACHE_VERSION}:${url(t)}` }} style={[{ position: 'absolute', left: t.left, top: t.top, width: TILE, height: TILE }, tileFilter]} transition={Platform.OS === 'web' ? 0 : 120} cachePolicy="memory-disk" />
           ))}
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: getColorScheme() === 'dark' ? 'rgba(15,10,20,0.55)' : Platform.OS === 'web' ? 'rgba(250,244,247,0.18)' : 'rgba(250,244,247,0.42)' }]} />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: getColorScheme() === 'dark' ? (darkTiles() ? 'rgba(42,20,38,0.18)' : 'rgba(15,10,20,0.55)') : Platform.OS === 'web' ? 'rgba(250,244,247,0.18)' : 'rgba(250,244,247,0.42)' }]} />
           {route && route.length > 1 ? (
             <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={size.w} height={size.h}>
               <Polyline points={routePts} stroke={colors.surface} strokeWidth={9} fill="none" strokeLinejoin="round" strokeLinecap="round" />
@@ -152,7 +159,7 @@ const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark
       </GestureDetector>
       <View style={[styles.attribution, { bottom: bottomInset + 6 }]} pointerEvents="box-none">
         <Text variant="micro" tone="muted" onPress={() => Linking.openURL('https://www.openstreetmap.org/copyright')} accessibilityRole="link" style={{ fontSize: 10 }}>
-          {TILE_ATTRIBUTION}
+          {darkTiles() ? TILE_ATTRIBUTION_DARK : TILE_ATTRIBUTION}
         </Text>
       </View>
     </View>

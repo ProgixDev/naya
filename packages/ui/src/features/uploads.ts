@@ -5,13 +5,13 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import type { ApiClient } from '@naya/api';
 import type { Upload, VerificationItemKey } from '@naya/domain';
 
-export type Source = 'camera' | 'library' | 'document';
+export type Source = 'camera' | 'library' | 'document' | 'video' | 'video-camera';
 
 export interface PickedFile {
   uri: string;
   width: number | null;
   height: number | null;
-  mimeType: 'image/jpeg' | 'application/pdf';
+  mimeType: 'image/jpeg' | 'application/pdf' | 'video/mp4' | 'video/quicktime';
 }
 
 /**
@@ -26,6 +26,17 @@ export async function pickFile(source: Source, opts: { selfie?: boolean; square?
     const a = r.assets[0];
     if (a.mimeType === 'application/pdf') return { uri: a.uri, width: null, height: null, mimeType: 'application/pdf' };
     return normalizeImage(a.uri);
+  }
+  if (source === 'video' || source === 'video-camera') {
+    // Short clips only: uploads are capped at 10 MB.
+    const perm = source === 'video-camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted && Platform.OS !== 'web') return 'denied';
+    const options = { mediaTypes: ['videos'] as ImagePicker.MediaType[], videoMaxDuration: 30, videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium, quality: 0.6 };
+    const r = source === 'video-camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+    const a = r.canceled ? null : r.assets[0];
+    if (!a) return null;
+    const mime = a.mimeType === 'video/quicktime' || /\.mov$/i.test(a.uri) ? 'video/quicktime' : 'video/mp4';
+    return { uri: a.uri, width: a.width ?? null, height: a.height ?? null, mimeType: mime };
   }
   if (source === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();

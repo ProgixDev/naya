@@ -5,7 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bell, CircleHelp, CreditCard, FlaskConical, MapPin, SlidersHorizontal, UserRoundPen, UsersRound } from 'lucide-react-native';
+import { Bell, CircleHelp, CreditCard, FlaskConical, MapPin, ShieldCheck, SlidersHorizontal, UserRoundPen, UsersRound } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors, getColorScheme, gutter } from '@naya/tokens';
@@ -87,6 +87,7 @@ export default function Account() {
           <AccountRow testID="account-places" icon={<MapPin size={20} color={colors.accent} strokeWidth={1.9} />} title="Adresses enregistrées" subtitle={saved || 'Maison, travail…'} onPress={() => router.push('/places')} />
         </AccountGroup>
         <AccountGroup label="À vos côtés">
+          <AccountRow testID="account-trusted" icon={<ShieldCheck size={20} color={colors.accent} strokeWidth={1.9} />} title="Contacts de confiance" subtitle="Prévenus par SMS en cas d’alerte SOS" onPress={() => router.push('/trusted-contacts')} />
           <AccountRow testID="account-help" icon={<CircleHelp size={20} color={colors.accent} strokeWidth={1.9} />} title="Aide et demandes" subtitle="Paiement, annulation, objet oublié" onPress={() => router.push('/help')} />
           {DEMO_MODE ? <AccountRow testID="account-dev" tone="warning" icon={<FlaskConical size={20} color={colors.warning} strokeWidth={1.9} />} title="Lanceur de scénarios" subtitle="Démonstration · réinitialiser, simuler une chauffeuse" onPress={() => router.push('/dev')} /> : null}
         </AccountGroup>

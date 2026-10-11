@@ -1,3 +1,4 @@
+import type { Spot } from '@naya/assets';
 import { Attachment } from './Attachment';
 import { useTheme } from './../core/theme';
 import { useState, type ReactNode } from 'react';
@@ -5,7 +6,7 @@ import { ActivityIndicator, Platform, StyleSheet, TextInput, View } from 'react-
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, Camera, Car, Check, CreditCard, FileText, Headphones, HelpCircle, ImageIcon, Inbox, MessageCircle, Paperclip, Phone, Plus, ShieldAlert, UserRound, Wallet, X } from 'lucide-react-native';
+import { ArrowUp, Camera, Car, Check, CreditCard, FileText, Headphones, HelpCircle, ImageIcon, Inbox, MessageCircle, Paperclip, Phone, Plus, ShieldAlert, UserRound, Video, Wallet, X } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatShort, SUPPORT_STATUS_LABELS, supportTicketSchema, type SupportTicket } from '@naya/domain';
@@ -20,6 +21,7 @@ import { FormField, Pill } from '../Form';
 import { EmptyState, ErrorState, SkeletonList, StatusBanner, StatusPill, type BannerTone } from '../Feedback';
 import { ListGroup, ListRow } from '../List';
 import { toast } from '../Toast';
+import { Sheet } from '../BottomSheet';
 import { haptic } from '../haptics';
 import { pickFile, uploadFile } from './uploads';
 
@@ -39,7 +41,7 @@ const TOPICS: { category: SupportTicket['category']; label: string; hint: string
 ];
 
 /** P16 / D18 list: help topics, then the person's requests with their status. */
-export function TicketListScreen({ accountId, onBack, onOpen, onCreate, emptyImage: _emptyImage }: { accountId: string; onBack: () => void; onOpen: (id: string) => void; onCreate: (category?: SupportTicket['category']) => void; emptyImage?: number }) {
+export function TicketListScreen({ accountId, onBack, onOpen, onCreate, emptyImage: _emptyImage }: { accountId: string; onBack: () => void; onOpen: (id: string) => void; onCreate: (category?: SupportTicket['category']) => void; emptyImage?: Spot }) {
   useTheme();
   const api = useApi();
   const q = useQuery({ queryKey: qk.tickets(accountId), queryFn: api.support.list });
@@ -146,7 +148,7 @@ const GENERAL: { id: string; label: string; category: SupportTicket['category'] 
   { id: 'general-account', label: 'Question sur mon compte', category: 'account' },
 ];
 
-type Picked = { id: string; uri: string; pdf: boolean };
+type Picked = { id: string; uri: string; pdf: boolean; video?: boolean };
 
 /** P16 creation / D18-form: reason, concerned ride, what happened, photos, screenshots and documents. */
 export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride', role, onBack, onCreated }: { accountId: string; rideId: string | null; defaultCategory?: SupportTicket['category']; role: 'passenger' | 'driver'; onBack: () => void; onCreated: (id: string) => void }) {
@@ -205,14 +207,14 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
     setErrors({});
     create.mutate();
   };
-  const attach = async (kind: 'camera' | 'library' | 'document') => {
+  const attach = async (kind: 'camera' | 'library' | 'document' | 'video') => {
     const file = await pickFile(kind);
     if (file === 'denied') return toast(kind === 'camera' ? 'Autorisez l’appareil photo dans les réglages.' : 'Autorisez l’accès aux photos dans les réglages pour joindre une image.', 'danger');
     if (!file) return;
     setUploading(true);
     try {
       const up = await uploadFile(api, file, 'support_attachment');
-      setAttachments((a) => [...a, { id: up.id, uri: file.uri, pdf: file.mimeType === 'application/pdf' }]);
+      setAttachments((a) => [...a, { id: up.id, uri: file.uri, pdf: file.mimeType === 'application/pdf', video: file.mimeType.startsWith('video/') }]);
     } catch (e) {
       toast(errorMessage(e), 'danger');
     } finally {
@@ -316,7 +318,12 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {attachments.map((a) => (
                 <View key={a.id}>
-                  {a.pdf ? (
+                  {a.video ? (
+                    <View style={{ width: 76, height: 76, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line }}>
+                      <Video size={24} color={colors.accent} />
+                      <Text variant="micro">Vidéo</Text>
+                    </View>
+                  ) : a.pdf ? (
                     <View style={{ width: 76, height: 76, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line }}>
                       <FileText size={24} color={colors.accent} />
                       <Text variant="micro">PDF</Text>
@@ -337,15 +344,16 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
                 ['camera', 'Photo', <Camera key="c" size={20} color={colors.accent} strokeWidth={1.9} />, 'attach-camera'],
                 ['library', 'Galerie', <ImageIcon key="l" size={20} color={colors.accent} strokeWidth={1.9} />, 'attach'],
                 ['document', 'PDF', <FileText key="d" size={20} color={colors.accent} strokeWidth={1.9} />, 'attach-document'],
+                ['video', 'Vidéo', <Video key="v" size={20} color={colors.accent} strokeWidth={1.9} />, 'attach-video'],
               ] as const).map(([kind, text, icon, id]) => (
-                <PressableScale key={kind} testID={id} disabled={uploading} onPress={() => attach(kind)} accessibilityRole="button" accessibilityLabel={kind === 'camera' ? 'Prendre une photo' : kind === 'library' ? 'Photo ou capture' : 'Document PDF'} style={[card, { flex: 1, height: 76, alignItems: 'center', justifyContent: 'center', gap: 6, opacity: uploading ? 0.5 : 1 }]}>
+                <PressableScale key={kind} testID={id} disabled={uploading} onPress={() => attach(kind)} accessibilityRole="button" accessibilityLabel={kind === 'camera' ? 'Prendre une photo' : kind === 'library' ? 'Photo ou capture' : kind === 'video' ? 'Vidéo de 30 secondes maximum' : 'Document PDF'} style={[card, { flex: 1, height: 76, alignItems: 'center', justifyContent: 'center', gap: 6, opacity: uploading ? 0.5 : 1 }]}>
                   {uploading ? <ActivityIndicator color={colors.accent} /> : icon}
                   <Text weight="semibold" style={{ fontSize: 13, lineHeight: 18 }}>{text}</Text>
                 </PressableScale>
               ))}
             </View>
           ) : null}
-          <Text tone="muted" style={{ fontSize: 13, lineHeight: 18, marginHorizontal: 4 }}>Photos, captures d’écran, reçus ou documents. Privés, vus par l’équipe Naya seulement.</Text>
+          <Text tone="muted" style={{ fontSize: 13, lineHeight: 18, marginHorizontal: 4 }}>Photos, captures d’écran, reçus, documents ou vidéos courtes (30 s). Privés, vus par l’équipe Naya seulement.</Text>
           {errors.attachments ? <Text tone="danger" style={{ marginLeft: 4 }}>{errors.attachments}</Text> : null}
         </View>
       </View>
@@ -362,6 +370,23 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
   const [text, setText] = useState('');
   const [files, setFiles] = useState<Picked[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [attachSheet, setAttachSheet] = useState(false);
+  // Same sources as when opening the request: camera, photos / screenshots, PDF.
+  const attachReply = async (kind: 'camera' | 'library' | 'document' | 'video') => {
+    setAttachSheet(false);
+    const file = await pickFile(kind);
+    if (file === 'denied') return toast(kind === 'camera' ? 'Autorisez l’appareil photo dans les réglages.' : 'Autorisez l’accès aux photos dans les réglages.', 'danger');
+    if (!file) return;
+    setUploading(true);
+    try {
+      const up = await uploadFile(api, file, 'support_attachment');
+      setFiles((l) => [...l, { id: up.id, uri: file.uri, pdf: file.mimeType === 'application/pdf', video: file.mimeType.startsWith('video/') }]);
+    } catch (e) {
+      toast(errorMessage(e), 'danger');
+    } finally {
+      setUploading(false);
+    }
+  };
   const send = useMutation({
     mutationFn: () => api.support.message(ticketId, { body: text.trim() || 'Pièce(s) jointe(s) ajoutée(s).', attachments: files.map((f) => f.id) }),
     onSuccess: (t) => {
@@ -382,7 +407,7 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
           <View style={{ gap: 8 }}>
             {files.length ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {files.map((f) => <Pill key={f.id} label={f.pdf ? 'PDF ✕' : 'Photo ✕'} onPress={() => setFiles((l) => l.filter((x) => x.id !== f.id))} />)}
+                {files.map((f) => <Pill key={f.id} label={f.video ? 'Vidéo ✕' : f.pdf ? 'PDF ✕' : 'Photo ✕'} onPress={() => setFiles((l) => l.filter((x) => x.id !== f.id))} />)}
               </View>
             ) : null}
             <Composer
@@ -391,21 +416,23 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
               sending={send.isPending}
               canSend={files.length > 0}
               onSend={() => send.mutate()}
-              onAttach={files.length < MAX_ATTACHMENTS && !uploading ? async () => {
-                const file = await pickFile('library');
-                if (file === 'denied') return toast('Autorisez l’accès aux photos dans les réglages.', 'danger');
-                if (!file) return;
-                setUploading(true);
-                try {
-                  const up = await uploadFile(api, file, 'support_attachment');
-                  setFiles((l) => [...l, { id: up.id, uri: file.uri, pdf: file.mimeType === 'application/pdf' }]);
-                } catch (e) {
-                  toast(errorMessage(e), 'danger');
-                } finally {
-                  setUploading(false);
-                }
-              } : undefined}
+              onAttach={files.length < MAX_ATTACHMENTS && !uploading ? () => { haptic.select(); setAttachSheet(true); } : undefined}
             />
+            <Sheet visible={attachSheet} onClose={() => setAttachSheet(false)} title="Joindre une preuve" subtitle="Privée, vue par l’équipe Naya seulement.">
+              <View style={{ gap: 4 }}>
+                {([
+                  ['camera', 'Prendre une photo', Camera, 'reply-attach-camera'],
+                  ['library', 'Photo ou capture d’écran', ImageIcon, 'reply-attach-library'],
+                  ['document', 'Document PDF', FileText, 'reply-attach-document'],
+                  ['video', 'Vidéo (30 s max)', Video, 'reply-attach-video'],
+                ] as const).map(([kind, label, Icon, id]) => (
+                  <PressableScale key={kind} testID={id} onPress={() => attachReply(kind)} accessibilityRole="button" accessibilityLabel={label} pressedScale={0.985} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><Icon size={19} color={colors.accent} strokeWidth={1.9} /></View>
+                    <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{label}</Text>
+                  </PressableScale>
+                ))}
+              </View>
+            </Sheet>
           </View>
         ) : undefined
       }

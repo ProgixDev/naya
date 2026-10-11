@@ -65,7 +65,7 @@ export function DocumentPicker({ value, onChange, testID }: { value: IdDocumentT
 const styles = themedStyles(() => StyleSheet.create({
   tile: { flex: 1, minHeight: 88, borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6, shadowColor: colors.ink, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   tileRow: { flex: undefined, minHeight: 60, flexDirection: 'row', justifyContent: 'flex-start', paddingHorizontal: 16, gap: 12 },
-  on: { borderColor: colors.accent, borderWidth: 1.5, backgroundColor: '#FDF9FB', shadowColor: colors.accent, shadowOpacity: 0.14, shadowRadius: 12 },
+  on: { borderColor: colors.accent, borderWidth: 1.5, backgroundColor: colors.mauveSoft, shadowColor: colors.accent, shadowOpacity: 0.14, shadowRadius: 12 },
   iconWrap: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' },
   check: { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
 }));

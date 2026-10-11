@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatMoney, PASSENGER_CANCEL_REASONS, type Ride } from '@naya/domain';
+import { cancelReasonsFor, formatMoney, type Ride } from '@naya/domain';
 import { Button, Pill, Sheet, Skeleton, StatusBanner, Text, haptic, toast, useSingleFlight } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 
@@ -16,6 +16,7 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
   const qc = useQueryClient();
   const a = useAccountId();
   const [reason, setReason] = useState<string | null>(null);
+  const catalog = useQuery({ queryKey: ['naya', 'public', 'catalog'], queryFn: api.prototype.catalog, staleTime: 60_000 });
   const preview = useQuery({ queryKey: qk.cancellationPreview(a, ride.id), queryFn: () => api.rides.cancellationPreview(ride.id), enabled: visible, refetchInterval: visible ? 5000 : false });
   const cancel = useSingleFlight((_v: void, key: string) => api.rides.cancel(ride.id, { reasonCode: reason!, acknowledgedFee: preview.data!.fee }, key), {
     onSuccess: (r) => {
@@ -35,7 +36,7 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
     <Sheet visible={visible} onClose={() => { setReason(null); onClose(); }} dismissible={!cancel.isPending} title="Annuler la course ?" subtitle="Choisissez un motif." testID="cancel-sheet">
       <View style={{ gap: 12 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="radiogroup">
-          {PASSENGER_CANCEL_REASONS.map((r) => (
+          {cancelReasonsFor(catalog.data, 'passenger').map((r) => (
             <Pill key={r.code} label={r.label} selected={reason === r.code} onPress={() => setReason(r.code)} testID={`reason-${r.code}`} />
           ))}
         </View>
