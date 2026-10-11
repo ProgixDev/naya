@@ -1,3 +1,4 @@
+import { SafetyPage } from './pages/Safety';
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate, useLocation } from 'react-router';
 import { useAuth } from './lib/auth';
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: 'courses/:id', element: gate('rides.read', 'Détail de course', S(<RidePage />)) },
       { path: 'support', element: gate('support.resolve', 'Support', S(<SupportPage />)) },
       { path: 'support/:id', element: gate('support.resolve', 'Demande', S(<TicketPage />)) },
+      { path: 'securite', element: gate('safety.respond', 'Sécurité', S(<SafetyPage />)) },
       { path: 'finance', element: gate('finance.read', 'Finance', S(<FinancePage />)) },
       { path: 'villes', element: S(<CitiesPage />) },
       { path: 'villes/:id/regles', element: S(<RulesPage />) },

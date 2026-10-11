@@ -3,14 +3,70 @@
 @tailwind utilities;
 
 @layer base {
+  /* Colour tokens as RGB channels so Tailwind opacity modifiers (border-line/60…) keep working.
+     Light mirrors packages/tokens; dark mirrors the apps' darkColors. */
+  :root {
+    color-scheme: light;
+    --c-background: 248 247 249;
+    --c-surface: 255 255 255;
+    --c-selected: 237 227 234;
+    --c-ink: 41 35 45;
+    --c-muted: 113 105 119;
+    --c-inverse: 255 255 255;
+    --c-accent: 107 54 87;
+    --c-accent-pressed: 86 41 74;
+    --c-accent-deep: 63 27 52;
+    --c-mauve: 185 138 168;
+    --c-mauve-soft: 241 235 240;
+    --c-line: 231 226 232;
+    --c-disabled-fill: 236 230 234;
+    --c-disabled-text: 160 147 158;
+    --c-success: 47 107 79;
+    --c-success-soft: 230 242 235;
+    --c-warning: 138 90 18;
+    --c-warning-soft: 251 240 220;
+    --c-danger: 165 49 63;
+    --c-danger-soft: 249 229 232;
+    --c-info: 60 90 134;
+    --c-info-soft: 230 236 245;
+    --c-map: 239 233 236;
+    --shadow-card: 0 2px 8px rgba(41,35,45,0.025);
+  }
+  :root.dark {
+    color-scheme: dark;
+    --c-background: 22 18 26;
+    --c-surface: 35 29 40;
+    --c-selected: 58 41 56;
+    --c-ink: 244 237 245;
+    --c-muted: 187 175 190;
+    --c-inverse: 32 21 34;
+    --c-accent: 229 182 212;
+    --c-accent-pressed: 213 154 194;
+    --c-accent-deep: 56 34 51;
+    --c-mauve: 205 160 191;
+    --c-mauve-soft: 48 36 50;
+    --c-line: 66 54 72;
+    --c-disabled-fill: 51 42 56;
+    --c-disabled-text: 138 124 145;
+    --c-success: 154 213 180;
+    --c-success-soft: 32 58 46;
+    --c-warning: 240 201 130;
+    --c-warning-soft: 66 51 32;
+    --c-danger: 255 171 182;
+    --c-danger-soft: 72 36 47;
+    --c-info: 169 201 245;
+    --c-info-soft: 37 52 76;
+    --c-map: 37 32 43;
+    --shadow-card: 0 2px 10px rgba(0,0,0,0.35);
+  }
   html { font-family: Inter, system-ui, sans-serif; font-feature-settings: 'cv11', 'ss01'; }
-  body { background: #F8F7F9; color: #29232D; }
-  :focus-visible { outline: 2px solid #3C5A86; outline-offset: 2px; border-radius: 8px; }
+  body { background: rgb(var(--c-background)); color: rgb(var(--c-ink)); }
+  :focus-visible { outline: 2px solid rgb(var(--c-info)); outline-offset: 2px; border-radius: 8px; }
   .tabular { font-variant-numeric: tabular-nums; }
 }
 
 @layer components {
-  .card { @apply bg-surface rounded-card border border-line/60; box-shadow: 0 2px 8px rgba(41,35,45,0.025); }
+  .card { @apply bg-surface rounded-card border border-line/60; box-shadow: var(--shadow-card); }
   .field { @apply w-full h-11 rounded-field border border-line bg-surface px-3 text-[15px] text-ink placeholder:text-disabled-text focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:bg-disabled-fill; }
   .label { @apply text-[13px] font-semibold text-ink; }
   .th { @apply px-4 py-2.5 text-left text-[12px] font-medium text-muted bg-background/70 whitespace-nowrap; }
@@ -28,3 +84,6 @@
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   button:active { transform: none !important; }
 }
+
+/* OpenStreetMap tiles have no dark style: invert them softly in dark mode. */
+.dark .map-tile { filter: invert(1) hue-rotate(180deg) grayscale(0.85) brightness(0.82) contrast(0.9) !important; }

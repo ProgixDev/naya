@@ -248,7 +248,7 @@ export function CaseReviewPage() {
                 return (
                   <div key={key} className={`rounded-2xl border p-3 transition ${on ? 'border-accent bg-selected/50' : 'border-line'}`}>
                     <label className="flex cursor-pointer items-center gap-3 text-[14px] font-medium">
-                      <input type="checkbox" className="h-[18px] w-[18px] rounded accent-[#6B3657]" checked={on} onChange={(e) => setCorrections((m) => ({ ...m, [key]: e.target.checked ? '' : undefined }))} data-testid={`correct-${key}`} />
+                      <input type="checkbox" className="h-[18px] w-[18px] rounded accent-accent" checked={on} onChange={(e) => setCorrections((m) => ({ ...m, [key]: e.target.checked ? '' : undefined }))} data-testid={`correct-${key}`} />
                       <span className="flex-1">{ITEM_LABELS[key]}</span>
                       {on ? <Badge tone="warning" dot={false}>À reprendre</Badge> : null}
                     </label>

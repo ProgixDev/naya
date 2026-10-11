@@ -9,6 +9,7 @@ import { fmtDateTime, money } from '../lib/format';
 import { Banner, Button, Card, DefinitionList, Dialog, ErrorState, Field, Input, PageHeader, Skeleton, Textarea, toast, cx } from '../components/ui';
 import { PaymentBadge, RideBadge, TicketBadge } from '../components/status';
 import { AuditList } from './Audit';
+import { MiniMap } from '../components/MiniMap';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { ReasonField } from '../components/form';
 
@@ -118,7 +119,7 @@ export function TicketPage() {
                   {(fid, d) => <Textarea id={fid} aria-describedby={d} value={reply} onChange={(e) => setReply(e.target.value)} data-testid="agent-reply" />}
                 </Field>
                 <label className="inline-flex items-center gap-2 text-[14px]">
-                  <input type="checkbox" className="h-4 w-4 accent-[#6B3657]" checked={requestInfo} onChange={(e) => setRequestInfo(e.target.checked)} data-testid="request-info" />
+                  <input type="checkbox" className="h-4 w-4 accent-accent" checked={requestInfo} onChange={(e) => setRequestInfo(e.target.checked)} data-testid="request-info" />
                   Demander des informations complémentaires (statut « Informations demandées »)
                 </label>
                 <div className="flex justify-end">
@@ -185,6 +186,16 @@ export function TicketPage() {
           </Card>
           {ride ? (
             <Card title={`Course ${ride.id}`} action={<Link to={`/courses/${ride.id}`} className="text-[13px] font-semibold text-accent">Ouvrir</Link>}>
+              <div className="mb-4">
+                <MiniMap
+                  label={`Trajet de la course ${ride.id}`}
+                  center={{ lat: ride.route.stops.reduce((x, st) => x + st.location.lat, 0) / ride.route.stops.length, lng: ride.route.stops.reduce((x, st) => x + st.location.lng, 0) / ride.route.stops.length }}
+                  zoom={13}
+                  route={ride.route.polyline}
+                  markers={ride.route.stops.map((st, i) => ({ id: `s${i}`, at: st.location, label: st.label, kind: (i === 0 ? 'pickup' : i === ride.route.stops.length - 1 ? 'destination' : 'stop') as 'pickup' }))}
+                  height={200}
+                />
+              </div>
               <DefinitionList
                 items={[
                   { term: 'Date / heure', value: `${fmtDateTime(ride.requestedAt)}${ride.completedAt ? ` → ${fmtDateTime(ride.completedAt)}` : ''}` },

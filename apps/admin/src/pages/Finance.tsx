@@ -1,3 +1,4 @@
+import type { AdminFinanceSummary } from '@naya/api';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,7 +18,9 @@ type DriverRow = { driver: User; wallet: Wallet };
 
 /** A09 · Finance : portefeuilles, opérations, paiements, grand livre et corrections exceptionnelles. */
 export function FinancePage() {
-  const { cityId } = useWorkspace();
+  const { cityId: workspaceCity } = useWorkspace();
+  const [scope, setScope] = useState<'city' | 'all'>('city');
+  const cityId = scope === 'all' ? 'all' : workspaceCity;
   const { can } = useAuth();
   const [tab, setTab] = useState<Tab>('wallets');
   const [correctionFor, setCorrectionFor] = useState<DriverRow | null | 'pick'>(null);
@@ -28,7 +31,7 @@ export function FinancePage() {
       <PageHeader
         title="Finance"
         subtitle="Solde comptable, fonds réservés, disponible au retrait, dette et espèces physiques restent distincts. Aucun paiement en attente ne crée de fonds."
-        actions={can('finance.correct') ? <Button variant="secondary" icon={<Wrench className="h-4 w-4" />} onClick={() => setCorrectionFor('pick')} data-testid="new-correction">Correction exceptionnelle</Button> : null}
+        actions={<div className="flex flex-wrap items-center gap-3"><Segmented<'city' | 'all'> label="Périmètre" value={scope} onChange={setScope} options={[{ value: 'city', label: 'Ville sélectionnée' }, { value: 'all', label: 'Toutes les villes' }]} />{can('finance.correct') ? <Button variant="secondary" icon={<Wrench className="h-4 w-4" />} onClick={() => setCorrectionFor('pick')} data-testid="new-correction">Correction exceptionnelle</Button> : null}</div>}
       />
       {q.isError ? (
         <Card><ErrorState onRetry={() => q.refetch()} /></Card>
@@ -41,7 +44,7 @@ export function FinancePage() {
                   <Kpi label="Soldes comptables cumulés" value={money(d.totals.balances)} hint={`${d.drivers.length} chauffeuse(s)`} />
                   <Kpi label="Réservé (retraits en cours)" value={money(d.totals.reserved)} hint={`${d.withdrawals.filter((w) => w.status === 'pending').length} retrait(s) en attente`} />
                   <Kpi label="Dette de commission" value={money(d.totals.debt)} tone={d.totals.debt > 0 ? 'warning' : undefined} hint="Courses en espèces non compensées" />
-                  <Kpi label="Offres bloquées (plafond)" value={d.totals.blocked} tone={d.totals.blocked ? 'danger' : undefined} hint={`${d.failedPayments.length} paiement(s) échoué(s)`} />
+                  <Kpi label="Offres bloquées (plafond)" value={d.totals.blocked} tone={d.totals.blocked ? 'danger' : undefined} hint={`${d.failedPayments.length} paiement(s) · ${d.failedTopups.length} recharge(s) échoué(s)`} />
                   <Kpi label="Commissions Naya" value={money(d.commissions.total)} hint={`sur ${money(d.commissions.gross)} de courses terminées`} />
                 </>
               ) : (
@@ -72,10 +75,15 @@ export function FinancePage() {
             ) : null}
             {d && tab === 'transfers' ? <Transfers recharges={d.recharges} withdrawals={d.withdrawals} names={Object.fromEntries(d.drivers.map((r) => [r.driver.id, `${r.driver.firstName} ${r.driver.lastName}`]))} /> : null}
             {d && tab === 'transactions' ? <Transactions payments={d.payments} /> : null}
-            {d && tab === 'payments' ? <PaymentsToWatch failed={d.failedPayments} pending={d.pendingPayments} /> : null}
+            {d && tab === 'payments' ? (
+              <>
+                <PaymentsToWatch failed={d.failedPayments} pending={d.pendingPayments} />
+                <FailedTopups rows={d.failedTopups} />
+              </>
+            ) : null}
             {d && tab === 'commissions' ? <Commissions data={d.commissions} /> : null}
             {d && tab === 'passengers' ? <PassengerWallets rows={d.passengerWallets} /> : null}
-            {tab === 'ledger' ? <Ledger cityId={cityId} drivers={d?.drivers ?? []} /> : null}
+            {tab === 'ledger' ? <Ledger cityId={scope === 'all' ? undefined : cityId} drivers={d?.drivers ?? []} /> : null}
           </Card>
         </div>
       )}
@@ -217,7 +225,28 @@ function PaymentsToWatch({ failed, pending }: { failed: Payment[]; pending: Paym
   );
 }
 
-function Ledger({ cityId, drivers }: { cityId: string; drivers: DriverRow[] }) {
+function FailedTopups({ rows }: { rows: AdminFinanceSummary['failedTopups'] }) {
+  return (
+    <div className="border-t border-line pt-4">
+      <h3 className="px-5 text-[15px] font-semibold">Recharges échouées · {rows.length}</h3>
+      <DataTable
+        caption="Recharges échouées"
+        rows={rows}
+        rowKey={(r) => r.id}
+        empty={<EmptyState title="Aucune recharge échouée" message="Les recharges de portefeuille refusées par le prestataire apparaîtront ici." />}
+        columns={[
+          { key: 'id', header: 'Opération', render: (r) => <span className="font-semibold">{r.id}</span> },
+          { key: 'who', header: 'Titulaire', render: (r) => <div><div>{r.who}</div><div className="text-[12px] text-muted">{r.role === 'driver' ? 'chauffeuse' : 'cliente'}</div></div> },
+          { key: 'p', header: 'Prestataire', render: (r) => <div className="flex flex-col"><span>{r.provider}</span>{r.reason ? <span className="text-[12px] text-muted">{r.reason}</span> : null}</div> },
+          { key: 'at', header: 'Date', render: (r) => fmtDateTime(r.at), sort: (r) => r.at },
+          { key: 'a', header: 'Montant', align: 'right', render: (r) => money(r.amount) },
+        ]}
+      />
+    </div>
+  );
+}
+
+function Ledger({ cityId, drivers }: { cityId?: string; drivers: DriverRow[] }) {
   const [driverId, setDriverId] = useState('');
   const [type, setType] = useState('');
   const [cursor, setCursor] = useState(0);

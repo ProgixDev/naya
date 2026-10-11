@@ -19,6 +19,8 @@ export function DocThumb({ uploadId, label, onOpen }: { uploadId?: string; label
       {q.data ? (
         q.data.type === 'application/pdf' ? (
           <div className="flex aspect-[1.586] flex-col items-center justify-center gap-2 text-muted"><FileText className="h-8 w-8" />PDF</div>
+        ) : q.data.type.startsWith('video/') ? (
+          <video src={q.data.url} muted playsInline preload="metadata" className="aspect-[1.586] w-full bg-ink object-contain" aria-label={label} />
         ) : (
           <img src={q.data.url} alt={label} className="aspect-[1.586] w-full object-contain" />
         )
@@ -52,6 +54,8 @@ export function DocViewer({ uploadId, label, open, onClose }: { uploadId?: strin
         {q.data ? (
           q.data.type === 'application/pdf' ? (
             <iframe title={label} src={q.data.url} className="h-full w-full" />
+          ) : q.data.type.startsWith('video/') ? (
+            <video src={q.data.url} controls playsInline className="h-full w-full bg-ink object-contain" aria-label={label} />
           ) : (
             <img src={q.data.url} alt={label} className={cx('origin-top-left transition-transform')} style={{ transform: `scale(${scale}) rotate(${rotation}deg)`, maxWidth: '100%' }} />
           )

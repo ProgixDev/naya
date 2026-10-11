@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, CreditCard, FileText, LogOut, MapPin, Menu, MessageCircle, Route, ShieldCheck, Users, Wallet, X, Lock } from 'lucide-react';
+import { BarChart3, CreditCard, FileText, LogOut, MapPin, Menu, MessageCircle, Monitor, ShieldAlert, Moon, Route, ShieldCheck, Sun, Users, Wallet, X, Lock } from 'lucide-react';
 import type { AdminPermission } from '@naya/domain';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -9,6 +9,7 @@ import { useWorkspace } from '../lib/context';
 import { BrandMark } from './Brand';
 import { Button, cx, IconButton } from './ui';
 import { CityBadge } from './status';
+import { useTheme, type ThemeChoice } from '../lib/theme';
 
 export const NAV: { to: string; label: string; icon: typeof BarChart3; permission?: AdminPermission; group: 'travail' | 'gestion' }[] = [
   { to: '/', label: 'Vue d’ensemble', icon: BarChart3, group: 'travail' },
@@ -16,6 +17,7 @@ export const NAV: { to: string; label: string; icon: typeof BarChart3; permissio
   { to: '/personnes', label: 'Personnes & véhicules', icon: Users, permission: 'people.read', group: 'travail' },
   { to: '/courses', label: 'Courses', icon: Route, permission: 'rides.read', group: 'travail' },
   { to: '/support', label: 'Support', icon: MessageCircle, permission: 'support.resolve', group: 'travail' },
+  { to: '/securite', label: 'Sécurité · SOS', icon: ShieldAlert, permission: 'safety.respond', group: 'travail' },
   { to: '/finance', label: 'Finance', icon: Wallet, permission: 'finance.read', group: 'gestion' },
   { to: '/villes', label: 'Villes & règles', icon: MapPin, group: 'gestion' },
   { to: '/paiements', label: 'Paiements', icon: CreditCard, group: 'gestion' },
@@ -37,7 +39,7 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
                 to={n.to}
                 end={n.to === '/'}
                 onClick={onNavigate}
-                className={({ isActive }) => cx('flex h-11 items-center gap-3 rounded-2xl px-3 text-[13px] font-medium transition', isActive ? 'bg-white text-accent font-semibold shadow-sm' : 'text-white/75 hover:bg-white/10 hover:text-white')}
+                className={({ isActive }) => cx('flex h-11 items-center gap-3 rounded-2xl px-3 text-[13px] font-medium transition', isActive ? 'bg-white text-[#6B3657] font-semibold shadow-sm dark:bg-white/15 dark:text-white' : 'text-white/75 hover:bg-white/10 hover:text-white')}
               >
                 <n.icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
                 <span className="flex-1 truncate">{n.label}</span>
@@ -103,12 +105,41 @@ export function CitySwitcher() {
   );
 }
 
+const THEMES: { id: ThemeChoice; label: string; icon: typeof Sun }[] = [
+  { id: 'light', label: 'Clair', icon: Sun },
+  { id: 'dark', label: 'Sombre', icon: Moon },
+  { id: 'system', label: 'Système', icon: Monitor },
+];
+
+/** Light / dark / system, saved in this browser. */
+function ThemeSwitcher() {
+  const [choice, setChoice] = useTheme();
+  return (
+    <div role="radiogroup" aria-label="Apparence" className="flex h-10 items-center gap-0.5 rounded-full border border-line bg-surface p-1" data-testid="theme-switcher">
+      {THEMES.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={choice === id}
+          aria-label={label}
+          title={label}
+          onClick={() => setChoice(id)}
+          className={cx('inline-flex h-8 w-8 items-center justify-center rounded-full transition', choice === id ? 'bg-accent text-inverse' : 'text-muted hover:text-ink')}
+        >
+          <Icon className="h-4 w-4" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Layout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   return (
     <div className="min-h-screen lg:pl-[280px]">
-      <aside className="admin-sidebar fixed inset-y-4 left-4 z-30 hidden w-[252px] flex-col rounded-[28px] bg-[#302532] shadow-float lg:flex">
+      <aside className="admin-sidebar fixed inset-y-4 left-4 z-30 hidden w-[252px] flex-col rounded-[28px] bg-[#302532] shadow-float dark:bg-[#251C27] dark:ring-1 dark:ring-white/5 lg:flex">
         <div className="flex h-20 items-center px-6">
           <BrandMark height={24} />
           <span className="ml-3 rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-semibold tracking-wider text-white/70">Admin</span>
@@ -119,7 +150,7 @@ export function Layout() {
       {open ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-ink/30" onClick={() => setOpen(false)} aria-hidden />
-          <aside className="admin-sidebar absolute inset-y-0 left-0 flex w-[280px] flex-col bg-[#302532] shadow-float" aria-label="Menu">
+          <aside className="admin-sidebar absolute inset-y-0 left-0 flex w-[280px] flex-col bg-[#302532] shadow-float dark:bg-[#251C27] dark:ring-1 dark:ring-white/5" aria-label="Menu">
             <div className="flex h-16 items-center justify-between px-5">
               <BrandMark height={24} />
               <IconButton label="Fermer le menu" onClick={() => setOpen(false)}>
@@ -136,6 +167,7 @@ export function Layout() {
           <Menu className="h-5 w-5" />
         </IconButton>
         <div className="flex flex-1 items-center gap-3 text-[13px]"><span className="hidden text-muted sm:inline">Espace Naya</span><span className="hidden text-line sm:inline">/</span><span className="font-medium">{NAV.find((n) => n.to === location.pathname)?.label ?? 'Détail du dossier'}</span></div>
+        <ThemeSwitcher />
         <CitySwitcher />
       </div>
       <main key={location.pathname} className="mx-auto max-w-[1320px] px-5 pb-16 pt-6 lg:px-10">

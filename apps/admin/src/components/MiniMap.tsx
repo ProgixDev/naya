@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LatLng } from '@naya/domain';
-import carTop from '@naya/assets/cars/naya-signature-top.png';
+import { carTopSvg } from '@naya/assets/src/spots';
+
+const carTop = `data:image/svg+xml;utf8,${encodeURIComponent(carTopSvg('#6B3657', '#FFFFFF'))}`;
 
 const TILE = 256;
 const project = (p: LatLng, z: number) => {
@@ -59,18 +61,18 @@ export function MiniMap({ center: initialCenter, zoom: initialZoom = 13, polygon
     return { x: q.x - ox, y: q.y - oy };
   };
   return (
-    <div ref={ref} role="img" aria-label={label} className="relative overflow-hidden rounded-[18px] bg-[#EFE9EC]" style={{ height }}>
+    <div ref={ref} role="img" aria-label={label} className="relative overflow-hidden rounded-[18px] bg-map" style={{ height }}>
       {tiles.map((t) => (
-        <img key={t.k} alt="" src={`https://tile.openstreetmap.org/${zoom}/${t.x}/${t.y}.png`} className="absolute select-none" style={{ left: t.l, top: t.t, width: TILE, height: TILE, filter: 'grayscale(0.92) sepia(0.12) hue-rotate(250deg) brightness(1.06) contrast(0.92)' }} draggable={false} />
+        <img key={t.k} alt="" src={`https://tile.openstreetmap.org/${zoom}/${t.x}/${t.y}.png`} className="map-tile absolute select-none" style={{ left: t.l, top: t.t, width: TILE, height: TILE, filter: 'grayscale(0.92) sepia(0.12) hue-rotate(250deg) brightness(1.06) contrast(0.92)' }} draggable={false} />
       ))}
       <svg className="absolute inset-0" width={w} height={height} aria-hidden>
         {polygons.map((poly, i) => (
-          <polygon key={i} points={poly.map((p) => `${pt(p).x},${pt(p).y}`).join(' ')} fill="rgba(107,54,87,0.07)" stroke="#6B3657" strokeWidth={1.5} strokeDasharray="6 5" />
+          <polygon key={i} points={poly.map((p) => `${pt(p).x},${pt(p).y}`).join(' ')} className="fill-accent/[0.07] stroke-accent" strokeWidth={1.5} strokeDasharray="6 5" />
         ))}
         {route && route.length > 1 ? (
           <>
-            <polyline points={route.map((p) => `${pt(p).x},${pt(p).y}`).join(' ')} fill="none" stroke="#fff" strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />
-            <polyline points={route.map((p) => `${pt(p).x},${pt(p).y}`).join(' ')} fill="none" stroke="#6B3657" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={route.map((p) => `${pt(p).x},${pt(p).y}`).join(' ')} fill="none" className="stroke-surface" strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={route.map((p) => `${pt(p).x},${pt(p).y}`).join(' ')} fill="none" className="stroke-accent" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
           </>
         ) : null}
       </svg>
@@ -87,7 +89,7 @@ export function MiniMap({ center: initialCenter, zoom: initialZoom = 13, polygon
           </div>
         );
       })}
-      <div className="absolute bottom-1.5 left-2 rounded bg-white/75 px-1 text-[10px] text-muted">© OpenStreetMap contributors</div>
+      <div className="absolute bottom-1.5 left-2 rounded bg-surface/75 px-1 text-[10px] text-muted">© OpenStreetMap contributors</div>
     </div>
   );
 }

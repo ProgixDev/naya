@@ -193,7 +193,7 @@ export function RulesPage() {
             </Card>
             <Card title="Tarification dynamique" subtitle="Le coefficient et son explication sont affichés à la passagère avant qu’elle ne s’engage.">
               <label className="mb-4 inline-flex items-center gap-3 text-[14px] font-semibold">
-                <input type="checkbox" role="switch" aria-checked={form.dynamicEnabled} className="h-5 w-5 accent-[#6B3657]" checked={form.dynamicEnabled} onChange={(e) => set('dynamicEnabled', e.target.checked)} disabled={!editable} data-testid="rule-dynamic" />
+                <input type="checkbox" role="switch" aria-checked={form.dynamicEnabled} className="h-5 w-5 accent-accent" checked={form.dynamicEnabled} onChange={(e) => set('dynamicEnabled', e.target.checked)} disabled={!editable} data-testid="rule-dynamic" />
                 {form.dynamicEnabled ? 'Active' : 'Inactive'}
               </label>
               <div className="grid gap-4 md:grid-cols-[160px_1fr]">

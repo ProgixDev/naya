@@ -1,18 +1,15 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bike, Car, Gem, Tags } from 'lucide-react';
-import { computeFare, formatMoney, type ServiceCategory } from '@naya/domain';
+import { Car, Tags } from 'lucide-react';
+import { computeFare, formatMoney, SERVICE_ICONS, SERVICE_ICON_LABELS, type ServiceCategory } from '@naya/domain';
+import { SERVICE_ICON } from './serviceIcons';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/context';
 import { toCentimes } from '../lib/format';
 import { Banner, Button, Dialog, Field, Input, cx } from './ui';
 import { FormSection, SwitchRow, TagInput, UnitInput, slugify } from './form';
 
-const VISUALS: { value: ServiceCategory['icon']; label: string; hint: string; Icon: typeof Car }[] = [
-  { value: 'scooter', label: 'Scooter', hint: 'Deux-roues', Icon: Bike },
-  { value: 'car', label: 'Voiture', hint: 'Berline standard', Icon: Car },
-  { value: 'premium', label: 'Confort', hint: 'Premium', Icon: Gem },
-];
+const VISUALS: { value: ServiceCategory['icon']; label: string; hint: string; Icon: typeof Car }[] = SERVICE_ICONS.map((value) => ({ value, ...SERVICE_ICON_LABELS[value], Icon: SERVICE_ICON[value] }));
 const TARIFFS = [
   ['baseFare', 'Prise en charge'],
   ['perKm', 'Prix par km'],

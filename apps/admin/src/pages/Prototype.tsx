@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { SERVICE_ICON } from '../components/serviceIcons';
+import { CancelReasonsPanel } from '../components/CancelReasons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   FAMILY_STATUS_LABELS,
@@ -29,11 +31,11 @@ import { DocThumb, DocViewer } from '../components/DocViewer';
 import { DriverCategoryMatrix } from '../components/DriverCategoryMatrix';
 import { CategoryEditor } from '../components/CategoryEditor';
 import { PlanEditor, ReasonEditor } from '../components/CatalogEditors';
-import { DedicatedDriverCard, FamilyCard, PassengerWalletCard, PlanCard, ReasonCard, SosAlertCard } from '../components/ServiceCards';
+import { DedicatedDriverCard, FamilyCard, PassengerWalletCard, PlanCard, ReasonCard } from '../components/ServiceCards';
 import { Badge } from '../components/ui';
 import { Bike, Car, Gem, PauseCircle, PlayCircle, Plus, Users, XCircle } from 'lucide-react';
 import { ImpactList, ReasonField } from '../components/form';
-import { logoConcepts, conceptSvg } from '@naya/assets/src/concepts';
+import { logoConcepts, conceptVariants } from '@naya/assets/src/concepts';
 
 type Kind = 'categories' | 'plans' | 'reasons';
 const LABELS: Record<Kind, string> = {
@@ -46,7 +48,7 @@ const SECTION: Record<Kind, { title: string; hint: string; add: string }> = {
   plans: { title: 'Abonnements famille', hint: 'Plans proposés aux familles pour une chauffeuse dédiée.', add: 'Nouvel abonnement' },
   reasons: { title: 'Motifs de litige', hint: 'Motifs proposés à l’ouverture d’un litige, avec preuve obligatoire si nécessaire.', add: 'Nouveau motif' },
 };
-const CATEGORY_ICON = { scooter: Bike, car: Car, premium: Gem } as const;
+
 
 function SectionHead({ title, count, countLabel, hint }: { title: string; count: number; countLabel?: string; hint: string }) {
   return (
@@ -60,7 +62,7 @@ function SectionHead({ title, count, countLabel, hint }: { title: string; count:
 }
 
 function CategoryCard({ category: c, busy, drivers, onToggle, onEdit }: { category: ServiceCategory; busy: boolean; drivers: number; onToggle: () => void; onEdit: () => void }) {
-  const Icon = CATEGORY_ICON[c.icon] ?? Car;
+  const Icon = SERVICE_ICON[c.icon] ?? Car;
   const own = [c.baseFare, c.perKm, c.perMinute, c.minimumFare].some((v) => v !== null);
   const figure = (label: string, value: number | null, suffix = '') => (
     <div className="rounded-2xl bg-background px-3 py-2.5">
@@ -119,9 +121,8 @@ export function PrototypePage() {
     refetchInterval: 5000,
   });
   const [tab, setTab] = useState<
-    Kind | 'families' | 'drivers' | 'alerts' | 'wallets' | 'brand'
+    Kind | 'families' | 'drivers' | 'alerts' | 'cancels' | 'wallets' | 'brand'
   >('categories');
-  const [alertFilter, setAlertFilter] = useState<'' | 'new' | 'responding' | 'resolved'>('');
   const [subChange, setSubChange] = useState<{ id: string; status: 'active' | 'paused' | 'cancelled' } | null>(null);
   const [subReason, setSubReason] = useState('');
   const [editing, setEditing] = useState<{
@@ -160,14 +161,13 @@ export function PrototypePage() {
               ...Object.keys(LABELS),
               'families',
               'drivers',
-              'alerts',
+              'cancels',
               'wallets',
               'brand',
             ] as const
           ).map((t) => {
             const on = tab === t;
-            const count =
-              t === 'alerts' ? p?.alerts.filter((a) => a.status !== 'resolved').length : undefined;
+            const count = undefined as number | undefined;
             return (
               <button
                 key={t}
@@ -183,12 +183,13 @@ export function PrototypePage() {
                       families: 'Familles',
                       drivers: 'Chauffeuses dédiées',
                       alerts: 'SOS',
+                      cancels: 'Motifs d’annulation',
                       wallets: 'Portefeuilles',
                       brand: 'Pistes de logo',
                     } as Record<string, string>
                   )[t]}
                 {count ? (
-                  <span className="rounded-full bg-danger px-1.5 text-[11px] leading-[18px] text-white">{count}</span>
+                  <span className="rounded-full bg-danger px-1.5 text-[11px] leading-[18px] text-inverse">{count}</span>
                 ) : null}
               </button>
             );
@@ -284,41 +285,6 @@ export function PrototypePage() {
           ) : null}
         </>
       ) : null}
-      {p && tab === 'alerts' ? (
-        <div className="flex flex-col gap-4">
-          <SectionHead title="Alertes SOS" count={p.alerts.length} hint="Déclenchées pendant une course ou un trajet famille. Position, personnes et actions sont conservées." />
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ['', 'Toutes'],
-                ['new', 'Nouvelles'],
-                ['responding', 'Prises en charge'],
-                ['resolved', 'Résolues'],
-              ] as const
-            ).map(([v, l]) => (
-              <button key={v} type="button" onClick={() => setAlertFilter(v)} aria-pressed={alertFilter === v} className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[14px] font-semibold transition ${alertFilter === v ? 'border-accent bg-selected text-accent' : 'border-line hover:bg-background'}`}>
-                {l}
-                <span className={`rounded-full px-1.5 text-[12px] tabular ${v === 'new' && p.alerts.some((a) => a.status === 'new') ? 'bg-danger text-white' : 'bg-line text-muted'}`}>{p.alerts.filter((a) => !v || a.status === v).length}</span>
-              </button>
-            ))}
-          </div>
-          {!p.alerts.filter((a) => !alertFilter || a.status === alertFilter).length ? (
-            <Card><EmptyState title={p.alerts.length ? 'Aucune alerte pour ce filtre' : 'Aucune alerte SOS'} message={p.alerts.length ? undefined : 'Les alertes déclenchées depuis une course ou un trajet famille apparaîtront ici.'} /></Card>
-          ) : null}
-          {p.alerts
-            .filter((a) => !alertFilter || a.status === alertFilter)
-            .slice()
-            .reverse()
-            .map((a) => (
-              <SosAlertCard
-                key={a.id}
-                a={a}
-                busy={busy}
-                onStatus={(status) => run(() => api.adminPrototype.alert(a.id, status, status === 'responding' ? 'Prise en charge par l’équipe sécurité' : 'Alerte résolue par l’équipe sécurité'))}
-              />
-            ))}
-        </div>
-      ) : null}
       {p && tab === 'families' ? (
         <div className="flex flex-col gap-4">
           <SectionHead title="Familles abonnées" count={p.subscriptions.length} hint="Abonnement, chauffeuse dédiée, enfants et traçabilité de chaque trajet." />
@@ -352,7 +318,7 @@ export function PrototypePage() {
               .slice()
               .sort((a, b) => Number(b.verified) - Number(a.verified) || b.families.length - a.families.length)
               .map((d) => (
-                <DedicatedDriverCard key={d.id} d={d} busy={busy} onAvailable={(v) => run(() => api.adminPrototype.familyAvailability(d.id, v))} />
+                <DedicatedDriverCard key={d.id} d={d} busy={busy} trips={p.trips.filter((t) => t.driverId === d.id)} onView={setView} onAvailable={(v) => run(() => api.adminPrototype.familyAvailability(d.id, v))} />
               ))}
           </div>
         </div>
@@ -403,6 +369,12 @@ export function PrototypePage() {
           );
         })()
       ) : null}
+      {p && tab === 'cancels' ? (
+        <div className="flex flex-col gap-4">
+          <SectionHead title="Motifs d’annulation" count={(p.catalog.cancelReasons ?? []).filter((r) => r.enabled).length} countLabel="actifs" hint="Proposés dans les apps au moment d’annuler. Les changements s’appliquent sans nouvelle version de l’application." />
+          <CancelReasonsPanel reasons={p.catalog.cancelReasons ?? []} busy={busy} onSave={(r) => run(() => api.adminPrototype.save('cancelReasons', r))} />
+        </div>
+      ) : null}
       {p && tab === 'wallets' ? (
         <div className="flex flex-col gap-4">
           <SectionHead title="Portefeuilles clientes" count={p.wallets.length} hint="Solde prépayé des clientes : recharges, débits des courses et montants réservés. Le détail financier complet est dans Finance." />
@@ -419,25 +391,14 @@ export function PrototypePage() {
         <div className="grid gap-4 md:grid-cols-2">
           {logoConcepts.map((c) => (
             <Card key={c.id} title={c.name} subtitle={c.description}>
-              <div className="flex flex-wrap items-center gap-5">
-                <img
-                  className="h-24 w-24"
-                  alt={`${c.name} · symbole`}
-                  src={`data:image/svg+xml,${encodeURIComponent(conceptSvg(c.id, '#6B3657'))}`}
-                />
-                <img
-                  className="h-16 w-44"
-                  alt={`${c.name} · signature`}
-                  src={`data:image/svg+xml,${encodeURIComponent(conceptSvg(c.id, '#6B3657', true))}`}
-                />
-                <div className="rounded-2xl bg-[#231D28] p-3">
-                  <img
-                    className="h-14 w-14"
-                    alt={`${c.name} · sombre`}
-                    src={`data:image/svg+xml,${encodeURIComponent(conceptSvg(c.id, '#E5B6D4'))}`}
-                  />
-                </div>
-              </div>
+              <ul className="grid grid-cols-4 gap-3 sm:grid-cols-7" aria-label={`Déclinaisons de ${c.name}`}>
+                {conceptVariants(c.id).map((v) => (
+                  <li key={v.key} className={v.horizontal ? 'col-span-2' : ''}>
+                    <img className={`w-full rounded-2xl border border-line ${v.horizontal ? 'aspect-[2.6]' : 'aspect-square'}`} alt={`${c.name} · ${v.label}`} src={`data:image/svg+xml,${encodeURIComponent(v.svg)}`} />
+                    <p className="mt-1 text-center text-[11px] text-muted">{v.label}</p>
+                  </li>
+                ))}
+              </ul>
             </Card>
           ))}
         </div>

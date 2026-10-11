@@ -20,10 +20,10 @@ export function Button({ variant = 'primary', size = 'md', loading, icon, childr
   const sizes = size === 'md' ? 'h-11 px-5 text-[15px]' : 'h-9 px-4 text-[14px]';
   const inactive = disabled || loading;
   const variants: Record<Variant, string> = {
-    primary: 'text-white bg-gradient-to-b from-[#75415F] via-accent to-[#61304F] shadow-sm hover:brightness-[1.06]',
+    primary: 'text-inverse bg-gradient-to-b from-[#75415F] via-accent to-[#61304F] dark:from-accent dark:to-accent-pressed shadow-sm hover:brightness-[1.06]',
     secondary: 'bg-surface text-accent border border-line hover:bg-mauve-soft',
     ghost: 'text-accent hover:bg-mauve-soft',
-    danger: 'bg-danger text-white hover:brightness-110',
+    danger: 'bg-danger text-inverse hover:brightness-110',
     tonal: 'bg-mauve-soft text-accent hover:bg-selected',
   };
   return (
@@ -410,7 +410,7 @@ export function Toasts() {
   return (
     <div aria-live="polite" className="pointer-events-none fixed bottom-6 left-1/2 z-[60] flex -translate-x-1/2 flex-col items-center gap-2">
       {items.map((t) => (
-        <div key={t.id} role="status" className={cx('rounded-full px-5 py-2.5 text-[14px] font-semibold text-white shadow-float', t.tone === 'danger' ? 'bg-danger' : t.tone === 'success' ? 'bg-success' : 'bg-ink')}>
+        <div key={t.id} role="status" className={cx('rounded-full px-5 py-2.5 text-[14px] font-semibold text-inverse shadow-float', t.tone === 'danger' ? 'bg-danger' : t.tone === 'success' ? 'bg-success' : 'bg-ink')}>
           {t.message}
         </div>
       ))}

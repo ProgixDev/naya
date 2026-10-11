@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
+import { SERVICE_ICON } from './serviceIcons';
 import { Bike, Car, Gem, Search } from 'lucide-react';
 import type { ServiceCategory } from '@naya/domain';
 import { Badge, Card, EmptyState, Input, cx } from './ui';
 
-const ICON = { scooter: Bike, car: Car, premium: Gem } as const;
+
 
 type Driver = { id: string; name: string; cityId: string };
 
@@ -66,7 +67,7 @@ export function DriverCategoryMatrix({
               <tr className="border-y border-line bg-background/60">
                 <th scope="col" className="px-6 py-3 text-caption font-semibold text-muted">Chauffeuse</th>
                 {categories.map((c) => {
-                  const Icon = ICON[c.icon] ?? Car;
+                  const Icon = SERVICE_ICON[c.icon] ?? Car;
                   const count = shown.filter((d) => of(d.id).includes(c.id)).length;
                   return (
                     <th key={c.id} scope="col" className="px-4 py-3 text-center align-top">
@@ -98,7 +99,7 @@ export function DriverCategoryMatrix({
                   <tr key={d.id} className="border-b border-line/70 last:border-0 hover:bg-background/50">
                     <th scope="row" className="px-6 py-3 font-normal">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-micro font-semibold text-white" aria-hidden>{initials}</span>
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-micro font-semibold text-inverse" aria-hidden>{initials}</span>
                         <div>
                           <div className="text-[15px] font-semibold text-ink">{d.name}</div>
                           <div className="text-micro capitalize text-muted">{d.cityId}</div>

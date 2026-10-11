@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CalendarHeart, Car, Check, CircleAlert, ExternalLink, MapPin, MessageSquareWarning, Phone, ShieldAlert, Star, Users, Wallet } from 'lucide-react';
 import {
   FAMILY_STATUS_LABELS,
@@ -39,7 +39,7 @@ function IconTile({ children, tone = 'accent' }: { children: ReactNode; tone?: T
 }
 
 function Initials({ name }: { name: string }) {
-  return <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-[15px] font-semibold text-white" aria-hidden>{name.split(' ').map((x) => x[0]).slice(0, 2).join('')}</span>;
+  return <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-[15px] font-semibold text-inverse" aria-hidden>{name.split(' ').map((x) => x[0]).slice(0, 2).join('')}</span>;
 }
 
 /** Small figure box: label above, value below. */
@@ -141,13 +141,14 @@ const STEPS: { key: keyof NonNullable<FamilyTrip['times']>; label: string }[] = 
   { key: 'arrived', label: 'Arrivée au point' },
   { key: 'picked_up', label: 'Récupération' },
   { key: 'in_progress', label: 'Trajet' },
+  { key: 'at_destination', label: 'Arrivée' },
   { key: 'completed', label: 'Remise' },
 ];
-const TRIP_TONE: Record<FamilyTrip['status'], Tone> = { scheduled: 'neutral', en_route: 'info', arrived: 'info', picked_up: 'info', in_progress: 'warning', completed: 'success' };
+const TRIP_TONE: Record<FamilyTrip['status'], Tone> = { scheduled: 'neutral', en_route: 'info', arrived: 'info', picked_up: 'info', in_progress: 'warning', at_destination: 'warning', completed: 'success' };
 
 function TripStepper({ trip }: { trip: FamilyTrip }) {
   return (
-    <ol className="mt-3 grid grid-cols-5 gap-1" aria-label="Étapes du trajet">
+    <ol className="mt-3 grid grid-cols-6 gap-1" aria-label="Étapes du trajet">
       {STEPS.map((s, i) => {
         const at = trip.times?.[s.key];
         const next = !at && (i === 0 || trip.times?.[STEPS[i - 1]!.key]);
@@ -304,7 +305,7 @@ export function FamilyCard({ sub, familyName, children, trips, drivers, busy, on
 
 /* ───────── Chauffeuses dédiées ───────── */
 
-export function DedicatedDriverCard({ d, busy, onAvailable }: { d: DedicatedDriverSummary; busy: boolean; onAvailable: (v: boolean) => void }) {
+export function DedicatedDriverCard({ d, busy, onAvailable, trips = [], onView }: { d: DedicatedDriverSummary; busy: boolean; onAvailable: (v: boolean) => void ; trips?: FamilyTrip[]; onView?: (id: string) => void }) {
   return (
     <Shell muted={!d.verified} testId={`dedicated-${d.id}`}>
       <header className="flex items-start gap-3">
@@ -347,6 +348,18 @@ export function DedicatedDriverCard({ d, busy, onAvailable }: { d: DedicatedDriv
         </ul>
       ) : null}
       {d.trips.lastAt ? <p className="mt-3 text-[12px] text-muted">Dernier trajet terminé · {formatShort(d.trips.lastAt)}</p> : null}
+      {trips.length && onView ? (
+        <details className="group mt-4 rounded-2xl border border-line" data-testid={`driver-trips-${d.id}`}>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[14px] font-semibold">
+            Historique des trajets ({trips.length})
+            <span className="text-[13px] font-medium text-accent group-open:hidden">Afficher</span>
+            <span className="hidden text-[13px] font-medium text-accent group-open:inline">Masquer</span>
+          </summary>
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            {trips.slice().sort((a, b) => b.pickupAt.localeCompare(a.pickupAt)).map((t) => <TripCard key={t.id} trip={t} onView={onView} />)}
+          </div>
+        </details>
+      ) : null}
     </Shell>
   );
 }
@@ -356,7 +369,8 @@ export function DedicatedDriverCard({ d, busy, onAvailable }: { d: DedicatedDriv
 const SOS_TONE: Record<SafetyAlert['status'], 'danger' | 'warning' | 'success'> = { new: 'danger', responding: 'warning', resolved: 'success' };
 const SOS_LABEL: Record<SafetyAlert['status'], string> = { new: 'Nouvelle', responding: 'Prise en charge', resolved: 'Résolue' };
 
-export function SosAlertCard({ a, busy, onStatus }: { a: SafetyAlert; busy: boolean; onStatus: (s: 'responding' | 'resolved') => void }) {
+export function SosAlertCard({ a, busy, onStatus, onNote }: { a: SafetyAlert; busy: boolean; onStatus: (s: 'responding' | 'resolved') => void; onNote?: (note: string) => Promise<boolean> }) {
+  const [note, setNote] = useState('');
   const info: [string, ReactNode][] = [
     [a.rideId ? 'Course' : 'Trajet famille', a.rideId ?? a.familyTripId ?? '—'],
     ['Déclenchée par', `${a.userName} (${a.role === 'driver' ? 'chauffeuse' : 'cliente'})`],
@@ -388,7 +402,7 @@ export function SosAlertCard({ a, busy, onStatus }: { a: SafetyAlert; busy: bool
         ))}
       </dl>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-background px-4 py-3">
-        <span className="inline-flex items-center gap-2 text-[14px]"><MapPin className="h-4 w-4 text-danger" aria-hidden />Position au déclenchement <span className="tabular text-muted">{a.location.lat.toFixed(5)}, {a.location.lng.toFixed(5)}</span></span>
+        <span className="inline-flex items-center gap-2 text-[14px]"><MapPin className="h-4 w-4 text-danger" aria-hidden />Position au déclenchement <span className="tabular text-muted">{a.location.lat.toFixed(5)}, {a.location.lng.toFixed(5)}</span><span className="rounded-full bg-surface px-2 py-0.5 text-[12px] font-medium">{a.locationSource === 'device' ? `GPS du téléphone${a.locationAccuracy ? ` · ±${Math.round(a.locationAccuracy)} m` : ''}` : 'Dernière position du trajet'}</span></span>
         <a className="inline-flex items-center gap-1 text-[14px] font-semibold text-accent hover:underline" href={`https://maps.google.com/?q=${a.location.lat},${a.location.lng}`} target="_blank" rel="noreferrer">Voir sur la carte<ExternalLink className="h-3.5 w-3.5" aria-hidden /></a>
       </div>
       <h4 className="mt-4 text-[13px] font-semibold text-muted">Actions prises</h4>
@@ -400,6 +414,18 @@ export function SosAlertCard({ a, busy, onStatus }: { a: SafetyAlert; busy: bool
           </li>
         ))}
       </ol>
+      {onNote ? (
+        <form
+          className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-start"
+          onSubmit={async (e) => { e.preventDefault(); if (note.trim() && (await onNote(note.trim()))) setNote(''); }}
+        >
+          <label className="flex-1">
+            <span className="sr-only">Note pour l’alerte {a.id}</span>
+            <textarea className="field h-auto min-h-[44px] py-2.5" rows={2} maxLength={500} placeholder="Ajouter une note : appel passé, police prévenue, cliente rappelée…" value={note} onChange={(e) => setNote(e.target.value)} data-testid={`sos-note-${a.id}`} />
+          </label>
+          <Button type="submit" variant="secondary" loading={busy} disabled={!note.trim()} data-testid={`sos-note-save-${a.id}`}>Ajouter la note</Button>
+        </form>
+      ) : null}
     </Shell>
   );
 }
