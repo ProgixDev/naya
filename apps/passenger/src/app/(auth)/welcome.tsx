@@ -1,12 +1,12 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { illustrations } from '@naya/assets';
+import { illustrations, photos } from '@naya/assets';
 import { DEMO_MODE, DemoBadge, PressableScale, WelcomeJourney } from '@naya/ui';
 import { usePrefs } from '@/lib/prefs';
 
 const SLIDES = [
-  { image: illustrations.passengerWelcome, title: 'Bienvenue chez Naya', body: 'Réservez une course en quelques secondes, simplement, à votre rythme. Le prix est affiché avant de confirmer.', note: 'Prix annoncé avant le départ' },
-  { image: illustrations.passengerIdentity, title: 'Entre femmes, en confiance', body: 'Des chauffeuses vérifiées. Vous voyez son nom, sa voiture et sa plaque avant de monter, et vous suivez le trajet en direct.', note: 'Chauffeuses vérifiées' },
-  { image: illustrations.passengerPlanning, title: 'Vos enfants, accompagnés', body: 'Avec Naya Famille, une chauffeuse dédiée dépose et récupère vos enfants, avec un code de remise sécurisé et un suivi en direct.', note: 'Remise par code à 4 chiffres' },
+  { image: illustrations.passengerWelcome, photo: photos.onboardingRide, title: 'Bienvenue chez Naya', body: 'Réservez une course en quelques secondes, simplement, à votre rythme. Le prix est affiché avant de confirmer.', note: 'Prix annoncé avant le départ' },
+  { image: illustrations.passengerIdentity, photo: photos.onboardingFriends, title: 'Entre femmes, en confiance', body: 'Des chauffeuses vérifiées. Vous voyez son nom, sa voiture et sa plaque avant de monter, et vous suivez le trajet en direct.', note: 'Chauffeuses vérifiées' },
+  { image: illustrations.passengerPlanning, photo: photos.onboardingFamily, title: 'Vos enfants, accompagnés', body: 'Avec Naya Famille, une chauffeuse dédiée dépose et récupère vos enfants, avec un code de remise sécurisé et un suivi en direct.', note: 'Remise par code à 4 chiffres' },
 ] as const;
 
 export default function Welcome() {

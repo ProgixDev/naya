@@ -1,11 +1,11 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { illustrations } from '@naya/assets';
+import { illustrations, photos } from '@naya/assets';
 import { DEMO_MODE, DemoBadge, PressableScale, WelcomeJourney } from '@naya/ui';
 import { usePrefs } from '@/lib/prefs';
 
 const SLIDES = [
-  { image: illustrations.driverWelcome, title: 'Conduisez entre femmes.', body: 'Des passagères vérifiées, des trajets dans Rabat, et vous choisissez quand prendre la route.', note: 'Vous choisissez vos horaires' },
-  { image: illustrations.driverWallet, title: 'Des gains clairs.', body: 'Chaque course affiche votre revenu net avant d’accepter. Commissions et retraits restent lisibles.', note: 'Vos revenus, en toute clarté' },
+  { image: illustrations.driverWelcome, photo: photos.onboardingDriver, title: 'Conduisez entre femmes.', body: 'Des passagères vérifiées, des trajets dans Rabat, et vous choisissez quand prendre la route.', note: 'Vous choisissez vos horaires' },
+  { image: illustrations.driverWallet, photo: photos.onboardingDriver2, title: 'Des gains clairs.', body: 'Chaque course affiche votre revenu net avant d’accepter. Commissions et retraits restent lisibles.', note: 'Vos revenus, en toute clarté' },
 ] as const;
 
 export default function Welcome() {
