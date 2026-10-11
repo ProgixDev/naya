@@ -22,7 +22,6 @@ import {
 import type { State } from './state';
 import { defaultProviders } from './services/payments';
 import { appendAudit, SYSTEM } from './audit';
-import { hashPassword } from './services/auth';
 import { nextId } from './store';
 import { postLedger } from './services/finance';
 
@@ -289,10 +288,15 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
   }
 
   s.admins.push(
-    { id: 'AD-001', email: 'meryem@naya.demo', name: 'Meryem Lahlou', title: 'Administratrice', permissions: ['verification.decide', 'finance.read', 'finance.correct', 'config.edit', 'support.resolve', 'rides.read', 'audit.read', 'people.read'] },
-    { id: 'AD-002', email: 'youssra@naya.demo', name: 'Youssra Kettani', title: 'Agente support', permissions: ['support.resolve', 'rides.read', 'people.read'] },
+    { id: 'AD-001', email: 'meryem@naya.demo', name: 'Meryem Lahlou', title: 'Administratrice', permissions: ['verification.decide', 'finance.read', 'finance.correct', 'config.edit', 'support.resolve', 'rides.read', 'audit.read', 'people.read', 'safety.respond'] },
+    { id: 'AD-002', email: 'youssra@naya.demo', name: 'Youssra Kettani', title: 'Agente support', permissions: ['support.resolve', 'rides.read', 'people.read', 'safety.respond'] },
   );
-  s.adminCredentials.push({ adminId: 'AD-001', ...hashPassword('Naya-Admin-2026') }, { adminId: 'AD-002', ...hashPassword('Naya-Support-2026') });
+  // Precomputed scrypt hashes of the demo passwords ('Naya-Admin-2026', 'Naya-Support-2026'):
+  // hashing at seed time takes tens of seconds in Hermes and froze the standalone apps on first launch.
+  s.adminCredentials.push(
+    { adminId: 'AD-001', salt: '5eed0a1d0000000000000000000a0001', passwordHash: 'f377a30578e75efffcd506544cc00f5e9e5dc059732db4f452a41f577bcb0756' },
+    { adminId: 'AD-002', salt: '5eed0a1d0000000000000000000a0002', passwordHash: 'a64116c28083394214b08335bbcc68f2ef72eda212cffbe7ea1820f3da5a472b' },
+  );
 
   // Passengers
   const salma = person(s, dataDir, { role: 'passenger', first: 'Salma', last: 'El Mansouri', phone: '+212612345678', who: 'salma', status: 'approved', birth: '1996-04-12', doc: 'AB123456', testerCities: ['casablanca'], rating: 4.9 }, at);

@@ -50,6 +50,13 @@ export interface User {
   ratingCount: number;
   /** Profile photo (an `avatar` upload owned by this user); null or absent shows the initial. */
   avatarUploadId?: string | null;
+  /** Up to 3 people alerted by SMS from the SOS sheet. */
+  trustedContacts?: TrustedContact[];
+}
+
+export interface TrustedContact {
+  name: string;
+  phone: string;
 }
 
 export type AdminPermission =
@@ -60,7 +67,9 @@ export type AdminPermission =
   | 'support.resolve'
   | 'rides.read'
   | 'audit.read'
-  | 'people.read';
+  | 'people.read'
+  /** SOS alerts: see them, take them, add notes, resolve. */
+  | 'safety.respond';
 
 export interface AdminUser {
   id: string;

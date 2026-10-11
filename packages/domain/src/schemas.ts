@@ -31,6 +31,11 @@ export const profileUpdateSchema = z.object({
   cityId: z.string().min(1).optional(),
   /** An `avatar` upload id to set the profile photo, or null to remove it. */
   avatarUploadId: z.string().min(1).nullable().optional(),
+  /** Replaces the saved trusted contacts (SOS). */
+  trustedContacts: z
+    .array(z.object({ name: z.string().trim().min(1, 'Nom requis').max(60), phone: z.string().trim().regex(/^\+?[0-9 ]{6,20}$/, 'Numéro invalide') }))
+    .max(3, '3 contacts maximum')
+    .optional(),
   notifications: z
     .object({
       rideUpdates: z.boolean(),
@@ -85,7 +90,7 @@ export const verificationItemKeySchema = z.enum([
 
 export const uploadSchema = z.object({
   purpose: z.union([verificationItemKeySchema, z.literal('support_attachment'), z.literal('avatar')]),
-  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'video/quicktime']),
   dataBase64: z.string().min(16).max(14_000_000),
   width: z.number().int().positive().nullable(),
   height: z.number().int().positive().nullable(),

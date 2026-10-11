@@ -12,11 +12,13 @@ function sniff(buf: Buffer): Upload['mimeType'] | null {
   if (buf.subarray(0, 4).toString('hex') === '89504e47') return 'image/png';
   if (buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
   if (buf.subarray(0, 4).toString() === '%PDF') return 'application/pdf';
+  // ISO base media (MP4 / MOV): "ftyp" box at offset 4, brand "qt  " for QuickTime.
+  if (buf.subarray(4, 8).toString() === 'ftyp') return buf.subarray(8, 12).toString() === 'qt  ' ? 'video/quicktime' : 'video/mp4';
   if (buf.subarray(0, 5).toString() === '<?xml' || buf.subarray(0, 4).toString() === '<svg') return 'image/svg+xml';
   return null;
 }
 
-const ext: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf', 'image/svg+xml': 'svg' };
+const ext: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf', 'image/svg+xml': 'svg', 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
 
 export const uploadDir = (ctx: Ctx) => join(ctx.config.dataDir, 'uploads');
 
@@ -31,8 +33,10 @@ export function createUpload(ctx: Ctx, ownerId: string, input: UploadInput): Upl
   if (data.length > MAX_BYTES) throw new DomainError('VALIDATION', 'Fichier trop volumineux (10 Mo maximum).');
   const sniffed = sniff(data);
   if (!sniffed || sniffed === 'image/svg+xml' || sniffed !== input.mimeType) {
-    throw new DomainError('VALIDATION', 'Format de fichier non pris en charge. Utilisez une photo JPEG, PNG ou un PDF.');
+    throw new DomainError('VALIDATION', 'Format de fichier non pris en charge. Utilisez une photo JPEG, PNG, un PDF ou une vidéo MP4.');
   }
+  if (sniffed.startsWith('video/') && input.purpose !== 'support_attachment')
+    throw new DomainError('VALIDATION', 'Les vidéos sont acceptées uniquement comme preuve d’un signalement.');
   return ctx.store.tx((s) => {
     const upload: Upload = {
       id: nextId(s, 'UP', 5),
@@ -65,7 +69,7 @@ export function readUpload(ctx: Ctx, principal: Principal, id: string): { upload
   const upload = ctx.store.state.uploads.find((u) => u.id === id);
   if (!upload) throw new DomainError('NOT_FOUND');
   const allowed =
-    (principal.kind === 'user' && (principal.user.id === upload.ownerId || ctx.store.state.prototype?.trips.some(t => t.arrivalProof === id && t.passengerId === principal.user.id) || childPhotoForDriver(ctx, principal.user.id, id))) ||
+    (principal.kind === 'user' && (principal.user.id === upload.ownerId || ctx.store.state.prototype?.trips.some(t => (t.arrivalProof === id || t.pickupProof === id) && t.passengerId === principal.user.id) || childPhotoForDriver(ctx, principal.user.id, id))) ||
     (principal.kind === 'admin' &&
       (principal.admin.permissions.includes('verification.decide') || (upload.purpose === 'support_attachment' && principal.admin.permissions.includes('config.edit')) ||
         (upload.purpose === 'support_attachment' && principal.admin.permissions.includes('support.resolve'))));

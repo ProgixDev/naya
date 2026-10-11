@@ -57,6 +57,14 @@ export interface CancellationPreview {
 }
 
 /** Fee a passenger would pay if she cancelled now. Uses the frozen policy of the ride. */
+/** "90 secondes", "1 minute", "2 minutes 30" — the configured grace period, in words. */
+export function graceLabel(seconds: number) {
+  if (seconds < 60) return `${seconds} seconde${seconds > 1 ? 's' : ''}`;
+  const m = Math.floor(seconds / 60);
+  const r = seconds % 60;
+  return `${m} minute${m > 1 ? 's' : ''}${r ? ` ${r}` : ''}`;
+}
+
 export function passengerCancellationPreview(
   ride: Pick<Ride, 'status' | 'assignedAt'>,
   policy: CancellationPolicy,
@@ -74,10 +82,10 @@ export function passengerCancellationPreview(
           fee: 0,
           reason: 'within_grace',
           freeUntil: new Date(freeUntilMs).toISOString(),
-          explanation: `Annulation gratuite pendant ${Math.round(policy.graceSeconds / 60)} minutes après l’attribution.`,
+          explanation: `Annulation gratuite pendant ${graceLabel(policy.graceSeconds)} après l’attribution.`,
         };
       }
-      return { fee: policy.feeAfterGrace, reason: 'after_grace', freeUntil: null, explanation: 'Votre chauffeuse est déjà en route depuis plus de 2 minutes.' };
+      return { fee: policy.feeAfterGrace, reason: 'after_grace', freeUntil: null, explanation: `Votre chauffeuse est déjà en route depuis plus de ${graceLabel(policy.graceSeconds)}.` };
     }
     case 'driver_arrived':
       return { fee: policy.feeAfterArrival, reason: 'after_arrival', freeUntil: null, explanation: 'Votre chauffeuse est arrivée au point de départ.' };

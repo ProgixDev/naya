@@ -1,11 +1,27 @@
 import type { Centimes } from './money';
 import type { LatLng, PaymentInstructions, Place } from './entities';
+import { DRIVER_CANCEL_REASONS, PASSENGER_CANCEL_REASONS } from './labels';
+
+/** Pictograms a service category can use (each app maps them to its icon set). */
+export const SERVICE_ICONS = ['car', 'scooter', 'premium', 'van', 'electric', 'accessible', 'family', 'luxury', 'package'] as const;
+export type ServiceIcon = (typeof SERVICE_ICONS)[number];
+export const SERVICE_ICON_LABELS: Record<ServiceIcon, { label: string; hint: string }> = {
+  car: { label: 'Voiture', hint: 'Berline standard' },
+  scooter: { label: 'Scooter', hint: 'Deux-roues' },
+  premium: { label: 'Confort', hint: 'Premium' },
+  van: { label: 'Van', hint: '6 à 7 places' },
+  electric: { label: 'Électrique', hint: 'Zéro émission' },
+  accessible: { label: 'Accessible', hint: 'Mobilité réduite' },
+  family: { label: 'Famille', hint: 'Siège enfant' },
+  luxury: { label: 'Prestige', hint: 'Haut de gamme' },
+  package: { label: 'Colis', hint: 'Livraison' },
+};
 
 export interface ServiceCategory {
   id: string;
   name: string;
   description: string;
-  icon: 'car' | 'scooter' | 'premium';
+  icon: ServiceIcon;
   enabled: boolean;
   cityIds: string[];
   etaMinutes: number;
@@ -66,6 +82,8 @@ export interface PrototypeCatalog {
   categories: ServiceCategory[];
   plans: FamilyPlan[];
   reasons: DisputeReason[];
+  /** Cancellation reasons offered to passengers and drivers (admin-editable). */
+  cancelReasons?: CancelReason[];
   payments: DemoPaymentOption[];
   version: number;
 }
@@ -122,6 +140,8 @@ export interface FamilySubscription {
   includedTrips: number;
   driverId: string;
   driverName: string;
+  /** false: "pool" plan, each trip goes to the least busy available verified driver. */
+  dedicated?: boolean;
   status: 'active' | 'paused' | 'cancelled';
   startsAt: string;
   endsAt: string;
@@ -155,6 +175,7 @@ export type FamilyTripStatus =
   | 'arrived'
   | 'picked_up'
   | 'in_progress'
+  | 'at_destination'
   | 'completed';
 export interface FamilyTrip {
   id: string;
@@ -185,6 +206,15 @@ export interface FamilyTrip {
   alertsSent?: string[];
   recipientId: string | null;
   arrivalProof: string | null;
+  /** Optional verification photo taken when the child is picked up. */
+  pickupProof?: string | null;
+  /** Last position received from the driver's phone (real GPS); simulated movement stops while it is fresh. */
+  liveAt?: string | null;
+  /** Last time the real position moved by more than ~40 m (unusual stop detection). */
+  movedAt?: string | null;
+  movedFrom?: LatLng | null;
+  /** Real GPS trace, sampled (traceability). */
+  track?: { at: string; location: LatLng }[];
   pickupVerified: boolean;
   timeline: { at: string; label: string; location: LatLng; proof?: string }[];
   notifications: { at: string; title: string }[];
@@ -225,6 +255,10 @@ export interface SafetyAlert {
   note?: string | null;
   /** GPS position at the moment the alert was raised. */
   location: LatLng;
+  /** `device`: the phone's own GPS when SOS was pressed; `trip`: last known trip position. */
+  locationSource?: 'device' | 'trip';
+  /** GPS accuracy in metres, when known. */
+  locationAccuracy?: number | null;
   createdAt: string;
   status: 'new' | 'responding' | 'resolved';
   actions: { at: string; by: string; label: string }[];
@@ -281,6 +315,7 @@ export const FAMILY_STATUS_LABELS: Record<FamilyTripStatus, string> = {
   arrived: 'Chauffeuse arrivée',
   picked_up: 'Enfant récupéré',
   in_progress: 'Trajet en cours',
+  at_destination: 'Arrivée à destination',
   completed: 'Remis à une personne autorisée',
 };
 export const FAMILY_NEXT: Partial<Record<FamilyTripStatus, FamilyTripStatus>> =
@@ -289,7 +324,8 @@ export const FAMILY_NEXT: Partial<Record<FamilyTripStatus, FamilyTripStatus>> =
     en_route: 'arrived',
     arrived: 'picked_up',
     picked_up: 'in_progress',
-    in_progress: 'completed',
+    in_progress: 'at_destination',
+    at_destination: 'completed',
   };
 
 export function defaultDisputeReasons(): DisputeReason[] {
@@ -317,6 +353,24 @@ export function defaultDisputeReasons(): DisputeReason[] {
     enabled: true,
     roles: [...roles],
   }));
+}
+
+export interface CancelReason {
+  id: string;
+  label: string;
+  role: 'passenger' | 'driver';
+  enabled: boolean;
+}
+export function defaultCancelReasons(): CancelReason[] {
+  return [
+    ...PASSENGER_CANCEL_REASONS.map((r) => ({ id: r.code, label: r.label, role: 'passenger' as const, enabled: true })),
+    ...DRIVER_CANCEL_REASONS.map((r) => ({ id: r.code, label: r.label, role: 'driver' as const, enabled: true })),
+  ];
+}
+/** Reasons offered to one role; `other` (free text) always stays last. */
+export function cancelReasonsFor(catalog: { cancelReasons?: CancelReason[] } | undefined, role: 'passenger' | 'driver') {
+  const list = (catalog?.cancelReasons ?? defaultCancelReasons()).filter((r) => r.role === role && r.enabled);
+  return [...list.filter((r) => r.id !== 'other'), ...list.filter((r) => r.id === 'other')].map((r) => ({ code: r.id, label: r.label }));
 }
 
 export function defaultPrototypeCatalog(): PrototypeCatalog {
@@ -402,6 +456,7 @@ export function defaultPrototypeCatalog(): PrototypeCatalog {
       },
     ],
     reasons: defaultDisputeReasons(),
+    cancelReasons: defaultCancelReasons(),
     payments: [
       {
         id: 'demo-card',

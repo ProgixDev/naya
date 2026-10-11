@@ -21,8 +21,7 @@ import {
   type PassengerWallet,
   type FamilyTrip,
   type Place,
-  type PrototypeCatalog,
-} from '@naya/domain';
+  type PrototypeCatalog, SERVICE_ICONS, defaultCancelReasons, type FamilySubscription } from '@naya/domain';
 import type { Principal } from './auth';
 import type { State } from '../state';
 import type { Ctx } from '../context';
@@ -53,7 +52,7 @@ const categorySchema = z.object({
     .regex(/^[a-z0-9-]{2,40}$/, 'Identifiant : minuscules, chiffres et tirets'),
   name: text,
   description: text,
-  icon: z.enum(['car', 'scooter', 'premium']),
+  icon: z.enum(SERVICE_ICONS),
   enabled: z.boolean(),
   cityIds: z.array(text),
   etaMinutes: z.number().int().min(1).max(60),
@@ -81,6 +80,12 @@ const reasonSchema = z.object({
   evidenceRequired: z.boolean(),
   enabled: z.boolean(),
   roles: z.array(z.enum(['passenger', 'driver'])).max(2).default([]),
+});
+const cancelReasonSchema = z.object({
+  id: text,
+  label: text,
+  role: z.enum(['passenger', 'driver']),
+  enabled: z.boolean(),
 });
 const paymentSchema = z.object({
   id: text,
@@ -129,6 +134,11 @@ export function ensurePrototype(s: State): PrototypeState {
   for (const r of defaultDisputeReasons())
     if (!p.catalog.reasons.some((x) => x.id === r.id)) p.catalog.reasons.push(r);
   for (const plan of p.catalog.plans) plan.dedicatedDriver ??= true;
+  p.catalog.cancelReasons ??= defaultCancelReasons();
+  // Stores written before the safety permission: whoever handled support or settings keeps SOS access.
+  for (const a of s.admins)
+    if (!a.permissions.includes('safety.respond') && (a.permissions.includes('config.edit') || a.permissions.includes('support.resolve')))
+      a.permissions.push('safety.respond');
   p.familyAvailability ??= {};
   // Payment providers now live in one place for passengers and drivers.
   migrateProviders(s);
@@ -345,6 +355,30 @@ function dedicatedDrivers(s: State): DedicatedDriverSummary[] {
       };
     });
 }
+/** Verified, active, available family drivers of a city, least busy first. */
+function familyDrivers(s: State, cityId: string | null) {
+  const p = ensurePrototype(s);
+  const load = (id: string) =>
+    p.subscriptions.filter((x) => x.driverId === id && x.status !== 'cancelled' && x.dedicated !== false).length * 10 +
+    p.trips.filter((t) => t.driverId === id && t.status !== 'completed').length;
+  return s.users
+    .filter(
+      (x) =>
+        x.role === 'driver' &&
+        x.cityId === cityId &&
+        x.status === 'active' &&
+        verifiedDriver(s, x) &&
+        p.familyAvailability?.[x.id] !== false,
+    )
+    .sort((a, b) => load(a.id) - load(b.id));
+}
+/** Dedicated plan: always the family's driver. Pool plan: the least busy available driver for each trip. */
+function tripDriver(s: State, sub: FamilySubscription, user: User) {
+  if (sub.dedicated !== false) return { driverId: sub.driverId, driverName: sub.driverName };
+  const d = familyDrivers(s, user.cityId)[0];
+  if (!d) throw new DomainError('NOT_FOUND', 'Aucune chauffeuse vérifiée disponible pour ce trajet.');
+  return { driverId: d.id, driverName: `${d.firstName} ${d.lastName}` };
+}
 function addSubscription(ctx: Ctx, s: State, user: User, planId: string) {
   const p = ensurePrototype(s);
   if (
@@ -358,18 +392,7 @@ function addSubscription(ctx: Ctx, s: State, user: User, planId: string) {
     (x) => x.id === planId && x.enabled,
     'abonnement',
   );
-  const load = (id: string) =>
-    p.subscriptions.filter((x) => x.driverId === id && x.status !== 'cancelled').length;
-  const driver = s.users
-    .filter(
-      (x) =>
-        x.role === 'driver' &&
-        x.cityId === user.cityId &&
-        x.status === 'active' &&
-        verifiedDriver(s, x) &&
-        p.familyAvailability?.[x.id] !== false,
-    )
-    .sort((a, b) => load(a.id) - load(b.id))[0];
+  const driver = familyDrivers(s, user.cityId)[0];
   if (!driver)
     throw new DomainError('NOT_FOUND', 'Aucune chauffeuse vérifiée disponible pour les familles dans votre ville.');
   const current = p.subscriptions.find((x) => x.passengerId === user.id);
@@ -387,7 +410,8 @@ function addSubscription(ctx: Ctx, s: State, user: User, planId: string) {
     price: plan.price,
     includedTrips: plan.includedTrips,
     driverId: driver.id,
-    driverName: `${driver.firstName} ${driver.lastName}`,
+    driverName: plan.dedicatedDriver === false ? 'Pool de chauffeuses Naya' : `${driver.firstName} ${driver.lastName}`,
+    dedicated: plan.dedicatedDriver !== false,
     status: 'active' as const,
     statusHistory: [{ at: ctx.clock.iso(), by: `${user.firstName} ${user.lastName}`, status: 'active' as const, reason: 'Souscription · paiement simulé' }],
     startsAt: ctx.clock.iso(),
@@ -465,8 +489,7 @@ function addTrip(
     id: nextId(s, 'FT'),
     passengerId: user.id,
     childName: child.firstName,
-    driverId: sub.driverId,
-    driverName: sub.driverName,
+    ...tripDriver(s, sub, user),
     status: 'scheduled',
     location: input.pickup.location,
     recipientId: null,
@@ -520,6 +543,18 @@ const FAMILY_TIME_FACTOR = 20;
 const LATE_PICKUP_MS = 5 * 60_000;
 /** A vehicle stopped for 3 minutes (real time) during a child trip is unusual. */
 const UNUSUAL_STOP_MS = (3 * 60_000) / FAMILY_TIME_FACTOR;
+/** A real GPS fix older than this falls back to the simulation. */
+const LIVE_FRESH_MS = 30_000;
+/** With real GPS: no movement for 3 minutes during the trip is unusual. */
+const REAL_STOP_MS = 3 * 60_000;
+/** Movement smaller than this is GPS noise. */
+const MOVE_THRESHOLD_M = 40;
+function metersBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const r = 6_371_000, toRad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * toRad, dLng = (b.lng - a.lng) * toRad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * toRad) * Math.cos(b.lat * toRad) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(h));
+}
 
 /**
  * Live tracking and automatic alerts for child trips: moves the vehicle along
@@ -566,7 +601,17 @@ export function runFamilyTimers(ctx: Ctx) {
           'late_pickup',
           `Retard : la chauffeuse n’est pas encore arrivée pour ${t.childName}`,
         );
-      if (t.status !== 'in_progress' || !t.route?.length) continue;
+      if (t.status !== 'in_progress') continue;
+      if (t.liveAt && now - Date.parse(t.liveAt) < LIVE_FRESH_MS) {
+        // Real position from the driver's phone: detect a stop from actual movement.
+        if (t.movedAt && now - Date.parse(t.movedAt) >= REAL_STOP_MS)
+          alert(`stop:${t.movedAt}`, `Arrêt inhabituel détecté pendant le trajet de ${t.childName}`);
+        const startedReal = Date.parse(t.times?.in_progress ?? at);
+        if (now - startedReal > (t.durationSeconds ?? 600) * 1000 * 1.5)
+          alert('long_trip', `Le trajet de ${t.childName} prend plus de temps que prévu`);
+        continue;
+      }
+      if (!t.route?.length) continue;
       const started = Date.parse(t.times?.in_progress ?? at);
       const expected = ((t.durationSeconds ?? 600) * 1000) / FAMILY_TIME_FACTOR;
       if (t.stoppedAt) {
@@ -809,8 +854,10 @@ export function mountPrototypeRoutes(
           'arrived',
           'picked_up',
           'in_progress',
+          'at_destination',
         ]),
         proof: z.string().max(200).optional(),
+        pickupProof: z.string().max(200).optional(),
         childName: z.string().optional(),
         recipientId: z.string().optional(),
         code: z.string().optional(),
@@ -867,6 +914,16 @@ export function mountPrototypeRoutes(
               'Confirmez le prénom de l’enfant après vérification.',
             );
           t.pickupVerified = true;
+          if (input.pickupProof) {
+            const photo = mustFind(
+              s.uploads,
+              (x) => x.id === input.pickupProof && x.ownerId === u.id,
+              'photo',
+            );
+            if (photo.purpose !== 'support_attachment' || !photo.mimeType.startsWith('image/'))
+              throw new DomainError('VALIDATION', 'Ajoutez une photo de vérification.');
+            t.pickupProof = input.pickupProof;
+          }
         }
         if (next === 'completed') {
           const recipient = mustFind(
@@ -888,14 +945,15 @@ export function mountPrototypeRoutes(
         t.status = next;
         (t.times ??= {})[next] = ctx.clock.iso();
         // Live position: movement along the route is driven by the family timers.
-        t.location =
-          next === 'completed' ? t.destination.location : t.pickup.location;
+        // Live position: real GPS when the driver's phone sends it, otherwise the family timers.
+        if (next === 'completed' || next === 'at_destination') t.location = t.destination.location;
+        else if (!t.liveAt) t.location = t.pickup.location;
         const label = FAMILY_STATUS_LABELS[next];
         t.timeline.push({
           at: ctx.clock.iso(),
           label,
           location: t.location,
-          ...(input.proof ? { proof: input.proof } : {}),
+          ...(input.proof ? { proof: input.proof } : input.pickupProof ? { proof: input.pickupProof } : {}),
         });
         const recipient = child.recipients.find((x) => x.id === t.recipientId);
         const message: Record<string, string> = {
@@ -903,6 +961,7 @@ export function mountPrototypeRoutes(
           arrived: `${t.driverName.split(' ')[0]} est arrivée · photo de confirmation envoyée`,
           picked_up: `${child.firstName} a été récupéré·e après vérification`,
           in_progress: `Trajet de ${child.firstName} en cours · suivez-le en direct`,
+          at_destination: `${child.firstName} est arrivé·e à destination · remise à une personne autorisée en cours`,
           completed: `${child.firstName} est arrivé·e · remis·e à ${recipient ? `${recipient.name} (${recipient.relationship})` : 'une personne autorisée'}`,
         };
         t.notifications.push({
@@ -971,6 +1030,34 @@ export function mountPrototypeRoutes(
     );
   });
   // Demo only: freeze the vehicle to show the unusual-stop alert.
+  /** Real GPS from the dedicated driver's phone during a child trip. */
+  app.post('/prototype/family/trips/:id/location', async (c) => {
+    const u = userOf(c);
+    if (u.role !== 'driver') throw new DomainError('FORBIDDEN');
+    const { location } = z
+      .object({ location: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }) })
+      .parse(await c.req.json());
+    return c.json(
+      ctx.store.tx((s) => {
+        const t = mustFind(ensurePrototype(s).trips, (x) => x.id === c.req.param('id') && x.driverId === u.id, 'trajet');
+        if (!['en_route', 'arrived', 'picked_up', 'in_progress', 'at_destination'].includes(t.status))
+          throw new DomainError('CONFLICT', 'Le trajet n’est pas en cours.');
+        const at = ctx.clock.iso();
+        // Compare with where the vehicle last really moved, not with a simulated position.
+        if (!t.movedFrom || !t.movedAt || metersBetween(t.movedFrom, location) > MOVE_THRESHOLD_M) {
+          t.movedFrom = location;
+          t.movedAt = at;
+        }
+        t.location = location;
+        t.liveAt = at;
+        const track = (t.track ??= []);
+        const last = track[track.length - 1];
+        if (!last || Date.parse(at) - Date.parse(last.at) >= 30_000) track.push({ at, location });
+        if (track.length > 600) track.splice(0, track.length - 600);
+        return { ok: true };
+      }),
+    );
+  });
   app.post('/prototype/family/trips/:id/stop', async (c) => {
     if (!ctx.config.devMode) throw new DomainError('FORBIDDEN');
     const u = userOf(c);
@@ -1010,6 +1097,8 @@ export function mountPrototypeRoutes(
         contactName: text,
         contactPhone: z.string().trim().max(30).nullable().optional(),
         note: z.string().trim().max(500).nullable().optional(),
+        locationSource: z.enum(['device', 'trip']).optional(),
+        locationAccuracy: z.number().min(0).max(100_000).nullable().optional(),
       })
       .parse(await c.req.json());
     if (!input.rideId && !input.familyTripId)
@@ -1048,6 +1137,8 @@ export function mountPrototypeRoutes(
             ...input,
             contactPhone: input.contactPhone || null,
             note: input.note || null,
+            locationSource: input.locationSource ?? 'trip',
+            locationAccuracy: input.locationAccuracy ?? null,
             passengerId,
             passengerName: name(passengerId),
             driverId,
@@ -1065,7 +1156,9 @@ export function mountPrototypeRoutes(
               {
                 at: ctx.clock.iso(),
                 by: u.firstName,
-                label: 'Situation dangereuse signalée à Naya · position enregistrée',
+                label: input.locationSource === 'device'
+                  ? 'Situation dangereuse signalée à Naya · position du téléphone enregistrée'
+                  : 'Situation dangereuse signalée à Naya · position du trajet enregistrée',
               },
             ],
           };
@@ -1186,16 +1279,18 @@ export function mountPrototypeRoutes(
       plans: planSchema,
       reasons: reasonSchema,
       payments: paymentSchema,
+      cancelReasons: cancelReasonSchema,
     };
     if (!(kind in schemas)) throw new DomainError('VALIDATION');
     const row = schemas[kind as keyof typeof schemas].parse(raw);
     return c.json(
       ctx.store.tx((s) => {
         const p = ensurePrototype(s);
-        const list = p.catalog[kind as keyof typeof schemas] as {
+        const list = (p.catalog[kind as keyof typeof schemas] ??= []) as {
           id: string;
         }[];
-        const index = list.findIndex((x) => x.id === row.id);
+        // Cancellation reasons share ids across roles ('other'): match on both.
+        const index = list.findIndex((x) => x.id === row.id && (kind !== 'cancelReasons' || (x as { role?: string }).role === (row as { role?: string }).role));
         if (index < 0) list.push(row);
         else list[index] = row;
         p.catalog.version++;
@@ -1211,9 +1306,14 @@ export function mountPrototypeRoutes(
       }),
     );
   });
+  /** SOS alerts for the safety team (no configuration rights needed). */
+  app.get('/admin/safety/alerts', (c) => {
+    requirePermission(adminOf(c), 'safety.respond');
+    return c.json(ensurePrototype(ctx.store.state).alerts);
+  });
   app.post('/admin/prototype/alerts/:id', async (c) => {
     const admin = adminOf(c);
-    requirePermission(admin, 'config.edit');
+    requirePermission(admin, 'safety.respond');
     const input = z
       .object({ status: z.enum(['new', 'responding', 'resolved']), note: text })
       .parse(await c.req.json());

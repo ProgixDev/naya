@@ -76,7 +76,7 @@ export function createEmbeddedDemo(options: { dataDir: string; role: MobileRole;
       const principal = authenticate(ctx, token ?? undefined);
       if (!principal) return '';
       const { upload } = readUpload(ctx, principal, id);
-      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf', 'image/svg+xml': 'svg' }[upload.mimeType];
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf', 'image/svg+xml': 'svg', 'video/mp4': 'mp4', 'video/quicktime': 'mov' }[upload.mimeType];
       return join(uploadDir(ctx), `${id}.${extension}`);
     },
   };

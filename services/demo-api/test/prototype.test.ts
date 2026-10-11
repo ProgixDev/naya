@@ -212,10 +212,12 @@ describe('feedback prototype workflows', () => {
       (await advance({ expectedStatus: 'arrived', childName: 'Lina' })).status,
     ).toBe(200);
     expect((await advance({ expectedStatus: 'picked_up' })).status).toBe(200);
+    // Arrival at the destination is its own step, before the handover.
+    expect((await advance({ expectedStatus: 'in_progress' })).status).toBe(200);
     expect(
       (
         await advance({
-          expectedStatus: 'in_progress',
+          expectedStatus: 'at_destination',
           recipientId: 'mother',
           code: '9999',
         })
@@ -224,7 +226,7 @@ describe('feedback prototype workflows', () => {
     expect(
       (
         await advance({
-          expectedStatus: 'in_progress',
+          expectedStatus: 'at_destination',
           recipientId: 'mother',
           code: '1234',
         })
@@ -232,11 +234,12 @@ describe('feedback prototype workflows', () => {
     ).toBe(200);
     const result = await h.ok('GET', '/prototype/family', { token: p });
     expect(result.trips).toHaveLength(2);
-    expect(result.trips[0].timeline).toHaveLength(6);
+    expect(result.trips[0].timeline).toHaveLength(7);
     expect(result.trips[1].status).toBe('scheduled');
     expect(result.trips[1].kind).toBe('home_school');
     const done = result.trips[0];
-    expect(Object.keys(done.times)).toEqual(['scheduled', 'en_route', 'arrived', 'picked_up', 'in_progress', 'completed']);
+    expect(Object.keys(done.times)).toEqual(['scheduled', 'en_route', 'arrived', 'picked_up', 'in_progress', 'at_destination', 'completed']);
+    expect(done.notifications.some((n: { title: string }) => /arrivé·e à destination/.test(n.title))).toBe(true);
     expect(done.vehicle.plate).toBeTruthy();
     expect(done.recipientId).toBe('mother');
     expect(done.notifications.at(-1).title).toMatch(/remis·e à .*\(Mère\)/);
@@ -306,6 +309,37 @@ describe('feedback prototype workflows', () => {
     await h.ok('POST', `/prototype/family/trips/${t.id}/stop`, { token: d, body: { stopped: false } });
     h.advance(5);
     expect((await h.ok('GET', '/prototype/family', { token: p })).trips[0].location).not.toEqual(frozen);
+  });
+  it('uses the driver phone GPS when it is fresh and detects a real stop', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const f = await h.ok('POST', '/prototype/family/example', { token: p });
+    const t = f.trips[0];
+    const step = (body: unknown) => h.ok('POST', `/prototype/family/trips/${t.id}/advance`, { token: d, body });
+    const gps = (location: { lat: number; lng: number }, token = d) => h.call('POST', `/prototype/family/trips/${t.id}/location`, { token, body: { location } });
+    // Only the assigned driver, and only while the trip is under way.
+    expect((await gps({ lat: 34.01, lng: -6.83 })).status).toBe(409);
+    await step({ expectedStatus: 'scheduled' });
+    expect((await gps({ lat: 34.01, lng: -6.83 }, p)).status).toBe(403);
+    await step({ expectedStatus: 'en_route', proof: 'demo-arrival-photo' });
+    await step({ expectedStatus: 'arrived', childName: 'Lina' });
+    await step({ expectedStatus: 'picked_up' });
+    const here = { lat: 34.0111, lng: -6.8222 };
+    expect((await gps(here)).status).toBe(200);
+    h.advance(10);
+    let trip = (await h.ok('GET', '/prototype/family', { token: p })).trips[0];
+    // Real position wins over the simulation while fresh.
+    expect(trip.location).toEqual(here);
+    expect(trip.track).toHaveLength(1);
+    // Still for 3 minutes (fresh fixes, no movement) → unusual stop.
+    for (let i = 0; i < 10; i++) {
+      h.advance(20);
+      await gps(here);
+    }
+    trip = (await h.ok('GET', '/prototype/family', { token: p })).trips[0];
+    expect(trip.incidents.at(-1).message).toMatch(/Arrêt inhabituel/);
+    expect(trip.track.length).toBeGreaterThan(1);
   });
   it('records SOS simulation actions, enforces ownership and supports admin resolution', async () => {
     const h = setup();

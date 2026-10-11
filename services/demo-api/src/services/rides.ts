@@ -48,6 +48,11 @@ const STALE_AFTER_MS = 20_000;
 /** Demo trips play 20× faster than real time so movement is visible in a demo. */
 export const DEMO_TIME_FACTOR = 20;
 
+/** Cancellation reasons as configured in the back-office (all of them, so old codes keep their label). */
+const cancelList = (ctx: Ctx, role: 'passenger' | 'driver') => {
+  const all = ctx.store.state.prototype?.catalog.cancelReasons;
+  return all ? all.filter((r) => r.role === role).map((r) => ({ code: r.id, label: r.label })) : role === 'passenger' ? PASSENGER_CANCEL_REASONS : DRIVER_CANCEL_REASONS;
+};
 const reasonLabel = (list: readonly { code: string; label: string }[], code: string, text?: string | null) =>
   code === 'other' && text ? text : (list.find((r) => r.code === code)?.label ?? code);
 
@@ -481,7 +486,7 @@ export function passengerCancel(ctx: Ctx, user: User, rideId: string, input: Can
       throw new DomainError('CONFLICT', `Les frais d’annulation sont maintenant de ${formatMoney(preview.fee)}.`, { fee: preview.fee });
     }
     ride.status = rideMachine.next(ride.status, 'PASSENGER_CANCEL');
-    ride.cancellation = { by: 'passenger', reasonCode: input.reasonCode, reasonText: reasonLabel(PASSENGER_CANCEL_REASONS, input.reasonCode, input.reasonText), fee: preview.fee, at: now };
+    ride.cancellation = { by: 'passenger', reasonCode: input.reasonCode, reasonText: reasonLabel(cancelList(ctx, 'passenger'), input.reasonCode, input.reasonText), fee: preview.fee, at: now };
     tl(ride, now, 'cancelled', 'passenger', preview.fee > 0 ? `Annulée par la passagère · frais ${formatMoney(preview.fee)}` : 'Annulée par la passagère · sans frais');
     for (const o of s.offers.filter((x) => x.rideId === ride.id && x.status === 'pending')) {
       o.status = offerMachine.next(o.status, 'WITHDRAW');
@@ -664,7 +669,7 @@ export function driverCancel(ctx: Ctx, driver: User, rideId: string, reasonCode:
     const now = new Date(nowMs).toISOString();
     const ride = assignedRide(s, driver, rideId);
     ride.status = rideMachine.next(ride.status, 'DRIVER_CANCEL');
-    const label = reasonLabel(DRIVER_CANCEL_REASONS, reasonCode, reasonText);
+    const label = reasonLabel(cancelList(ctx, 'driver'), reasonCode, reasonText);
     ride.driverCancellations.push({ driverId: driver.id, reasonCode, reasonText: label, at: now });
     ride.driverId = null;
     ride.driver = null;
@@ -779,7 +784,7 @@ export function cancelScheduled(ctx: Ctx, user: User, id: string, reasonCode: st
     const b = ownBooking(s, user, id);
     b.status = scheduledMachine.next(b.status, 'CANCEL');
     const now = ctx.clock.iso();
-    b.cancellation = { reasonCode, reasonText: reasonLabel(PASSENGER_CANCEL_REASONS, reasonCode, reasonText), at: now };
+    b.cancellation = { reasonCode, reasonText: reasonLabel(cancelList(ctx, 'passenger'), reasonCode, reasonText), at: now };
     b.updatedAt = now;
     if (b.paymentMethod.kind === 'wallet') releasePassengerWallet(s, user.id, b.id);
     b.history.push({ at: now, label: 'Réservation annulée · sans frais' });

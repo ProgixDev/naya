@@ -279,6 +279,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
           u.avatarUploadId = up.id;
         }
         if (input.notifications) u.notifications = { ...u.notifications, ...input.notifications };
+        if (input.trustedContacts) u.trustedContacts = input.trustedContacts;
         return u;
       }),
     );
@@ -824,9 +825,25 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     const status = c.req.query('status');
     const cityId = c.req.query('cityId');
     const disputes = c.req.query('disputes') === '1';
+    const reasonId = c.req.query('reasonId');
+    const category = c.req.query('category');
+    const role = c.req.query('role');
+    const from = c.req.query('from');
+    const to = c.req.query('to');
+    const needle = c.req.query('q')?.trim().toLowerCase();
     return c.json(
       paginate(
-        S().tickets.filter((t) => (!status || (status === 'open' ? t.status !== 'resolved' && t.status !== 'rejected' : status === 'new' ? t.status === 'open' : t.status === status)) && (!cityId || t.cityId === cityId) && (!disputes || t.isDispute)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+        S().tickets.filter((t) =>
+          (!status || (status === 'open' ? t.status !== 'resolved' && t.status !== 'rejected' : status === 'new' ? t.status === 'open' : t.status === status)) &&
+          (!cityId || t.cityId === cityId) &&
+          (!disputes || t.isDispute) &&
+          (!reasonId || t.reasonId === reasonId) &&
+          (!category || t.category === category) &&
+          (!role || t.userRole === role) &&
+          (!from || t.createdAt.slice(0, 10) >= from) &&
+          (!to || t.createdAt.slice(0, 10) <= to) &&
+          (!needle || [t.id, t.subject, t.userName, t.rideId ?? ''].some((v) => v.toLowerCase().includes(needle))),
+        ).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
         c,
       ),
     );
@@ -854,8 +871,11 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     requirePermission(admin, 'finance.read');
     const s = S();
     const cityId = c.req.query('cityId') ?? 'rabat';
+    // `all`: every city at once (network-wide view).
+    const inCity = (id: string | null | undefined) => cityId === 'all' || id === cityId;
+    const rideCity = (rideId: string | null | undefined) => s.rides.find((r) => r.id === rideId)?.cityId;
     const at = ctx.clock.iso();
-    const drivers = s.users.filter((u) => u.role === 'driver' && u.cityId === cityId).map((u) => ({ driver: u, wallet: walletOf(s, u.id, at) }));
+    const drivers = s.users.filter((u) => u.role === 'driver' && inCity(u.cityId)).map((u) => ({ driver: u, wallet: walletOf(s, u.id, at) }));
     return c.json({
       cityId,
       drivers,
@@ -865,16 +885,16 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
         debt: drivers.reduce((a, d) => a + d.wallet.debt, 0),
         blocked: drivers.filter((d) => d.wallet.offersBlockedByDebt).length,
       },
-      recharges: s.recharges.filter((r) => r.cityId === cityId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-      withdrawals: s.withdrawals.filter((w) => w.cityId === cityId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-      failedPayments: s.payments.filter((p) => p.status === 'failed' && s.rides.find((r) => r.id === p.rideId)?.cityId === cityId),
-      pendingPayments: s.payments.filter((p) => p.status === 'pending' && s.rides.find((r) => r.id === p.rideId)?.cityId === cityId),
+      recharges: s.recharges.filter((r) => inCity(r.cityId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      withdrawals: s.withdrawals.filter((w) => inCity(w.cityId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      failedPayments: s.payments.filter((p) => p.status === 'failed' && inCity(rideCity(p.rideId))),
+      pendingPayments: s.payments.filter((p) => p.status === 'pending' && inCity(rideCity(p.rideId))),
       // Every ride payment of the city, newest first (demo volumes).
-      payments: s.payments.filter((p) => s.rides.find((r) => r.id === p.rideId)?.cityId === cityId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 300),
+      payments: s.payments.filter((p) => inCity(rideCity(p.rideId))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 300),
       // Commission earned on completed rides, from the terms frozen at booking.
       commissions: (() => {
         const byService = new Map<string, { name: string; rides: number; gross: number; commission: number }>();
-        for (const r of s.rides.filter((x) => x.cityId === cityId && x.status === 'completed')) {
+        for (const r of s.rides.filter((x) => inCity(x.cityId) && x.status === 'completed')) {
           const key = r.terms.service?.id ?? 'standard';
           const row = byService.get(key) ?? { name: r.terms.service?.name ?? 'Naya Standard', rides: 0, gross: 0, commission: 0 };
           row.rides++;
@@ -885,8 +905,20 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
         const rows = [...byService.entries()].map(([id, v]) => ({ id, ...v }));
         return { total: rows.reduce((a, r) => a + r.commission, 0), gross: rows.reduce((a, r) => a + r.gross, 0), byService: rows };
       })(),
+      // Failed wallet top-ups: driver recharges and passenger wallet top-ups.
+      failedTopups: [
+        ...s.recharges.filter((r) => r.status === 'failed' && inCity(r.cityId)).map((r) => {
+          const u = s.users.find((x) => x.id === r.driverId);
+          return { id: r.id, who: u ? `${u.firstName} ${u.lastName}` : r.driverId, role: 'driver' as const, amount: r.amount, provider: r.providerName, at: r.updatedAt, reason: r.failureReason };
+        }),
+        ...s.users.filter((u) => u.role === 'passenger' && inCity(u.cityId)).flatMap((u) =>
+          (ensurePrototype(s).wallets.find((w) => w.userId === u.id)?.entries ?? [])
+            .filter((e) => e.status === 'failed' && !e.rideId && e.amount > 0)
+            .map((e) => ({ id: e.id, who: `${u.firstName} ${u.lastName}`, role: 'passenger' as const, amount: e.amount, provider: e.label, at: e.at, reason: e.failureReason ?? null })),
+        ),
+      ].sort((x, y) => y.at.localeCompare(x.at)),
       passengerWallets: s.users
-        .filter((u) => u.role === 'passenger' && u.cityId === cityId && ensurePrototype(s).wallets.some((w) => w.userId === u.id))
+        .filter((u) => u.role === 'passenger' && inCity(u.cityId) && ensurePrototype(s).wallets.some((w) => w.userId === u.id))
         .map((u) => ({ passenger: { id: u.id, name: `${u.firstName} ${u.lastName}` }, wallet: passengerWallet(s, u.id) })),
     });
   });

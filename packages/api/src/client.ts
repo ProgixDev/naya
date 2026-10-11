@@ -219,6 +219,7 @@ export interface AdminFinanceSummary {
   payments: Payment[];
   commissions: { total: Centimes; gross: Centimes; byService: { id: string; name: string; rides: number; gross: Centimes; commission: Centimes }[] };
   passengerWallets: { passenger: { id: string; name: string }; wallet: PassengerWallet }[];
+  failedTopups: { id: string; who: string; role: 'driver' | 'passenger'; amount: Centimes; provider: string; at: string; reason: string | null }[];
 }
 
 /** An implementation in the server's adapter registry. */
@@ -280,6 +281,8 @@ export const isApiError = (e: unknown): e is ApiError => e instanceof ApiError;
 
 export function errorMessage(e: unknown): string {
   if (isApiError(e)) return e.message;
+  // Transport or runtime failure: keep the real cause in the device logs (adb logcat).
+  console.warn('[api] unexpected error', e instanceof Error ? `${e.name}: ${e.message}\n${e.stack ?? ''}` : e);
   return ERROR_MESSAGES.UNKNOWN;
 }
 
@@ -488,16 +491,18 @@ export function createApiClient(opts: ClientOptions) {
       updateChild: (id: string, input: Omit<FamilyChild, 'id' | 'passengerId'>) => request<FamilyChild>('PUT', `/prototype/family/children/${id}`, input),
       subscribe: (planId: string, key: string) => post<FamilySubscription>('/prototype/family/subscribe', { planId }, key),
       trip: (input: { childId: string; pickup: Place; destination: Place; pickupAt: string; weekdays: number[]; kind?: FamilyTripKind }, key: string) => post<FamilyTrip>('/prototype/family/trips', input, key),
-      advance: (id: string, input: { expectedStatus: string; proof?: string; childName?: string; recipientId?: string; code?: string }) => post<FamilyTrip>(`/prototype/family/trips/${id}/advance`, input),
+      advance: (id: string, input: { expectedStatus: string; proof?: string; pickupProof?: string; childName?: string; recipientId?: string; code?: string }) => post<FamilyTrip>(`/prototype/family/trips/${id}/advance`, input),
       incident: (id: string, message: string) => post<FamilyTrip>(`/prototype/family/trips/${id}/incident`, { message }),
+      familyLocation: (id: string, location: LatLng) => post<{ ok: true }>(`/prototype/family/trips/${id}/location`, { location }),
       stop: (id: string, stopped: boolean) => post<FamilyTrip>(`/prototype/family/trips/${id}/stop`, { stopped }),
-      sos: (input: { rideId: string | null; familyTripId: string | null; location: LatLng; contactName: string; contactPhone?: string | null; note?: string | null }, key: string) => post<SafetyAlert>('/prototype/sos', input, key),
+      sos: (input: { rideId: string | null; familyTripId: string | null; location: LatLng; contactName: string; contactPhone?: string | null; note?: string | null; locationSource?: 'device' | 'trip'; locationAccuracy?: number | null }, key: string) => post<SafetyAlert>('/prototype/sos', input, key),
       alerts: () => get<SafetyAlert[]>('/prototype/sos'),
       safetyAction: (id: string, action: SafetyActionCode) => post<SafetyAlert>(`/prototype/sos/${id}/action`, { action }),
     },
     adminPrototype: {
       get: () => get<PrototypeAdmin>('/admin/prototype'),
-      save: (kind: 'categories' | 'plans' | 'reasons' | 'payments', input: unknown) => request<PrototypeCatalog>('PUT', `/admin/prototype/catalog/${kind}`, input),
+      save: (kind: 'categories' | 'plans' | 'reasons' | 'payments' | 'cancelReasons', input: unknown) => request<PrototypeCatalog>('PUT', `/admin/prototype/catalog/${kind}`, input),
+      alerts: () => get<SafetyAlert[]>('/admin/safety/alerts'),
       alert: (id: string, status: SafetyAlert['status'], note: string) => post<SafetyAlert>(`/admin/prototype/alerts/${id}`, { status, note }),
       assign: (id: string, driverId: string) => post(`/admin/prototype/assignment/${id}`, { driverId }),
       categories: (id: string, categoryIds: string[]) => post(`/admin/prototype/driver-categories/${id}`, { categoryIds }),
@@ -517,7 +522,7 @@ export function createApiClient(opts: ClientOptions) {
       rides: (p: { q?: string; status?: string; cityId?: string; method?: string; sort?: string; cursor?: number; limit?: number }) => get<Page<AdminRideRow>>(`/admin/rides${qs(p)}`),
       scheduled: (cityId?: string) => get<{ booking: ScheduledBooking; passengerName: string }[]>(`/admin/scheduled${qs({ cityId })}`),
       ride: (id: string) => get<AdminRideDetail>(`/admin/rides/${id}`),
-      tickets: (p: { status?: string; cityId?: string; disputes?: boolean; cursor?: number }) => get<Page<SupportTicket>>(`/admin/support${qs({ ...p, disputes: p.disputes ? 1 : undefined })}`),
+      tickets: (p: { status?: string; cityId?: string; disputes?: boolean; cursor?: number; limit?: number; reasonId?: string; category?: string; role?: string; from?: string; to?: string; q?: string }) => get<Page<SupportTicket>>(`/admin/support${qs({ ...p, disputes: p.disputes ? 1 : undefined })}`),
       ticket: (id: string) => get<{ ticket: SupportTicket; reason: DisputeReason | null; passenger: TicketPerson | null; driver: TicketPerson | null; ride: Ride | null; payments: Payment[]; audit: AuditEvent[] }>(`/admin/support/${id}`),
       replyTicket: (id: string, body: string, requestInfo = true) => post<SupportTicket>(`/admin/support/${id}/messages`, { body, attachments: [], requestInfo }),
       startAnalysis: (id: string, note?: string) => post<SupportTicket>(`/admin/support/${id}/status`, { status: 'in_progress', note }),
