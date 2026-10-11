@@ -1,3 +1,4 @@
+import type { Spot } from '@naya/assets';
 import { themedStyles , colors, radius } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -77,14 +78,14 @@ export function StatusPill({ tone = 'neutral', label, testID }: { tone?: BannerT
 export interface EmptyStateProps {
   title: string;
   message?: string;
-  image?: number;
+  image?: Spot;
   imageAspect?: number;
   action?: { label: string; onPress: () => void };
   testID?: string;
 }
 
 /** One sentence and one move. */
-export function EmptyState({ title, message, image, imageAspect = 4 / 3, action, testID }: EmptyStateProps) {
+export function EmptyState({ title, message, image, imageAspect, action, testID }: EmptyStateProps) {
   useTheme();
   return (
     <View testID={testID} style={styles.empty}>

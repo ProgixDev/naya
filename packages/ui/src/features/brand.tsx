@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
-import { logoConcepts, conceptSvg } from '@naya/assets';
+import { logoConcepts, conceptSvg, conceptVariants } from '@naya/assets';
 import { colors } from '@naya/tokens';
 import { useTheme } from '../core/theme';
 import { Screen } from '../Screen';
@@ -43,19 +43,13 @@ export function BrandConceptsScreen({ onBack }: { onBack: () => void }) {
                 height={70}
               />
             </View>
-            <View
-              style={{
-                alignSelf: 'flex-start',
-                backgroundColor: '#231D28',
-                padding: 10,
-                borderRadius: 18,
-              }}
-            >
-              <SvgXml
-                xml={conceptSvg(c.id, '#E5B6D4', false, '#231D28')}
-                width={52}
-                height={52}
-              />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {conceptVariants(c.id).filter((v) => !v.horizontal).map((v) => (
+                <View key={v.key} style={{ alignItems: 'center', gap: 4, width: 64 }}>
+                  <SvgXml xml={v.svg} width={52} height={52} />
+                  <Text tone="muted" align="center" style={{ fontSize: 10, lineHeight: 13 }}>{v.label}</Text>
+                </View>
+              ))}
             </View>
           </View>
         ))}

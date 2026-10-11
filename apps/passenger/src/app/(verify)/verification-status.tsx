@@ -45,7 +45,7 @@ export default function Status() {
     return (
       <Screen testID="status-approved" header={<Header title="Dossier approuvé" subtitle="Votre identité a été vérifiée." />} footer={<Button label="Commencer" size="major" full onPress={() => { haptic.success(); qc.invalidateQueries({ queryKey: qk.me(a) }); }} testID="start-app" />}>
         <View style={{ gap: 16, marginTop: 12 }}>
-          <Illustration source={illustrations.passengerWelcome} aspect={aspect.illustration} width="78%" maxHeight={240} />
+          <Illustration source={illustrations.passengerIdentity} aspect={aspect.illustration} width="78%" maxHeight={240} />
           <StatusHero tone="success" Icon={BadgeCheck} title="Bienvenue sur Naya" message={c.decision?.message ?? 'Vous pouvez réserver votre première course.'} />
         </View>
       </Screen>

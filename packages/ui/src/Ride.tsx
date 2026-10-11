@@ -172,7 +172,7 @@ export function FareBreakdown({ fare, distanceMeters, durationSeconds, dynamicRe
 
 export function VehicleImage({ color, width = 132 }: { color: string; width?: number }) {
   useTheme();
-  return <Illustration source={cars.pearlSmall} width={width} aspect={aspect.carSmall} label={`Véhicule ${color}`} />;
+  return <Illustration source={cars.side} width={width} aspect={aspect.carSmall} label={`Véhicule ${color}`} />;
 }
 
 /** Portrait avatars exist only for the illustrated demo characters. */

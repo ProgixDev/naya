@@ -3,7 +3,7 @@ import { useTheme } from './core/theme';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { Image } from 'expo-image';
-import { journeySvg, vehicleSvg, illustrations, cars, brandAspect, brandSvg, type BrandMark as Mark } from '@naya/assets';
+import { spotSvg, spotAspect, brandAspect, brandSvg, type BrandMark as Mark, type Spot } from '@naya/assets';
 import { colors } from '@naya/tokens';
 import { Text } from './Text';
 
@@ -17,12 +17,12 @@ export function BrandMark({ mark = 'lockup', height = 28, style }: { mark?: Mark
   );
 }
 
-/** Transparent raster art at its own aspect ratio; never stretched or cropped. */
-export function Illustration({ source, aspect, width, maxHeight, label, style }: { source: number; aspect: number; width?: number | `${number}%`; maxHeight?: number; label?: string; style?: StyleProp<ViewStyle> }) {
+/** Original vector illustration in the theme colours, at its own aspect ratio. */
+export function Illustration({ source, aspect, width, maxHeight, label, style }: { source: Spot; aspect?: number; width?: number | `${number}%`; maxHeight?: number; label?: string; style?: StyleProp<ViewStyle> }) {
   useTheme();
   return (
-    <View style={[{ width: width ?? '100%', aspectRatio: aspect, maxHeight, alignSelf: 'center' }, style]} accessible={!!label} accessibilityRole={label ? 'image' : undefined} accessibilityLabel={label}>
-      <SvgXml xml={Object.values(cars).includes(source) ? vehicleSvg(colors.accent, colors.surface) : journeySvg(colors.accent, colors.surface, source === illustrations.passengerIdentity ? 'identity' : source === illustrations.driverWallet ? 'wallet' : 'journey')} width="100%" height="100%" />
+    <View style={[{ width: width ?? '100%', aspectRatio: aspect ?? spotAspect(source), maxHeight, alignSelf: 'center' }, style]} accessible={!!label} accessibilityRole={label ? 'image' : undefined} accessibilityLabel={label}>
+      <SvgXml xml={spotSvg(source, colors.accent, colors.surface)} width="100%" height="100%" />
     </View>
   );
 }

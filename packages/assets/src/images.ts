@@ -1,45 +1,31 @@
-/* Transparent raster artwork supplied with the Figma handoff (resized, alpha preserved). */
+import type { Spot } from './spots';
+
+/** Contextual vector illustrations (see spots.ts). Names kept so screens read the same. */
 export const illustrations = {
-  passengerWelcome: require('../illustrations/naya-passagere-bienvenue.png'),
-  passengerPlanning: require('../illustrations/naya-passagere-planification.png'),
-  passengerIdentity: require('../illustrations/naya-passagere-identite.png'),
-  driverWelcome: require('../illustrations/naya-chauffeuse-bienvenue.png'),
-  driverWallet: require('../illustrations/naya-chauffeuse-portefeuille.png'),
-} as const;
+  passengerWelcome: 'journey',
+  passengerPlanning: 'schedule',
+  passengerIdentity: 'verified',
+  passengerSupport: 'support',
+  driverWelcome: 'drive',
+  driverWallet: 'wallet',
+  driverEarnings: 'earnings',
+  driverSupport: 'support',
+} as const satisfies Record<string, Spot>;
 
-/** Original Naya Signature car. Colour variants do not imply a fare tier. */
-export const cars = {
-  pearl: require('../cars/naya-signature-pearl.png'),
-  plum: require('../cars/naya-signature-plum.png'),
-  pearlSmall: require('../cars/naya-signature-pearl-small.png'),
-  plumSmall: require('../cars/naya-signature-plum-small.png'),
-  top: require('../cars/naya-signature-top.png'),
-} as const;
-
-export const characters = {
-  salmaPortrait: require('../characters/salma-portrait.png'),
-  salmaStanding: require('../characters/salma-debout.png'),
-  salmaSeated: require('../characters/salma-assise.png'),
-  salmaWaving: require('../characters/salma-saluer.png'),
-  salmaPhone: require('../characters/salma-telephone.png'),
-  aminaPortrait: require('../characters/amina-portrait.png'),
-  aminaStanding: require('../characters/amina-debout.png'),
-  aminaSeated: require('../characters/amina-assise.png'),
-  aminaWaving: require('../characters/amina-saluer.png'),
-  aminaPhone: require('../characters/amina-telephone.png'),
-} as const;
-
-/** Square head-and-shoulders crops of the portraits, for 32–56 pt avatars. */
-export const avatars = {
-  salma: require('../avatars/salma.jpg'),
-  amina: require('../avatars/amina.jpg'),
-} as const;
+/** The Naya car, drawn in vector. */
+export const cars = { side: 'car' } as const satisfies Record<string, Spot>;
 
 /** Width / height of each artwork, so layouts reserve the right box and never stretch. */
 export const aspect = {
-  illustration: 1080 / 810,
-  car: 1080 / 610,
-  carSmall: 420 / 237,
-  carTop: 103 / 192,
-  portrait: 360 / 620,
+  illustration: 320 / 240,
+  carSmall: 320 / 180,
 } as const;
+
+/** Full-bleed onboarding photos (Pexels licence, see photos/CREDITS.md). */
+export const photos = {
+  onboardingRide: require('../photos/onboarding-ride.jpg'),
+  onboardingFriends: require('../photos/onboarding-friends.jpg'),
+  onboardingFamily: require('../photos/onboarding-family.jpg'),
+  onboardingDriver: require('../photos/onboarding-driver.jpg'),
+  onboardingDriver2: require('../photos/onboarding-driver-2.jpg'),
+};

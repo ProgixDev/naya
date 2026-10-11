@@ -36,7 +36,7 @@ export default function Earnings() {
             <Money amount={0} variant="display" />
             <Text variant="label" weight="semibold">Aucune course sur cette période</Text>
             <Text variant="caption" tone="muted" align="center">Passez en ligne pour recevoir des propositions.</Text>
-            <Illustration source={illustrations.driverWallet} aspect={aspect.illustration} width="78%" maxHeight={220} />
+            <Illustration source={illustrations.driverEarnings} aspect={aspect.illustration} width="78%" maxHeight={220} />
           </View>
         ) : null}
         {e && e.rideCount > 0 ? (
