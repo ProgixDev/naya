@@ -1,6 +1,6 @@
 import { CapsuleTabBar } from '@naya/ui';
 import type { BottomTabBarProps } from 'expo-router/tabs';
-import { BarChart3, House, UserRound, Wallet } from 'lucide-react-native';
+import { BarChart3, House, UserRound, Wallet } from '@naya/ui';
 
 const ITEMS = {
   index: { icon: House, label: 'Accueil' },

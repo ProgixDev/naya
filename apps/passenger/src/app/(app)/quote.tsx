@@ -21,7 +21,7 @@ import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Bike, Car, Check, ChevronRight, CreditCard, Gem, TrendingUp, Wallet, ChevronLeft } from 'lucide-react-native';
+import { Banknote, Bike, Car, Check, ChevronRight, CreditCard, Gem, TrendingUp, Wallet, ChevronLeft } from '@naya/ui';
 import {
   casablancaLocalToUtc,
   formatDistance,

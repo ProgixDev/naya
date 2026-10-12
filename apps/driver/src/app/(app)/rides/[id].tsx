@@ -5,7 +5,7 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatBp, formatDateTime, formatMoney, formatTime, PAYMENT_STATUS_LABELS, RIDE_STATUS_LABELS, splitFare } from '@naya/domain';
 import { useTheme, ErrorState, Header, PressableScale, RouteStopRow, Screen, SkeletonList, StatusBanner, StatusPill, Text } from '@naya/ui';
-import { Banknote, ChevronRight, Clock, CreditCard, MessageCircle, Route as RouteIcon } from 'lucide-react-native';
+import { Banknote, ChevronRight, Clock, CreditCard, MessageCircle, Route as RouteIcon } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 

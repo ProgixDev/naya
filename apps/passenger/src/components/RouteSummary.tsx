@@ -1,6 +1,6 @@
 import { useTheme, Text } from '@naya/ui';
 import { View } from 'react-native';
-import { MapPin } from 'lucide-react-native';
+import { MapPin } from '@naya/ui';
 import { colors } from '@naya/tokens';
 
 type Stop = { label: string; address?: string | null };

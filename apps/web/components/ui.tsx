@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
-import { X, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { X, CheckCircle2, ArrowUpRight } from './icons';
 import { useNaya } from '@/lib/store';
 
 export function useDisclosureFocus(

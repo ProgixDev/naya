@@ -3,7 +3,7 @@ import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { ArrowDownLeft, ArrowUpRight, Banknote, CreditCard, GripVertical, MapPin, Receipt, Star, Trash2, Wrench } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Banknote, CreditCard, GripVertical, MapPin, Receipt, Star, Trash2, Wrench } from './icons';
 import { cars, aspect } from '@naya/assets';
 import { Illustration , Avatar } from './Brand';
 import {

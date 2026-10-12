@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Map as MapIcon, MapPin, Plus, SlidersHorizontal } from 'lucide-react';
+import { Map as MapIcon, MapPin, Plus, SlidersHorizontal } from '../components/icons';
 import { errorMessage, type AdminCityRow } from '@naya/api';
 import { CASABLANCA_RULES, computeFare, formatBp, RABAT_RULES, type CityRules, type CityStatus, type LatLng } from '@naya/domain';
 import { api } from '../lib/api';

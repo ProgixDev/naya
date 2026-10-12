@@ -1,4 +1,4 @@
-import { Accessibility, Baby, Bike, Bus, Car, Crown, Gem, Package, Zap } from 'lucide-react-native';
+import { Accessibility, Baby, Bike, Bus, Car, Crown, Gem, Package, Zap } from './icons';
 import type { ServiceIcon } from '@naya/domain';
 
 /** Pictogram of each service category icon (see SERVICE_ICONS in the domain). */

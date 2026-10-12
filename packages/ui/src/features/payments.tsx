@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { Banknote, CreditCard, Landmark, Smartphone, Store, Wallet } from 'lucide-react-native';
+import { Banknote, CreditCard, Landmark, Smartphone, Store, Wallet } from '../icons';
 import { formatMoney, formatShort, type PaymentInstructions as Instructions, type ProviderFlow, type ProviderKind, type ProviderOption } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useTheme } from '../core/theme';

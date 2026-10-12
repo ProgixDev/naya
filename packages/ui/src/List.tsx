@@ -2,7 +2,7 @@ import { themedStyles , colors, radius } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { Children, isValidElement, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from './icons';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
 

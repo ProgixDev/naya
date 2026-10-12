@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Car, ChevronRight, ShieldCheck, User } from 'lucide-react';
+import { ArrowRight, Car, ChevronRight, ShieldCheck, User } from '../components/icons';
 import type { Ride } from '@naya/domain';
 import { api } from '../lib/api';
 import { PERIOD_LABELS, useWorkspace, type Period } from '../lib/context';

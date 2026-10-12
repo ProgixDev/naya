@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { identityDetailsSchema, type IdentityDetailsInput } from '@naya/domain';
-import { Hash, UserRound } from 'lucide-react-native';
+import { Hash, UserRound } from '@naya/ui';
 import { Button, DateField, DocumentPicker, FieldRow, FormField, Header, ID_DOCUMENTS, Screen, StatusBanner, toast } from '@naya/ui';
 import { useAccountId, useCases } from '@/lib/queries';
 

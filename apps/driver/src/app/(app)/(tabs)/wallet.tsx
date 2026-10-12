@@ -4,7 +4,7 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowDownLeft, ArrowUpRight, Clock, ListOrdered } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Clock, ListOrdered } from '@naya/ui';
 import { formatMoney, formatShort, TRANSFER_STATUS_LABELS } from '@naya/domain';
 import { colors, shadow } from '@naya/tokens';
 import { useAccountId, useWallet } from '@/lib/queries';

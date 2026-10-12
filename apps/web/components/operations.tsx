@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Check,
   Clock3,
-} from 'lucide-react';
+} from './icons';
 import { documentLabels, useNaya, type Driver, type Ticket, type DocumentKey } from '@/lib/store';
 import { Avatar, Badge, Empty } from './ui';
 

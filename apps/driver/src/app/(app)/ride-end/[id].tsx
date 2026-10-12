@@ -2,7 +2,7 @@ import { useTheme , Button, Card, ErrorState, Header, Money, Screen, SkeletonLis
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CreditCard } from 'lucide-react-native';
+import { Banknote, CreditCard } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatBp, formatDateTime, formatMoney, splitFare } from '@naya/domain';

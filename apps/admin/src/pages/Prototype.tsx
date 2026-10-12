@@ -33,7 +33,7 @@ import { CategoryEditor } from '../components/CategoryEditor';
 import { PlanEditor, ReasonEditor } from '../components/CatalogEditors';
 import { DedicatedDriverCard, FamilyCard, PassengerWalletCard, PlanCard, ReasonCard } from '../components/ServiceCards';
 import { Badge } from '../components/ui';
-import { Bike, Car, Gem, PauseCircle, PlayCircle, Plus, Users, XCircle } from 'lucide-react';
+import { Bike, Car, Gem, PauseCircle, PlayCircle, Plus, Users, XCircle } from '../components/icons';
 import { ImpactList, ReasonField } from '../components/form';
 import { logoConcepts, conceptVariants } from '@naya/assets/src/concepts';
 

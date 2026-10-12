@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FlaskConical } from 'lucide-react-native';
+import { FlaskConical } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney } from '@naya/domain';

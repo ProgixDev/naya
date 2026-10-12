@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ChevronLeft, Flag, MapPin, Navigation, Phone } from 'lucide-react-native';
+import { CheckCircle2, ChevronLeft, Flag, MapPin, Navigation, Phone } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { cancelReasonsFor, formatMoney, formatTime, type LatLng, type Ride } from '@naya/domain';

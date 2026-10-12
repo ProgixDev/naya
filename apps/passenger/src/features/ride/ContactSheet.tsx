@@ -1,6 +1,6 @@
 import { useTheme , IconDisc, ListGroup, ListRow, Sheet, StatusBanner } from '@naya/ui';
 import { Linking, View } from 'react-native';
-import { MessageSquare, Phone, ShieldAlert } from 'lucide-react-native';
+import { MessageSquare, Phone, ShieldAlert } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import type { DriverSummary } from '@naya/domain';
 

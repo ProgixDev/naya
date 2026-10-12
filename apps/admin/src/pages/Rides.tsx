@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { Search } from '../components/icons';
 import type { AdminRideRow } from '@naya/api';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/context';

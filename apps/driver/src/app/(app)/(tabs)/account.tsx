@@ -5,7 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bell, Car, CircleHelp, LogOut, FileText, FlaskConical, History, ShieldCheck, SlidersHorizontal, Star, UserRound, UsersRound } from 'lucide-react-native';
+import { Bell, Car, CircleHelp, LogOut, FileText, FlaskConical, History, ShieldCheck, SlidersHorizontal, Star, UserRound, UsersRound } from '@naya/ui';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { STATUS_LABELS } from '@naya/domain';

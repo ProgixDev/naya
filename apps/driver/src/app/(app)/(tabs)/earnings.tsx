@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { Banknote, CreditCard, Hourglass, Wallet } from 'lucide-react-native';
+import { Banknote, CreditCard, Hourglass, Wallet } from '@naya/ui';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, formatShort } from '@naya/domain';

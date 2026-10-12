@@ -3,7 +3,7 @@ import { useTheme , Divider, Money, PressableScale, Sheet, Text } from '@naya/ui
 import { useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Info } from 'lucide-react-native';
+import { Info } from '@naya/ui';
 import { formatMoney, type Centimes, type Wallet } from '@naya/domain';
 
 type Figure = 'available' | 'reserved' | 'debt' | 'pending';

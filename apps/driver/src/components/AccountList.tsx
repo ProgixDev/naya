@@ -1,7 +1,7 @@
 import { useTheme, PressableScale, Text } from '@naya/ui';
 import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from '@naya/ui';
 import { colors } from '@naya/tokens';
 
 /** Uppercase label above one white card of rows separated by full-width hairlines (Compte, Profil). */

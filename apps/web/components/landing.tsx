@@ -21,7 +21,7 @@ import {
   Smartphone,
   CalendarDays,
   ChevronDown,
-} from 'lucide-react';
+} from './icons';
 import { Hydrate, Modal, Avatar, useDisclosureFocus } from './ui';
 import { useNaya, money } from '@/lib/store';
 import { JourneyMap } from './map';

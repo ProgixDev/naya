@@ -2,7 +2,7 @@ import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, X } from 'lucide-react-native';
+import { ChevronLeft, X } from './icons';
 import { colors, gutter } from '@naya/tokens';
 import { IconButton } from './Button';
 import { Text } from './Text';

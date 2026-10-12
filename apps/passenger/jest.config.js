@@ -6,8 +6,11 @@ module.exports = {
   roots: ['<rootDir>/src', '<rootDir>/../../packages/ui/src'],
   testMatch: ['**/__tests__/**/*.test.tsx'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^iconsax-react-nativejs/dist/esm/.*\\.js$': '<rootDir>/jest.icon-mock.js',
+  },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|react-native-svg|lucide-react-native|nativewind|react-native-css-interop|@naya/.*|@tanstack/.*|zustand))',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|react-native-svg|nativewind|react-native-css-interop|@naya/.*|@tanstack/.*|zustand))',
   ],
 };

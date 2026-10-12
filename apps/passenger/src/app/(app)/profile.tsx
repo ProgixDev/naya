@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Linking, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Camera, Check, ImageIcon, MapPin, Pencil, Phone, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { CalendarDays, Camera, Check, ImageIcon, MapPin, Pencil, Phone, ShieldCheck, Trash2 } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';

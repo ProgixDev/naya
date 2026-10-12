@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { identityDetailsSchema } from '@naya/domain';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { CalendarDays, Hash, UserRound } from 'lucide-react-native';
+import { CalendarDays, Hash, UserRound } from '@naya/ui';
 import { Button, DatePickerSheet, DocumentPicker, FieldRow, FormField, Header, ID_DOCUMENTS, PressableScale, Screen, Text, haptic, toast } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import { useAccountId, useIdentityCase } from '@/lib/queries';

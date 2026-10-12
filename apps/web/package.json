@@ -14,7 +14,7 @@
     "@fontsource/newsreader": "^5.2.8",
     "gsap": "^3.14.2",
     "leaflet": "1.9.4",
-    "lucide-react": "^1.49.0",
+    "iconsax-reactjs": "0.0.8",
     "next": "^16.3.8",
     "react": "19.2.3",
     "react-dom": "19.2.3",

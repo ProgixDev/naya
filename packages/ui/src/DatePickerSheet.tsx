@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight } from './icons';
 import { colors } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { Sheet } from './BottomSheet';

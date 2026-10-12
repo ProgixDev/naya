@@ -2,7 +2,7 @@ import { themedStyles , colors, fonts } from '@naya/tokens';
 import { useTheme , Button, FrostLayers, GlossLayers, IconDisc, Money, PressableScale, Text, frostOutline, frostShadow, glossShadow, haptic } from '@naya/ui';
 import { forwardRef, type ReactNode } from 'react';
 import { Platform, StyleSheet, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Check, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
+import { Check, CheckCircle2, Clock, XCircle } from '@naya/ui';
 import type { Centimes } from '@naya/domain';
 
 /**

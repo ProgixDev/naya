@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Clock, Landmark } from 'lucide-react-native';
+import { Clock, Landmark } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { assertWithdrawable, formatMoney, parseMoneyInput } from '@naya/domain';
 import { useApi } from '@naya/api/react';

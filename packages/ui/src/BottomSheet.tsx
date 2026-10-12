@@ -6,7 +6,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { X, AlertTriangle, HelpCircle } from 'lucide-react-native';
+import { X, AlertTriangle, HelpCircle } from './icons';
 import { motionTiming } from './motion';
 import { Text } from './Text';
 import { Button, IconButton } from './Button';

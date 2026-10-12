@@ -8,7 +8,7 @@ import { useWorkspace } from '../lib/context';
 import { toCentimes } from '../lib/format';
 import { Badge, Banner, Button, Card, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Skeleton, Textarea, toast } from '../components/ui';
 import { ChoiceCards, ChoiceChips, FormSection, ImpactList, ReasonField, UnitInput } from '../components/form';
-import { CreditCard, Power } from 'lucide-react';
+import { CreditCard, Power } from '../components/icons';
 
 type Row = ProviderOption & { adapterName: string };
 

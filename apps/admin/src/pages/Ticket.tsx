@@ -10,7 +10,7 @@ import { Banner, Button, Card, DefinitionList, Dialog, ErrorState, Field, Input,
 import { PaymentBadge, RideBadge, TicketBadge } from '../components/status';
 import { AuditList } from './Audit';
 import { MiniMap } from '../components/MiniMap';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from '../components/icons';
 import { ReasonField } from '../components/form';
 
 const OUTCOMES = {

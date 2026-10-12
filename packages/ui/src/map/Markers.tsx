@@ -1,7 +1,7 @@
 import { useTheme } from './../core/theme';
 import { View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
-import { MapPin } from 'lucide-react-native';
+import { MapPin } from '../icons';
 import { carTopAspect, carTopSvg } from '@naya/assets';
 import { colors } from '@naya/tokens';
 import { Text } from '../Text';

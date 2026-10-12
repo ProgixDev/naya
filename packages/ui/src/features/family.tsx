@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Baby, Camera, Check, ChevronRight, FlaskConical, Home, ImageIcon, MapPin, Minus, Pencil, Plus, School, Search, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react-native';
+import { Baby, Camera, Check, ChevronRight, FlaskConical, Home, ImageIcon, MapPin, Minus, Pencil, Plus, School, Search, ShieldCheck, Trash2, UserRound, Users } from '../icons';
 import { useApi } from '@naya/api/react';
 import { errorMessage, qk } from '@naya/api';
 import {

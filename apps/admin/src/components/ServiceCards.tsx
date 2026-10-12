@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { AlertTriangle, CalendarHeart, Car, Check, CircleAlert, ExternalLink, MapPin, MessageSquareWarning, Phone, ShieldAlert, Star, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarHeart, Car, Check, CircleAlert, ExternalLink, MapPin, MessageSquareWarning, Phone, ShieldAlert, Star, Users, Wallet } from './icons';
 import {
   FAMILY_STATUS_LABELS,
   SUBSCRIPTION_STATUS_LABELS,

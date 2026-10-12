@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, CircleAlert, XCircle } from 'lucide-react';
+import { CheckCircle2, CircleAlert, XCircle } from '../components/icons';
 import { ITEM_LABELS, REQUIRED_ITEMS, type DecisionOutcome, type VerificationItemKey } from '@naya/domain';
 import { errorMessage, isApiError } from '@naya/api';
 import { api } from '../lib/api';

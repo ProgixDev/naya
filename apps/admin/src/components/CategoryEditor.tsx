@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Car, Tags } from 'lucide-react';
+import { Car, Tags } from './icons';
 import { computeFare, formatMoney, SERVICE_ICONS, SERVICE_ICON_LABELS, type ServiceCategory } from '@naya/domain';
 import { SERVICE_ICON } from './serviceIcons';
 import { api } from '../lib/api';

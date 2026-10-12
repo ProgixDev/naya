@@ -39,6 +39,7 @@ export * from './features/prototype';
 export * from './features/family';
 export * from './features/trusted';
 export * from './serviceIcons';
+export * from './icons';
 
 export * from './core/theme';
 

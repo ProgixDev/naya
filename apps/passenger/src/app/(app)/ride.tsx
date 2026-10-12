@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
-import { CheckCircle2, Clock, MapPinned, Phone, Signal, ChevronLeft } from 'lucide-react-native';
+import { CheckCircle2, Clock, MapPinned, Phone, Signal, ChevronLeft } from '@naya/ui';
 import { formatDuration, formatMoney, haversineMeters, RIDE_STATUS_LABELS, secondsBetween, type Ride } from '@naya/domain';
 import { errorMessage, newIdempotencyKey, qk, serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';

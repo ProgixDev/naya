@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Banknote, CreditCard, XCircle } from 'lucide-react-native';
+import { Banknote, CreditCard, XCircle } from '@naya/ui';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, formatTime, splitFare, toCasablancaParts } from '@naya/domain';

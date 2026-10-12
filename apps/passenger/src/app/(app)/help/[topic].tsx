@@ -2,7 +2,7 @@ import { useTheme , Button, EmptyState, Header, PressableScale, Screen, Text } f
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp } from '@naya/ui';
 import { colors, radius } from '@naya/tokens';
 import { HELP_TOPICS } from '@/features/help/topics';
 

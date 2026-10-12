@@ -4,7 +4,7 @@ import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Navigation } from 'lucide-react-native';
+import { MapPin, Navigation } from '@naya/ui';
 import { errorMessage, isApiError, qk, type EligibilityReason } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, type LatLng } from '@naya/domain';

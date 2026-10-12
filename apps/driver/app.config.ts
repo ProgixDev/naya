@@ -3,7 +3,7 @@ import type { ExpoConfig } from 'expo/config';
 const googleMapsKey = process.env.GOOGLE_MAPS_ANDROID_KEY;
 
 const config: ExpoConfig = {
-  name: 'Naya Chauffeuse',
+  name: 'Naya Conductrice',
   slug: 'naya-chauffeuse',
   scheme: 'naya-chauffeuse',
   version: '1.0.0',
@@ -14,7 +14,7 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'ma.naya.chauffeuse',
     supportsTablet: false,
-    buildNumber: '5',
+    buildNumber: '6',
     config: { usesNonExemptEncryption: false },
   },
   android: {

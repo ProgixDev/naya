@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Briefcase, Home as HomeIcon, Map as MapIcon, MapPin, Plus, Star, Trash2 } from 'lucide-react-native';
+import { Briefcase, Home as HomeIcon, Map as MapIcon, MapPin, Plus, Star, Trash2 } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { Place, SavedPlace } from '@naya/domain';

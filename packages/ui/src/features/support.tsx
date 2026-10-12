@@ -6,7 +6,7 @@ import { ActivityIndicator, Platform, StyleSheet, TextInput, View } from 'react-
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, Camera, Car, Check, CreditCard, FileText, Headphones, HelpCircle, ImageIcon, Inbox, MessageCircle, Paperclip, Phone, Plus, ShieldAlert, UserRound, Video, Wallet, X } from 'lucide-react-native';
+import { ArrowUp, Camera, Car, Check, CreditCard, FileText, Headphones, HelpCircle, ImageIcon, Inbox, MessageCircle, Paperclip, Phone, Plus, ShieldAlert, UserRound, Video, Wallet, X } from '../icons';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatShort, SUPPORT_STATUS_LABELS, supportTicketSchema, type SupportTicket } from '@naya/domain';

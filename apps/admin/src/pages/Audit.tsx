@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Banknote, Bot, Building2, FileCheck2, KeyRound, Search, ShieldAlert, ShieldCheck, UserRound, Wallet, Wrench } from 'lucide-react';
+import { Banknote, Bot, Building2, FileCheck2, KeyRound, Search, ShieldAlert, ShieldCheck, UserRound, Wallet, Wrench } from '../components/icons';
 import type { AuditEvent } from '@naya/domain';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/context';

@@ -1,5 +1,5 @@
 import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X } from './icons';
 import { Button, Input, Textarea, cx } from './ui';
 
 /** Building blocks shared by every back-office form and modal, so they look and behave the same. */

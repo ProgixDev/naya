@@ -12,6 +12,7 @@
     "@naya/assets": "workspace:*",
     "@naya/demo-api": "workspace:*",
     "@naya/domain": "workspace:*",
-    "@naya/tokens": "workspace:*"
+    "@naya/tokens": "workspace:*",
+    "iconsax-react-nativejs": "0.0.8"
   }
 }

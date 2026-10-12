@@ -9,7 +9,7 @@ import { fmtDateTime, fromCentimes, money, toCentimes } from '../lib/format';
 import { Banner, Button, Card, Dialog, ErrorState, Field, Input, PageHeader, Skeleton, Textarea, toast, cx } from '../components/ui';
 import { CityBadge } from '../components/status';
 import { ImpactList, ReasonField } from '../components/form';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal } from '../components/icons';
 
 type Form = Record<'baseFare' | 'perKm' | 'perMinute' | 'minimumFare' | 'debtLimit' | 'feeAfterGrace' | 'feeAfterArrival' | 'minimumWithdrawal', string> & {
   commission: string;

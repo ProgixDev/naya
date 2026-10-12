@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarHeart, MessageSquareWarning } from 'lucide-react';
+import { CalendarHeart, MessageSquareWarning } from './icons';
 import { formatMoney, type DisputeReason, type FamilyPlan } from '@naya/domain';
 import { toCentimes } from '../lib/format';
 import { Banner, Button, Dialog, Field, Input } from './ui';

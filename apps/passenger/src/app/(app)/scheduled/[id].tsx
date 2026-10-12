@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, CreditCard, Lock } from 'lucide-react-native';
+import { ChevronRight, CreditCard, Lock } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { casablancaLocalToUtc, formatMoney, formatShort, formatTime, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';

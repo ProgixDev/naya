@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { RefreshControl, View } from 'react-native';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { CalendarClock, Car, ChevronRight, Plus, XCircle } from 'lucide-react-native';
+import { CalendarClock, Car, ChevronRight, Plus, XCircle } from '@naya/ui';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDateTime, formatMoney, formatTime, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';

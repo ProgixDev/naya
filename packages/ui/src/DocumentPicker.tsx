@@ -1,7 +1,7 @@
 import { themedStyles , colors } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { StyleSheet, View } from 'react-native';
-import { BookUser, Check, FileUser, IdCard, type LucideIcon } from 'lucide-react-native';
+import { BookUser, Check, FileUser, IdCard, type IconComponent } from './icons';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
 import { useA11yPrefs } from './a11y';
@@ -10,7 +10,7 @@ import { haptic } from './haptics';
 export type IdDocumentType = 'cin' | 'passport' | 'residence_permit';
 
 /** What each document asks for next: the number field adapts its label and example. */
-export const ID_DOCUMENTS: Record<IdDocumentType, { label: string; icon: LucideIcon; numberLabel: string; example: string }> = {
+export const ID_DOCUMENTS: Record<IdDocumentType, { label: string; icon: IconComponent; numberLabel: string; example: string }> = {
   cin: { label: 'CIN', icon: IdCard, numberLabel: 'Numéro de CIN', example: 'Ex. AB123456' },
   passport: { label: 'Passeport', icon: BookUser, numberLabel: 'Numéro de passeport', example: 'Ex. AA1234567' },
   residence_permit: { label: 'Titre de séjour', icon: FileUser, numberLabel: 'Numéro du titre de séjour', example: 'Comme indiqué sur la carte' },

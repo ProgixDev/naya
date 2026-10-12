@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
-import { ChevronRight, Clock, FlaskConical, Lock } from 'lucide-react-native';
+import { ChevronRight, Clock, FlaskConical, Lock } from '../icons';
 import { colors } from '@naya/tokens';
 import { useTheme } from '../core/theme';
 import { PressableScale } from '../PressableScale';

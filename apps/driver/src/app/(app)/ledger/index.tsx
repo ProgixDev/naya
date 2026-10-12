@@ -1,5 +1,5 @@
 import { useTheme , Button, EmptyState, ErrorState, Header, Pill, Screen, SkeletonList, Text, TransactionRow } from '@naya/ui';
-import { ShieldCheck } from 'lucide-react-native';
+import { ShieldCheck } from '@naya/ui';
 import { formatMoney, toCasablancaParts } from '@naya/domain';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';

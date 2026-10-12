@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { SERVICE_ICON } from './serviceIcons';
-import { Bike, Car, Gem, Search } from 'lucide-react';
+import { Bike, Car, Gem, Search } from './icons';
 import type { ServiceCategory } from '@naya/domain';
 import { Badge, Card, EmptyState, Input, cx } from './ui';
 

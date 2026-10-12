@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight, ShieldCheck } from 'lucide-react-native';
+import { ArrowRight, ShieldCheck } from './icons';
 import { BrandMark, Illustration } from './Brand';
 import { Button } from './Button';
 import { Text } from './Text';

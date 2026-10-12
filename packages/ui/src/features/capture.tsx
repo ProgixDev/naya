@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Linking, Platform, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import { Camera, Check, CheckCircle2, FastForward, FileText, IdCard, ImageIcon, Lock, ScanFace } from 'lucide-react-native';
+import { Camera, Check, CheckCircle2, FastForward, FileText, IdCard, ImageIcon, Lock, ScanFace } from '../icons';
 import { errorMessage } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';

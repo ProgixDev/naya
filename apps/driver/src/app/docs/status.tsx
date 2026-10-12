@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Car, CheckCircle2, Clock, ShieldCheck, UserRound } from 'lucide-react-native';
+import { Car, CheckCircle2, Clock, ShieldCheck, UserRound } from '@naya/ui';
 import { STATUS_LABELS, type VerificationCase } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useTheme, Button, Header, Screen, StatusPill, Text } from '@naya/ui';

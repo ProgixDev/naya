@@ -1,6 +1,6 @@
 import { useTheme , Button, EmptyState, FormField, Header, ProviderIcon, Screen, SkeletonList, StatusBanner, Text, haptic, providerSubtitle, useSingleFlight } from '@naya/ui';
 import { useState } from 'react';
-import { ShieldCheck } from 'lucide-react-native';
+import { ShieldCheck } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import { View } from 'react-native';
 import { router } from 'expo-router';

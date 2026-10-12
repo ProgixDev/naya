@@ -1,7 +1,7 @@
 import { View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { LucideIcon } from 'lucide-react-native';
+import type { IconComponent } from './icons';
 import { colors, getColorScheme, gutter } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { PressableScale } from './PressableScale';
@@ -14,7 +14,7 @@ export interface CapsuleTabBarProps {
   state: { index: number; routes: { key: string; name: string; params?: object }[] };
   navigation: { emit: (e: { type: 'tabPress'; target: string; canPreventDefault: true }) => { defaultPrevented: boolean }; navigate: (name: string, params?: object) => void };
   /** Icon and label for each route name. */
-  items: Record<string, { icon: LucideIcon; label: string }>;
+  items: Record<string, { icon: IconComponent; label: string }>;
 }
 
 /**

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Clock, CreditCard, MessageCircle, Star } from 'lucide-react-native';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Clock, CreditCard, MessageCircle, Star } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDateTime, formatMoney, PAYMENT_STATUS_LABELS, type Payment, type Ride } from '@naya/domain';

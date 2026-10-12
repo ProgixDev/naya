@@ -3,7 +3,7 @@ import { themedStyles , colors, radius } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Animated as RNAnimated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { AlertTriangle, CheckCircle2, Info, WifiOff, XCircle } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Info, WifiOff, XCircle } from './icons';
 import { Illustration } from './Brand';
 import { Text } from './Text';
 import { Button } from './Button';

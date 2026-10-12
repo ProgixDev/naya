@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from './icons';
 import type { CancelReason } from '@naya/domain';
 import { Button, Card } from './ui';
 import { Switch, slugify } from './form';

@@ -1,7 +1,7 @@
 import { CapsuleTabBar as Bar, useTabBarSpace } from '@naya/ui';
 import { type ComponentProps } from 'react';
 import type { Tabs } from 'expo-router';
-import { Home, Route, UserRound, Wallet } from 'lucide-react-native';
+import { Home, Route, UserRound, Wallet } from '@naya/ui';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 

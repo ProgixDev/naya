@@ -8,7 +8,7 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { NotificationPreferences } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { BellRing, CalendarClock, Car, Check, IdCard, Layers, LocateFixed, MessageCircle, Move, Sparkles, Trash2, Type } from 'lucide-react-native';
+import { BellRing, CalendarClock, Car, Check, IdCard, Layers, LocateFixed, MessageCircle, Move, Sparkles, Trash2, Type } from '@naya/ui';
 import { AccountGroup, AccountRow } from '@/components/AccountList';
 import { useAccountId, useMe } from '@/lib/queries';
 

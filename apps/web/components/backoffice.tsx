@@ -35,7 +35,7 @@ import {
   CreditCard,
   Banknote,
   CheckCircle2,
-} from 'lucide-react';
+} from './icons';
 import {
   useNaya,
   money,

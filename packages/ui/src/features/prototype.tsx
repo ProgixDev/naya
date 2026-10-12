@@ -6,7 +6,7 @@ import { useTheme } from './../core/theme';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Linking, Platform, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowDownLeft, ArrowUpRight, Banknote, Bell, Check, ChevronLeft, ChevronRight, CreditCard, Eye, EyeOff, Lock, Plus, Sparkles, Wallet } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Banknote, Bell, Check, ChevronLeft, ChevronRight, CreditCard, Eye, EyeOff, Lock, Plus, Sparkles, Wallet } from '../icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@naya/api/react';

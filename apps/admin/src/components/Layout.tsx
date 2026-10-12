@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, CreditCard, FileText, LogOut, MapPin, Menu, MessageCircle, Monitor, ShieldAlert, Moon, Route, ShieldCheck, Sun, Users, Wallet, X, Lock } from 'lucide-react';
+import { BarChart3, CreditCard, FileText, LogOut, MapPin, Menu, MessageCircle, Monitor, ShieldAlert, Moon, Route, ShieldCheck, Sun, Users, Wallet, X, Lock } from './icons';
 import type { AdminPermission } from '@naya/domain';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';

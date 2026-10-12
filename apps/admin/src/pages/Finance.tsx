@@ -2,7 +2,7 @@ import type { AdminFinanceSummary } from '@naya/api';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Wrench } from 'lucide-react';
+import { Wrench } from '../components/icons';
 import { errorMessage, newIdempotencyKey } from '@naya/api';
 import type { LedgerEntry, Payment, Recharge, User, Wallet, Withdrawal } from '@naya/domain';
 import { api } from '../lib/api';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Car, Check, CheckCircle2, UserRound } from 'lucide-react-native';
+import { Car, Check, CheckCircle2, UserRound } from '@naya/ui';
 import { router } from 'expo-router';
 import { colors } from '@naya/tokens';
 import { useTheme, Button, Header, Screen, Text } from '@naya/ui';

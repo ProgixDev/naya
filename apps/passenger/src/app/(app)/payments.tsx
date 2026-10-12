@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Check, CreditCard, Lock, Plus, Trash2, Wallet } from 'lucide-react-native';
+import { Banknote, Check, CreditCard, Lock, Plus, Trash2, Wallet } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors, getColorScheme } from '@naya/tokens';

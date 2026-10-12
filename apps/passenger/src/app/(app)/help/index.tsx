@@ -1,7 +1,7 @@
 import { useTheme , Button, Header, IconDisc, ListGroup, ListRow, Screen, Text } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { FileText, MessageCircle, Route as RouteIcon, ShieldAlert, Wallet } from 'lucide-react-native';
+import { FileText, MessageCircle, Route as RouteIcon, ShieldAlert, Wallet } from '@naya/ui';
 import { colors } from '@naya/tokens';
 import { HELP_TOPICS } from '@/features/help/topics';
 

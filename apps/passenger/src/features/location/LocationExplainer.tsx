@@ -1,6 +1,6 @@
 import { useTheme , Button, IconDisc, Sheet, Text, TextButton } from '@naya/ui';
 import { View } from 'react-native';
-import { LocateFixed, MapPin } from 'lucide-react-native';
+import { LocateFixed, MapPin } from '@naya/ui';
 import { colors } from '@naya/tokens';
 
 /** Pre-permission sheet: why, and the alternative. The system prompt only follows a tap. */

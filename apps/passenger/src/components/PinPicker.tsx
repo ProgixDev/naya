@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, X } from 'lucide-react-native';
+import { MapPin, X } from '@naya/ui';
 import { isInService, type LatLng, type Place } from '@naya/domain';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { Plus, ShieldCheck, Trash2 } from '../icons';
 import { errorMessage } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { TrustedContact } from '@naya/domain';

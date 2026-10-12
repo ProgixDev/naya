@@ -3,7 +3,7 @@ import { useTheme } from './core/theme';
 import { Children, forwardRef, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Modal, Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
-import { CalendarDays, Check, ChevronDown, type LucideIcon } from 'lucide-react-native';
+import { CalendarDays, Check, ChevronDown, type IconComponent } from './icons';
 import { COUNTRIES, formatNational, type Country } from '@naya/domain';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
@@ -16,7 +16,7 @@ export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
   error?: string | null;
   helper?: string;
   /** Leading glyph inside the pill; unlike `leading` it does not keep the label floated. */
-  icon?: LucideIcon;
+  icon?: IconComponent;
   leading?: ReactNode;
   trailing?: ReactNode;
   testID?: string;

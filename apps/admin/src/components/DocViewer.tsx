@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Minus, Plus, RotateCw, ZoomIn } from 'lucide-react';
+import { FileText, Minus, Plus, RotateCw, ZoomIn } from './icons';
 import { fetchUploadBlob } from '../lib/api';
 import { Dialog, Button, IconButton, Skeleton, cx } from './ui';
 

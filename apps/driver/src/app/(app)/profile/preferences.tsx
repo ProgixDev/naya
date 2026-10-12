@@ -3,7 +3,7 @@ import { useSyncExternalStore, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BellRing, Car, Check, Globe, Layers, MessageCircle, Move, Sparkles, Type } from 'lucide-react-native';
+import { BellRing, Car, Check, Globe, Layers, MessageCircle, Move, Sparkles, Type } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { NotificationPreferences } from '@naya/domain';

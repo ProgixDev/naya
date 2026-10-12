@@ -3,7 +3,7 @@ import { useTheme } from '@naya/ui';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, BadgeCheck, Camera, Car, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, FileText, IdCard, ScanFace, ShieldCheck, UserRound, XCircle } from 'lucide-react-native';
+import { AlertTriangle, BadgeCheck, Camera, Car, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, FileText, IdCard, ScanFace, ShieldCheck, UserRound, XCircle } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, REQUIRED_ITEMS, STATUS_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';

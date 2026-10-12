@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CircleSlash, Clock3, CreditCard, MapPin, Navigation, Route, Wallet, XCircle } from 'lucide-react-native';
+import { Banknote, CircleSlash, Clock3, CreditCard, MapPin, Navigation, Route, Wallet, XCircle } from '@naya/ui';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi, useDeadline } from '@naya/api/react';
 import { formatDistance, formatDuration, formatMoney, OFFER_DECLINE_REASONS, type DriverOffer } from '@naya/domain';

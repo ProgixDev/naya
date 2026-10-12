@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import type { SupportTicket } from '@naya/domain';
-import { Search, X } from 'lucide-react';
+import { Search, X } from '../components/icons';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/context';
 import { fmtDateTime } from '../lib/format';
