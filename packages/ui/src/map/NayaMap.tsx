@@ -90,7 +90,7 @@ function NativeMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, on
             </Marker>
           ))}
         {driver && driverPos ? (
-          <Marker coordinate={{ latitude: driverPos.lat, longitude: driverPos.lng }} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={false}>
+          <Marker key={driver.id} coordinate={{ latitude: driverPos.lat, longitude: driverPos.lng }} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={false}>
             <MarkerView marker={{ ...driver, coordinate: driverPos }} />
           </Marker>
         ) : null}

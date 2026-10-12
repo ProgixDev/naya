@@ -87,7 +87,7 @@ export default function Dashboard() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.map }} testID="dashboard">
-      <NayaMap center={position} zoom={14} markers={[{ id: 'me', kind: online ? 'driver' : 'me', coordinate: position, label: 'Vous' }]} bottomInset={380} interactive />
+      <NayaMap center={position} zoom={14} markers={[{ id: online ? 'driver-me' : 'user-me', kind: online ? 'driver' : 'me', coordinate: position, label: 'Vous' }]} bottomInset={380} interactive />
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 12 }} pointerEvents="box-none">
         <Glass radius={999} contentStyle={{ height: 44, paddingHorizontal: 16, gap: 8 }}>
           <MapPin size={18} color={colors.ink} />

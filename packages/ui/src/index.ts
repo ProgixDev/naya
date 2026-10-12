@@ -48,3 +48,5 @@ export * from './features/brand';
 export * from './features/ThemePicker';
 export * from './DatePickerSheet';
 export * from './CapsuleTabBar';
+
+export { shadow } from '@naya/tokens';

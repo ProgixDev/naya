@@ -27,6 +27,7 @@ export const PressableScale = forwardRef<View, PressableScaleProps>(function Pre
   return (
     <AnimatedPressable
       ref={ref}
+      collapsable={false}
       disabled={disabled}
       accessibilityState={{ disabled: !!disabled }}
       // react-native-web ignores accessibilityState: mirror it as aria-* (also read on native).

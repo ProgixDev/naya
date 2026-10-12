@@ -73,7 +73,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
     : 'accent';
 
   return (
-    <View style={[full ? { alignSelf: 'stretch' } : { alignItems: 'flex-start' }, style]}>
+    <View collapsable={false} style={[full ? { alignSelf: 'stretch' } : { alignItems: 'flex-start' }, style]}>
       <PressableScale
         testID={testID}
         onPress={() => {
@@ -102,26 +102,26 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
           focused ? styles.focus : null,
         ]}
       >
-        <View style={[styles.row, { minHeight: h, paddingVertical: 10, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
-          <View style={[styles.row, { opacity: loading ? 0 : 1, gap: 8, flexShrink: 1 }]}>
-            {icon}
-            <Text
-              variant="action"
-              weight={isPrimary || isDanger ? 'bold' : 'semibold'}
-              tone={textTone}
-              maxFontSizeMultiplier={1.4}
-              align="center"
-              style={[{ flexShrink: 1 }, size === 'major' ? { fontSize: 17, lineHeight: 22 } : undefined]}
-            >
-              {label}
-            </Text>
-          </View>
+        <View collapsable={false} style={[styles.row, { minHeight: h, paddingVertical: 10, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
           {loading ? (
             <ActivityIndicator
-              style={StyleSheet.absoluteFill}
               color={isPrimary || isDanger ? colors.inverse : colors.accent}
             />
-          ) : null}
+          ) : (
+            <View collapsable={false} style={[styles.row, { gap: 8, flexShrink: 1 }]}>
+              {icon}
+              <Text
+                variant="action"
+                weight={isPrimary || isDanger ? 'bold' : 'semibold'}
+                tone={textTone}
+                maxFontSizeMultiplier={1.4}
+                align="center"
+                style={[{ flexShrink: 1 }, size === 'major' ? { fontSize: 17, lineHeight: 22 } : undefined]}
+              >
+                {label}
+              </Text>
+            </View>
+          )}
         </View>
       </PressableScale>
       {disabled && disabledReason ? (

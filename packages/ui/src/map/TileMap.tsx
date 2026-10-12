@@ -151,7 +151,7 @@ const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark
               );
             })}
           {driver && animatedDriver ? (
-            <View pointerEvents="none" style={{ position: 'absolute', left: toScreen(animatedDriver).x - 15, top: toScreen(animatedDriver).y - 28 }}>
+            <View key={driver.id} pointerEvents="none" style={{ position: 'absolute', left: toScreen(animatedDriver).x - 15, top: toScreen(animatedDriver).y - 28 }}>
               <MarkerView marker={{ ...driver, coordinate: animatedDriver, heading }} />
             </View>
           ) : null}
