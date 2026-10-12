@@ -104,7 +104,7 @@ export default function Dashboard() {
         <PressableScale onPress={() => router.navigate('/account')} accessibilityRole="button" accessibilityLabel="Mon compte"><Avatar name={firstName || 'Naya'} source={avatarFor(firstName)} size={44} /></PressableScale>
       </View>
 
-      <View style={{ position: 'absolute', left: 16, right: 16, bottom: TAB_BAR_SPACE + insets.bottom - 8, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 16, ...shadow.float }}>
+      <View style={{ position: 'absolute', left: 16, right: 16, bottom: TAB_BAR_SPACE + insets.bottom - 8, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 16, borderWidth: 1, borderColor: colors.line, ...shadow.float }}>
         {status.isLoading ? (
           <View style={{ gap: 12 }}>
             <Skeleton width="50%" height={18} />

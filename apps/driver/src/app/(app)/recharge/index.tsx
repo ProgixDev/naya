@@ -1,7 +1,7 @@
 import { useTheme , Button, EmptyState, FormField, Header, ProviderIcon, Screen, SkeletonList, StatusBanner, Text, haptic, providerSubtitle, useSingleFlight } from '@naya/ui';
 import { useState } from 'react';
 import { ShieldCheck } from '@naya/ui';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -129,7 +129,7 @@ const GROUPS: { label: string; kinds: string[] }[] = [
   { label: 'Espèces en agence', kinds: ['cash_network'] },
   { label: 'Virement', kinds: ['bank_transfer'] },
 ];
-const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: colors.line, ...shadow.card }) as const;
 const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginLeft: 4 };
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {

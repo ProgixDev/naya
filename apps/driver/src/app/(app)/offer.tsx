@@ -102,7 +102,7 @@ export default function OfferScreen() {
         topInset={insets.top}
         interactive={false}
       />
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: 30, padding: 18, gap: 16, ...shadow.float }}>
+      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: 30, padding: 18, gap: 16, borderWidth: 1, borderColor: colors.line, ...shadow.float }}>
         {/* ── Header ── */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1, gap: 6 }}>

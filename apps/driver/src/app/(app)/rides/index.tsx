@@ -7,7 +7,7 @@ import { Banknote, CreditCard, XCircle } from '@naya/ui';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, formatTime, splitFare, toCasablancaParts } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 
 /** D16 · D16-empty */
@@ -59,7 +59,7 @@ export default function RideHistory() {
               const at = r.completedAt ?? r.cancellation?.at ?? r.requestedAt;
               const stops = r.route.stops;
               return (
-                <PressableScale key={r.id} testID={`ride-row-${r.id}`} onPress={() => router.push({ pathname: '/rides/[id]', params: { id: r.id } })} accessibilityRole="button" accessibilityLabel={`${short(stops[0]!.label)} vers ${short(stops[stops.length - 1]!.label)}, ${cancelled ? 'annulée' : `net ${formatMoney(net)}`}`} pressedScale={0.985} style={{ borderRadius: 22, backgroundColor: colors.surface, padding: 16, gap: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+                <PressableScale key={r.id} testID={`ride-row-${r.id}`} onPress={() => router.push({ pathname: '/rides/[id]', params: { id: r.id } })} accessibilityRole="button" accessibilityLabel={`${short(stops[0]!.label)} vers ${short(stops[stops.length - 1]!.label)}, ${cancelled ? 'annulée' : `net ${formatMoney(net)}`}`} pressedScale={0.985} style={{ borderRadius: 22, backgroundColor: colors.surface, padding: 16, gap: 14, borderWidth: 1, borderColor: colors.line, ...shadow.card }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: cancelled ? colors.dangerSoft : cash ? colors.successSoft : colors.infoSoft }}>
                       {cancelled ? <XCircle size={13} color={colors.danger} strokeWidth={2.2} /> : cash ? <Banknote size={13} color={colors.success} strokeWidth={2.2} /> : <CreditCard size={13} color={colors.info} strokeWidth={2.2} />}

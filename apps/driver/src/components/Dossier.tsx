@@ -173,7 +173,7 @@ export function CaseChecklist({ kase, subject, collapsed, onToggle, primary = tr
 }
 
 const styles = themedStyles(() => StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: 24, padding: 16, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  card: { backgroundColor: colors.surface, borderRadius: 24, padding: 16, borderWidth: 1, borderColor: colors.line, ...shadow.card },
 }));
 
 /** D05: one dossier's review state, with the next step the driver can take. */

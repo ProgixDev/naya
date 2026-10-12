@@ -9,7 +9,7 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatMoney, formatShort } from '@naya/domain';
 import { illustrations, aspect } from '@naya/assets';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 import { daysAgoUtc, startOfTodayUtc } from '@/lib/time';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
@@ -94,7 +94,7 @@ export default function Earnings() {
   );
 }
 
-const card = () => ({ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 72, paddingVertical: 12, paddingLeft: 14, paddingRight: 16, borderRadius: 20, backgroundColor: colors.surface, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const card = () => ({ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 72, paddingVertical: 12, paddingLeft: 14, paddingRight: 16, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, ...shadow.card }) as const;
 
 function HeroChip({ label, value }: { label: string; value: string }) {
   return (
@@ -108,7 +108,7 @@ function HeroChip({ label, value }: { label: string; value: string }) {
 function SplitTile({ icon, tile, label, value, foot, testID }: { icon: React.ReactNode; tile: string; label: string; value: string; foot: string; testID?: string }) {
   useTheme();
   return (
-    <View testID={testID} accessible accessibilityLabel={`${label} ${value}`} style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 20, padding: 14, gap: 10, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+    <View testID={testID} accessible accessibilityLabel={`${label} ${value}`} style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 20, padding: 14, gap: 10, borderWidth: 1, borderColor: colors.line, ...shadow.card }}>
       <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: tile, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
       <View style={{ gap: 1 }}>
         <Text tone="muted" numberOfLines={1} style={{ fontSize: 12, lineHeight: 16 }}>{label}</Text>

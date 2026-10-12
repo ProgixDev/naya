@@ -153,7 +153,7 @@ export default function RideScreen() {
         </Glass>
       </View>
 
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: 30, padding: 18, gap: 14, ...shadow.float }}>
+      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: 30, padding: 18, gap: 14, borderWidth: 1, borderColor: colors.line, ...shadow.float }}>
         {stale ? <StatusBanner compact tone="warning" title="Connexion instable" message="actions envoyées au retour du réseau" testID="stale-banner" /> : null}
 
         {/* ── Progress ── */}

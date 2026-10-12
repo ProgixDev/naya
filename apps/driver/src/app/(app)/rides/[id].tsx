@@ -6,7 +6,7 @@ import { useApi } from '@naya/api/react';
 import { formatBp, formatDateTime, formatMoney, formatTime, PAYMENT_STATUS_LABELS, RIDE_STATUS_LABELS, splitFare } from '@naya/domain';
 import { useTheme, ErrorState, Header, PressableScale, RouteStopRow, Screen, SkeletonList, StatusBanner, StatusPill, Text } from '@naya/ui';
 import { Banknote, ChevronRight, Clock, CreditCard, MessageCircle, Route as RouteIcon } from '@naya/ui';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 
 /** D16 detail: route, money split, payment status, timeline. */
@@ -112,7 +112,7 @@ export default function RideDetail() {
   );
 }
 
-const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: colors.line, ...shadow.card }) as const;
 
 function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   useTheme();

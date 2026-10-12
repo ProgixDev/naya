@@ -7,7 +7,7 @@ import { Clock, Landmark } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { assertWithdrawable, formatMoney, parseMoneyInput } from '@naya/domain';
 import { useApi } from '@naya/api/react';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { ActionNote, AmountEntry, ChoiceRow, QuickPills } from '@/components/Kit';
 import { useAccountId, useWallet } from '@/lib/queries';
 
@@ -115,7 +115,7 @@ export default function Withdraw() {
   );
 }
 
-const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: colors.line, ...shadow.card }) as const;
 const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginLeft: 4 };
 
 function Stat({ label, value }: { label: string; value: string }) {

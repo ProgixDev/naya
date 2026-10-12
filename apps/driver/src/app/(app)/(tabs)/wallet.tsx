@@ -61,7 +61,7 @@ export default function WalletTab() {
               {recent.isLoading ? <SkeletonList rows={3} /> : null}
               {recent.isError ? <ErrorState onRetry={() => recent.refetch()} /> : null}
               {recent.data && !recent.data.items.length ? (
-                <View style={{ backgroundColor: colors.surface, borderRadius: 22, paddingVertical: 28, paddingHorizontal: 20, alignItems: 'center', gap: 6, ...shadow.card }}>
+                <View style={{ backgroundColor: colors.surface, borderRadius: 22, paddingVertical: 28, paddingHorizontal: 20, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.line, ...shadow.card }}>
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}><ListOrdered size={24} color={colors.accent} /></View>
                   <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>Aucun mouvement</Text>
                   <Text tone="muted" align="center" style={{ fontSize: 13, lineHeight: 18 }}>Vos courses, recharges et retraits confirmés apparaîtront ici.</Text>
@@ -70,7 +70,7 @@ export default function WalletTab() {
               {recent.data?.items.length ? (
                 <View style={{ gap: 10 }}>
                   {recent.data.items.map((e) => (
-                    <View key={e.id} style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+                    <View key={e.id} style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, ...shadow.card }}>
                       <TransactionRow entry={e} onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: e.id } })} />
                     </View>
                   ))}

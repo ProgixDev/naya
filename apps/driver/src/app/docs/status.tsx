@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Car, CheckCircle2, Clock, ShieldCheck, UserRound } from '@naya/ui';
 import { STATUS_LABELS, type VerificationCase } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { useTheme, Button, Header, Screen, StatusPill, Text } from '@naya/ui';
 import { useCases } from '@/lib/queries';
 import { CaseReview, statusTone } from '@/components/Dossier';
@@ -56,7 +56,7 @@ export default function DossierStatus() {
   );
 }
 
-const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const card = () => ({ backgroundColor: colors.surface, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: colors.line, ...shadow.card }) as const;
 
 /** One verification: a status card when approved, otherwise the actionable review (complete, correct, restart). */
 function Step({ icon, title, subtitle, kase, subject, recoverable }: { icon: React.ReactNode; title: string; subtitle: string; kase: VerificationCase | null; subject: 'driver_identity' | 'vehicle'; recoverable: string[] }) {

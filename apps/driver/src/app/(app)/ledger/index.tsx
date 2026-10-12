@@ -3,7 +3,7 @@ import { ShieldCheck } from '@naya/ui';
 import { formatMoney, toCasablancaParts } from '@naya/domain';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { colors, gutter } from '@naya/tokens';
+import { colors, gutter, shadow } from '@naya/tokens';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { qk } from '@naya/api';
@@ -62,7 +62,7 @@ export default function Ledger() {
               <View key={g.label} style={{ gap: 10 }}>
                 <Text weight="semibold" tone="muted" style={{ fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase', marginLeft: 4 }}>{g.label}</Text>
                 {g.items.map((e) => (
-                  <View key={e.id} style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+                  <View key={e.id} style={{ backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, ...shadow.card }}>
                     <TransactionRow entry={e} onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: e.id } })} />
                   </View>
                 ))}
@@ -92,7 +92,7 @@ function dayLabel(iso: string) {
 function Total({ label, value, tone }: { label: string; value: string; tone?: 'success' }) {
   useTheme();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, ...shadow.card }}>
       <Text tone="muted" style={{ fontSize: 12, lineHeight: 16 }}>{label}</Text>
       <Text weight="bold" numeric tone={tone ?? 'ink'} style={{ fontSize: 18, lineHeight: 24 }}>{value}</Text>
     </View>
