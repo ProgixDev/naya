@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search } from '@naya/ui';
+import { Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search, Users } from '@naya/ui';
 import { isInService, isRideActive, PLACES, RIDE_STATUS_LABELS, type Place } from '@naya/domain';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
@@ -85,13 +85,17 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="home">
-      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={420} testID="home-map" />
+      {/* Full-screen Hero Map */}
+      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={400} testID="home-map" />
+
+      {/* Top Floating Controls */}
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <GlassButton label={city?.name ?? 'Rabat'} icon={<MapPin size={18} color={colors.ink} />} onPress={() => setCityPicker(true)} testID="city-pill" accessibilityHint="Changer de ville" />
         <View style={{ flex: 1 }} />
         <IconButton icon={<LocateFixed size={22} color={colors.ink} />} accessibilityLabel="Utiliser ma position" onPress={() => (loc.status === 'granted' ? applyMyPosition() : setExplainer(true))} testID="locate" />
       </View>
 
+      {/* Floating Bottom Card & Actions */}
       <View style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: tabSpace }}>
         {rideActive ? (
           <PressableScale onPress={() => router.push('/ride')} accessibilityRole="button" style={[styles.activeCard]} testID="resume-ride">
@@ -104,37 +108,54 @@ export default function Home() {
             <ChevronRight size={18} color={colors.accent} />
           </PressableScale>
         ) : null}
-        <View style={styles.card}>
-          <View style={{ gap: 2 }}>
-            <Text tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>{user?.firstName ? `Bonjour ${user.firstName}` : 'Bienvenue chez Naya'}</Text>
-            <Text weight="bold" style={{ fontSize: 26, lineHeight: 32, letterSpacing: -0.7 }} accessibilityRole="header">Où allons-nous ?</Text>
-          </View>
-          {loc.status === 'denied' ? <StatusBanner tone="warning" title="Position non partagée" message="Placez votre point de départ sur la carte." action={{ label: 'Choisir sur la carte', onPress: () => router.push({ pathname: '/route', params: { pin: '1' } }) }} /> : null}
-          {city && !canBookHere ? <StatusBanner compact tone="warning" title={`${city.name} en phase de test`} message="réservations réservées aux testeuses" /> : null}
 
-          {/* Search field + "Plus tard" */}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={styles.card}>
+          {/* Header Title */}
+          <View style={{ gap: 2 }}>
+            <Text tone="muted" style={{ fontSize: 13, lineHeight: 18, color: colors.muted }}>
+              {user?.firstName ? `Bonjour ${user.firstName}` : 'Bienvenue chez Naya'}
+            </Text>
+            <Text weight="bold" style={{ fontSize: 24, lineHeight: 30, letterSpacing: -0.6 }} accessibilityRole="header">
+              Où allons-nous ?
+            </Text>
+          </View>
+
+          {loc.status === 'denied' ? (
+            <StatusBanner tone="warning" title="Position non partagée" message="Placez votre point de départ sur la carte." action={{ label: 'Choisir sur la carte', onPress: () => router.push({ pathname: '/route', params: { pin: '1' } }) }} />
+          ) : null}
+          {city && !canBookHere ? (
+            <StatusBanner compact tone="warning" title={`${city.name} en phase de test`} message="réservations réservées aux testeuses" />
+          ) : null}
+
+          {/* Search field + "Plus tard" pill buttons */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
             <PressableScale onPress={() => goTo(null)} accessibilityRole="search" accessibilityLabel="Où allez-vous ?" style={styles.search} testID="where-to" pressedScale={0.98}>
-              <Search size={20} color={colors.accent} strokeWidth={2.2} />
-              <Text weight="semibold" style={{ flex: 1, fontSize: 16, lineHeight: 22 }}>Où allez-vous ?</Text>
+              <Search size={20} color={colors.accent} strokeWidth={2.4} />
+              <Text weight="semibold" style={{ flex: 1, fontSize: 15, lineHeight: 20, color: colors.ink }}>
+                Où allez-vous ?
+              </Text>
             </PressableScale>
             <PressableScale onPress={() => goTo(null, true)} testID="plan-trip" accessibilityRole="button" accessibilityLabel="Planifier un trajet" style={styles.later} pressedScale={0.97}>
-              <CalendarClock size={18} color={colors.accent} strokeWidth={2} />
-              <Text weight="semibold" tone="accent" style={{ fontSize: 14, lineHeight: 18 }}>Plus tard</Text>
+              <CalendarClock size={18} color={colors.accent} strokeWidth={2.2} />
+              <Text weight="semibold" tone="accent" style={{ fontSize: 14, lineHeight: 18 }}>
+                Plus tard
+              </Text>
             </PressableScale>
           </View>
 
-          {/* Pickup */}
+          {/* Departure Indicator */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4, marginTop: -4 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
-            <Text tone="muted" numberOfLines={1} style={{ flex: 1, fontSize: 13, lineHeight: 18 }}>Départ : <Text weight="semibold" style={{ fontSize: 13, lineHeight: 18 }}>{short(pickup.label)}</Text></Text>
+            <Text tone="muted" numberOfLines={1} style={{ flex: 1, fontSize: 13, lineHeight: 18 }}>
+              Départ : <Text weight="semibold" style={{ fontSize: 13, lineHeight: 18, color: colors.ink }}>{short(pickup.label)}</Text>
+            </Text>
           </View>
 
-          {/* Saved places */}
-          <View style={{ borderTopWidth: 1, borderTopColor: colors.line }}>
-            <PlaceRow icon={<HomeIcon size={18} color={colors.accent} strokeWidth={2} />} title="Maison" subtitle={home ? short(home.place.label) : 'Ajouter l’adresse'} add={!home} onPress={() => (home ? goTo(home.place) : router.push('/places'))} testID="saved-home" a11y={home ? `Maison : ${home.place.label}` : 'Ajouter l’adresse Maison'} />
-            <View style={{ height: 1, backgroundColor: colors.line, marginLeft: 52 }} />
-            <PlaceRow icon={<Briefcase size={18} color={colors.accent} strokeWidth={2} />} title="Travail" subtitle={work ? short(work.place.label) : 'Ajouter l’adresse'} add={!work} onPress={() => (work ? goTo(work.place) : router.push('/places'))} testID="saved-work" a11y={work ? `Travail : ${work.place.label}` : 'Ajouter l’adresse Travail'} />
+          {/* Saved Places Shortcuts with modern rounded rows */}
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 4 }}>
+            <PlaceRow icon={<HomeIcon size={18} color={colors.accent} strokeWidth={2.2} />} title="Maison" subtitle={home ? short(home.place.label) : 'Ajouter l’adresse'} add={!home} onPress={() => (home ? goTo(home.place) : router.push('/places'))} testID="saved-home" a11y={home ? `Maison : ${home.place.label}` : 'Ajouter l’adresse Maison'} />
+            <View style={{ height: 1, backgroundColor: colors.line, marginLeft: 54 }} />
+            <PlaceRow icon={<Briefcase size={18} color={colors.accent} strokeWidth={2.2} />} title="Travail" subtitle={work ? short(work.place.label) : 'Ajouter l’adresse'} add={!work} onPress={() => (work ? goTo(work.place) : router.push('/places'))} testID="saved-work" a11y={work ? `Travail : ${work.place.label}` : 'Ajouter l’adresse Travail'} />
           </View>
         </View>
       </View>
@@ -163,15 +184,19 @@ export default function Home() {
 
 const short = (label: string) => label.replace(/^[^·]+·\s*/, '');
 
-/** Saved place shortcut: icon tile, name, address (or "Ajouter"), chevron. */
+/** Modern rounded shortcut row for saved places matching the new clean aesthetic. */
 function PlaceRow({ icon, title, subtitle, add, onPress, testID, a11y }: { icon: React.ReactNode; title: string; subtitle: string; add: boolean; onPress: () => void; testID: string; a11y: string }) {
   useTheme();
   return (
-    <PressableScale onPress={() => { haptic.select(); onPress(); }} testID={testID} accessibilityRole="button" accessibilityLabel={a11y} pressedScale={0.985} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58, paddingTop: 10, paddingHorizontal: 2 }}>
-      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
+    <PressableScale onPress={() => { haptic.select(); onPress(); }} testID={testID} accessibilityRole="button" accessibilityLabel={a11y} pressedScale={0.985} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 56, paddingVertical: 6, paddingHorizontal: 4 }}>
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' }}>
+        {icon}
+      </View>
       <View style={{ flex: 1, gap: 1 }}>
-        <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20 }}>{title}</Text>
-        <Text tone={add ? 'accent' : 'muted'} weight={add ? 'medium' : 'regular'} numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>{add ? `+ ${subtitle}` : subtitle}</Text>
+        <Text weight="semibold" style={{ fontSize: 15, lineHeight: 20, color: colors.ink }}>{title}</Text>
+        <Text tone={add ? 'accent' : 'muted'} weight={add ? 'medium' : 'regular'} numberOfLines={1} style={{ fontSize: 13, lineHeight: 18 }}>
+          {add ? `+ ${subtitle}` : subtitle}
+        </Text>
       </View>
       <ChevronRight size={18} color={colors.muted} strokeWidth={2} />
     </PressableScale>
@@ -180,8 +205,48 @@ function PlaceRow({ icon, title, subtitle, add, onPress, testID, a11y }: { icon:
 
 // Recomputed on each read so colours follow the active theme (light / dark).
 const styles = themedStyles(() => ({
-  card: { backgroundColor: colors.surface, borderRadius: 28, paddingHorizontal: 18, paddingTop: 20, paddingBottom: 12, gap: 14, ...shadow.float },
-  activeCard: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, backgroundColor: colors.surface, borderRadius: 22, padding: 14, marginBottom: 8, ...shadow.card },
-  search: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, height: 54, borderRadius: 16, paddingHorizontal: 16, backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.line },
-  later: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, height: 54, borderRadius: 16, paddingHorizontal: 14, backgroundColor: colors.mauveSoft },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 30,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 10,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    ...shadow.float,
+  },
+  activeCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+    ...shadow.card,
+  },
+  search: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    height: 52,
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  later: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    height: 52,
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    backgroundColor: colors.selected,
+  },
 }));

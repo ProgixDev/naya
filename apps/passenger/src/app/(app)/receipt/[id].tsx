@@ -7,7 +7,7 @@ import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, ChevronUp, Clock,
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDateTime, formatMoney, PAYMENT_STATUS_LABELS, type Payment, type Ride } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { Button, ErrorState, FareBreakdown, FormField, Header, ListGroup, ListRow, Money, PressableScale, Screen, Sheet, SkeletonList, StatusBanner, StatusPill, Text, haptic, toast, useSingleFlight, type BannerTone } from '@naya/ui';
 import { useAccountId, usePaymentMethods, useRide } from '@/lib/queries';
 
@@ -72,7 +72,7 @@ export default function Receipt() {
   const shownPayment = cancelled ? fee : main;
   const stateIcon = state.tone === 'success' ? <CheckCircle2 size={20} color={colors.success} strokeWidth={2} /> : state.tone === 'danger' ? <AlertCircle size={20} color={colors.danger} strokeWidth={2} /> : <Clock size={20} color={state.tone === 'warning' ? colors.warning : colors.accent} strokeWidth={2} />;
   const stateTile = state.tone === 'success' ? colors.successSoft : state.tone === 'danger' ? colors.dangerSoft : state.tone === 'warning' ? colors.warningSoft : colors.mauveSoft;
-  const card = { backgroundColor: colors.surface, borderRadius: 22, padding: 18, gap: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 } as const;
+  const card = { backgroundColor: colors.surface, borderRadius: 22, padding: 18, gap: 14, borderWidth: 1, borderColor: colors.line, ...shadow.card } as const;
 
   return (
     <Screen testID="receipt" header={<Header title="Votre reçu" onBack={back} />} footer={<Button label="Terminé" full size="major" variant={ride.rating || cancelled ? 'primary' : 'secondary'} onPress={() => router.dismissTo('/')} testID="receipt-done" />}>

@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Check, CreditCard, Lock, Plus, Trash2, Wallet } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { colors, getColorScheme } from '@naya/tokens';
+import { colors, getColorScheme, shadow } from '@naya/tokens';
 import { useAccountId, useMe, usePaymentMethods } from '@/lib/queries';
 
 type Method = NonNullable<ReturnType<typeof usePaymentMethods>['data']>[number];
@@ -99,7 +99,7 @@ export default function Payments() {
 }
 
 // Functions, not constants: colours follow the theme.
-const cardStyle = () => ({ minHeight: 72, borderRadius: 20, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const cardStyle = () => ({ minHeight: 72, borderRadius: 20, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', ...shadow.card }) as const;
 
 function SectionLabel({ children }: { children: string }) {
   useTheme();

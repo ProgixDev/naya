@@ -299,160 +299,144 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
 
         {/* Section 1: ADRESSES ENREGISTRÉES */}
         {!debounced && saved.length ? (
-          <View style={{ gap: 2 }}>
+          <View style={{ gap: 10 }}>
             <Text
-              style={{ fontFamily: 'Inter_700Bold',
+              style={{
+                fontFamily: 'Inter_700Bold',
                 fontSize: 12,
                 color: colors.muted,
                 letterSpacing: 1.1,
                 textTransform: 'uppercase',
-                marginBottom: 10,
-                marginLeft: 6,
+                marginBottom: 2,
+                marginLeft: 4,
               }}
             >
               ADRESSES ENREGISTRÉES
             </Text>
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: 24,
-                borderWidth: 1,
-                borderColor: colors.line,
-                overflow: 'hidden',
-                ...shadow.card,
-              }}
-            >
-              {saved.map((s, index) => {
-                const isHome = s.kind === 'home';
-                const isWork = s.kind === 'work';
-                return (
-                  <View key={s.id}>
-                    <PressableScale
-                      onPress={() => {
-                        haptic.select();
-                        onPick(s.place);
-                      }}
-                      testID={`saved-${s.kind}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${s.label}, ${s.place.label}`}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 14,
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 16,
-                          backgroundColor: isDark ? colors.selected : '#F9EEF4',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {isHome ? (
-                          <HomeIcon size={22} color={colors.accent} strokeWidth={1.8} />
-                        ) : isWork ? (
-                          <Briefcase size={22} color={colors.accent} strokeWidth={1.8} />
-                        ) : (
-                          <Star size={22} color={colors.accent} strokeWidth={1.8} />
-                        )}
-                      </View>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
-                          {s.label}
-                        </Text>
-                        <Text style={{ fontSize: 14, color: colors.muted, marginTop: 2 }} numberOfLines={1}>
-                          {s.place.label}
-                        </Text>
-                      </View>
-                      <ChevronRight size={18} color={colors.muted} strokeWidth={2} />
-                    </PressableScale>
-                    {index < saved.length - 1 ? (
-                      <View style={{ height: 1, backgroundColor: colors.line, marginHorizontal: 16 }} />
-                    ) : null}
+            {saved.map((s) => {
+              const isHome = s.kind === 'home';
+              const isWork = s.kind === 'work';
+              return (
+                <PressableScale
+                  key={s.id}
+                  onPress={() => {
+                    haptic.select();
+                    onPick(s.place);
+                  }}
+                  testID={`saved-${s.kind}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${s.label}, ${s.place.label}`}
+                  pressedScale={0.985}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 14,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    backgroundColor: colors.surface,
+                    borderRadius: 22,
+                    borderWidth: 1,
+                    borderColor: colors.line,
+                    ...shadow.card,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: 16,
+                      backgroundColor: isDark ? colors.selected : '#F9EEF4',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {isHome ? (
+                      <HomeIcon size={22} color={colors.accent} strokeWidth={1.8} />
+                    ) : isWork ? (
+                      <Briefcase size={22} color={colors.accent} strokeWidth={1.8} />
+                    ) : (
+                      <Star size={22} color={colors.accent} strokeWidth={1.8} />
+                    )}
                   </View>
-                );
-              })}
-            </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
+                      {s.label}
+                    </Text>
+                    <Text style={{ fontSize: 14, color: colors.muted, marginTop: 1 }} numberOfLines={1}>
+                      {s.place.label}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.muted} strokeWidth={2} />
+                </PressableScale>
+              );
+            })}
           </View>
         ) : null}
 
         {/* Section 2: LIEUX PROPOSÉS / RÉSULTATS */}
         {results.data && results.data.length ? (
-          <View style={{ gap: 2 }}>
+          <View style={{ gap: 10 }}>
             <Text
-              style={{ fontFamily: 'Inter_700Bold',
+              style={{
+                fontFamily: 'Inter_700Bold',
                 fontSize: 12,
                 color: colors.muted,
                 letterSpacing: 1.1,
                 textTransform: 'uppercase',
-                marginBottom: 10,
+                marginBottom: 2,
                 marginTop: 6,
-                marginLeft: 6,
+                marginLeft: 4,
               }}
             >
               {debounced ? 'RÉSULTATS' : 'LIEUX PROPOSÉS'}
             </Text>
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: 24,
-                borderWidth: 1,
-                borderColor: colors.line,
-                overflow: 'hidden',
-                ...shadow.card,
-              }}
-            >
-              {results.data.map((p, index) => (
-                <View key={p.id ?? p.label}>
-                  <PressableScale
-                    onPress={() => {
-                      haptic.select();
-                      onPick(p);
-                    }}
-                    testID={`place-${p.id}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${p.label}, ${p.address}`}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 14,
-                      paddingHorizontal: 16,
-                      paddingVertical: 14,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 16,
-                        backgroundColor: isDark ? colors.selected : '#F5EFE8',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <MapPin size={22} color={isDark ? colors.ink : '#5C5550'} strokeWidth={1.8} />
-                    </View>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
-                        {p.label}
-                      </Text>
-                      <Text style={{ fontSize: 14, color: colors.muted, marginTop: 2 }} numberOfLines={1}>
-                        {p.address}
-                      </Text>
-                    </View>
-                    <ChevronRight size={18} color={colors.muted} strokeWidth={2} />
-                  </PressableScale>
-                  {index < (results.data?.length ?? 0) - 1 ? (
-                    <View style={{ height: 1, backgroundColor: colors.line, marginHorizontal: 16 }} />
-                  ) : null}
+            {results.data.map((p) => (
+              <PressableScale
+                key={p.id ?? p.label}
+                onPress={() => {
+                  haptic.select();
+                  onPick(p);
+                }}
+                testID={`place-${p.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${p.label}, ${p.address}`}
+                pressedScale={0.985}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 14,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  backgroundColor: colors.surface,
+                  borderRadius: 22,
+                  borderWidth: 1,
+                  borderColor: colors.line,
+                  ...shadow.card,
+                }}
+              >
+                <View
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 16,
+                    backgroundColor: isDark ? colors.selected : '#F5EFE8',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <MapPin size={22} color={isDark ? colors.ink : '#5C5550'} strokeWidth={1.8} />
                 </View>
-              ))}
-            </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.ink }}>
+                    {p.label}
+                  </Text>
+                  <Text style={{ fontSize: 14, color: colors.muted, marginTop: 1 }} numberOfLines={1}>
+                    {p.address}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.muted} strokeWidth={2} />
+              </PressableScale>
+            ))}
           </View>
         ) : null}
 

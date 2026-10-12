@@ -5,25 +5,25 @@
  */
 export const lightColors = {
   // Figma variables
-  background: '#FAF6F2', // warm cream; plum is reserved for actions and artwork
-  surface: '#FFFFFF', // --naya-surface-critical (legible surface for money and decisions)
-  selected: '#EDE3EA',
-  ink: '#29232D',
-  muted: '#716977',
+  background: '#F5F6FA', // crisp modern neutral backdrop
+  surface: '#FFFFFF', // pure white surface for elevated cards
+  selected: '#F0E8EF',
+  ink: '#231E28',
+  muted: '#6F6B78',
   inverse: '#FFFFFF', // --naya-text-inverse
   accent: '#6B3657', // --naya-action-primary (deep plum)
-  line: '#E7E2E8',
+  line: '#EEF0F5', // ultra-delicate clean border
   // Derived
   accentPressed: '#56294A',
   accentDeep: '#3F1B34', // gradient end of the plum wallet card
   mauve: '#B98AA8', // restrained mauve for secondary emphasis and map routes
-  mauveSoft: '#F1EBF0',
+  mauveSoft: '#F2EDF3',
   elevated: '#FFFFFF',
-  glass: 'rgba(255,255,255,0.72)',
-  glassBorder: 'rgba(255,255,255,0.9)',
-  scrim: 'rgba(46,32,44,0.42)',
-  disabledFill: '#ECE6EA',
-  disabledText: '#A0939E',
+  glass: 'rgba(255,255,255,0.85)',
+  glassBorder: 'rgba(255,255,255,0.95)',
+  scrim: 'rgba(32,24,38,0.48)',
+  disabledFill: '#EAE6EC',
+  disabledText: '#9E929E',
   // Status (text on white/pearl ≥ 4.5:1)
   success: '#2F6B4F',
   successSoft: '#E6F2EB',
@@ -33,12 +33,12 @@ export const lightColors = {
   dangerSoft: '#F9E5E8',
   info: '#3C5A86',
   infoSoft: '#E6ECF5',
-  map: '#EFE9EC',
+  map: '#ECEFF4',
 } as const;
 
 export type ColorToken = keyof typeof lightColors;
 export const darkColors: Record<ColorToken, string> = {
-  background: '#16121A', surface: '#231D28', selected: '#3A2938', ink: '#F4EDF5', muted: '#BBAFBE', inverse: '#201522', accent: '#E5B6D4', line: '#423648', accentPressed: '#D59AC2', accentDeep: '#382233', mauve: '#CDA0BF', mauveSoft: '#302432', elevated: '#2C2431', glass: 'rgba(35,29,40,0.88)', glassBorder: 'rgba(230,206,231,0.14)', scrim: 'rgba(0,0,0,0.65)', disabledFill: '#332A38', disabledText: '#8A7C91', success: '#9AD5B4', successSoft: '#203A2E', warning: '#F0C982', warningSoft: '#423320', danger: '#FFABB6', dangerSoft: '#48242F', info: '#A9C9F5', infoSoft: '#25344C', map: '#25202B',
+  background: '#16121A', surface: '#231D28', selected: '#3A2938', ink: '#F4EDF5', muted: '#BBAFBE', inverse: '#201522', accent: '#E5B6D4', line: '#3A303F', accentPressed: '#D59AC2', accentDeep: '#382233', mauve: '#CDA0BF', mauveSoft: '#302432', elevated: '#2C2431', glass: 'rgba(35,29,40,0.88)', glassBorder: 'rgba(230,206,231,0.14)', scrim: 'rgba(0,0,0,0.65)', disabledFill: '#332A38', disabledText: '#8A7C91', success: '#9AD5B4', successSoft: '#203A2E', warning: '#F0C982', warningSoft: '#423320', danger: '#FFABB6', dangerSoft: '#48242F', info: '#A9C9F5', infoSoft: '#25344C', map: '#25202B',
 };
 let scheme: 'light' | 'dark' = 'light';
 const listeners = new Set<() => void>();
@@ -77,15 +77,33 @@ export type TypeToken = keyof typeof type;
 export const space = { 0: 0, 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32, 10: 40, 12: 48 } as const;
 export const gutter = 20;
 
-export const radius = { row: 16, card: 22, sheet: 32, pill: 999, field: 18 } as const;
+export const radius = { row: 18, card: 24, sheet: 36, pill: 999, field: 20 } as const;
 
 /** Control heights: standard 44, compact 36 (44 touch target via hitSlop), major booking/driver actions 54. */
-export const control = { major: 50, standard: 44, compact: 36, chip: 32, field: 56, touch: 44, touchAndroid: 48 } as const;
+export const control = { major: 54, standard: 46, compact: 36, chip: 34, field: 56, touch: 44, touchAndroid: 48 } as const;
 
 export const shadow = {
-  float: { shadowColor: '#2E202C', shadowOpacity: 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
-  card: { shadowColor: '#2E202C', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  button: { shadowColor: '#6B3657', shadowOpacity: 0.14, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  float: {
+    shadowColor: '#1A0E1A',
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  card: {
+    shadowColor: '#1A0E1A',
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 0,
+  },
+  button: {
+    shadowColor: '#6B3657',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
 } as const;
 
 export const motion = {

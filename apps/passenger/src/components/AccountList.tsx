@@ -2,7 +2,7 @@ import { useTheme, PressableScale, Text } from '@naya/ui';
 import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ChevronRight } from '@naya/ui';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 
 /** Uppercase label above one white card of rows separated by full-width hairlines (Compte, Profil). */
 export function AccountGroup({ label, footnote, children }: { label: string; footnote?: string; children: ReactNode }) {
@@ -11,7 +11,7 @@ export function AccountGroup({ label, footnote, children }: { label: string; foo
   return (
     <View style={{ gap: 10 }}>
       <Text weight="semibold" tone="muted" style={{ fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase', marginLeft: 4 }}>{label}</Text>
-      <View style={{ backgroundColor: colors.surface, borderRadius: 22, overflow: 'hidden', shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 }}>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, ...shadow.card }}>
         {rows.map((row, i) => (
           <View key={i}>
             {i > 0 ? <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.line }} /> : null}

@@ -8,13 +8,13 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDateTime, formatMoney, formatTime, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';
 import { aspect, illustrations } from '@naya/assets';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { useAccountId, useScheduled } from '@/lib/queries';
 import { useTabBarSpace } from '@/components/TabBar';
 
 type Booking = NonNullable<ReturnType<typeof useScheduled>['data']>[number];
 
-const card = () => ({ backgroundColor: colors.surface, borderRadius: 20, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const card = () => ({ backgroundColor: colors.surface, borderRadius: 20, borderWidth: 1, borderColor: colors.line, ...shadow.card }) as const;
 const first = (b: { route: { stops: { label: string }[] } }) => b.route.stops[0]!.label;
 const last = (b: { route: { stops: { label: string }[] } }) => b.route.stops[b.route.stops.length - 1]!.label;
 /** "Rabat · Centre-ville" → "Centre-ville": the city is implied, keep the place. */

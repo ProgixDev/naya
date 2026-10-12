@@ -25,6 +25,7 @@ export interface ButtonProps {
   disabledReason?: string;
   icon?: ReactNode;
   full?: boolean;
+  pill?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityHint?: string;
   testID?: string;
@@ -33,17 +34,17 @@ export interface ButtonProps {
 const heights: Record<Size, number> = { major: control.major, standard: control.standard, compact: control.compact };
 
 /**
- * One component for every button (16 pt corners). Primary = solid plum with a soft shadow (the one action per screen);
+ * One component for every button (rounded pill styling). Primary = solid plum with a soft shadow;
  * secondary/tonal = frosted glass; ghost = text. Loading keeps the width (label stays in
  * layout, hidden); disabled is a neutral grey, never a paler plum.
  */
-export function Button({ label, onPress, variant = 'primary', size = 'standard', loading, loadingLabel, disabled, disabledReason, icon, full, style, accessibilityHint, testID }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', size = 'standard', loading, loadingLabel, disabled, disabledReason, icon, full, pill, style, accessibilityHint, testID }: ButtonProps) {
   useTheme();
   const [focused, setFocused] = useState(false);
   const inactive = disabled || loading;
   const h = heights[size];
-  // Rounded rectangle, not a full pill: 16 pt (12 on compact buttons).
-  const r = size === 'compact' ? 12 : 16;
+  // Smooth pill geometry for major actions or when pill is requested.
+  const r = pill || size === 'major' ? Math.round(h / 2) : size === 'compact' ? 14 : 18;
   const gloss = !disabled && (variant === 'primary' || variant === 'danger');
   const frost = !disabled && (variant === 'secondary' || variant === 'tonal');
   const textTone = disabled ? 'disabled' : gloss ? 'inverse' : variant === 'ghost' ? 'accent' : 'accent';

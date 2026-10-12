@@ -7,7 +7,7 @@ import { ChevronRight, CreditCard, Lock } from '@naya/ui';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { casablancaLocalToUtc, formatMoney, formatShort, formatTime, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 import { SchedulePicker } from '@/features/schedule/SchedulePicker';
 
@@ -69,7 +69,7 @@ export default function ScheduledDetail() {
   const dayNum = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', ...tz }).format(when);
   const month = new Intl.DateTimeFormat('fr-FR', { month: 'short', ...tz }).format(when).replace('.', '');
   const weekday = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', ...tz }).format(when);
-  const card = { backgroundColor: colors.surface, borderRadius: 22, padding: 16, gap: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 } as const;
+  const card = { backgroundColor: colors.surface, borderRadius: 22, padding: 16, gap: 14, borderWidth: 1, borderColor: colors.line, ...shadow.card } as const;
   const label12 = { fontSize: 12, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginLeft: 4 };
   const tone = open ? { bg: colors.warningSoft, fg: colors.warning, text: 'Chauffeuse à confirmer' } : b.status === 'cancelled' ? { bg: colors.dangerSoft, fg: colors.danger, text: SCHEDULED_STATUS_LABELS[b.status] } : b.status === 'dispatched' ? { bg: colors.successSoft, fg: colors.success, text: SCHEDULED_STATUS_LABELS[b.status] } : { bg: colors.background, fg: colors.muted, text: SCHEDULED_STATUS_LABELS[b.status] };
 

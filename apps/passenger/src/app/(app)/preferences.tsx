@@ -7,7 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import type { NotificationPreferences } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { colors, shadow } from '@naya/tokens';
 import { BellRing, CalendarClock, Car, Check, IdCard, Layers, LocateFixed, MessageCircle, Move, Sparkles, Trash2, Type } from '@naya/ui';
 import { AccountGroup, AccountRow } from '@/components/AccountList';
 import { useAccountId, useMe } from '@/lib/queries';
@@ -104,7 +104,7 @@ export default function Preferences() {
 }
 
 // A function, not a constant: colors change with the theme.
-const cardStyle = () => ({ minHeight: 72, paddingVertical: 14, paddingLeft: 14, paddingRight: 16, borderRadius: 20, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 14, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }) as const;
+const cardStyle = () => ({ minHeight: 72, paddingVertical: 14, paddingLeft: 14, paddingRight: 16, borderRadius: 20, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: colors.line, ...shadow.card }) as const;
 
 function Tile({ children }: { children: ReactNode }) {
   useTheme();
@@ -143,7 +143,7 @@ function ThemeCards() {
             accessibilityLabel={t.id === 'system' ? 'Automatique, comme le téléphone' : t.label}
             accessibilityState={{ selected: on, checked: on }}
             onPress={() => { haptic.select(); setThemeMode(t.id).catch(() => undefined); }}
-            style={{ flex: 1, padding: 8, paddingBottom: 12, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 2, borderColor: on ? colors.accent : 'transparent', gap: 10, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}
+            style={{ flex: 1, padding: 8, paddingBottom: 12, borderRadius: 20, backgroundColor: colors.surface, borderWidth: on ? 2 : 1, borderColor: on ? colors.accent : colors.line, gap: 10, ...shadow.card }}
           >
             <ThemeMiniature id={t.id} />
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
