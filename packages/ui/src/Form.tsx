@@ -9,6 +9,7 @@ import { Text } from './Text';
 import { PressableScale } from './PressableScale';
 import { hitSlopFor, useA11yPrefs } from './a11y';
 import { haptic } from './haptics';
+import { DatePickerSheet } from './DatePickerSheet';
 
 export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
   /** Shown inside the pill as the placeholder, then floats to the top-left. */
@@ -34,6 +35,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
   useTheme();
   const { reduceMotion } = useA11yPrefs();
   const [focused, setFocused] = useState(false);
+  const internalRef = useRef<TextInput>(null);
   const floated = focused || !!value || !!leading;
   const t = useSharedValue(floated ? 1 : 0);
   useEffect(() => {
@@ -43,10 +45,29 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
     transform: [{ translateY: interpolate(t.value, [0, 1], [0, -12]) }, { scale: interpolate(t.value, [0, 1], [1, 0.76]) }],
   }));
   const radius = multiline ? 22 : 18;
+
+  const handlePress = () => {
+    if (!editable) return;
+    if (ref && typeof ref === 'object' && 'current' in ref && ref.current) {
+      ref.current.focus();
+    } else {
+      internalRef.current?.focus();
+    }
+  };
+
+  const setInputRef = (node: TextInput | null) => {
+    (internalRef as React.MutableRefObject<TextInput | null>).current = node;
+    if (typeof ref === 'function') {
+      ref(node);
+    } else if (ref && typeof ref === 'object' && 'current' in ref) {
+      (ref as React.MutableRefObject<TextInput | null>).current = node;
+    }
+  };
+
   return (
     <View style={{ gap: 6 }}>
       <Pressable
-        onPress={() => (ref && typeof ref === 'object' ? ref.current?.focus() : undefined)}
+        onPress={handlePress}
         style={[styles.field, { borderRadius: radius, minHeight: multiline ? 120 : 56, alignItems: multiline ? 'flex-start' : 'center' }, focused && styles.focused, !!error && styles.errorBorder, !editable && { backgroundColor: colors.disabledFill }]}
         accessible={false}
       >
@@ -59,7 +80,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
             </Text>
           </Animated.View>
           <TextInput
-            ref={ref}
+            ref={setInputRef}
             testID={testID}
             value={value}
             editable={editable}
@@ -104,17 +125,43 @@ export function FieldRow({ children }: { children: ReactNode }) {
 }
 
 const pad2 = (s: string) => s.padStart(2, '0');
+
+/** Latest birth date for an 18-year-old today (ISO). */
+export const adultDateLimit = () => {
+  const t = new Date();
+  return `${t.getFullYear() - 18}-${pad2(String(t.getMonth() + 1))}-${pad2(String(t.getDate()))}`;
+};
+
 /** "JJ/MM/AAAA" typed with digits only → ISO "AAAA-MM-JJ" (or partial while typing). */
 export function maskDate(digits: string) {
   const d = digits.replace(/\D/g, '').slice(0, 8);
   return [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean).join(' / ');
 }
+
 export function isoFromDigits(digits: string): string | null {
   const d = digits.replace(/\D/g, '');
   if (d.length !== 8) return null;
-  return `${d.slice(4, 8)}-${pad2(d.slice(2, 4))}-${pad2(d.slice(0, 2))}`;
+  const day = parseInt(d.slice(0, 2), 10);
+  const month = parseInt(d.slice(2, 4), 10);
+  const year = parseInt(d.slice(4, 8), 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return null;
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) return null;
+  return `${year}-${pad2(String(month))}-${pad2(String(day))}`;
 }
-export const digitsFromIso = (iso: string | null | undefined) => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8, 10)}${iso.slice(5, 7)}${iso.slice(0, 4)}` : '');
+
+export const digitsFromIso = (val: string | null | undefined) => {
+  if (!val) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    return `${val.slice(8, 10)}${val.slice(5, 7)}${val.slice(0, 4)}`;
+  }
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+    return val.replace(/\D/g, '');
+  }
+  const clean = val.replace(/\D/g, '');
+  if (clean.length === 8) return clean;
+  return '';
+};
 
 export interface DateFieldProps {
   label: string;
@@ -123,32 +170,81 @@ export interface DateFieldProps {
   onChange: (iso: string) => void;
   error?: string | null;
   testID?: string;
+  max?: string;
+  minYear?: number;
+  defaultYear?: number;
 }
 
-/** Date of birth as one pill with a JJ / MM / AAAA mask and the number pad. */
-export function DateField({ label, value, onChange, error, testID }: DateFieldProps) {
+/** Date of birth as one pill with a JJ / MM / AAAA mask, the number pad, and calendar picker. */
+export function DateField({ label, value, onChange, error, testID, max = adultDateLimit(), minYear = 1920, defaultYear = 1995 }: DateFieldProps) {
   useTheme();
   const [digits, setDigits] = useState(() => digitsFromIso(value));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const lastEmitted = useRef(value);
+
   useEffect(() => {
-    if (value && digitsFromIso(value) !== digits) setDigits(digitsFromIso(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (value !== lastEmitted.current) {
+      lastEmitted.current = value;
+      setDigits(digitsFromIso(value));
+    }
   }, [value]);
+
+  const isoValue = useMemo(() => {
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    return isoFromDigits(digits);
+  }, [value, digits]);
+
   return (
-    <FormField
-      icon={CalendarDays}
-      label={label}
-      testID={testID}
-      value={maskDate(digits)}
-      placeholder="JJ / MM / AAAA"
-      keyboardType="number-pad"
-      onChangeText={(t) => {
-        const d = t.replace(/\D/g, '').slice(0, 8);
-        setDigits(d);
-        onChange(isoFromDigits(d) ?? d);
-      }}
-      error={error}
-      maxLength={14}
-    />
+    <>
+      <FormField
+        icon={CalendarDays}
+        label={label}
+        testID={testID}
+        value={maskDate(digits)}
+        placeholder="JJ / MM / AAAA"
+        keyboardType="number-pad"
+        onChangeText={(t) => {
+          const d = t.replace(/\D/g, '').slice(0, 8);
+          setDigits(d);
+          const iso = isoFromDigits(d);
+          const nextVal = iso ?? (d.length === 8 ? '' : d);
+          lastEmitted.current = nextVal;
+          onChange(nextVal);
+        }}
+        error={error}
+        maxLength={14}
+        trailing={
+          <PressableScale
+            onPress={() => {
+              haptic.select();
+              setPickerOpen(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir le calendrier"
+            hitSlop={8}
+            testID={testID ? `${testID}-picker-btn` : 'date-picker-btn'}
+            style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.selected, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <CalendarDays size={18} color={colors.accent} strokeWidth={2} />
+          </PressableScale>
+        }
+      />
+      <DatePickerSheet
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title={label.split('·')[0]?.trim() || 'Date de naissance'}
+        value={isoValue}
+        max={max}
+        minYear={minYear}
+        defaultYear={defaultYear}
+        onConfirm={(iso) => {
+          const d = digitsFromIso(iso);
+          setDigits(d);
+          lastEmitted.current = iso;
+          onChange(iso);
+        }}
+      />
+    </>
   );
 }
 
