@@ -1,4 +1,4 @@
-import { themedStyles , colors, control } from '@naya/tokens';
+import { themedStyles, colors, control, shadow } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -45,20 +45,33 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
   const h = heights[size];
   // Smooth pill geometry for major actions or when pill is requested.
   const r = pill || size === 'major' ? Math.round(h / 2) : size === 'compact' ? 14 : 18;
-  const gloss = !disabled && (variant === 'primary' || variant === 'danger');
-  const frost = !disabled && (variant === 'secondary' || variant === 'tonal');
-  const textTone = disabled ? 'disabled' : gloss ? 'inverse' : variant === 'ghost' ? 'accent' : 'accent';
-  const content = (
-    <View style={[styles.row, { minHeight: h, paddingVertical: 10, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
-      <View style={[styles.row, { opacity: loading ? 0 : 1, gap: 8, flexShrink: 1 }]}>
-        {icon}
-        <Text variant="action" weight={gloss ? 'bold' : undefined} tone={textTone} maxFontSizeMultiplier={1.4} align="center" style={[{ flexShrink: 1 }, size === 'major' ? { fontSize: 17, lineHeight: 22 } : undefined]}>
-          {label}
-        </Text>
-      </View>
-      {loading ? <ActivityIndicator style={StyleSheet.absoluteFill} color={gloss ? colors.inverse : colors.accent} /> : null}
-    </View>
-  );
+
+  const isPrimary = variant === 'primary';
+  const isDanger = variant === 'danger';
+  const isSecondary = variant === 'secondary';
+  const isTonal = variant === 'tonal';
+
+  const backgroundColor = disabled
+    ? colors.disabledFill
+    : isPrimary
+    ? colors.accent
+    : isDanger
+    ? colors.danger
+    : isSecondary
+    ? colors.surface
+    : isTonal
+    ? colors.selected
+    : 'transparent';
+
+  const borderWidth = isSecondary ? 1 : 0;
+  const borderColor = isSecondary ? colors.line : 'transparent';
+
+  const textTone = disabled
+    ? 'disabled'
+    : isPrimary || isDanger
+    ? 'inverse'
+    : 'accent';
+
   return (
     <View style={[full ? { alignSelf: 'stretch' } : { alignItems: 'flex-start' }, style]}>
       <PressableScale
@@ -78,17 +91,38 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
         accessibilityState={{ disabled: !!inactive, busy: !!loading }}
         style={[
           styles.pill,
-          { minHeight: h, borderRadius: r },
-          disabled ? { backgroundColor: colors.disabledFill } : null,
-          gloss ? glossShadow(variant === 'danger' ? 'danger' : 'accent') : null,
-          frost ? frostShadow : null,
-          frost && variant === 'secondary' ? frostOutline : null,
+          {
+            minHeight: h,
+            borderRadius: r,
+            backgroundColor,
+            borderWidth,
+            borderColor,
+          },
+          isPrimary && !disabled ? shadow.button : null,
           focused ? styles.focus : null,
         ]}
       >
-        {gloss ? <GlossLayers tone={variant === 'danger' ? 'danger' : 'accent'} radius={r} /> : null}
-        {frost ? <FrostLayers radius={r} tint={variant === 'tonal' ? 'mauve' : 'white'} /> : null}
-        {content}
+        <View style={[styles.row, { minHeight: h, paddingVertical: 10, paddingHorizontal: size === 'compact' ? 16 : 22 }]}>
+          <View style={[styles.row, { opacity: loading ? 0 : 1, gap: 8, flexShrink: 1 }]}>
+            {icon}
+            <Text
+              variant="action"
+              weight={isPrimary || isDanger ? 'bold' : 'semibold'}
+              tone={textTone}
+              maxFontSizeMultiplier={1.4}
+              align="center"
+              style={[{ flexShrink: 1 }, size === 'major' ? { fontSize: 17, lineHeight: 22 } : undefined]}
+            >
+              {label}
+            </Text>
+          </View>
+          {loading ? (
+            <ActivityIndicator
+              style={StyleSheet.absoluteFill}
+              color={isPrimary || isDanger ? colors.inverse : colors.accent}
+            />
+          ) : null}
+        </View>
       </PressableScale>
       {disabled && disabledReason ? (
         <Text variant="caption" tone="muted" align="center" style={{ marginTop: 8 }}>
@@ -180,7 +214,7 @@ export function TextButton({ label, onPress, tone = 'accent', testID }: { label:
 }
 
 const styles = themedStyles(() => StyleSheet.create({
-  pill: { borderRadius: 999, overflow: Platform.OS === 'android' ? 'hidden' : 'visible', justifyContent: 'center' },
+  pill: { justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   disc: { alignItems: 'center', justifyContent: 'center' },
   focus: { borderWidth: 2, borderColor: colors.info },
