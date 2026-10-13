@@ -103,7 +103,8 @@ describe('licence rules', () => {
 
 describe('sign-up steps', () => {
   it('validates one question with French messages', () => {
-    expect(validateSignupStep('name', {}, ctx)).toEqual({ firstName: expect.any(String), lastName: expect.any(String) });
+    expect(validateSignupStep('name', {}, ctx)).toEqual({ firstName: 'Prénom requis', lastName: 'Nom requis' });
+    expect(validateSignupStep('famille_interview', { interviewDay: ' ' }, ctx)).toEqual({ interviewDay: 'Choisissez un jour', interviewWindow: 'Choisissez un moment' });
     expect(validateSignupStep('birth', { birthDate: '2015-01-01' }, ctx).birthDate).toMatch(/18 ans/);
     expect(validateSignupStep('address', { address: 'Agdal', city: 'Rabat' }, ctx).address).toMatch(/adresse complète/);
     expect(validateSignupStep('name', person, ctx)).toEqual({});

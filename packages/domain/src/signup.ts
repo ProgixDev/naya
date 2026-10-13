@@ -237,6 +237,36 @@ const FIELD_RULES: { [K in keyof SignupDraft]-?: z.ZodType } = {
   interviewWindow: z.enum(['morning', 'afternoon'], { error: 'Choisissez un créneau' }),
 };
 
+/** What a missing answer says, per field (zod's own message is technical English). */
+const MISSING: { [K in keyof SignupDraft]-?: string } = {
+  firstName: 'Prénom requis',
+  lastName: 'Nom requis',
+  birthDate: 'Date de naissance requise',
+  documentType: 'Choisissez votre pièce',
+  documentNumber: 'Numéro de la pièce requis',
+  address: 'Adresse requise',
+  city: 'Ville requise',
+  licenceNumber: 'Numéro du permis requis',
+  licenceCategory: 'Choisissez la catégorie de votre permis',
+  licenceIssueDate: 'Date de délivrance requise',
+  licenceExpiryDate: 'Date d’expiration requise',
+  experienceYears: 'Indiquez un nombre d’années',
+  make: 'Marque requise',
+  model: 'Modèle requis',
+  color: 'Couleur requise',
+  plate: 'Immatriculation requise',
+  year: 'Année requise',
+  reference1Name: 'Nom et prénom requis',
+  reference1Phone: 'Numéro requis',
+  reference2Name: 'Nom et prénom requis',
+  reference2Phone: 'Numéro requis',
+  childExperienceYears: 'Indiquez un nombre d’années',
+  childExperienceSummary: 'Décrivez votre expérience en quelques phrases',
+  trainingAcknowledged: 'Confirmez votre engagement à suivre la formation',
+  interviewDay: 'Choisissez un jour',
+  interviewWindow: 'Choisissez un moment',
+};
+
 export interface SignupContext {
   /** Casablanca business date, YYYY-MM-DD. */
   today: string;
@@ -256,7 +286,12 @@ export function validateSignupStep(stepId: QuestionStepId, answers: SignupDraft,
   if (!step || step.kind !== 'question') return {};
   const errors: StepErrors = {};
   for (const field of step.fields) {
-    const r = FIELD_RULES[field].safeParse(answers[field]);
+    const value = answers[field];
+    if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+      errors[field] = MISSING[field];
+      continue;
+    }
+    const r = FIELD_RULES[field].safeParse(value);
     if (!r.success) errors[field] = r.error.issues[0]?.message ?? required;
   }
   if (stepId === 'licence_number' || stepId === 'licence_dates' || stepId === 'experience') {
