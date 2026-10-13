@@ -1,5 +1,5 @@
 """Generates the fictional SPÉCIMEN documents used by the demo seed. Run from the repo root."""
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 
 F = 'node_modules/@expo-google-fonts/inter'
 font = lambda w, size: ImageFont.truetype(f'{F}/{w}/Inter_{w}.ttf', size)
@@ -40,4 +40,18 @@ for c in ['pearl', 'plum']:
 for who in ['salma', 'amina']:
     src = Image.open(f'{A}/{who}-portrait.png').convert('RGBA')
     bg = Image.new('RGBA', src.size, (232, 222, 230, 255)); bg.alpha_composite(src); bg.convert('RGB').save(f'{out}/{who}-selfie.jpg', quality=86)
+# Driver sign-up additions (13 Oct 2026): licence back, technical inspection, criminal-record
+# extract (Naya Famille only), and the five vehicle views.
+card('licence-back', 'Permis de conduire · verso', [('Catégorie', 'B · véhicules légers'), ('Valable jusqu’au', '2031-06-18'), ('Mention', 'Aucune donnée réelle')])
+card('technical-inspection', 'Visite technique', [('Véhicule', 'Naya Signature · Perle'), ('Résultat', 'Favorable'), ('Prochaine visite', '2027-03-01')], tint=(236, 240, 244))
+card('criminal-record', 'Casier judiciaire · extrait', [('Titulaire', 'Titulaire fictive'), ('Bulletin', 'Néant'), ('Délivré le', '2026-09-20'), ('Mention', 'Aucune donnée réelle')], w=1000, h=760, tint=(244, 240, 232))
+def specimen(im):
+    w, h = im.size
+    wm = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(wm).text((w * 0.12, h * 0.42), 'SPÉCIMEN · FICTIF', fill=(107, 54, 87, 70), font=font('800ExtraBold', int(w * 0.075)))
+    return Image.alpha_composite(im.convert('RGBA'), wm.rotate(12, resample=Image.BICUBIC)).convert('RGB')
+src = Image.open('packages/assets/cars/naya-signature-pearl.png').convert('RGBA')
+for name, art, bgc in [('back', ImageOps.mirror(src), (232, 232, 238)), ('left', ImageOps.mirror(src), (236, 232, 236)), ('right', src, (232, 236, 236))]:
+    bg = Image.new('RGBA', art.size, bgc + (255,)); bg.alpha_composite(art); specimen(bg).save(f'{out}/vehicle-pearl-{name}.jpg', quality=84)
+card('vehicle-interior', 'Intérieur du véhicule', [('Sièges', 'Propres, sans déchirure'), ('Ceintures', 'Toutes fonctionnelles'), ('Siège enfant', 'Sur demande Naya Famille')], tint=(240, 236, 240))
 print('fixtures ok')

@@ -2,7 +2,7 @@ import { createHash, readFileSync, fixturePath } from './platform';
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { ZodError, type ZodType } from 'zod';
-import type { UploadInput } from '@naya/domain';
+import type { FamilleApplicationInput, LicenceDetailsInput, UploadInput } from '@naya/domain';
 import {
   adminLoginSchema,
   cancelSchema,
@@ -34,6 +34,7 @@ import {
   rechargeSchema,
   resolveTicketSchema,
   savedPlaceSchema,
+  signupDraftSchema,
   scheduleRideSchema,
   supportMessageSchema,
   supportTicketSchema,
@@ -55,7 +56,7 @@ import { mustFind, nextId } from './store';
 import { appendAudit, verifyAuditChain } from './audit';
 import { adminLogin, authenticate, logout, requestOtp, verifyOtp, type Principal } from './services/auth';
 import { createUpload, readUpload } from './services/uploads';
-import { casesForUser, decideCase, ensureVehicleCase, reopenCase, saveDetails, setItem, startReview, submitCase, REJECTION_REASONS, RECOVERABLE_REJECTIONS } from './services/verification';
+import { casesForUser, decideCase, ensureFamilleCase, ensureVehicleCase, reopenCase, saveDetails, saveDraft, setItem, simulateReview, startReview, submitCase, REJECTION_REASONS, RECOVERABLE_REJECTIONS } from './services/verification';
 import {
   acceptOffer,
   cancelScheduled,
@@ -317,6 +318,11 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   app.post('/verification/vehicle', (c) => c.json(ensureVehicleCase(ctx, userOf(c, 'driver'))));
   app.put('/verification/:id/identity', async (c) => c.json(saveDetails(ctx, userOf(c), c.req.param('id'), { identity: await body(c, identityDetailsSchema) })));
   app.put('/verification/:id/vehicle', async (c) => c.json(saveDetails(ctx, userOf(c, 'driver'), c.req.param('id'), { vehicle: await body(c, vehicleDetailsSchema) })));
+  // Driver sign-up (13 Oct brief): licence, Naya Famille opt-in and application, wizard drafts.
+  app.put('/verification/:id/licence', async (c) => c.json(saveDetails(ctx, userOf(c, 'driver'), c.req.param('id'), { licence: (await c.req.json()) as LicenceDetailsInput })));
+  app.post('/verification/famille', (c) => c.json(ensureFamilleCase(ctx, userOf(c, 'driver'))));
+  app.put('/verification/:id/famille', async (c) => c.json(saveDetails(ctx, userOf(c, 'driver'), c.req.param('id'), { famille: (await c.req.json()) as FamilleApplicationInput })));
+  app.put('/verification/:id/draft', async (c) => c.json(saveDraft(ctx, userOf(c, 'driver'), c.req.param('id'), await body(c, signupDraftSchema))));
   app.put('/verification/:id/items/:key', async (c) => {
     const key = verificationItemKeySchema.parse(c.req.param('key'));
     const { uploadIds } = (await c.req.json()) as { uploadIds: string[] };
@@ -685,7 +691,8 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
       .map((u) => {
         const identity = s.cases.find((x) => x.id === u.identityCaseId);
         const vehicleCase = s.cases.find((x) => x.userId === u.id && x.subject === 'vehicle');
-        return { user: u, identityStatus: identity?.status ?? 'draft', vehicleStatus: vehicleCase?.status ?? null, vehicle: s.vehicles.find((v) => v.id === u.vehicleId) ?? null, wallet: u.role === 'driver' ? walletOf(s, u.id, ctx.clock.iso()) : null };
+        const familleCase = s.cases.find((x) => x.userId === u.id && x.subject === 'driver_famille');
+        return { user: u, identityStatus: identity?.status ?? 'draft', vehicleStatus: vehicleCase?.status ?? null, familleStatus: familleCase?.status ?? null, vehicle: s.vehicles.find((v) => v.id === u.vehicleId) ?? null, wallet: u.role === 'driver' ? walletOf(s, u.id, ctx.clock.iso()) : null };
       })
       .filter((p) => !q || normalize(`${p.user.firstName} ${p.user.lastName} ${p.user.phone} ${p.user.id} ${p.vehicle?.plate ?? ''}`).includes(q))
       .filter((p) => !status || p.identityStatus === status || p.vehicleStatus === status)
@@ -972,10 +979,25 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
       id_front: 'generic-id-front.jpg',
       id_back: 'generic-id-back.jpg',
       driving_licence: 'amina-licence.jpg',
+      driving_licence_back: 'licence-back.jpg',
       vehicle_registration: 'vehicle-registration-2.jpg',
       insurance: 'insurance.jpg',
+      technical_inspection: 'technical-inspection.jpg',
       vehicle_photos: 'vehicle-pearl.jpg',
+      vehicle_photo_front: 'vehicle-pearl.jpg',
+      vehicle_photo_back: 'vehicle-pearl-back.jpg',
+      vehicle_photo_left: 'vehicle-pearl-left.jpg',
+      vehicle_photo_right: 'vehicle-pearl-right.jpg',
+      vehicle_photo_interior: 'vehicle-interior.jpg',
+      criminal_record: 'criminal-record.jpg',
     };
+    /** Scenario reviewer: decides the caller's own submitted dossier at once (labelled « Démo »). */
+    app.post('/dev/verification/:id/simulate', async (c) => {
+      const { outcome, itemKey } = (await c.req.json()) as { outcome: 'approved' | 'more_info_requested' | 'rejected'; itemKey?: string };
+      if (!['approved', 'more_info_requested', 'rejected'].includes(outcome)) throw new DomainError('VALIDATION', 'Résultat inconnu.');
+      const key = itemKey ? verificationItemKeySchema.parse(itemKey) : undefined;
+      return c.json(simulateReview(ctx, userOf(c), c.req.param('id'), outcome, key));
+    });
     app.post('/dev/sample-upload', async (c) => {
       const p = c.get('principal');
       if (!p || p.kind !== 'user') throw new DomainError('UNAUTHORIZED');

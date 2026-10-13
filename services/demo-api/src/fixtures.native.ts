@@ -1,6 +1,13 @@
 import { Asset } from 'expo-asset';
 
 const assets: Record<string, Asset> = {
+  'criminal-record.jpg': Asset.fromModule(require('../fixtures/criminal-record.jpg')),
+  'licence-back.jpg': Asset.fromModule(require('../fixtures/licence-back.jpg')),
+  'technical-inspection.jpg': Asset.fromModule(require('../fixtures/technical-inspection.jpg')),
+  'vehicle-interior.jpg': Asset.fromModule(require('../fixtures/vehicle-interior.jpg')),
+  'vehicle-pearl-back.jpg': Asset.fromModule(require('../fixtures/vehicle-pearl-back.jpg')),
+  'vehicle-pearl-left.jpg': Asset.fromModule(require('../fixtures/vehicle-pearl-left.jpg')),
+  'vehicle-pearl-right.jpg': Asset.fromModule(require('../fixtures/vehicle-pearl-right.jpg')),
   'amina-id-back.jpg': Asset.fromModule(require('../fixtures/amina-id-back.jpg')),
   'amina-id-front.jpg': Asset.fromModule(require('../fixtures/amina-id-front.jpg')),
   'amina-licence.jpg': Asset.fromModule(require('../fixtures/amina-licence.jpg')),
