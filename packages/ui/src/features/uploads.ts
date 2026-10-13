@@ -40,7 +40,8 @@ export async function pickFile(source: Source, opts: { selfie?: boolean } = {}):
   return normalizeImage(r.assets[0].uri);
 }
 
-async function normalizeImage(uri: string): Promise<PickedFile> {
+/** Resize (≤1600 px) and re-encode a photo as JPEG without metadata, as every picker path does. */
+export async function normalizeImage(uri: string): Promise<PickedFile> {
   const ctx = ImageManipulator.ImageManipulator.manipulate(uri);
   const probe = await ctx.renderAsync();
   const long = Math.max(probe.width, probe.height);
