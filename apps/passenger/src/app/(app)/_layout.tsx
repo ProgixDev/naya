@@ -1,6 +1,8 @@
 import { useTheme , useA11yPrefs, useStackMotion } from '@naya/ui';
 import { Stack } from 'expo-router';
 import { colors } from '@naya/tokens';
+import { useAccountId } from '@/lib/queries';
+import { useFamilyAlerts } from '@/features/family/useFamilyAlerts';
 
 export const unstable_settings = { anchor: '(tabs)' };
 
@@ -10,6 +12,7 @@ export default function AppLayout() {
   const stackMotion = useStackMotion();
   const { reduceMotion } = useA11yPrefs();
   const anim = reduceMotion ? 'none' : 'simple_push';
+  useFamilyAlerts(useAccountId(), true);
   return (
     <Stack screenOptions={{ ...stackMotion, headerShown: false, contentStyle: { backgroundColor: colors.background }, animation: anim }}>
       <Stack.Screen name="(tabs)" />

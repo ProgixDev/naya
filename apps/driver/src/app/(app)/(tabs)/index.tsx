@@ -1,4 +1,4 @@
-import { useTheme , Avatar, avatarFor, Button, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
+import { useTheme , activeFamilyTrip, nextFamilyTrip, useFamily, Avatar, avatarFor, Button, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
 import { useMemo, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MapPin, Navigation } from 'lucide-react-native';
 import { errorMessage, isApiError, qk, type EligibilityReason } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatMoney, type LatLng } from '@naya/domain';
+import { FAMILY_STATUS_LABELS, formatShort, formatMoney, type LatLng } from '@naya/domain';
 import { startOfTodayUtc } from '@/lib/time';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { useAccountId, useDriverStatus, useMe } from '@/lib/queries';
@@ -84,6 +84,8 @@ export default function Dashboard() {
   const banners = useMemo(() => (d?.eligibility.reasons ?? []).map(reasonBanner).filter(Boolean), [d?.eligibility.reasons]);
   const blocked = !!d && !d.eligibility.eligible;
   const firstName = me.data?.user.firstName ?? '';
+  const family = useFamily(a, me.data?.user.familleEligibility === 'approved');
+  const familyTrip = activeFamilyTrip(family.data) ?? nextFamilyTrip(family.data);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.map }} testID="dashboard">
@@ -140,6 +142,7 @@ export default function Dashboard() {
 
             {restored ? <StatusBanner compact tone="success" title="Accès rétabli" message="solde repassé sous le plafond" testID="restored-banner" /> : null}
             {d.activeRide ? <ActionNote tone="info" title={`Course ${d.activeRide.id} en cours`} message="Reprenez le guidage." action={{ label: 'Reprendre', onPress: () => router.push('/ride') }} testID="resume-ride" /> : null}
+            {familyTrip ? <ActionNote tone={familyTrip.status === 'scheduled' ? 'info' : 'warning'} title={`Naya Famille · ${familyTrip.childName}`} message={familyTrip.status === 'scheduled' ? `Prise en charge ${formatShort(familyTrip.pickupAt)} · ${familyTrip.pickup.label}` : FAMILY_STATUS_LABELS[familyTrip.status]} action={{ label: 'Ouvrir', onPress: () => router.push({ pathname: '/family/[id]', params: { id: familyTrip.id } }) }} testID="home-famille" /> : null}
             {d.awaitingCashRide ? <ActionNote tone="warning" title={`Espèces à confirmer · ${d.awaitingCashRide.id}`} message={`${formatMoney(d.awaitingCashRide.terms.breakdown.total)} à encaisser.`} action={{ label: 'Confirmer', onPress: () => router.push({ pathname: '/ride-end/[id]', params: { id: d.awaitingCashRide!.id } }) }} testID="cash-pending" /> : null}
             {banners.slice(0, 2).map((b) => (b ? <ActionNote key={b.key} tone={b.tone} title={b.title} message={b.message} action={b.action} testID={`reason-${b.key}`} /> : null))}
             {gpsDenied ? (

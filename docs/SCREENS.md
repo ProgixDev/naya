@@ -50,6 +50,19 @@ Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: cover
 | D17 `9:1030` | D17-settings | `(app)/(tabs)/account`, `profile/vehicle`, `profile/preferences` | capture |
 | D18 `9:1133` | D18-form, -status, -reply | `(app)/support`, `support/new`, `support/[id]` | capture |
 
+## Naya Famille (both apps, 13 Oct · founder brief task 4)
+
+No Figma frames yet. Shared screens in `packages/ui/src/features/famille/`; rules in `packages/domain/src/famille.ts` and `machines/family.ts`; API in `services/demo-api/src/services/famille.ts`.
+
+| Screen | Route | States | Evidence |
+|---|---|---|---|
+| Passenger home entry | `(app)/(tabs)/index` | « Famille » shortcut; live card while a trip runs; warning card « Votre accord est demandé » | API tests |
+| Famille overview | passenger `(app)/family`, driver `(app)/family` | no plan, plan, live trip + inline approval, upcoming, history; driver eligibility (non demandée / en examen / approuvée / refusée) | API `famille.test.ts` |
+| Plans | passenger `(app)/family/plans` | plans, active plan | API |
+| Trip (live) | passenger `(app)/family/[id]`, driver `(app)/family/[id]` | scheduled, en route (GPS every second), arrived, pick-up photo, awaiting approval (countdown), refused / expired, in progress, drop-off photo + code, completed, cancelled; WhatsApp, police 19, invite, SOS; timeline | API, domain `famille.test.ts`, E2E `scenarios-feedback.spec.ts` (updated, not re-run) |
+| Co-parent follow link | passenger `suivi/[token]` (public) | active trip live, no trip, revoked link | API |
+| Driver home note | driver `(app)/(tabs)/index` | next or live Famille trip | — |
+
 ## Admin (apps/admin)
 
 | Figma | Frames covered | Route | Evidence |

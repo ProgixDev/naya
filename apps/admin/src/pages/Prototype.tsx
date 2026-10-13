@@ -6,6 +6,7 @@ import {
   formatMoney,
   formatShort,
   type PrototypeCatalog,
+  FAMILLE_ELIGIBILITY_LABELS,
 } from '@naya/domain';
 import { errorMessage } from '@naya/api';
 import { api } from '../lib/api';
@@ -327,8 +328,8 @@ export function PrototypePage() {
                           p.people.find((x) => x.id === s.passengerId)?.cityId,
                     )
                     .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
+                      <option key={u.id} value={u.id} disabled={u.familleEligibility !== 'approved'}>
+                        {u.name} · Famille {FAMILLE_ELIGIBILITY_LABELS[u.familleEligibility ?? 'not_requested'].toLowerCase()}
                       </option>
                     ))}
                 </select>
@@ -352,6 +353,40 @@ export function PrototypePage() {
                           {e.location.lng.toFixed(4)}
                         </p>
                       ))}
+                      {(t.approvals ?? []).map((a) => (
+                        <p key={a.id} className="mt-1 text-xs">
+                          Demande de départ {formatShort(a.requestedAt)} ·{' '}
+                          {a.status === 'approved'
+                            ? `approuvée ${a.mode === 'on_site' ? 'sur place' : 'à distance'}`
+                            : a.status === 'refused'
+                              ? `refusée${a.reason ? ` (${a.reason})` : ''}`
+                              : a.status === 'expired'
+                                ? 'expirée sans réponse'
+                                : 'en attente'}
+                        </p>
+                      ))}
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {([
+                          ['Photo de prise en charge', t.pickupPhoto],
+                          ['Photo à l’école', t.dropoffPhoto],
+                        ] as const).map(([label, proof]) =>
+                          proof ? (
+                            proof.simulated ? (
+                              <p key={label} className="text-sm text-accent">
+                                {label} simulée
+                              </p>
+                            ) : (
+                              <div key={label} className="max-w-xs">
+                                <DocThumb
+                                  uploadId={proof.uploadId}
+                                  label={label}
+                                  onOpen={() => setView(proof.uploadId)}
+                                />
+                              </div>
+                            )
+                          ) : null,
+                        )}
+                      </div>
                       {t.arrivalProof === 'demo-arrival-photo' ? (
                         <p className="mt-2 text-sm text-accent">
                           Photo d’arrivée simulée

@@ -1,10 +1,10 @@
-import { useTheme , Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
+import { useTheme , FamilleHomeCard, Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search } from 'lucide-react-native';
+import { ArrowRight, Baby, Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search } from 'lucide-react-native';
 import { isInService, isRideActive, PLACES, RIDE_STATUS_LABELS, type Place } from '@naya/domain';
 import { qk } from '@naya/api';
 import { cars, aspect } from '@naya/assets';
@@ -96,6 +96,7 @@ export default function Home() {
       </View>
 
       <View style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: tabSpace }}>
+        <FamilleHomeCard accountId={a} onOpenTrip={(id) => router.push({ pathname: '/family/[id]', params: { id } })} />
         {rideActive ? (
           <PressableScale onPress={() => router.push('/ride')} accessibilityRole="button" style={[styles.activeCard]} testID="resume-ride">
             <View style={{ flex: 1, gap: 4 }}>
@@ -128,6 +129,7 @@ export default function Home() {
             <QuickPill label={home ? 'Maison' : 'Maison +'} icon={<HomeIcon size={16} color={colors.accent} />} onPress={() => (home ? goTo(home.place) : router.push('/places'))} testID="saved-home" a11y={home ? `Maison : ${home.place.label}` : 'Ajouter l’adresse Maison'} />
             <QuickPill label={work ? 'Travail' : 'Travail +'} icon={<Briefcase size={16} color={colors.accent} />} onPress={() => (work ? goTo(work.place) : router.push('/places'))} testID="saved-work" a11y={work ? `Travail : ${work.place.label}` : 'Ajouter l’adresse Travail'} />
             <QuickPill label="Plus tard" icon={<CalendarClock size={16} color={colors.accent} />} onPress={() => goTo(null, true)} testID="plan-trip" a11y="Planifier un trajet" />
+            <QuickPill label="Famille" icon={<Baby size={16} color={colors.accent} />} onPress={() => router.push('/family')} testID="home-famille" a11y="Naya Famille : trajets enfants avec une chauffeuse dédiée" />
           </View>
         </View>
       </View>
