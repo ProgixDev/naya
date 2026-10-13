@@ -194,14 +194,8 @@ export function Landing() {
           <a href="#questions" onClick={() => setMenu(false)}>
             Vos questions
           </a>
-          <Link className="mobile-backoffice" href="/backoffice">
-            Backoffice <ArrowUpRight size={15} />
-          </Link>
         </nav>
         <div className="nav-actions">
-          <Link href="/backoffice" className="backoffice-link">
-            Backoffice <ArrowUpRight size={14} />
-          </Link>
           <button className="button button-plum" onClick={() => open('driver')}>
             Devenir chauffeuse <ArrowUpRight size={15} />
           </button>
@@ -570,9 +564,6 @@ export function Landing() {
             <a href="#experience">L’expérience</a>
             <a href="#chauffeuses">Devenir chauffeuse</a>
             <a href="#questions">Questions fréquentes</a>
-            <Link href="/backoffice">
-              Espace équipe <ArrowUpRight size={13} />
-            </Link>
           </div>
           <span className="footer-location">
             <MapPin size={14} />

@@ -3,6 +3,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// crypto.randomUUID only exists in secure contexts (https, localhost), and the prototype is also
+// opened over plain http on the LAN.
+export const uid = () =>
+  globalThis.crypto?.randomUUID?.() ??
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+export const rabatToday = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Casablanca' });
+const shiftDay = (day: string, days: number) =>
+  new Date(Date.parse(day) + days * 86400000).toISOString().slice(0, 10);
+// Demo records are written for SEED_DAY and follow the current Rabat day once the store hydrates
+// (see merge below). The server and the first client render both use SEED_DAY, so the dates
+// cannot cause a hydration mismatch.
+export const SEED_DAY = '2026-10-05';
+const SEED_PREVIOUS_DAY = shiftDay(SEED_DAY, -1);
+
 export type RideStatus = 'En cours' | 'Terminée' | 'Planifiée' | 'Annulée';
 export type Ride = {
   id: string;
@@ -64,7 +79,7 @@ export const initialRides: Ride[] = [
     time: '14:32',
     method: 'Carte',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1047',
@@ -77,7 +92,7 @@ export const initialRides: Ride[] = [
     time: '14:28',
     method: 'Espèces',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1046',
@@ -90,7 +105,7 @@ export const initialRides: Ride[] = [
     time: '14:15',
     method: 'Carte',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1045',
@@ -103,7 +118,7 @@ export const initialRides: Ride[] = [
     time: '13:54',
     method: 'Carte',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1044',
@@ -116,7 +131,7 @@ export const initialRides: Ride[] = [
     time: '16:00',
     method: 'Carte',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1043',
@@ -129,7 +144,7 @@ export const initialRides: Ride[] = [
     time: '13:28',
     method: 'Espèces',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1042',
@@ -142,7 +157,7 @@ export const initialRides: Ride[] = [
     time: '13:12',
     method: 'Carte',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1041',
@@ -155,7 +170,7 @@ export const initialRides: Ride[] = [
     time: '12:58',
     method: 'Espèces',
     city: 'Rabat',
-    date: '2026-10-05',
+    date: SEED_DAY,
   },
   {
     id: 'NY-1040',
@@ -168,7 +183,7 @@ export const initialRides: Ride[] = [
     time: '12:43',
     method: 'Carte',
     city: 'Rabat',
-    date: '2026-10-04',
+    date: SEED_PREVIOUS_DAY,
   },
   {
     id: 'NY-1039',
@@ -181,7 +196,7 @@ export const initialRides: Ride[] = [
     time: '12:30',
     method: 'Espèces',
     city: 'Rabat',
-    date: '2026-10-04',
+    date: SEED_PREVIOUS_DAY,
   },
 ];
 const initialDrivers: Driver[] = [
@@ -239,6 +254,7 @@ const initialDrivers: Driver[] = [
     rating: 0,
     rides: 0,
     city: 'Rabat',
+    createdAt: `${SEED_DAY}T08:30:00+01:00`,
   },
   {
     id: 'CH-006',
@@ -250,6 +266,7 @@ const initialDrivers: Driver[] = [
     rating: 0,
     rides: 0,
     city: 'Rabat',
+    createdAt: `${SEED_DAY}T08:30:00+01:00`,
   },
   {
     id: 'CH-007',
@@ -261,8 +278,73 @@ const initialDrivers: Driver[] = [
     rating: 0,
     rides: 0,
     city: 'Rabat',
+    createdAt: `${SEED_DAY}T08:30:00+01:00`,
   },
 ];
+const initialTickets: Ticket[] = [
+  {
+    id: 'SUP-024',
+    name: 'Nour Benali',
+    subject: 'Objet oublié dans le véhicule',
+    priority: 'Normale',
+    status: 'Ouvert',
+    createdAt: `${SEED_DAY}T10:25:00+01:00`,
+    message:
+      'Bonjour, j’ai oublié mon écharpe dans la voiture après ma course NY-1047. Pourriez-vous contacter ma chauffeuse ? Merci !',
+  },
+  {
+    id: 'SUP-023',
+    name: 'Imane Tazi',
+    subject: 'Question sur mon paiement',
+    priority: 'Haute',
+    status: 'Ouvert',
+    createdAt: `${SEED_DAY}T09:15:00+01:00`,
+    message:
+      'Mon paiement apparaît deux fois sur mon relevé. Pouvez-vous vérifier la course NY-1046 ?',
+  },
+  {
+    id: 'SUP-022',
+    name: 'Rania Alaoui',
+    subject: 'Modifier ma réservation',
+    priority: 'Normale',
+    status: 'Ouvert',
+    createdAt: `${SEED_DAY}T10:25:00+01:00`,
+    message: 'Je souhaite décaler ma réservation de demain de 30 minutes.',
+  },
+];
+// A seed record nobody changed (same fields apart from its dates) follows the current Rabat day.
+// Records the team changed or created keep their own dates.
+const seedFields = (record: object) =>
+  Object.entries(record).filter(([key]) => key !== 'date' && key !== 'createdAt');
+const untouched = (record: object, seed: object) => {
+  const fields = seedFields(record),
+    original = new Map(seedFields(seed));
+  return (
+    fields.length === original.size &&
+    fields.every(([key, value]) => JSON.stringify(value) === JSON.stringify(original.get(key)))
+  );
+};
+const followToday = <T extends { id: string; date?: string; createdAt?: string }>(
+  records: T[],
+  seed: T[],
+) => {
+  const days = (Date.parse(rabatToday()) - Date.parse(SEED_DAY)) / 86400000,
+    seeds = new Map(seed.map((record) => [record.id, record]));
+  return records.map((record) => {
+    const original = seeds.get(record.id);
+    if (!original || !untouched(record, original)) return record;
+    return {
+      ...original,
+      ...(original.date ? { date: shiftDay(original.date, days) } : {}),
+      ...(original.createdAt
+        ? {
+            createdAt:
+              shiftDay(original.createdAt.slice(0, 10), days) + original.createdAt.slice(10),
+          }
+        : {}),
+    };
+  });
+};
 export type Audit = { id: string; action: string; date: string };
 type State = {
   rides: Ride[];
@@ -289,7 +371,7 @@ type State = {
   setCity: (city: string) => void;
 };
 const event = (action: string): Audit => ({
-  id: crypto.randomUUID(),
+  id: uid(),
   action,
   date: new Date().toISOString(),
 });
@@ -298,34 +380,7 @@ export const useNaya = create<State>()(
     (set, get) => ({
       rides: initialRides,
       drivers: initialDrivers,
-      tickets: [
-        {
-          id: 'SUP-024',
-          name: 'Nour Benali',
-          subject: 'Objet oublié dans le véhicule',
-          priority: 'Normale',
-          status: 'Ouvert',
-          message:
-            'Bonjour, j’ai oublié mon écharpe dans la voiture après ma course NY-1047. Pourriez-vous contacter ma chauffeuse ? Merci !',
-        },
-        {
-          id: 'SUP-023',
-          name: 'Imane Tazi',
-          subject: 'Question sur mon paiement',
-          priority: 'Haute',
-          status: 'Ouvert',
-          message:
-            'Mon paiement apparaît deux fois sur mon relevé. Pouvez-vous vérifier la course NY-1046 ?',
-        },
-        {
-          id: 'SUP-022',
-          name: 'Rania Alaoui',
-          subject: 'Modifier ma réservation',
-          priority: 'Normale',
-          status: 'Ouvert',
-          message: 'Je souhaite décaler ma réservation de demain de 30 minutes.',
-        },
-      ],
+      tickets: initialTickets,
       audit: [],
       notificationsRead: false,
       commission: 15,
@@ -340,9 +395,7 @@ export const useNaya = create<State>()(
             {
               ...ride,
               id,
-              date:
-                ride.date ??
-                new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Casablanca' }),
+              date: ride.date ?? rabatToday(),
             },
             ...s.rides,
           ],
@@ -466,6 +519,19 @@ export const useNaya = create<State>()(
     }),
     {
       name: 'naya-web-prototype-v1',
+      // v0 (the unversioned 5 Oct store) has the same shape; merge re-dates its untouched seeds.
+      version: 1,
+      migrate: (saved) => saved as State,
+      merge: (saved, current) => {
+        const s = (saved ?? {}) as Partial<State>;
+        return {
+          ...current,
+          ...s,
+          rides: followToday(s.rides ?? current.rides, initialRides),
+          drivers: followToday(s.drivers ?? current.drivers, initialDrivers),
+          tickets: followToday(s.tickets ?? current.tickets, initialTickets),
+        };
+      },
       partialize: ({ toast, notify, ...s }) => s,
       skipHydration: true,
     },

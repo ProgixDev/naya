@@ -11,16 +11,20 @@ import {
   Check,
   Clock3,
 } from 'lucide-react';
-import { documentLabels, useNaya, type Driver, type Ticket, type DocumentKey } from '@/lib/store';
+import {
+  documentLabels,
+  SEED_DAY,
+  useNaya,
+  type Driver,
+  type Ticket,
+  type DocumentKey,
+} from '@/lib/store';
 import { Avatar, Badge, Empty } from './ui';
 
 function receivedAt(item: Driver | Ticket) {
-  return (
-    item.createdAt ??
-    ('subject' in item
-      ? `2026-10-05T${item.priority === 'Haute' ? '09:15' : '10:25'}:00+01:00`
-      : '2026-10-05T08:30:00+01:00')
-  );
+  // Seed records carry createdAt; this covers seed records changed under the unversioned store.
+  const time = 'subject' in item ? (item.priority === 'Haute' ? '09:15' : '10:25') : '08:30';
+  return item.createdAt ?? `${SEED_DAY}T${time}:00+01:00`;
 }
 
 function ReceivedTime({ value }: { value: string }) {

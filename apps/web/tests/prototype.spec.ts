@@ -4,10 +4,9 @@ test('a booking appears in the backoffice, survives reload, and can be completed
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Trouver mon trajet' }).click();
-  await page.getByRole('button', { name: 'Estimer mon trajet' }).click();
+  await page.getByRole('button', { name: 'Voir mon estimation' }).click();
   await page.getByLabel('Votre prénom et nom').fill('Test Passagère');
-  await page.getByRole('button', { name: /Confirmer ·/ }).click();
+  await page.getByRole('button', { name: /Confirmer la démonstration ·/ }).click();
   await expect(page.getByText('Bon voyage, Test.')).toBeVisible();
   await page.getByRole('link', { name: 'Voir dans le backoffice' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Test Passagère' })).toBeVisible();
@@ -23,8 +22,7 @@ test('a booking appears in the backoffice, survives reload, and can be completed
 
 test('scheduled reservation keeps its selected date', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Trouver mon trajet' }).click();
-  await page.getByRole('button', { name: 'Estimer mon trajet' }).click();
+  await page.getByRole('button', { name: 'Voir mon estimation' }).click();
   await page.getByLabel('Votre prénom et nom').fill('Planification Test');
   await page
     .getByRole('dialog')
@@ -34,7 +32,7 @@ test('scheduled reservation keeps its selected date', async ({ page }) => {
     timeZone: 'Africa/Casablanca',
   });
   await page.getByLabel('Date et heure').fill(tomorrow + 'T16:30');
-  await page.getByRole('button', { name: /Confirmer ·/ }).click();
+  await page.getByRole('button', { name: /Confirmer la démonstration ·/ }).click();
   await page.getByRole('link', { name: 'Voir dans le backoffice' }).click();
   const row = page.getByRole('row').filter({ hasText: 'Planification Test' });
   await expect(row.getByText('Planifiée', { exact: true })).toBeVisible();
@@ -54,6 +52,10 @@ test('driver application can be reviewed and activated', async ({ page }) => {
   const card = page.locator('.verification-card').filter({ hasText: 'Chauffeuse Test' });
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: 'Examiner le dossier' }).click();
+  for (const label of ['Pièce d’identité', 'Permis de conduire', 'Assurance et carte grise']) {
+    await page.locator('summary').filter({ hasText: label }).click();
+    await page.getByRole('button', { name: `Accepter : ${label}` }).click();
+  }
   await page.getByRole('button', { name: 'Valider le dossier' }).click();
   await expect(card).toHaveCount(0);
   await page.goto('/backoffice/chauffeuses');
@@ -68,7 +70,9 @@ test('support reply resolves a ticket and settings suspend bookings', async ({ p
   await page.goto('/backoffice/support');
   await page.getByRole('button', { name: /Objet oublié dans le véhicule/ }).click();
   await page.getByLabel('Votre réponse').fill('Bonjour, nous avons enregistré votre demande.');
-  await page.getByRole('button', { name: 'Enregistrer et résoudre' }).click();
+  await page.getByRole('button', { name: 'Enregistrer la réponse' }).click();
+  await page.getByRole('button', { name: 'Marquer comme résolu' }).click();
+  await page.keyboard.press('Escape');
   await expect(
     page.getByRole('button', { name: /Objet oublié dans le véhicule/ }).getByText('Résolu'),
   ).toBeVisible();
