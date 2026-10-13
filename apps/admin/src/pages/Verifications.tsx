@@ -40,6 +40,7 @@ export function VerificationsPage() {
               <option value="passenger_identity">Identité passagère</option>
               <option value="driver_identity">Identité chauffeuse</option>
               <option value="vehicle">Véhicule</option>
+              <option value="driver_famille">Agrément Naya Famille</option>
             </Select>
           </label>
         </div>

@@ -68,6 +68,7 @@ export function PeoplePage() {
                   { key: 'role', header: 'Rôle', render: (r) => <Badge tone={r.user.role === 'driver' ? 'accent' : 'neutral'} dot={false}>{r.user.role === 'driver' ? 'Chauffeuse' : 'Passagère'}</Badge> },
                   { key: 'id-st', header: 'Identité', render: (r) => <VerificationBadge status={r.identityStatus} /> },
                   { key: 'veh', header: 'Véhicule', render: (r) => (r.user.role === 'driver' ? <div className="flex flex-col items-start gap-1"><span className="text-[13px] tabular">{r.vehicle?.plate ?? '—'}</span><VerificationBadge status={r.vehicleStatus} /></div> : <span className="text-muted">—</span>) },
+                  { key: 'fam', header: 'Famille', render: (r) => (r.user.role === 'driver' && r.familleStatus ? <VerificationBadge status={r.familleStatus} /> : <span className="text-muted">—</span>) },
                   { key: 'bal', header: 'Solde', align: 'right', render: (r) => (r.wallet ? <span className={r.wallet.balance < 0 ? 'text-danger' : ''}>{money(r.wallet.balance)}</span> : <span className="text-muted">—</span>), sort: (r) => r.wallet?.balance ?? 0 },
                 ]}
               />

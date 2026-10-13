@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, CircleAlert, XCircle } from 'lucide-react';
-import { ITEM_LABELS, REQUIRED_ITEMS, type DecisionOutcome, type VerificationItemKey } from '@naya/domain';
+import { ITEM_LABELS, REQUIRED_ITEMS, casablancaToday, type DecisionOutcome, type VerificationCase, type VerificationItemKey } from '@naya/domain';
 import { errorMessage, isApiError } from '@naya/api';
 import { api } from '../lib/api';
 import { fmtDateTime } from '../lib/format';
@@ -12,6 +12,24 @@ import { SUBJECT_LABELS, VerificationBadge } from '../components/status';
 import { AuditList } from './Audit';
 
 const itemTone = { missing: 'neutral', provided: 'info', accepted: 'success', needs_correction: 'warning' } as const;
+const frDate = (iso: string) => iso.split('-').reverse().join('/');
+const WINDOW = { morning: 'matin (9 h – 12 h)', afternoon: 'après-midi (14 h – 17 h)' } as const;
+
+/** What the reviewer checks, per dossier type. Static guidance; nothing is inferred from appearance. */
+const CHECKLIST: Record<VerificationCase['subject'], string[]> = {
+  passenger_identity: ['Vérifier la lisibilité de chaque pièce', 'Vérifier la correspondance des informations', 'Motiver toute demande ou tout refus'],
+  driver_identity: ['Vérifier la lisibilité de chaque pièce', 'Vérifier la correspondance des informations', 'Permis : catégorie B, en cours de validité, recto et verso', 'Motiver toute demande ou tout refus'],
+  vehicle: ['Carte grise, assurance et visite technique au nom du véhicule déclaré', 'Immatriculation identique sur les documents et les photos', 'Cinq photos : avant, arrière, deux côtés, intérieur', 'Motiver toute demande ou tout refus'],
+  driver_famille: ['Extrait de casier judiciaire lisible et récent', 'Appeler les deux références', 'Entretien tenu et formation planifiée', 'Motiver toute demande ou tout refus'],
+};
+
+/** Licence validity as the reviewer sees it today (Casablanca). */
+function LicenceValidity({ expiry }: { expiry: string }) {
+  const today = casablancaToday();
+  if (expiry <= today) return <Badge tone="danger">Expiré le {frDate(expiry)}</Badge>;
+  const soon = Date.parse(`${expiry}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`) < 90 * 86_400_000;
+  return <Badge tone={soon ? 'warning' : 'success'}>{soon ? 'Expire bientôt · ' : 'Valide jusqu’au '}{frDate(expiry)}</Badge>;
+}
 const itemLabel = { missing: 'Manquante', provided: 'À examiner', accepted: 'Acceptée', needs_correction: 'À corriger' } as const;
 
 /** A05 · Examen d’un dossier et décision motivée. */
@@ -61,7 +79,12 @@ export function CaseReviewPage() {
   const decidable = canDecide && (c.status === 'submitted' || c.status === 'in_review');
   const keys = Array.from(new Set([...REQUIRED_ITEMS[c.subject], ...c.items.map((i) => i.key)]));
   const who = `${user.firstName} ${user.lastName}`.trim() || user.phone;
-  const subjectWord = c.subject === 'vehicle' ? 'le véhicule' : c.subject === 'driver_identity' ? 'la chauffeuse' : 'la passagère';
+  const subjectWord = c.subject === 'vehicle' ? 'le véhicule' : c.subject === 'driver_identity' ? 'la chauffeuse' : c.subject === 'driver_famille' ? 'l’agrément Naya Famille' : 'la passagère';
+  const refuseItem = (key: VerificationItemKey) => {
+    setDialog('more_info_requested');
+    setFormError(null);
+    setCorrections({ [key]: '' });
+  };
 
   const openDialog = (o: DecisionOutcome) => {
     setDialog(o);
@@ -115,20 +138,67 @@ export function CaseReviewPage() {
                       </div>
                       <DocThumb uploadId={item?.uploadIds[0]} label={ITEM_LABELS[key]} onOpen={() => setViewer({ id: item?.uploadIds[0], label: `${ITEM_LABELS[key]} · ${who}` })} />
                       {item?.note ? <p className="text-[12px] text-warning">Demande : {item.note}</p> : null}
+                      {decidable && item?.uploadIds.length ? (
+                        <button type="button" className="self-start text-[12px] font-semibold text-danger hover:underline" onClick={() => refuseItem(key)} data-testid={`refuse-${key}`}>
+                          Refuser cette pièce avec un motif
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })}
               </div>
             </Card>
-            <Card title={c.subject === 'vehicle' ? 'Véhicule déclaré' : 'Informations déclarées'}>
+            <Card title={c.subject === 'vehicle' ? 'Véhicule déclaré' : c.subject === 'driver_famille' ? 'Candidature Naya Famille' : 'Informations déclarées'}>
               {c.subject === 'vehicle' ? (
                 c.vehicle ? (
                   <DefinitionList items={[{ term: 'Véhicule', value: `${c.vehicle.make} ${c.vehicle.model}` }, { term: 'Couleur', value: c.vehicle.color }, { term: 'Immatriculation', value: c.vehicle.plate }, { term: 'Année', value: c.vehicle.year }, { term: 'Titulaire', value: who }]} />
                 ) : (
                   <p className="text-[14px] text-muted">Aucun véhicule déclaré.</p>
                 )
+              ) : c.subject === 'driver_famille' ? (
+                c.famille ? (
+                  <DefinitionList
+                    items={[
+                      ...c.famille.references.map((r, i) => ({ term: `Référence ${i + 1}`, value: `${r.name} · ${r.phone}` })),
+                      { term: 'Expérience avec les enfants', value: `${c.famille.childExperience.years} an${c.famille.childExperience.years > 1 ? 's' : ''} · ${c.famille.childExperience.summary}` },
+                      { term: 'Formation', value: c.famille.trainingAcknowledged ? 'Engagement à suivre la formation confirmé' : 'Non confirmé' },
+                      { term: 'Entretien souhaité', value: `${frDate(c.famille.interview.day)}, ${WINDOW[c.famille.interview.window]}` },
+                    ]}
+                  />
+                ) : (
+                  <p className="text-[14px] text-muted">Candidature non renseignée.</p>
+                )
               ) : c.identity ? (
-                <DefinitionList items={[{ term: 'Prénom et nom', value: `${c.identity.firstName} ${c.identity.lastName}` }, { term: 'Date de naissance', value: c.identity.birthDate }, { term: 'Pièce', value: c.identity.documentType === 'cin' ? 'Carte d’identité' : c.identity.documentType === 'passport' ? 'Passeport' : 'Titre de séjour' }, { term: 'Numéro', value: c.identity.documentNumber }, { term: 'Téléphone', value: user.phone }]} />
+                <div className="flex flex-col gap-5">
+                  <DefinitionList
+                    items={[
+                      { term: 'Prénom et nom', value: `${c.identity.firstName} ${c.identity.lastName}` },
+                      { term: 'Date de naissance', value: frDate(c.identity.birthDate) },
+                      { term: 'Pièce', value: c.identity.documentType === 'cin' ? 'Carte d’identité' : c.identity.documentType === 'passport' ? 'Passeport' : 'Titre de séjour' },
+                      { term: 'Numéro', value: c.identity.documentNumber },
+                      ...(c.subject === 'driver_identity' ? [{ term: 'Adresse', value: [c.identity.address, c.identity.city].filter(Boolean).join(', ') || '—' }] : []),
+                      { term: 'Téléphone', value: user.phone },
+                    ]}
+                  />
+                  {c.subject === 'driver_identity' ? (
+                    c.licence ? (
+                      <div data-testid="licence-details">
+                        <h3 className="label mb-2">Permis de conduire</h3>
+                        <DefinitionList
+                          items={[
+                            { term: 'Numéro', value: c.licence.number },
+                            { term: 'Catégorie', value: c.licence.category },
+                            { term: 'Délivré le', value: frDate(c.licence.issueDate) },
+                            { term: 'Validité', value: <LicenceValidity expiry={c.licence.expiryDate} /> },
+                            { term: 'Expérience déclarée', value: `${c.licence.experienceYears} an${c.licence.experienceYears > 1 ? 's' : ''}` },
+                          ]}
+                        />
+                      </div>
+                    ) : (
+                      <Banner tone="warning" title="Permis non renseigné">Dossier créé avant l’ajout des informations du permis : demandez un complément.</Banner>
+                    )
+                  ) : null}
+                </div>
               ) : (
                 <p className="text-[14px] text-muted">Informations non renseignées.</p>
               )}
@@ -150,7 +220,7 @@ export function CaseReviewPage() {
           <div className="flex flex-col gap-5">
             <Card title="Décision" subtitle={`${SUBJECT_LABELS[c.subject]} · version ${c.version}`}>
               <ul className="mb-5 flex flex-col gap-2 text-[14px]">
-                {['Vérifier la lisibilité de chaque pièce', 'Vérifier la correspondance des informations', 'Motiver toute demande ou tout refus'].map((t) => (
+                {CHECKLIST[c.subject].map((t) => (
                   <li key={t} className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-muted" aria-hidden />{t}</li>
                 ))}
               </ul>
@@ -174,7 +244,7 @@ export function CaseReviewPage() {
               ) : (
                 <p className="text-[14px] text-muted">{canDecide ? 'Ce dossier n’attend pas de décision.' : 'Décision réservée aux rôles habilités.'}</p>
               )}
-              <p className="mt-4 text-[12px] text-muted">La décision est inscrite au journal d’audit. Elle ne valide pas automatiquement {c.subject === 'vehicle' ? 'l’identité de la chauffeuse' : 'un véhicule lié'}.</p>
+              <p className="mt-4 text-[12px] text-muted">La décision est inscrite au journal d’audit. Elle ne valide pas automatiquement {c.subject === 'vehicle' ? 'l’identité de la chauffeuse' : c.subject === 'driver_famille' ? 'les dossiers chauffeuse et véhicule' : 'un véhicule lié'}.</p>
             </Card>
             {related.length ? (
               <Card title="Dossiers liés" subtitle="Approuvés indépendamment">
@@ -206,7 +276,7 @@ export function CaseReviewPage() {
         busy={decide.isPending}
         testId="decision-dialog"
         title={dialog === 'approved' ? `Approuver ${subjectWord} ?` : dialog === 'rejected' ? 'Refuser le dossier ?' : 'Demander un complément ?'}
-        description={dialog === 'approved' ? `${who} sera informée. ${c.subject === 'vehicle' ? 'Le véhicule pourra recevoir des courses si l’identité est aussi approuvée.' : 'Le compte pourra être utilisé.'}` : 'Le message sera affiché à la personne avec l’action à faire.'}
+        description={dialog === 'approved' ? `${who} sera informée. ${c.subject === 'vehicle' ? 'Le véhicule pourra recevoir des courses si l’identité est aussi approuvée.' : c.subject === 'driver_famille' ? 'Elle pourra recevoir des trajets Naya Famille (familleEligibility = approved).' : 'Le compte pourra être utilisé.'}` : 'Le message sera affiché à la personne avec l’action à faire.'}
         footer={
           <>
             <Button variant="ghost" onClick={() => setDialog(null)} disabled={decide.isPending}>Annuler</Button>

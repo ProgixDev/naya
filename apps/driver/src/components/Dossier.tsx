@@ -1,104 +1,124 @@
-import { themedStyles , colors, shadow } from '@naya/tokens';
-import { useTheme } from '@naya/ui';
+import { themedStyles, colors, shadow } from '@naya/tokens';
+import { useTheme, Button, IconDisc, PressableScale, StatusPill, Text, toast, type BannerTone } from '@naya/ui';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Car, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, FileText, UserRound, XCircle } from 'lucide-react-native';
+import { AlertTriangle, Baby, Car, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, FileText, UploadCloud, UserRound, XCircle } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { ITEM_LABELS, REQUIRED_ITEMS, STATUS_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';
-import { Button, IconDisc, PressableScale, StatusPill, StepProgress, Text, toast, haptic, type BannerTone } from '@naya/ui';
+import {
+  DOCUMENT_STATUS_LABELS,
+  ITEM_LABELS,
+  STATUS_LABELS,
+  documentStatus,
+  isSignupStepDone,
+  sectionItems,
+  sectionProgress,
+  sectionSteps,
+  type DocumentStatus,
+  type SignupContext,
+  type SignupSection,
+  type VerificationCase,
+  type VerificationItemKey,
+} from '@naya/domain';
 import { ActionNote } from './Kit';
+import { SECTION_COPY, STEP_COPY } from './signup/copy';
+import { goToStep } from './signup/useSignup';
 import { useAccountId } from '@/lib/queries';
 
 export const statusTone = (s: VerificationCase['status']): BannerTone =>
   s === 'approved' ? 'success' : s === 'rejected' ? 'danger' : s === 'more_info_requested' ? 'warning' : s === 'draft' ? 'neutral' : 'info';
 
-const itemIcon = (status: string) =>
-  status === 'accepted' ? <CheckCircle2 size={18} color={colors.success} /> : status === 'provided' ? <CheckCircle2 size={18} color={colors.accent} /> : status === 'needs_correction' ? <AlertTriangle size={18} color={colors.warning} /> : <Circle size={18} color={colors.line} />;
+const DOC_TONE: Record<DocumentStatus, BannerTone> = { missing: 'neutral', sent: 'info', in_review: 'info', approved: 'success', rejected: 'danger' };
 
-const itemStatusLabel = (status: string) => (status === 'accepted' ? 'Validée' : status === 'provided' ? 'Ajoutée' : status === 'needs_correction' ? 'À reprendre' : 'À ajouter');
-
-const itemDone = (status: string) => status === 'accepted' || status === 'provided';
-
-export function isComplete(c: VerificationCase) {
-  const detailsOk = c.subject === 'vehicle' ? !!c.vehicle : !!c.identity;
-  return detailsOk && REQUIRED_ITEMS[c.subject].every((k) => {
-    const i = c.items.find((x) => x.key === k);
-    return i && i.uploadIds.length > 0 && (i.status === 'provided' || i.status === 'accepted');
-  });
+function DocIcon({ status }: { status: DocumentStatus }) {
+  switch (status) {
+    case 'approved':
+      return <CheckCircle2 size={18} color={colors.success} />;
+    case 'sent':
+      return <UploadCloud size={18} color={colors.accent} />;
+    case 'in_review':
+      return <Clock size={18} color={colors.info} />;
+    case 'rejected':
+      return <XCircle size={18} color={colors.danger} />;
+    default:
+      return <Circle size={18} color={colors.line} />;
+  }
 }
 
-const editable = (c: VerificationCase) => c.status === 'draft' || c.status === 'more_info_requested';
+const editable = (c: VerificationCase | null) => !c || c.status === 'draft' || c.status === 'more_info_requested';
 
-/** Done / total steps of one dossier (details + each required item). */
-export function caseProgress(kase: VerificationCase | null, subject: 'driver_identity' | 'vehicle') {
-  const items = REQUIRED_ITEMS[subject];
-  const details = subject === 'vehicle' ? !!kase?.vehicle : !!kase?.identity;
-  const done = (details ? 1 : 0) + items.filter((k) => itemDone(kase?.items.find((i) => i.key === k)?.status ?? 'missing')).length;
-  return { done, total: items.length + 1 };
-}
-
-/** Compact Persona-style step row: 48 pt, state icon, label, state word, chevron when editable. */
-function StepRow({ title, note, status, onPress, testID }: { title: string; note?: string | null; status: string; onPress?: () => void; testID?: string }) {
+/**
+ * One document with its status (manquant → envoyé → en vérification → approuvé / refusé).
+ * A refusal shows the reviewer's reason and a « Renvoyer » action; while the dossier is
+ * editable the row opens the guided capture.
+ */
+export function DocumentRow({ kase, item, compact }: { kase: VerificationCase | null; item: VerificationItemKey; compact?: boolean }) {
   useTheme();
-  const tone = status === 'needs_correction' ? 'warning' : itemDone(status) ? 'muted' : 'accent';
+  const { status, reason } = documentStatus(kase, item);
+  const open = () => router.push({ pathname: '/docs/capture/[item]', params: { item } });
+  const canOpen = !!kase && editable(kase);
+  const label = `${ITEM_LABELS[item]}, ${DOCUMENT_STATUS_LABELS[status]}${reason ? `. Motif : ${reason}` : ''}`;
   const body = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingVertical: 6 }}>
-      {itemIcon(status)}
-      <View style={{ flex: 1 }}>
-        <Text variant="label" numberOfLines={1}>
-          {title}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: compact ? 44 : 52, paddingVertical: 6 }}>
+      <DocIcon status={status} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="label" numberOfLines={2}>
+          {ITEM_LABELS[item]}
         </Text>
-        {note ? (
-          <Text variant="micro" tone={status === 'needs_correction' ? 'warning' : 'muted'} numberOfLines={2}>
-            {note}
+        {reason ? (
+          <Text variant="micro" tone="danger" numberOfLines={3}>
+            {reason}
           </Text>
         ) : null}
       </View>
-      <Text variant="micro" weight="semibold" tone={tone}>
-        {itemStatusLabel(status)}
-      </Text>
-      {onPress ? <ChevronRight size={16} color={colors.muted} /> : null}
+      {status === 'rejected' && canOpen ? (
+        <Button label="Renvoyer" variant="secondary" size="compact" onPress={open} testID={`resend-${item}`} />
+      ) : (
+        <StatusPill tone={DOC_TONE[status]} label={DOCUMENT_STATUS_LABELS[status]} testID={`doc-status-${item}`} />
+      )}
+      {canOpen && status !== 'rejected' ? <ChevronRight size={16} color={colors.muted} /> : null}
     </View>
   );
-  return onPress ? (
-    <PressableScale onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={`${title}, ${itemStatusLabel(status)}${note ? `, ${note}` : ''}`} testID={testID}>
+  return canOpen && status !== 'rejected' ? (
+    <PressableScale onPress={open} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={label} testID={`step-${item}`}>
       {body}
     </PressableScale>
   ) : (
-    <View testID={testID} accessible accessibilityLabel={`${title}, ${itemStatusLabel(status)}`}>
+    <View accessible={status !== 'rejected'} accessibilityLabel={label} testID={`step-${item}`}>
       {body}
     </View>
   );
 }
 
+const SECTION_ICON = { person: UserRound, vehicle: Car, famille: Baby } as const;
+
+/** The question groups of a section, shown as one row each in the hub. */
+const GROUPS: Record<SignupSection, { title: string; steps: string[] }[]> = {
+  person: [
+    { title: 'Vos informations', steps: ['name', 'birth', 'address', 'id_document'] },
+    { title: 'Votre permis', steps: ['licence_number', 'licence_dates', 'experience'] },
+  ],
+  vehicle: [{ title: 'Informations du véhicule', steps: ['vehicle_model', 'vehicle_plate'] }],
+  famille: [
+    { title: 'Références', steps: ['famille_references'] },
+    { title: 'Expérience avec les enfants', steps: ['famille_experience'] },
+    { title: 'Formation et entretien', steps: ['famille_training', 'famille_interview'] },
+  ],
+};
+
 /**
- * One dossier as a card: header with progress, then its steps. Collapsed cards show only the
- * header (tap to open), so the hub fits one screen; the card that needs work opens by default.
+ * One section of the dossier as a card: icon, title, review status, done/total and a
+ * progress bar; expanded, its question groups and each document with its own status.
  */
-export function CaseChecklist({ kase, subject, collapsed, onToggle, primary = true }: { kase: VerificationCase | null; subject: 'driver_identity' | 'vehicle'; collapsed?: boolean; onToggle?: () => void; primary?: boolean }) {
+export function SectionCard({ section, kase, ctx, collapsed, onToggle }: { section: SignupSection; kase: VerificationCase | null; ctx: SignupContext; collapsed?: boolean; onToggle?: () => void }) {
   useTheme();
-  const api = useApi();
-  const qc = useQueryClient();
-  const a = useAccountId();
-  const submit = useMutation({
-    mutationFn: (id: string) => api.verification.submit(id),
-    onSuccess: () => {
-      haptic.success();
-      toast('Dossier envoyé pour examen');
-      qc.invalidateQueries({ queryKey: qk.me(a) });
-    },
-    onError: (e) => toast(errorMessage(e), 'danger'),
-  });
-  const isVehicle = subject === 'vehicle';
-  const canEdit = !kase || editable(kase);
-  const details = isVehicle ? kase?.vehicle : kase?.identity;
-  const items: VerificationItemKey[] = REQUIRED_ITEMS[subject];
-  const title = isVehicle ? 'Véhicule' : 'Identité et permis';
-  const { done, total } = caseProgress(kase, subject);
+  const subject = section === 'person' ? 'driver_identity' : section === 'vehicle' ? 'vehicle' : 'driver_famille';
+  const p = sectionProgress(section, kase, ctx);
   const status = kase?.status ?? 'draft';
-  const Icon = isVehicle ? Car : UserRound;
+  const Icon = SECTION_ICON[section];
+  const steps = sectionSteps(section);
+  const canEdit = editable(kase);
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <IconDisc size={40} tone={status === 'approved' ? 'success' : 'plain'}>
@@ -107,15 +127,17 @@ export function CaseChecklist({ kase, subject, collapsed, onToggle, primary = tr
       <View style={{ flex: 1, gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text variant="label" weight="semibold" accessibilityRole="header" style={{ flex: 1 }} numberOfLines={1}>
-            {title}
+            {SECTION_COPY[section].title}
           </Text>
           <Text variant="micro" tone="muted" numeric>
-            {done}/{total}
+            {p.done}/{p.total}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <StatusPill tone={statusTone(status)} label={STATUS_LABELS[status]} />
-          <StepProgress step={done} total={total} />
+          <View style={styles.track}>
+            <View style={[styles.fill, { width: `${p.total ? (p.done / p.total) * 100 : 0}%`, backgroundColor: status === 'approved' ? colors.success : colors.accent }]} />
+          </View>
         </View>
       </View>
       {onToggle ? <ChevronDown size={18} color={colors.muted} style={{ transform: [{ rotate: collapsed ? '0deg' : '180deg' }] }} /> : null}
@@ -124,43 +146,52 @@ export function CaseChecklist({ kase, subject, collapsed, onToggle, primary = tr
   return (
     <View style={styles.card} testID={`checklist-${subject}`}>
       {onToggle ? (
-        <PressableScale onPress={onToggle} pressedScale={0.99} accessibilityRole="button" accessibilityState={{ expanded: !collapsed }} accessibilityLabel={`${title}, ${STATUS_LABELS[status]}, ${done} sur ${total} étapes`} testID={`toggle-${subject}`}>
+        <PressableScale onPress={onToggle} pressedScale={0.99} accessibilityRole="button" accessibilityState={{ expanded: !collapsed }} accessibilityLabel={`${SECTION_COPY[section].title}, ${STATUS_LABELS[status]}, ${p.done} sur ${p.total} étapes`} testID={`toggle-${subject}`}>
           {header}
         </PressableScale>
       ) : (
         header
       )}
       {collapsed ? null : (
-        <View style={{ marginTop: 6 }}>
-          <StepRow
-            title={isVehicle ? 'Informations du véhicule' : 'Informations personnelles'}
-            note={details ? (isVehicle ? `${kase!.vehicle!.make} ${kase!.vehicle!.model} · ${kase!.vehicle!.plate}` : `${kase!.identity!.firstName} ${kase!.identity!.lastName}`) : null}
-            status={details ? 'provided' : 'missing'}
-            onPress={canEdit ? () => router.push(isVehicle ? '/docs/vehicle' : '/docs/identity') : undefined}
-            testID={`step-${subject}-details`}
-          />
-          {items.map((key) => {
-            const item = kase?.items.find((i) => i.key === key);
-            const st = item?.status ?? 'missing';
-            const open = canEdit && (isVehicle ? !!kase : true);
-            return <StepRow key={key} title={ITEM_LABELS[key]} note={st === 'needs_correction' ? item?.note : null} status={st} onPress={open ? () => router.push({ pathname: '/docs/capture/[item]', params: { item: key } }) : undefined} testID={`step-${key}`} />;
+        <View style={{ marginTop: 8 }}>
+          {GROUPS[section].map((g) => {
+            const groupSteps = steps.filter((s) => g.steps.includes(s.id));
+            const done = groupSteps.every((s) => isSignupStepDone(s, kase, ctx));
+            const first = groupSteps.find((s) => !isSignupStepDone(s, kase, ctx)) ?? groupSteps[0]!;
+            return (
+              <PressableScale key={g.title} onPress={canEdit ? () => goToStep(first) : undefined} disabled={!canEdit} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={`${g.title}, ${done ? 'complété' : 'à compléter'}`} testID={`group-${first.id}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingVertical: 6 }}>
+                  {done ? <CheckCircle2 size={18} color={colors.accent} /> : <Circle size={18} color={colors.line} />}
+                  <View style={{ flex: 1 }}>
+                    <Text variant="label" numberOfLines={1}>
+                      {g.title}
+                    </Text>
+                    {!done && canEdit ? (
+                      <Text variant="micro" tone="muted" numberOfLines={1}>
+                        Prochaine question : {STEP_COPY[first.id].title}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text variant="micro" weight="semibold" tone={done ? 'muted' : 'accent'}>
+                    {done ? 'Complété' : 'À compléter'}
+                  </Text>
+                  {canEdit ? <ChevronRight size={16} color={colors.muted} /> : null}
+                </View>
+              </PressableScale>
+            );
           })}
-          {isVehicle && !kase ? (
-            <Text variant="micro" tone="muted" style={{ marginTop: 4 }}>
-              Commencez par les informations du véhicule pour ajouter ses documents.
-            </Text>
-          ) : null}
-          {kase && canEdit ? (
+          <View style={styles.divider} />
+          {sectionItems(section).map((k) => (
+            <DocumentRow key={k} kase={kase} item={k} />
+          ))}
+          {canEdit && p.next ? (
             <Button
-              label={kase.status === 'more_info_requested' ? 'Renvoyer le complément' : `Envoyer le dossier ${isVehicle ? 'véhicule' : 'identité'}`}
-              variant={primary ? 'primary' : 'secondary'}
+              label={p.next.kind === 'review' ? (kase?.status === 'more_info_requested' ? 'Vérifier et renvoyer' : 'Vérifier et envoyer') : kase?.status === 'more_info_requested' ? 'Corriger' : p.done ? 'Continuer' : 'Commencer'}
+              variant={p.next.kind === 'review' ? 'primary' : 'secondary'}
               full
-              style={{ marginTop: 8 }}
-              disabled={!isComplete(kase)}
-              disabledReason={!isComplete(kase) ? `${total - done} étape${total - done > 1 ? 's' : ''} à compléter avant l’envoi.` : undefined}
-              loading={submit.isPending}
-              onPress={() => submit.mutate(kase.id)}
-              testID={`submit-${subject}`}
+              style={{ marginTop: 10 }}
+              onPress={() => goToStep(p.next)}
+              testID={`continue-${subject}`}
             />
           ) : null}
         </View>
@@ -169,12 +200,8 @@ export function CaseChecklist({ kase, subject, collapsed, onToggle, primary = tr
   );
 }
 
-const styles = themedStyles(() => StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: 24, padding: 14, ...shadow.card },
-}));
-
 /** D05: one dossier's review state, with the next step the driver can take. */
-export function CaseReview({ kase, subject, recoverable }: { kase: VerificationCase | null; subject: 'driver_identity' | 'vehicle'; recoverable: string[] }) {
+export function CaseReview({ kase, subject, recoverable, ctx }: { kase: VerificationCase | null; subject: 'driver_identity' | 'vehicle' | 'driver_famille'; recoverable: string[]; ctx: SignupContext }) {
   useTheme();
   const api = useApi();
   const qc = useQueryClient();
@@ -184,21 +211,48 @@ export function CaseReview({ kase, subject, recoverable }: { kase: VerificationC
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.me(a) }),
     onError: (e) => toast(errorMessage(e), 'danger'),
   });
-  const label = subject === 'vehicle' ? 'Véhicule' : 'Chauffeuse';
+  const section: SignupSection = subject === 'vehicle' ? 'vehicle' : subject === 'driver_famille' ? 'famille' : 'person';
+  const label = subject === 'vehicle' ? 'Véhicule' : subject === 'driver_famille' ? 'Naya Famille' : 'Chauffeuse';
   if (!kase || kase.status === 'draft') {
-    return <ActionNote tone="neutral" title={`${label} · dossier à compléter`} message="Ajoutez les pièces puis envoyez." icon={<FileText size={18} color={colors.accent} />} action={{ label: 'Compléter', onPress: () => router.push('/docs/start') }} testID={`review-${subject}`} />;
+    const p = sectionProgress(section, kase, ctx);
+    return (
+      <ActionNote
+        tone="neutral"
+        title={`${label} · dossier à compléter`}
+        message={`${p.done} étape${p.done > 1 ? 's' : ''} sur ${p.total}. Vos réponses sont enregistrées.`}
+        icon={<FileText size={18} color={colors.accent} />}
+        action={{ label: p.done ? 'Reprendre' : 'Commencer', onPress: () => goToStep(p.next) }}
+        testID={`review-${subject}`}
+      />
+    );
   }
   switch (kase.status) {
     case 'approved':
-      return <ActionNote tone="success" title={subject === 'vehicle' ? 'Véhicule approuvé' : 'Chauffeuse approuvée'} message={subject === 'vehicle' ? 'Documents vérifiés par l’équipe Naya.' : 'Identité et permis vérifiés par l’équipe Naya.'} testID={`review-${subject}`} />;
+      return (
+        <ActionNote
+          tone="success"
+          title={subject === 'vehicle' ? 'Véhicule approuvé' : subject === 'driver_famille' ? 'Agréée Naya Famille' : 'Chauffeuse approuvée'}
+          message={subject === 'vehicle' ? 'Documents vérifiés par l’équipe Naya.' : subject === 'driver_famille' ? 'Vous pouvez recevoir des trajets Naya Famille.' : 'Identité et permis vérifiés par l’équipe Naya.'}
+          testID={`review-${subject}`}
+        />
+      );
     case 'submitted':
     case 'in_review':
-      return <ActionNote tone="info" title={`${label} en attente d’examen`} message="Une personne de l’équipe Naya examine vos documents." icon={<Clock size={18} color={colors.info} />} testID={`review-${subject}`} />;
+      return (
+        <View style={styles.card} testID={`review-${subject}`}>
+          <ActionNote tone="info" title={`${label} en attente d’examen`} message={kase.status === 'in_review' ? 'Une personne de l’équipe Naya examine vos documents.' : 'Votre dossier est envoyé. Une personne de l’équipe Naya va l’examiner.'} icon={<Clock size={18} color={colors.info} />} />
+          <View style={{ marginTop: 6 }}>
+            {sectionItems(section).map((k) => (
+              <DocumentRow key={k} kase={kase} item={k} compact />
+            ))}
+          </View>
+        </View>
+      );
     case 'more_info_requested':
       return (
         <View style={{ gap: 12 }} testID={`review-${subject}`}>
           <ActionNote tone="warning" title={`${label} · complément demandé`} message={kase.decision?.message ?? 'Une pièce doit être reprise.'} icon={<AlertTriangle size={18} color={colors.warning} />} />
-          <CaseChecklist kase={kase} subject={subject} />
+          <SectionCard section={section} kase={kase} ctx={ctx} />
         </View>
       );
     case 'rejected': {
@@ -218,3 +272,12 @@ export function CaseReview({ kase, subject, recoverable }: { kase: VerificationC
       return null;
   }
 }
+
+const styles = themedStyles(() =>
+  StyleSheet.create({
+    card: { backgroundColor: colors.surface, borderRadius: 24, padding: 14, ...shadow.card },
+    track: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.selected, overflow: 'hidden' },
+    fill: { height: 4, borderRadius: 2 },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginVertical: 6 },
+  }),
+);

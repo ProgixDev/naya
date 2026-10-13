@@ -43,7 +43,7 @@ const cTone: Record<CityStatus, Tone> = { active: 'success', test: 'warning', in
 export const CityBadge = ({ status }: { status: CityStatus }) => <Badge tone={cTone[status]}>{CITY_LABELS[status]}</Badge>;
 export const cityStatusLabel = (s: CityStatus) => CITY_LABELS[s];
 
-export const SUBJECT_LABELS = { passenger_identity: 'Identité passagère', driver_identity: 'Identité chauffeuse', vehicle: 'Véhicule' } as const;
+export const SUBJECT_LABELS = { passenger_identity: 'Identité passagère', driver_identity: 'Identité chauffeuse', vehicle: 'Véhicule', driver_famille: 'Agrément Naya Famille' } as const;
 export const METHOD_LABELS = { cash: 'Espèces', card: 'Carte', wallet: 'Portefeuille Naya', mobile_wallet: 'Wallet marocain' } as const;
 export const LEDGER_LABELS = {
   ride_commission: 'Commission (espèces)',
