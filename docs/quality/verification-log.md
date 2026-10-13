@@ -86,3 +86,13 @@ here instead of copying numbers. What each layer covers: [testing-strategy.md](t
 | 2026-10-13 | c38429d + working tree (chore/docs-foundation-and-fixes) | onboarding photos: `CI=1 pnpm --filter @naya/passenger test` | pass: 20/20 | Claude (onboarding photos) |
 | 2026-10-13 | c38429d + working tree (chore/docs-foundation-and-fixes) | onboarding photos: `pnpm lint` | pass: 0 errors, 5 warnings | Claude (onboarding photos) |
 | 2026-10-13 | c38429d + working tree (chore/docs-foundation-and-fixes) | onboarding photos: passenger Expo web on :8091, `/welcome?preview=1` at 375 × 812, slides 1 and 3 inspected | pass: photo fills the stage, faces in frame, label readable; driver slide 1 not opened (same component and code path) | Claude (onboarding photos) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm install --frozen-lockfile --prefer-offline` | pass: lockfile unchanged | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm typecheck` | pass: 11/11 packages | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm --filter @naya/domain test` | pass: 93/93 (7 files) | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm --filter @naya/demo-api test` | pass: 89/89 (7 files) | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `CI=1 pnpm --filter @naya/passenger test` | pass: 22/22 (2 suites) | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm --filter @naya/web test` | pass: 8/8 | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm lint` | pass: 0 errors; 5 warnings (passenger), 3 (driver), all pre-existing unused imports | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm --filter @naya/admin build` | pass | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `node scripts/docs/gen-api-reference.mjs --check` | pass: up to date, 156 routes | Claude (integration trial) |
+| 2026-10-14 | a0b82dc (integration/trial-2026-10-14) | `pnpm e2e` | not run: left to the e2e agent; no browser walk or native run in this session | Claude (integration trial) |
