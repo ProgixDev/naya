@@ -69,6 +69,17 @@ Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: cover
 | A12 `10:1710` | A12-edit, -saved, -casa variants | `/paiements` | capture, E2E |
 | A13 `10:1863` | A13-detail, -config, -correction, -config-casa | `/audit` | capture, E2E |
 
+## Lavage à domicile (13 Oct, no Figma frame yet)
+
+Rules: [specs/car-wash.md](specs/car-wash.md). Shared screens in `packages/ui/src/features/carWash.tsx`; the routes are the same in both apps.
+
+| App | Route | Screen | Entry point | Evidence |
+|---|---|---|---|---|
+| passenger, driver | `(app)/car-wash` | `CarWashOrdersScreen` (open and past orders) | Passenger: Accueil → « Lavage à domicile ». Driver: tableau de bord, hors ligne et sans course | API `carWash.test.ts` |
+| passenger, driver | `(app)/car-wash/new` | `CarWashBookingScreen` (5 steps: lieu, voiture, formule, créneau, paiement) | « Commander un lavage » | API `carWash.test.ts` |
+| passenger, driver | `(app)/car-wash/[id]` | `CarWashOrderScreen` (timeline, live map, photos, receipt, rating, cancellation) | after booking, or a row of the list | API `carWash.test.ts` |
+| admin | `/lavages` | `CarWashPage` (read-only, `rides.read`) | menu « Lavages à domicile » | — |
+
 ## Scenario index (S01–S16)
 
 | Scenario | API test | UI E2E |
