@@ -80,7 +80,7 @@ export const verificationItemKeySchema = z.enum([
 ]);
 
 export const uploadSchema = z.object({
-  purpose: z.union([verificationItemKeySchema, z.literal('support_attachment')]),
+  purpose: z.union([verificationItemKeySchema, z.literal('support_attachment'), z.literal('family_proof')]),
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
   dataBase64: z.string().min(16).max(14_000_000),
   width: z.number().int().positive().nullable(),

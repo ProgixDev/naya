@@ -85,8 +85,71 @@ export type FamilyTripStatus =
   | 'en_route'
   | 'arrived'
   | 'picked_up'
+  | 'awaiting_approval'
   | 'in_progress'
-  | 'completed';
+  | 'completed'
+  | 'cancelled';
+/** A photo taken by the chauffeuse: the child at pick-up, then on the school premises. */
+export interface FamilyProof {
+  uploadId: string;
+  at: string;
+  location: LatLng;
+  /** Dev-mode stand-in (no camera); labelled « simulée » everywhere. */
+  simulated: boolean;
+}
+/** How the parent approved the start: next to the car, or from the notification. */
+export type FamilyApprovalMode = 'on_site' | 'remote';
+export interface FamilyStartApproval {
+  id: string;
+  requestedAt: string;
+  expiresAt: string;
+  status: 'pending' | 'approved' | 'refused' | 'expired';
+  mode: FamilyApprovalMode | null;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  reason: string | null;
+}
+export type FamilyTimelineKind =
+  | 'planned'
+  | 'departed'
+  | 'arrived'
+  | 'pickup_photo'
+  | 'start_requested'
+  | 'start_approved'
+  | 'start_refused'
+  | 'start_expired'
+  | 'live_started'
+  | 'dropoff_photo'
+  | 'completed'
+  | 'cancelled'
+  | 'call'
+  | 'call_request'
+  | 'police'
+  | 'invite'
+  | 'incident';
+export interface FamilyTimelineEntry {
+  at: string;
+  label: string;
+  location: LatLng;
+  proof?: string;
+  kind?: FamilyTimelineKind;
+  actor?: 'parent' | 'driver' | 'system';
+}
+export interface FamilyNotification {
+  id?: string;
+  at: string;
+  title: string;
+  body?: string;
+  kind?: 'approval_request' | 'approval_result' | 'call_request' | 'status' | 'police' | 'incident';
+  /** Who should be told. Missing on trips recorded before 13 Oct: treated as the parent. */
+  audience?: 'parent' | 'driver';
+  approvalId?: string;
+}
+/** Demo engine switches for one trip: who is simulated, and how the simulated parent answers. */
+export interface FamilyDemoControls {
+  driver: boolean;
+  parent: 'approve' | 'refuse' | 'timeout' | null;
+}
 export interface FamilyTrip {
   id: string;
   passengerId: string;
@@ -101,11 +164,80 @@ export interface FamilyTrip {
   status: FamilyTripStatus;
   location: LatLng;
   recipientId: string | null;
+  /** Legacy (6 Oct flow): photo on arrival, before the child was collected. */
   arrivalProof: string | null;
+  /** The chauffeuse's attestation that she asked the child's first name. Not an identity check. */
   pickupVerified: boolean;
-  timeline: { at: string; label: string; location: LatLng; proof?: string }[];
-  notifications: { at: string; title: string }[];
+  timeline: FamilyTimelineEntry[];
+  notifications: FamilyNotification[];
   incident: string | null;
+  /* Fields below were added on 13 Oct; trips stored before that have none of them. */
+  pickupPhoto?: FamilyProof | null;
+  dropoffPhoto?: FamilyProof | null;
+  /** The current (or last) start request. */
+  approval?: FamilyStartApproval | null;
+  approvals?: FamilyStartApproval[];
+  departedAt?: string | null;
+  arrivedAt?: string | null;
+  pickedUpAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  cancellation?: { at: string; by: 'parent' | 'driver'; reason: string } | null;
+  /** Last device position sent by the chauffeuse during this trip. */
+  lastFix?: { location: LatLng; at: string } | null;
+  demo?: FamilyDemoControls | null;
+}
+/** A co-parent (or other relative) invited by the parent to follow trips through a private link. */
+export interface FamilyGuardian {
+  id: string;
+  passengerId: string;
+  name: string;
+  relationship: string;
+  phone: string | null;
+  status: 'invited' | 'active' | 'revoked';
+  /** SHA-256 of the follow token; the token itself is only returned when it is created. */
+  tokenHash: string;
+  createdAt: string;
+  lastViewedAt: string | null;
+  revokedAt: string | null;
+}
+export type FamilyGuardianView = Omit<FamilyGuardian, 'tokenHash'>;
+/** Live position of a Famille trip, polled every second while it is active. */
+export interface FamilyLive {
+  tripId: string;
+  status: FamilyTripStatus;
+  location: LatLng;
+  at: string;
+  source: 'demo' | 'gps';
+  stale: boolean;
+  ageSeconds: number;
+  heading: number | null;
+  leg: 'idle' | 'to_pickup' | 'at_pickup' | 'to_school' | 'arrived';
+  /** Polyline of the current leg. */
+  route: LatLng[];
+  progress: number;
+  remainingMeters: number;
+  /** Wall-clock seconds to the next stop (the demo runs accelerated). */
+  etaSeconds: number | null;
+  approval: (FamilyStartApproval & { secondsLeft: number }) | null;
+  serverTime: string;
+  timeFactor: number;
+}
+/** What a follow link shows: no photos, no codes, no phone numbers. */
+export interface FamilyFollowView {
+  guardianName: string;
+  parentFirstName: string;
+  trips: {
+    id: string;
+    childName: string;
+    driverFirstName: string;
+    status: FamilyTripStatus;
+    pickup: Place;
+    destination: Place;
+    pickupAt: string;
+    timeline: { at: string; label: string; kind?: FamilyTimelineKind }[];
+    live: FamilyLive | null;
+  }[];
 }
 export interface SafetyAlert {
   id: string;
@@ -143,11 +275,17 @@ export interface PrototypeState {
   alerts: SafetyAlert[];
   wallets: PassengerWallet[];
   driverCategories: Record<string, string[]>;
+  /** Added 13 Oct; absent in older stores. */
+  guardians?: FamilyGuardian[];
 }
 export interface FamilyOverview {
   children: FamilyChild[];
   subscription: FamilySubscription | null;
   trips: FamilyTrip[];
+  /** Parent only: people she invited to follow the trips. */
+  guardians?: FamilyGuardianView[];
+  /** Driver only: her Naya Famille vetting status. */
+  eligibility?: import('./famille').FamilleEligibility;
 }
 export interface PrototypeAdmin extends PrototypeState {
   people: {
@@ -155,6 +293,7 @@ export interface PrototypeAdmin extends PrototypeState {
     name: string;
     role: 'passenger' | 'driver';
     cityId: string;
+    familleEligibility?: import('./famille').FamilleEligibility;
   }[];
 }
 export const FAMILY_STATUS_LABELS: Record<FamilyTripStatus, string> = {
@@ -162,17 +301,11 @@ export const FAMILY_STATUS_LABELS: Record<FamilyTripStatus, string> = {
   en_route: 'Chauffeuse en route',
   arrived: 'Chauffeuse arrivée',
   picked_up: 'Enfant récupéré',
+  awaiting_approval: 'Départ en attente de l’accord du parent',
   in_progress: 'Trajet en cours',
-  completed: 'Remis à une personne autorisée',
+  completed: 'Déposé · photo et remise confirmées',
+  cancelled: 'Trajet annulé',
 };
-export const FAMILY_NEXT: Partial<Record<FamilyTripStatus, FamilyTripStatus>> =
-  {
-    scheduled: 'en_route',
-    en_route: 'arrived',
-    arrived: 'picked_up',
-    picked_up: 'in_progress',
-    in_progress: 'completed',
-  };
 
 export function defaultPrototypeCatalog(): PrototypeCatalog {
   return {
