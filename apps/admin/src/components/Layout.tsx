@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, CreditCard, FileText, LogOut, MapPin, Menu, MessageCircle, Route, ShieldCheck, Users, Wallet, X, Lock } from 'lucide-react';
+import { BarChart3, CreditCard, Droplets, FileText, LogOut, MapPin, Menu, MessageCircle, Route, ShieldCheck, Users, Wallet, X, Lock } from 'lucide-react';
 import type { AdminPermission } from '@naya/domain';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -15,6 +15,7 @@ export const NAV: { to: string; label: string; icon: typeof BarChart3; permissio
   { to: '/verifications', label: 'Vérifications', icon: ShieldCheck, permission: 'people.read', group: 'travail' },
   { to: '/personnes', label: 'Personnes & véhicules', icon: Users, permission: 'people.read', group: 'travail' },
   { to: '/courses', label: 'Courses', icon: Route, permission: 'rides.read', group: 'travail' },
+  { to: '/lavages', label: 'Lavages à domicile', icon: Droplets, permission: 'rides.read', group: 'travail' },
   { to: '/support', label: 'Support', icon: MessageCircle, permission: 'support.resolve', group: 'travail' },
   { to: '/finance', label: 'Finance', icon: Wallet, permission: 'finance.read', group: 'gestion' },
   { to: '/villes', label: 'Villes & règles', icon: MapPin, group: 'gestion' },
