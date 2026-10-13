@@ -104,7 +104,8 @@ describe('Naya Famille vetting · opt-in, criminal-record extract, familleEligib
   it('not_requested → pending on submission → approved by a reviewer', async () => {
     const h = setup();
     const admin = await h.adminLogin();
-    const t = await h.login(PHONES.nadia, 'driver');
+    // Leila: person and vehicle approved, never applied (Nadia, the bot chauffeuse, is seeded approved).
+    const t = await h.login(PHONES.leila, 'driver');
     expect((await h.ok('GET', '/me', { token: t })).user.familleEligibility ?? 'not_requested').toBe('not_requested');
     const fc = await h.ok('POST', '/verification/famille', { token: t });
     expect(fc.subject).toBe('driver_famille');
@@ -112,7 +113,7 @@ describe('Naya Famille vetting · opt-in, criminal-record extract, familleEligib
     expect((await h.call('POST', `/verification/${fc.id}/submit`, { token: t })).body.error.details.missing).toEqual(['criminal_record']);
 
     // A reference cannot be the driver herself.
-    await h.ok('PUT', `/verification/${fc.id}/draft`, { token: t, body: { ...FAMILLE, reference1Phone: PHONES.nadia } });
+    await h.ok('PUT', `/verification/${fc.id}/draft`, { token: t, body: { ...FAMILLE, reference1Phone: PHONES.leila } });
     expect((await h.ok('GET', '/me', { token: t })).cases.find((c: any) => c.id === fc.id).famille ?? null).toBeNull();
     const filled = await h.ok('PUT', `/verification/${fc.id}/draft`, { token: t, body: FAMILLE });
     expect(filled.famille).toMatchObject({ trainingAcknowledged: true, interview: { day: '2026-10-03', window: 'afternoon' } });
@@ -120,7 +121,7 @@ describe('Naya Famille vetting · opt-in, criminal-record extract, familleEligib
     await h.ok('POST', `/verification/${fc.id}/submit`, { token: t });
     expect((await h.ok('GET', '/me', { token: t })).user.familleEligibility).toBe('pending');
 
-    const rows = (await h.ok('GET', '/admin/people?role=driver&q=Nadia', { token: admin })).items;
+    const rows = (await h.ok('GET', '/admin/people?role=driver&q=Leila', { token: admin })).items;
     expect(rows[0].familleStatus).toBe('submitted');
     const queued = (await h.ok('GET', '/admin/verifications?status=queue&subject=driver_famille', { token: admin })).items.map((r: any) => r.case.id);
     expect(queued).toContain(fc.id);
