@@ -27,6 +27,15 @@ Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: cover
 | P15 `8:1141` | — | `(app)/help`, `(app)/help/[topic]` | capture |
 | P16 `8:1202` | P16-attachment, -status, -reply | `(app)/support`, `support/new`, `support/[id]` | capture, E2E S14 |
 
+Added later with no Figma frame (Oct 6, 89aae18; a few captures in `docs/screens/feedback/`):
+
+| Route | Screen | Evidence |
+|---|---|---|
+| `(app)/wallet` | Portefeuille Naya (passenger wallet) | E2E scenarios-feedback |
+| `(app)/family` | Naya Famille, parent side | E2E scenarios-feedback |
+| `(app)/brand` | Identité · 6 pistes (logo concepts) | E2E scenarios-feedback |
+| `dev` | Lanceur de scénarios (demo builds) | — |
+
 ## Driver (apps/driver)
 
 | Figma | Frames covered | Route | Evidence |
@@ -50,6 +59,14 @@ Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: cover
 | D17 `9:1030` | D17-settings | `(app)/(tabs)/account`, `profile/vehicle`, `profile/preferences` | capture |
 | D18 `9:1133` | D18-form, -status, -reply | `(app)/support`, `support/new`, `support/[id]` | capture |
 
+Added later with no Figma frame (Oct 6, 89aae18):
+
+| Route | Screen | Evidence |
+|---|---|---|
+| `(app)/family` | Naya Famille, chauffeuse side | E2E scenarios-feedback |
+| `(app)/brand` | Identité · 6 pistes (logo concepts) | — |
+| `dev` | Lanceur de scénarios (demo builds) | — |
+
 ## Admin (apps/admin)
 
 | Figma | Frames covered | Route | Evidence |
@@ -68,6 +85,13 @@ Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: cover
 | A11 `10:1573` | A11-casa, -confirm(-casa), -dynamic(-casa), -policy(-casa), -saved(-casa) | `/villes/:id/regles` | capture, E2E S06/S15 |
 | A12 `10:1710` | A12-edit, -saved, -casa variants | `/paiements` | capture, E2E |
 | A13 `10:1863` | A13-detail, -config, -correction, -config-casa | `/audit` | capture, E2E |
+
+Added later with no Figma frame:
+
+| Route | Screen | Evidence |
+|---|---|---|
+| `/services` | « Services et familles » (catalog, families, SOS tab, wallets, brand), `config.edit`; Oct 6, 89aae18 | E2E scenarios-feedback, `admin-operations.spec.ts` P12 |
+| `/sos` | « Alertes SOS », `safety.respond` (P2; branch `chore/docs-foundation-and-fixes`) | API `prototype.test.ts`; no capture or e2e yet |
 
 ## Scenario index (S01–S16)
 

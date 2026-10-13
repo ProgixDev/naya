@@ -2,6 +2,13 @@
 
 These are **configurable demo business rules**, not live provider pricing.
 
+> Rules per area, with code evidence: [specs/pricing-cities-categories.md](specs/pricing-cities-categories.md) and
+> [specs/payments-and-fees.md](specs/payments-and-fees.md). Known contradictions with the code (13 October 2026): app
+> bookings that name a category take the category's commission (Standard 15 %), not the city's, so the 18 % for
+> Casablanca below does not apply to them (P8, [ADR-0033](adr/0033-pricing-precedence-between-city-rules-and-service.md));
+> the passenger wallet and mobile-wallet flows are not described here (DOC-08); and a correction that reuses an
+> `Idempotency-Key` with a different body returns the first entry instead of being refused (API-07).
+
 ## Representation
 
 - Money is an integer number of **centimes** (1 MAD = 100). Rates are integer **basis points** (15 % = 1 500 bp, ×1,2 = 12 000 bp).
