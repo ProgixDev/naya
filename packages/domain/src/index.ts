@@ -10,6 +10,7 @@ export * from './labels';
 export * from './phone';
 export * from './prototype';
 export * from './schemas';
+export * from './signup';
 export * from './machines/machine';
 export * from './machines/ride';
 export * from './machines/offer';
