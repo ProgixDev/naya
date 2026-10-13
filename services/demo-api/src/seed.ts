@@ -11,8 +11,12 @@ import {
   splitFare,
   type CityConfig,
   type CityRules,
-  type FamilleEligibility,
   type IdentityDetails,
+  type LicenceDetails,
+  REQUIRED_ITEMS,
+  casablancaToday,
+  familleEligibilityFor,
+  interviewDays,
   type PaymentProviderConfig,
   type Ride,
   type User,
@@ -49,10 +53,12 @@ export const DEMO_ACCOUNTS = {
   ],
   drivers: [
     { phone: '+212661234567', name: 'Amina Bennani', state: 'Personne et véhicule approuvés · Naya Famille approuvée' },
-    { phone: '+212662345678', name: 'Khadija Idrissi', state: 'Personne approuvée · véhicule en examen · Famille en examen' },
-    { phone: '+212665678901', name: 'Samira Fassi', state: 'Véhicule approuvé · permis à corriger · Famille refusée' },
+    { phone: '+212662345678', name: 'Khadija Idrissi', state: 'Personne approuvée · véhicule en examen' },
+    { phone: '+212665678901', name: 'Samira Fassi', state: 'Véhicule approuvé · permis à corriger' },
     { phone: '+212664567890', name: 'Leila Amrani', state: 'Solde −150 MAD : offres bloquées · Famille non demandée' },
-    { phone: '+212663456789', name: 'Nadia Chraibi', state: 'Chauffeuse simulée (bot de démonstration) · Famille approuvée' },
+    { phone: '+212663456789', name: 'Nadia Chraibi', state: 'Chauffeuse simulée (bot de démonstration) · Naya Famille approuvée' },
+    { phone: '+212666789012', name: 'Yasmine Berrada', state: 'Inscription en cours : reprend à la date de naissance' },
+    { phone: '+212667890123', name: 'Houda Lamrani', state: 'Approuvée · candidature Naya Famille en examen' },
   ],
   admins: [
     { email: 'meryem@naya.demo', password: 'Naya-Admin-2026', name: 'Meryem Lahlou', role: 'Administratrice (toutes permissions)' },
@@ -135,10 +141,11 @@ interface PersonSpec {
   doc: string;
   testerCities?: string[];
   rating?: number;
-  /** Driver only: Naya Famille vetting (see `familleEligibility`). */
-  famille?: FamilleEligibility;
   decisionReason?: string;
   corrections?: { key: VerificationItemKey; note: string }[];
+  /** Driver: licence issue year (experience is derived). */
+  licenceSince?: number;
+  address?: string;
 }
 
 function person(s: State, dataDir: string, spec: PersonSpec, at: string): User {
@@ -160,14 +167,26 @@ function person(s: State, dataDir: string, spec: PersonSpec, at: string): User {
     vehicleId: null,
     ratingAverage: spec.rating ?? null,
     ratingCount: spec.rating ? 42 : 0,
-    ...(spec.role === 'driver' ? { familleEligibility: spec.famille ?? 'not_requested' } : {}),
+    // Drivers start at not_requested; familleCase() sets the flag from the vetting dossier.
+    ...(spec.role === 'driver' ? { familleEligibility: 'not_requested' as const } : {}),
   };
   s.users.push(user);
-  const identity: IdentityDetails = { firstName: spec.first, lastName: spec.last, birthDate: spec.birth, documentType: 'cin', documentNumber: spec.doc };
-  const keys: VerificationItemKey[] = spec.role === 'passenger' ? ['selfie', 'id_front', 'id_back'] : ['selfie', 'id_front', 'id_back', 'driving_licence'];
+  const driver = spec.role === 'driver';
+  const identity: IdentityDetails = {
+    firstName: spec.first,
+    lastName: spec.last,
+    birthDate: spec.birth,
+    documentType: 'cin',
+    documentNumber: spec.doc,
+    ...(driver ? { address: spec.address ?? 'Adresse fictive, Hay Riad', city: 'Rabat' } : {}),
+  };
+  const since = spec.licenceSince ?? 2012;
+  const licence: LicenceDetails | null = driver ? { number: `${String(since).slice(2)}/${spec.doc.slice(2)}`, category: 'B', issueDate: `${since}-06-18`, expiryDate: `${since + 20}-06-18`, experienceYears: 2026 - since - 1 } : null;
+  const keys: VerificationItemKey[] = driver ? REQUIRED_ITEMS.driver_identity : REQUIRED_ITEMS.passenger_identity;
   const fixtureFor = (k: VerificationItemKey) => {
     if (k === 'selfie') return spec.who === 'generic' ? 'salma-selfie' : `${spec.who}-selfie`;
     if (k === 'driving_licence') return spec.corrections?.some((c) => c.key === k) ? 'generic-licence-blurry' : 'amina-licence';
+    if (k === 'driving_licence_back') return 'licence-back';
     return `${spec.who}-${k.replace('_', '-')}`;
   };
   const items: VerificationItem[] = keys.map((key) => {
@@ -179,7 +198,9 @@ function person(s: State, dataDir: string, spec: PersonSpec, at: string): User {
       note: correction?.note ?? null,
     };
   });
-  s.cases.push(caseFor(caseId, spec.role === 'passenger' ? 'passenger_identity' : 'driver_identity', id, null, spec.status, items, identity, null, at, spec));
+  const c = caseFor(caseId, driver ? 'driver_identity' : 'passenger_identity', id, null, spec.status, items, identity, null, at, spec);
+  if (driver) c.licence = licence;
+  s.cases.push(c);
   return user;
 }
 
@@ -229,12 +250,43 @@ function vehicleFor(s: State, dataDir: string, driver: User, status: Verificatio
   const details = { make: 'Naya', model: 'Signature', color: color === 'pearl' ? 'Perle' : 'Prune', plate, year: color === 'pearl' ? 2024 : 2023 };
   s.vehicles.push({ id: vehicleId, driverId: driver.id, caseId, ...details });
   driver.vehicleId = vehicleId;
-  const items: VerificationItem[] = [
-    { key: 'vehicle_registration', uploadIds: [upload(s, dataDir, driver.id, 'vehicle_registration', color === 'pearl' ? 'vehicle-registration' : 'vehicle-registration-2', at)], status: status === 'approved' ? 'accepted' : 'provided', note: null },
-    { key: 'insurance', uploadIds: [upload(s, dataDir, driver.id, 'insurance', 'insurance', at)], status: status === 'approved' ? 'accepted' : 'provided', note: null },
-    { key: 'vehicle_photos', uploadIds: [upload(s, dataDir, driver.id, 'vehicle_photos', `vehicle-${color}`, at)], status: status === 'approved' ? 'accepted' : 'provided', note: null },
-  ];
+  const fixture: Partial<Record<VerificationItemKey, string>> = {
+    vehicle_registration: color === 'pearl' ? 'vehicle-registration' : 'vehicle-registration-2',
+    insurance: 'insurance',
+    technical_inspection: 'technical-inspection',
+    vehicle_photo_front: `vehicle-${color}`,
+    vehicle_photo_back: 'vehicle-pearl-back',
+    vehicle_photo_left: 'vehicle-pearl-left',
+    vehicle_photo_right: 'vehicle-pearl-right',
+    vehicle_photo_interior: 'vehicle-interior',
+  };
+  const items: VerificationItem[] = REQUIRED_ITEMS.vehicle.map((key) => ({
+    key,
+    uploadIds: [upload(s, dataDir, driver.id, key, fixture[key]!, at)],
+    status: status === 'approved' ? 'accepted' : 'provided',
+    note: null,
+  }));
   s.cases.push(caseFor(caseId, 'vehicle', driver.id, vehicleId, status, items, null, details, at, {}));
+}
+
+/** Naya Famille vetting dossier (criminal-record extract + application), 13 Oct brief. */
+function familleCase(s: State, dataDir: string, driver: User, status: VerificationStatus, at: string) {
+  const caseId = nextId(s, 'VF');
+  const items: VerificationItem[] = [
+    { key: 'criminal_record', uploadIds: [upload(s, dataDir, driver.id, 'criminal_record', 'criminal-record', at)], status: status === 'approved' ? 'accepted' : 'provided', note: null },
+  ];
+  const c = caseFor(caseId, 'driver_famille', driver.id, null, status, items, null, null, at, {});
+  c.famille = {
+    references: [
+      { name: 'Khadija Alami', phone: '+212600000101' },
+      { name: 'Souad Kettani', phone: '+212600000102' },
+    ],
+    childExperience: { years: 8, summary: 'Mère de deux enfants, accompagnatrice de sorties scolaires depuis 2018.' },
+    trainingAcknowledged: true,
+    interview: { day: interviewDays(casablancaToday(Date.parse(at)), 1)[0]!, window: 'morning' },
+  };
+  s.cases.push(c);
+  driver.familleEligibility = familleEligibilityFor(status);
 }
 
 function completedRide(s: State, passenger: User, driver: User, kind: 'cash' | 'card', pmId: string, pmLabel: string, completedMs: number, route = demoRoute([PLACES.gareRabatVille, PLACES.agdal, PLACES.hayRiad]), series = 'NY'): Ride {
@@ -332,18 +384,30 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
   for (const u of s.users.filter((x) => x.role === 'passenger' && !s.paymentMethods.some((p) => p.userId === x.id))) pm(u.id, 'cash', 'Espèces', null, null, true);
 
   // Drivers
-  const amina = person(s, dataDir, { role: 'driver', first: 'Amina', last: 'Bennani', phone: '+212661234567', who: 'amina', status: 'approved', birth: '1988-09-03', doc: 'CD654321', rating: 4.9, testerCities: [], famille: 'approved' }, at);
+  const amina = person(s, dataDir, { role: 'driver', first: 'Amina', last: 'Bennani', phone: '+212661234567', who: 'amina', status: 'approved', birth: '1988-09-03', doc: 'CD654321', rating: 4.9, testerCities: [] }, at);
   vehicleFor(s, dataDir, amina, 'approved', 'pearl', 'DÉMO-001', at);
-  const khadija = person(s, dataDir, { role: 'driver', first: 'Khadija', last: 'Idrissi', phone: '+212662345678', who: 'generic', status: 'approved', birth: '1985-05-22', doc: 'MN223344', rating: 4.8, famille: 'pending' }, at);
+  const khadija = person(s, dataDir, { role: 'driver', first: 'Khadija', last: 'Idrissi', phone: '+212662345678', who: 'generic', status: 'approved', birth: '1985-05-22', doc: 'MN223344', rating: 4.8 }, at);
   vehicleFor(s, dataDir, khadija, 'submitted', 'plum', 'DÉMO-002', iso(nowMs - 3_600_000));
-  const nadia = person(s, dataDir, { role: 'driver', first: 'Nadia', last: 'Chraibi', phone: '+212663456789', who: 'generic', status: 'approved', birth: '1991-12-02', doc: 'OP556677', rating: 4.7, famille: 'approved' }, at);
+  const nadia = person(s, dataDir, { role: 'driver', first: 'Nadia', last: 'Chraibi', phone: '+212663456789', who: 'generic', status: 'approved', birth: '1991-12-02', doc: 'OP556677', rating: 4.7 }, at);
   vehicleFor(s, dataDir, nadia, 'approved', 'plum', 'DÉMO-003', at);
   const leila = person(s, dataDir, { role: 'driver', first: 'Leila', last: 'Amrani', phone: '+212664567890', who: 'generic', status: 'approved', birth: '1987-08-19', doc: 'QR889900', rating: 4.6 }, at);
   vehicleFor(s, dataDir, leila, 'approved', 'pearl', 'DÉMO-004', at);
-  const samira = person(s, dataDir, { role: 'driver', first: 'Samira', last: 'Fassi', phone: '+212665678901', who: 'generic', status: 'more_info_requested', birth: '1992-10-10', doc: 'ST001122', corrections: [{ key: 'driving_licence', note: 'Le permis est flou : photographiez-le à plat, en pleine lumière.' }], famille: 'rejected' }, at);
+  const samira = person(s, dataDir, { role: 'driver', first: 'Samira', last: 'Fassi', phone: '+212665678901', who: 'generic', status: 'more_info_requested', birth: '1992-10-10', doc: 'ST001122', corrections: [{ key: 'driving_licence', note: 'Le permis est flou : photographiez-le à plat, en pleine lumière.' }] }, at);
   vehicleFor(s, dataDir, samira, 'approved', 'pearl', 'DÉMO-005', at);
 
-  for (const d of [amina, khadija, nadia, leila, samira]) {
+  // Driver sign-up (13 Oct brief). Amina and Nadia (the simulated chauffeuse of the Famille
+  // demo engine) are approved for Naya Famille; Houda's application waits in the review queue;
+  // Yasmine stopped her sign-up after giving her name. The flag always follows the dossier.
+  familleCase(s, dataDir, amina, 'approved', at);
+  familleCase(s, dataDir, nadia, 'approved', at);
+  const houda = person(s, dataDir, { role: 'driver', first: 'Houda', last: 'Lamrani', phone: '+212667890123', who: 'generic', status: 'approved', birth: '1990-04-25', doc: 'UV334455', rating: 4.9, licenceSince: 2011, address: '8 avenue Al Majd, Hay Riad' }, at);
+  vehicleFor(s, dataDir, houda, 'approved', 'pearl', 'DÉMO-006', at);
+  familleCase(s, dataDir, houda, 'submitted', iso(nowMs - 2 * 3_600_000));
+  const yasmine = person(s, dataDir, { role: 'driver', first: 'Yasmine', last: 'Berrada', phone: '+212666789012', who: 'generic', status: 'draft', birth: '1995-01-01', doc: 'WX556677' }, at);
+  const yCase = s.cases.find((c) => c.id === yasmine.identityCaseId)!;
+  Object.assign(yCase, { identity: null, licence: null, items: [], draft: { firstName: 'Yasmine', lastName: 'Berrada' }, history: [{ at, status: 'draft', by: yasmine.id }], version: 2 });
+
+  for (const d of [amina, khadija, nadia, leila, samira, houda]) {
     s.payoutAccounts.push({ id: nextId(s, 'PO'), driverId: d.id, label: 'Compte principal', bankName: 'Banque de démonstration', last4: d === amina ? '4821' : '7310' });
   }
   s.payoutAccounts.push({ id: nextId(s, 'PO'), driverId: amina.id, label: 'Compte test (virement refusé)', bankName: 'Banque de démonstration', last4: '0000' });

@@ -17,7 +17,9 @@ export function useCases() {
   const me = useMe();
   const person = me.data?.cases.find((c) => c.subject === 'driver_identity') ?? null;
   const vehicle = me.data?.cases.find((c) => c.subject === 'vehicle') ?? null;
-  return { ...me, person, vehicle };
+  /** Naya Famille vetting dossier; null until the driver opts in. */
+  const famille = me.data?.cases.find((c) => c.subject === 'driver_famille') ?? null;
+  return { ...me, person, vehicle, famille };
 }
 
 /** A case counts as submitted once it has left the draft state (even if sent back). */

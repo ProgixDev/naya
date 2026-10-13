@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { LatLng, Place, User } from './entities';
+import type { FamilleEligibility, LatLng, Place, User } from './entities';
 import { DomainError } from './errors';
 import { demoRoute, haversineMeters, pointAlong } from './geo';
 import { familyTripMachine, type FamilyTripEvent } from './machines/family';
@@ -9,11 +9,11 @@ import { HANDOVER_MAX_ATTEMPTS, type FamilyApprovalMode, type FamilyChild, type 
 
 /**
  * Stricter vetting for Famille chauffeuses (criminal-record extract, references, interview…).
- * The review flow itself lands on branch `feat/driver-signup`; this branch only reads the flag.
- * Contract: `User.familleEligibility`, driver accounts only, absent = `not_requested`.
+ * The review flow is the `driver_famille` dossier (signup.ts, services/verification.ts), which
+ * keeps the flag. Contract: `User.familleEligibility` (entities.ts), driver accounts only,
+ * absent = `not_requested`.
  */
-export const FAMILLE_ELIGIBILITY_VALUES = ['not_requested', 'pending', 'approved', 'rejected'] as const;
-export type FamilleEligibility = (typeof FAMILLE_ELIGIBILITY_VALUES)[number];
+export const FAMILLE_ELIGIBILITY_VALUES = ['not_requested', 'pending', 'approved', 'rejected'] as const satisfies readonly FamilleEligibility[];
 export const FAMILLE_ELIGIBILITY_LABELS: Record<FamilleEligibility, string> = {
   not_requested: 'Non demandée',
   pending: 'En cours d’examen',

@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bell, Car, FileText, FlaskConical, History, LifeBuoy, UserRound } from 'lucide-react-native';
+import { Baby, Bell, Car, FileText, FlaskConical, History, LifeBuoy, UserRound } from 'lucide-react-native';
 import { isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { STATUS_LABELS } from '@naya/domain';
+import { FAMILLE_ELIGIBILITY_LABELS, STATUS_LABELS, familleEligibilityOf } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useCases, useMe } from '@/lib/queries';
 import { useSession } from '@/lib/session';
@@ -46,6 +46,7 @@ export default function Account() {
           <ListRow title="Chauffeuse" subtitle="Identité et permis" leading={<IconDisc size={36}><UserRound size={17} color={colors.accent} /></IconDisc>} trailing={person ? <StatusPill tone={statusTone(person.status)} label={STATUS_LABELS[person.status]} /> : null} onPress={() => router.push('/docs/status')} testID="account-person" />
           <ListRow title={v ? `${v.make} ${v.model}` : 'Véhicule'} subtitle={v ? `${v.plate} · ${v.color} · ${v.year}` : 'À déclarer'} leading={<IconDisc size={36}><Car size={17} color={colors.accent} /></IconDisc>} trailing={vehicle ? <StatusPill tone={statusTone(vehicle.status)} label={STATUS_LABELS[vehicle.status]} /> : null} onPress={() => router.push('/profile/vehicle')} testID="account-vehicle" />
           <ListRow title="Documents et dossier" subtitle="Vérifier ou corriger les pièces" leading={<IconDisc size={36}><FileText size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/docs/start')} testID="account-documents" />
+          <ListRow title="Agrément Naya Famille" subtitle={u ? FAMILLE_ELIGIBILITY_LABELS[familleEligibilityOf(u)] : undefined} leading={<IconDisc size={36}><Baby size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/docs/famille')} testID="account-famille-eligibility" />
         </ListGroup>
         <ListGroup label="Vos essentiels">
           <ListRow title="Naya Famille" subtitle="Abonnements et trajets enfants" onPress={() => router.push('/family')} testID="account-family" />

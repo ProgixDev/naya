@@ -16,7 +16,10 @@ import {
   type DriverOffer,
   type EarningsSummary,
   type ErrorCode,
+  type FamilleApplicationInput,
   type IdentityDetailsInput,
+  type LicenceDetailsInput,
+  type SignupDraftInput,
   type LatLng,
   type LedgerEntry,
   type MobileRole,
@@ -158,6 +161,8 @@ export interface AdminPersonRow {
   user: User;
   identityStatus: VerificationCase['status'];
   vehicleStatus: VerificationCase['status'] | null;
+  /** Naya Famille vetting dossier, null when the driver has not opted in. */
+  familleStatus: VerificationCase['status'] | null;
   vehicle: Vehicle | null;
   wallet: Wallet | null;
 }
@@ -363,6 +368,12 @@ export function createApiClient(opts: ClientOptions) {
       saveIdentity: (caseId: string, input: IdentityDetailsInput) => request<VerificationCase>('PUT', `/verification/${caseId}/identity`, input),
       saveVehicle: (caseId: string, input: VehicleDetailsInput) => request<VerificationCase>('PUT', `/verification/${caseId}/vehicle`, input),
       setItem: (caseId: string, key: VerificationItemKey, uploadIds: string[]) => request<VerificationCase>('PUT', `/verification/${caseId}/items/${key}`, { uploadIds }),
+      saveLicence: (caseId: string, input: LicenceDetailsInput) => request<VerificationCase>('PUT', `/verification/${caseId}/licence`, input),
+      /** Saves sign-up answers; the server promotes complete groups into the typed details. */
+      saveDraft: (caseId: string, draft: SignupDraftInput) => request<VerificationCase>('PUT', `/verification/${caseId}/draft`, draft),
+      /** Naya Famille opt-in: opens (or returns) the driver's Famille dossier. */
+      ensureFamilleCase: () => post<VerificationCase>('/verification/famille'),
+      saveFamille: (caseId: string, input: FamilleApplicationInput) => request<VerificationCase>('PUT', `/verification/${caseId}/famille`, input),
       submit: (caseId: string) => post<VerificationCase>(`/verification/${caseId}/submit`),
       reopen: (caseId: string) => post<VerificationCase>(`/verification/${caseId}/reopen`),
     },
@@ -527,6 +538,9 @@ export function createApiClient(opts: ClientOptions) {
       /** Plays a whole Famille trip with a simulated chauffeuse and/or parent. */
       playFamily: (demo: FamilyDemoControls) => post<FamilyTrip>('/dev/family/play', demo),
       familyDemo: (tripId: string, demo: FamilyDemoControls) => post<FamilyTrip>(`/dev/family/trips/${tripId}/demo`, demo),
+      /** Scenario reviewer decides the caller's own submitted dossier at once (labelled « Démo »). */
+      simulateReview: (caseId: string, outcome: 'approved' | 'more_info_requested' | 'rejected', itemKey?: VerificationItemKey) =>
+        post<VerificationCase>(`/dev/verification/${caseId}/simulate`, { outcome, itemKey }),
       providerJobs: () => get<{ id: string; kind: string; ref: string; outcome: string; dueAt: string | null }[]>('/dev/provider-jobs'),
     },
   };

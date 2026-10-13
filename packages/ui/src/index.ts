@@ -25,6 +25,7 @@ export * from './features/auth';
 export * from './features/DevLauncher';
 export * from './features/support';
 export * from './features/capture';
+export * from './features/CaptureGuide';
 export * from './core/DevNavigator';
 export * from './Material';
 export * from './Progress';

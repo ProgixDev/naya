@@ -11,6 +11,7 @@ export * from './phone';
 export * from './prototype';
 export * from './famille';
 export * from './schemas';
+export * from './signup';
 export * from './machines/machine';
 export * from './machines/ride';
 export * from './machines/offer';

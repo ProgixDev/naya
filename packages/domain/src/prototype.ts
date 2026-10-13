@@ -1,5 +1,5 @@
 import type { Centimes } from './money';
-import type { AdminPermission, LatLng, Place, RideStatus } from './entities';
+import type { AdminPermission, FamilleEligibility, LatLng, Place, RideStatus } from './entities';
 
 export interface ServiceCategory {
   id: string;
@@ -342,7 +342,7 @@ export interface FamilyOverview {
   /** Parent only: people she invited to follow the trips. */
   guardians?: FamilyGuardianView[];
   /** Driver only: her Naya Famille vetting status. */
-  eligibility?: import('./famille').FamilleEligibility;
+  eligibility?: FamilleEligibility;
 }
 export interface PrototypeAdmin extends PrototypeState {
   people: {
@@ -350,7 +350,7 @@ export interface PrototypeAdmin extends PrototypeState {
     name: string;
     role: 'passenger' | 'driver';
     cityId: string;
-    familleEligibility?: import('./famille').FamilleEligibility;
+    familleEligibility?: FamilleEligibility;
   }[];
 }
 export const FAMILY_STATUS_LABELS: Record<FamilyTripStatus, string> = {

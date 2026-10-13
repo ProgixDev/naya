@@ -2,7 +2,7 @@ import { useTheme } from './../core/theme';
 import { useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Camera, FastForward, FileText, IdCard, ImageIcon, ScanFace } from 'lucide-react-native';
+import { Camera, FastForward, FileText, IdCard, ImageIcon, RotateCcw, ScanFace } from 'lucide-react-native';
 import { errorMessage } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';
@@ -11,8 +11,10 @@ import { Text } from '../Text';
 import { Button } from '../Button';
 import { StatusBanner } from '../Feedback';
 import { haptic } from '../haptics';
-import { pickFile, uploadFile, type PickedFile, type Source } from './uploads';
+import { normalizeImage, pickFile, uploadFile, type PickedFile, type Source } from './uploads';
 import { DEMO_MODE } from '../core/apiBase';
+import { CAPTURE_GUIDES, CaptureFrame, FRAME_RATIO, GuideTips } from './CaptureGuide';
+import { LiveCamera } from './LiveCamera';
 
 export interface CaptureStepProps {
   caseId: string;
@@ -24,6 +26,11 @@ export interface CaptureStepProps {
   correctionNote?: string | null;
   existingUploadId?: string | null;
   onSaved: (c: VerificationCase) => void;
+  /**
+   * Driver sign-up: document-shaped frame with its three checks, and on native a live
+   * viewfinder with the frame drawn over the camera (falls back to the system camera).
+   */
+  guided?: boolean;
 }
 
 const CARD_RATIO = 1.586; // ID-1 card
@@ -35,14 +42,35 @@ const FRAME_H = 210;
  * Uses the real camera, photo library or document picker and uploads to the protected
  * endpoint only when the person confirms. Permission denial offers a way to the settings.
  */
-export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, existingUploadId, onSaved }: CaptureStepProps) {
+export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, existingUploadId, onSaved, guided }: CaptureStepProps) {
   useTheme();
   const api = useApi();
   const [file, setFile] = useState<PickedFile | null>(null);
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState<Source | 'upload' | 'sample' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [live, setLive] = useState(false);
   const web = Platform.OS === 'web';
+  const guide = CAPTURE_GUIDES[item];
+
+  const openCamera = () => {
+    if (guided && !web) {
+      setError(null);
+      setLive(true);
+    } else choose('camera');
+  };
+
+  const fromLive = async (uri: string) => {
+    setLive(false);
+    setBusy('camera');
+    try {
+      setFile(await normalizeImage(uri));
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const choose = async (source: Source) => {
     setBusy(source);
@@ -96,19 +124,19 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
     }
   };
 
-  const frameW = selfie ? FRAME_H * 0.78 : FRAME_H * CARD_RATIO;
+  const frameW = guided ? (FRAME_H * FRAME_RATIO[guide.frame]) : selfie ? FRAME_H * 0.78 : FRAME_H * CARD_RATIO;
   const frame = {
     width: frameW,
     maxWidth: '100%' as const,
     height: FRAME_H,
-    borderRadius: selfie ? FRAME_H / 2 : 22,
+    borderRadius: (guided ? guide.frame === 'face' : selfie) ? FRAME_H / 2 : 22,
     alignSelf: 'center' as const,
     overflow: 'hidden' as const,
   };
 
   return (
     <View style={{ gap: 14 }} testID={`capture-${item}`}>
-      {correctionNote ? <StatusBanner compact tone="warning" title={`${ITEM_LABELS[item]} à reprendre`} message={correctionNote} /> : null}
+      {correctionNote ? <StatusBanner compact tone="warning" title={guided ? 'Pièce refusée · à renvoyer' : `${ITEM_LABELS[item]} à reprendre`} message={correctionNote} /> : null}
 
       {file ? (
         file.mimeType === 'application/pdf' ? (
@@ -121,6 +149,18 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
             <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" accessibilityLabel={`Aperçu : ${ITEM_LABELS[item]}`} />
           </View>
         )
+      ) : guided ? (
+        <View style={{ gap: 14 }}>
+          <View style={{ alignSelf: 'center', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }} accessible accessibilityLabel={`Cadre de prise de vue : ${guide.title}`}>
+            <CaptureFrame kind={guide.frame} width={Math.min(frameW, 300)} height={Math.round(Math.min(frameW, 300) / FRAME_RATIO[guide.frame])} done={!!existingUploadId} />
+          </View>
+          <View style={{ gap: 10, backgroundColor: colors.surface, borderRadius: 22, padding: 16 }}>
+            <Text variant="label" weight="semibold">
+              {existingUploadId ? 'Pièce envoyée · vous pouvez la remplacer' : guide.title}
+            </Text>
+            <GuideTips tips={guide.tips} />
+          </View>
+        </View>
       ) : (
         <View style={[frame, { borderWidth: 2, borderStyle: 'dashed', borderColor: existingUploadId ? colors.success : colors.mauve, backgroundColor: colors.glass, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 10 }]}>
           {selfie ? <ScanFace size={34} color={colors.accent} /> : <IdCard size={34} color={colors.accent} />}
@@ -136,16 +176,16 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
             Tout est lisible, sans reflet ni coin coupé ?
           </Text>
           <Button label="Utiliser cette photo" full size="major" loading={busy === 'upload'} loadingLabel="Envoi sécurisé…" onPress={confirm} testID="use-photo" />
-          <Button label="Reprendre" variant="secondary" full onPress={() => setFile(null)} disabled={busy === 'upload'} />
+          <Button label="Reprendre" variant="secondary" full icon={guided ? <RotateCcw size={17} color={colors.accent} /> : undefined} onPress={() => setFile(null)} disabled={busy === 'upload'} testID="retake-photo" />
         </View>
       ) : (
         <View style={{ gap: 10 }}>
           {!web ? (
-            <Button label={selfie ? 'Prendre mon selfie' : 'Prendre une photo'} full size="major" icon={<Camera size={18} color={colors.inverse} />} loading={busy === 'camera'} onPress={() => choose('camera')} testID="take-photo" />
+            <Button label={selfie ? 'Prendre mon selfie' : guided ? 'Ouvrir l’appareil photo' : 'Prendre une photo'} full size="major" icon={<Camera size={18} color={colors.inverse} />} loading={busy === 'camera'} onPress={openCamera} testID="take-photo" />
           ) : null}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button
-              label="Importer une photo"
+              label={guided ? 'Galerie' : 'Importer une photo'}
               variant={web ? 'primary' : 'secondary'}
               size={web ? 'major' : 'standard'}
               full
@@ -155,13 +195,28 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
               onPress={() => choose('library')}
               testID="import-photo"
             />
-            {!selfie ? <Button label="PDF" variant="secondary" size={web ? 'major' : 'standard'} icon={<FileText size={17} color={colors.accent} />} onPress={() => choose('document')} testID="import-pdf" /> : null}
+            {(guided ? guide.pdf : !selfie) ? <Button label="PDF" variant="secondary" size={web ? 'major' : 'standard'} icon={<FileText size={17} color={colors.accent} />} onPress={() => choose('document')} testID="import-pdf" /> : null}
           </View>
           {DEMO_MODE ? (
             <Button label="Passer · exemple de démonstration" variant="ghost" full icon={<FastForward size={16} color={colors.accent} />} loading={busy === 'sample'} disabled={!!busy && busy !== 'sample'} onPress={skip} testID="skip-capture" />
           ) : null}
         </View>
       )}
+      {guided && !web ? (
+        <LiveCamera
+          visible={live}
+          kind={guide.frame}
+          title={guide.title}
+          tip={guide.tips[0]}
+          front={guide.frame === 'face' ? true : undefined}
+          onClose={() => setLive(false)}
+          onCaptured={fromLive}
+          onUnavailable={() => {
+            setLive(false);
+            choose('camera');
+          }}
+        />
+      ) : null}
       {denied ? <StatusBanner tone="warning" title="Accès refusé" message="Autorisez l’appareil photo ou les photos dans les réglages pour continuer." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}
       {error ? <StatusBanner compact tone="danger" title="Envoi impossible" message={error} /> : null}
     </View>

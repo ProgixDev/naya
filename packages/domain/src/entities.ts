@@ -46,14 +46,21 @@ export interface User {
   identityCaseId: string | null;
   /** Driver only. */
   vehicleId: string | null;
-  /**
-   * Driver only: Naya Famille vetting. Absent means `not_requested` (stores written before
-   * 13 Oct). Contract shared with branch `feat/driver-signup`, which adds the review flow.
-   */
-  familleEligibility?: import('./famille').FamilleEligibility;
   ratingAverage: number | null;
   ratingCount: number;
+  /**
+   * Driver only: Naya Famille vetting state, kept by the server from the `driver_famille`
+   * case. Absent means `not_requested`. Read it through `familleEligibilityOf(user)`.
+   */
+  familleEligibility?: FamilleEligibility;
 }
+
+/**
+ * Naya Famille vetting of a driver (stricter than regular rides; criminal-record extract,
+ * references, experience with children, training, interview). Only `approved` drivers may
+ * receive Famille trips; they must also hold the regular person and vehicle approvals.
+ */
+export type FamilleEligibility = 'not_requested' | 'pending' | 'approved' | 'rejected';
 
 export type AdminPermission =
   | 'verification.decide'
@@ -77,7 +84,8 @@ export interface AdminUser {
 
 /* ───────────────────────── Verification ───────────────────────── */
 
-export type VerificationSubject = 'passenger_identity' | 'driver_identity' | 'vehicle';
+/** `driver_famille` is the optional Naya Famille vetting of a driver, reviewed separately. */
+export type VerificationSubject = 'passenger_identity' | 'driver_identity' | 'vehicle' | 'driver_famille';
 
 export type VerificationStatus =
   | 'draft'
@@ -91,10 +99,21 @@ export type VerificationItemKey =
   | 'selfie'
   | 'id_front'
   | 'id_back'
+  /** Driving licence, front side. */
   | 'driving_licence'
+  | 'driving_licence_back'
   | 'vehicle_registration'
   | 'insurance'
-  | 'vehicle_photos';
+  | 'technical_inspection'
+  /** Legacy single vehicle photo (before 13 Oct 2026); no longer required. */
+  | 'vehicle_photos'
+  | 'vehicle_photo_front'
+  | 'vehicle_photo_back'
+  | 'vehicle_photo_left'
+  | 'vehicle_photo_right'
+  | 'vehicle_photo_interior'
+  /** Extrait de casier judiciaire / fiche anthropométrique: Naya Famille drivers only. */
+  | 'criminal_record';
 
 export interface VerificationItem {
   key: VerificationItemKey;
@@ -110,6 +129,70 @@ export interface IdentityDetails {
   birthDate: string; // YYYY-MM-DD
   documentType: 'cin' | 'passport' | 'residence_permit';
   documentNumber: string;
+  /** Driver only (required before a driver submits). */
+  address?: string;
+  /** Driver only: city of residence as written by the driver. */
+  city?: string;
+}
+
+/** Driver licence as written on the card. Dates are YYYY-MM-DD (Casablanca business dates). */
+export interface LicenceDetails {
+  number: string;
+  category: 'B';
+  issueDate: string;
+  expiryDate: string;
+  /** Years of driving experience declared by the driver. */
+  experienceYears: number;
+}
+
+export interface FamilleReference {
+  name: string;
+  /** E.164 */
+  phone: string;
+}
+
+/** The Naya Famille application filled by a driver who opts in. */
+export interface FamilleApplication {
+  references: [FamilleReference, FamilleReference];
+  childExperience: { years: number; summary: string };
+  /** The driver acknowledged the Naya Famille training (child safety, car seats, handover). */
+  trainingAcknowledged: true;
+  /** Requested interview slot, Casablanca business date and half-day window. */
+  interview: { day: string; window: 'morning' | 'afternoon' };
+}
+
+/**
+ * Answers saved while the driver goes through the one-question-per-screen sign-up, so she
+ * can stop and resume on any device. The server promotes complete groups into the typed
+ * `identity`, `licence`, `vehicle` and `famille` fields; reviewers only read those.
+ */
+export interface SignupDraft {
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string;
+  documentType?: IdentityDetails['documentType'];
+  documentNumber?: string;
+  address?: string;
+  city?: string;
+  licenceNumber?: string;
+  licenceCategory?: string;
+  licenceIssueDate?: string;
+  licenceExpiryDate?: string;
+  experienceYears?: number;
+  make?: string;
+  model?: string;
+  color?: string;
+  plate?: string;
+  year?: number;
+  reference1Name?: string;
+  reference1Phone?: string;
+  reference2Name?: string;
+  reference2Phone?: string;
+  childExperienceYears?: number;
+  childExperienceSummary?: string;
+  trainingAcknowledged?: boolean;
+  interviewDay?: string;
+  interviewWindow?: 'morning' | 'afternoon';
 }
 
 export interface VehicleDetails {
@@ -140,6 +223,12 @@ export interface VerificationCase {
   items: VerificationItem[];
   identity: IdentityDetails | null;
   vehicle: VehicleDetails | null;
+  /** driver_identity only. Optional so cases stored before 13 Oct 2026 stay valid. */
+  licence?: LicenceDetails | null;
+  /** driver_famille only. */
+  famille?: FamilleApplication | null;
+  /** Sign-up answers not yet complete enough to be promoted (driver cases). */
+  draft?: SignupDraft | null;
   decision: VerificationDecision | null;
   history: { at: IsoUtc; status: VerificationStatus; by: string; note?: string }[];
   submittedAt: IsoUtc | null;

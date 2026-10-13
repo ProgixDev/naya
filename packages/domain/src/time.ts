@@ -59,3 +59,6 @@ export function toCasablancaParts(iso: IsoUtc): { date: string; time: string } {
 }
 
 export const secondsBetween = (fromIso: IsoUtc, toMs: number) => Math.round((toMs - Date.parse(fromIso)) / 1000);
+
+/** Today's business date in Africa/Casablanca, "YYYY-MM-DD". */
+export const casablancaToday = (nowMs: number = Date.now()): string => toCasablancaParts(new Date(nowMs).toISOString()).date;
