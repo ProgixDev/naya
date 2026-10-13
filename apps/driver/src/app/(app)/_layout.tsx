@@ -1,4 +1,4 @@
-import { useTheme , useStackMotion, useA11yPrefs, toast } from '@naya/ui';
+import { useTheme , useStackMotion, useA11yPrefs, haptic, toast, useFamily } from '@naya/ui';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Stack, router, usePathname } from 'expo-router';
@@ -6,7 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { colors } from '@naya/tokens';
 import { serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { useDriverStatus } from '@/lib/queries';
+import { useAccountId, useDriverStatus, useMe } from '@/lib/queries';
 import { useLocationStream } from '@/lib/location';
 import { startRideTracking, stopRideTracking } from '@/lib/backgroundLocation';
 
@@ -69,11 +69,41 @@ function useRideTracking() {
   }, [rideId]);
 }
 
+/**
+ * Naya Famille, chauffeuse side: the parent's answer to « Démarrer » (approved, refused,
+ * expired), a call request and cancellations arrive as notifications on the trip.
+ */
+function useFamilyWatcher() {
+  const me = useMe();
+  const family = useFamily(useAccountId(), me.data?.user.familleEligibility === 'approved');
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const trips = family.data?.trips;
+    if (!trips) return;
+    const all = trips.flatMap((t) => t.notifications.filter((n) => n.audience === 'driver' && n.id));
+    if (!seen.current) {
+      seen.current = new Set(all.map((n) => n.id!));
+      return;
+    }
+    for (const n of all) {
+      if (seen.current.has(n.id!)) continue;
+      seen.current.add(n.id!);
+      if (n.title.startsWith('Départ approuvé')) haptic.success();
+      else haptic.warning();
+      toast(n.title, n.title.startsWith('Départ approuvé') ? 'success' : undefined);
+      if (AppState.currentState !== 'active' && Platform.OS !== 'web') {
+        Notifications.scheduleNotificationAsync({ content: { title: n.title, body: n.body ?? '' }, trigger: null }).catch(() => undefined);
+      }
+    }
+  }, [family.data]);
+}
+
 export default function AppLayout() {
   useTheme();
   const stackMotion = useStackMotion();
   useOfferAndRideWatcher();
   useRideTracking();
+  useFamilyWatcher();
   const { reduceMotion } = useA11yPrefs();
   const api = useApi();
   const status = useDriverStatus();

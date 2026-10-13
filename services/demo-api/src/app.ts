@@ -88,6 +88,7 @@ import { agentMessage, createTicket, isTicketClosed, resolveTicket, userMessage 
 import { requirePermission } from './services/permissions';
 import { tick } from './services/timers';
 import { mountPrototypeRoutes, prototypeMethods, prototypeProviders } from './services/prototype';
+import { mountFamilleRoutes } from './services/famille';
 import { buildSeed, DEMO_ACCOUNTS, SCENARIOS, type ScenarioId } from './seed';
 
 type Env = { Variables: { principal: Principal | null } };
@@ -221,6 +222,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   });
 
   mountPrototypeRoutes(app, ctx, { userOf, adminOf, idempotent });
+  mountFamilleRoutes(app, ctx, { userOf, idempotent });
 
   app.get('/health', (c) => c.json({ ok: true, version: S().version, scenario: S().scenario, devMode: ctx.config.devMode, time: ctx.clock.iso() }));
   app.get('/sync', (c) => c.json({ version: S().version, time: ctx.clock.iso() }));

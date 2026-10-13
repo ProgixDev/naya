@@ -30,6 +30,10 @@ export const ERROR_MESSAGES = {
   IDEMPOTENCY_CONFLICT: 'Cette demande a déjà été envoyée avec d’autres informations.',
   PROVIDER_SIGNATURE_INVALID: 'Signature du prestataire invalide.',
   PENDING_OPERATION: 'Une opération est déjà en cours.',
+  FAMILLE_NOT_ELIGIBLE: 'Seules les chauffeuses approuvées pour Naya Famille peuvent recevoir ces trajets.',
+  FAMILY_APPROVAL_REQUIRED: 'Le trajet ne peut pas démarrer sans l’accord du parent.',
+  FAMILY_APPROVAL_EXPIRED: 'La demande de départ a expiré. La chauffeuse doit en envoyer une nouvelle.',
+  FAMILY_PROOF_REQUIRED: 'Une photo est nécessaire pour continuer.',
   NETWORK: 'Connexion indisponible. Vérifiez votre réseau.',
   UNKNOWN: 'Une erreur inattendue est survenue.',
 } as const;
@@ -59,6 +63,7 @@ export function httpStatusFor(code: ErrorCode): number {
     case 'SCHEDULE_TOO_FAR':
     case 'OUT_OF_ZONE':
     case 'OTP_INVALID':
+    case 'FAMILY_PROOF_REQUIRED':
       return 422;
     case 'UNAUTHORIZED':
     case 'PROVIDER_SIGNATURE_INVALID':
@@ -68,6 +73,7 @@ export function httpStatusFor(code: ErrorCode): number {
     case 'DEBT_LIMIT_REACHED':
     case 'VERIFICATION_REQUIRED':
     case 'CITY_INACTIVE':
+    case 'FAMILLE_NOT_ELIGIBLE':
       return 403;
     case 'NOT_FOUND':
       return 404;
@@ -76,6 +82,7 @@ export function httpStatusFor(code: ErrorCode): number {
     case 'OFFER_EXPIRED':
     case 'QUOTE_EXPIRED':
     case 'OTP_EXPIRED':
+    case 'FAMILY_APPROVAL_EXPIRED':
       return 410;
     default:
       return 409;

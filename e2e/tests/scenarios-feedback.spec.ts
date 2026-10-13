@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { PHONES, resetScenario, signInMobile, URLS } from './helpers';
+import { api, PHONES, resetScenario, signInMobile, URLS } from './helpers';
 
 const phone = { viewport: { width: 390, height: 844 }, hasTouch: true };
 test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery', async ({
@@ -22,33 +22,21 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     ).toBeVisible();
     await signInMobile(d, URLS.driver, 'driver', PHONES.amina);
     await d.goto(URLS.driver + '/family');
-    await expect(
-      d.getByRole('button', { name: 'Partir vers l’enfant', exact: true }),
-    ).toBeVisible();
-    await d
-      .getByRole('button', { name: 'Partir vers l’enfant', exact: true })
-      .click();
-    await d
-      .getByRole('button', {
-        name: 'Photo d’arrivée (simulation)',
-        exact: true,
-      })
-      .click();
-    await d
-      .getByLabel('Prénom confirmé par la chauffeuse', { exact: true })
-      .fill('Lina');
-    await d
-      .getByRole('button', {
-        name: 'Confirmer la prise en charge',
-        exact: true,
-      })
-      .click();
-    await d
-      .getByRole('button', { name: 'Démarrer le trajet', exact: true })
-      .click();
-    await expect(
-      p.getByText('Lina · Trajet en cours', { exact: true }),
-    ).toBeVisible();
+    await expect(d.getByTestId('famille-eligibility')).toContainText('approuvée');
+    await d.getByTestId(/^famille-trip-card-/).first().click();
+    // Chauffeuse: depart, arrive, photograph the child, confirm, then « Démarrer ».
+    await d.getByTestId('famille-depart').click();
+    await d.getByTestId('famille-arrive').click();
+    await d.getByTestId('famille-pickup-demo-photo').click();
+    await d.getByLabel('Prénom confirmé par la chauffeuse', { exact: true }).fill('Lina');
+    await d.getByTestId('famille-pickup').click();
+    await d.getByTestId('famille-request-start').click();
+    await expect(d.getByTestId('famille-waiting-approval')).toBeVisible();
+    // Parent: the approval request opens the trip; she approves on site.
+    await expect(p.getByTestId('famille-approval')).toBeVisible({ timeout: 15000 });
+    await p.getByTestId('famille-approve-onsite').first().click();
+    await expect(p.getByText('Lina · Trajet en cours', { exact: true }).first()).toBeVisible();
+    await expect(p.getByTestId('famille-live-map')).toBeVisible();
     await d.getByTestId('sos').click();
     await d.getByTestId('confirm-sos').click();
     await expect(d.getByText(/Alerte SOS-.* enregistrée/)).toBeVisible();
@@ -75,16 +63,13 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       .click();
     await a.getByRole('button', { name: 'Résoudre', exact: true }).click();
     await expect(a.getByText(/Résolue/)).toBeVisible();
-    // Reload closes the focused safety sheet while retaining the trip.
+    // Reach the school (simulated route ×20), then the drop-off photo and code close the trip.
+    await (await api()).post('/dev/clock/advance', { data: { seconds: 60 } });
     await d.reload();
+    await d.getByTestId('famille-dropoff-demo-photo').click();
     await d.getByLabel('Code de remise', { exact: true }).fill('1234');
-    await d
-      .getByRole('button', { name: 'Confirmer la remise', exact: true })
-      .click();
-    await expect(p.getByText(/Remise confirmée/)).toBeVisible();
-    await expect(
-      d.getByRole('button', { name: 'Partir vers l’enfant', exact: true }),
-    ).toBeVisible();
+    await d.getByTestId('famille-dropoff').click();
+    await expect(p.getByText(/Déposé · photo et remise confirmées/).first()).toBeVisible({ timeout: 15000 });
     await p.goto(URLS.passenger + '/wallet');
     await p.getByTestId('wallet-topup').click();
     await p

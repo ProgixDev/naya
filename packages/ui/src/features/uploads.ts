@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import type { ApiClient } from '@naya/api';
-import type { Upload, VerificationItemKey } from '@naya/domain';
+import type { Upload, UploadInput } from '@naya/domain';
 
 export type Source = 'camera' | 'library' | 'document';
 
@@ -65,7 +65,7 @@ async function toBase64(uri: string): Promise<string> {
 }
 
 /** Uploads to the protected upload endpoint; the returned id is only readable by the owner and reviewers. */
-export async function uploadFile(api: ApiClient, file: PickedFile, purpose: VerificationItemKey | 'support_attachment'): Promise<Upload> {
+export async function uploadFile(api: ApiClient, file: PickedFile, purpose: UploadInput['purpose']): Promise<Upload> {
   const dataBase64 = await toBase64(file.uri);
   return api.uploads.create({ purpose, mimeType: file.mimeType, dataBase64, width: file.width, height: file.height });
 }

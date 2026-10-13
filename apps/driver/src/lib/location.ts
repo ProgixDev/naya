@@ -43,19 +43,22 @@ const HEARTBEAT_MS = 10_000;
  * A stationary phone produces no movement events, so the last fix is re-sent every
  * 10 s: the passenger sees "position not updated" only when the link is really lost.
  */
-export function useLocationStream(active: boolean, send: (p: LatLng) => void) {
+export function useLocationStream(active: boolean, send: (p: LatLng) => void, options: { intervalMs?: number } = {}) {
   const sendRef = useRef(send);
   useEffect(() => { sendRef.current = send; }, [send]);
+  // Naya Famille asks for a fix every second (intervalMs: 1000); rides keep the 8 s / 25 m stream.
+  const fast = options.intervalMs;
   useEffect(() => {
     if (!active || STANDALONE_DEMO) return;
     let sub: Location.LocationSubscription | null = null;
     let alive = true;
     let last: LatLng | null = null;
-    const beat = setInterval(() => last && sendRef.current(last), HEARTBEAT_MS);
+    const beat = setInterval(() => last && sendRef.current(last), fast ?? HEARTBEAT_MS);
     Location.getForegroundPermissionsAsync()
       .then(async (p) => {
         if (!p.granted || !alive) return;
-        sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, distanceInterval: 25, timeInterval: 8000 }, (pos) => {
+        const watch = fast ? { accuracy: Location.Accuracy.High, distanceInterval: 0, timeInterval: fast } : { accuracy: Location.Accuracy.Balanced, distanceInterval: 25, timeInterval: 8000 };
+        sub = await Location.watchPositionAsync(watch, (pos) => {
           last = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           sendRef.current(last);
         });
@@ -67,5 +70,5 @@ export function useLocationStream(active: boolean, send: (p: LatLng) => void) {
       clearInterval(beat);
       sub?.remove();
     };
-  }, [active]);
+  }, [active, fast]);
 }

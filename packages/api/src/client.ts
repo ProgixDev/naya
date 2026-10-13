@@ -1,4 +1,5 @@
 import {
+  type FamilyApprovalInput, type FamilyCallResult, type FamilyFollowView, type FamilyGuardianInput, type FamilyGuardianView, type FamilyLive, type FamilyDemoControls,
   type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type PassengerWallet, type SafetyAlert, type PrototypeAdmin, type AdminSafetyAlert,
   ERROR_MESSAGES,
   type AdminUser,
@@ -455,6 +456,18 @@ export function createApiClient(opts: ClientOptions) {
       trip: (input: { childId: string; pickup: Place; destination: Place; pickupAt: string; weekdays: number[] }, key: string) => post<FamilyTrip>('/prototype/family/trips', input, key),
       advance: (id: string, input: { expectedStatus: string; proof?: string; childName?: string; recipientId?: string; code?: string }) => post<FamilyTrip>(`/prototype/family/trips/${id}/advance`, input),
       incident: (id: string, message: string) => post<FamilyTrip>(`/prototype/family/trips/${id}/incident`, { message }),
+      familyTrip: (id: string) => get<FamilyTrip>(`/prototype/family/trips/${id}`),
+      /** Polled every second while a Famille trip is active. */
+      familyLive: (id: string) => get<FamilyLive>(`/prototype/family/trips/${id}/live`),
+      sendFamilyPosition: (id: string, location: LatLng) => post<FamilyLive>(`/prototype/family/trips/${id}/position`, { location }),
+      approveStart: (id: string, input: FamilyApprovalInput, key: string) => post<FamilyTrip>(`/prototype/family/trips/${id}/approval`, input, key),
+      cancelFamilyTrip: (id: string, reason: string) => post<FamilyTrip>(`/prototype/family/trips/${id}/cancel`, { reason }),
+      familyCall: (id: string, channel: 'whatsapp' | 'police') => post<FamilyCallResult>(`/prototype/family/trips/${id}/calls`, { channel, confirmed: true }),
+      requestFamilyCall: (id: string) => post<FamilyTrip>(`/prototype/family/trips/${id}/call-request`),
+      inviteGuardian: (input: FamilyGuardianInput, key: string) => post<{ guardian: FamilyGuardianView; token: string }>('/prototype/family/guardians', input, key),
+      guardianAction: (id: string, action: 'revoke' | 'renew') => post<{ guardian: FamilyGuardianView; token: string | null }>(`/prototype/family/guardians/${id}/${action}`),
+      /** Public: the follow token is the only credential. */
+      follow: (token: string) => get<FamilyFollowView>(`/prototype/family/follow/${encodeURIComponent(token)}`),
       sos: (input: { rideId: string | null; familyTripId: string | null; location: LatLng; contactName: string }, key: string) => post<SafetyAlert>('/prototype/sos', input, key),
       alerts: () => get<SafetyAlert[]>('/prototype/sos'),
       safetyAction: (id: string, action: string) => post<SafetyAlert>(`/prototype/sos/${id}/action`, { action }),
@@ -511,6 +524,9 @@ export function createApiClient(opts: ClientOptions) {
       resolveProvider: (kind: 'payment' | 'recharge' | 'withdrawal', ref: string, outcome: 'confirm' | 'fail') => post<unknown>(`/dev/providers/${kind}/${ref}/${outcome}`),
       /** Attaches a fictional specimen as the caller's upload (capture bypass without a camera). */
       sampleUpload: (purpose: VerificationItemKey) => post<Upload>('/dev/sample-upload', { purpose }),
+      /** Plays a whole Famille trip with a simulated chauffeuse and/or parent. */
+      playFamily: (demo: FamilyDemoControls) => post<FamilyTrip>('/dev/family/play', demo),
+      familyDemo: (tripId: string, demo: FamilyDemoControls) => post<FamilyTrip>(`/dev/family/trips/${tripId}/demo`, demo),
       providerJobs: () => get<{ id: string; kind: string; ref: string; outcome: string; dueAt: string | null }[]>('/dev/provider-jobs'),
     },
   };

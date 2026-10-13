@@ -32,7 +32,7 @@ Added later with no Figma frame (Oct 6, 89aae18; a few captures in `docs/screens
 | Route | Screen | Evidence |
 |---|---|---|
 | `(app)/wallet` | Portefeuille Naya (passenger wallet) | E2E scenarios-feedback |
-| `(app)/family` | Naya Famille, parent side | E2E scenarios-feedback |
+| `(app)/family`, `(app)/family/plans`, `(app)/family/[id]`, `suivi/[token]` | Naya Famille, parent side (see « Naya Famille » below) | E2E scenarios-feedback |
 | `(app)/brand` | Identité · 6 pistes (logo concepts) | E2E scenarios-feedback |
 | `dev` | Lanceur de scénarios (demo builds) | — |
 
@@ -63,9 +63,22 @@ Added later with no Figma frame (Oct 6, 89aae18):
 
 | Route | Screen | Evidence |
 |---|---|---|
-| `(app)/family` | Naya Famille, chauffeuse side | E2E scenarios-feedback |
+| `(app)/family`, `(app)/family/[id]` | Naya Famille, chauffeuse side (see « Naya Famille » below) | E2E scenarios-feedback |
 | `(app)/brand` | Identité · 6 pistes (logo concepts) | — |
 | `dev` | Lanceur de scénarios (demo builds) | — |
+
+## Naya Famille (both apps, 13 Oct · founder brief task 4)
+
+No Figma frames yet. Shared screens in `packages/ui/src/features/famille/`; rules in `packages/domain/src/famille.ts` and `machines/family.ts`; API in `services/demo-api/src/services/famille.ts`.
+
+| Screen | Route | States | Evidence |
+|---|---|---|---|
+| Passenger home entry | `(app)/(tabs)/index` | « Famille » shortcut; live card while a trip runs; warning card « Votre accord est demandé » | API tests |
+| Famille overview | passenger `(app)/family`, driver `(app)/family` | no plan, plan, live trip + inline approval, upcoming, history; driver eligibility (non demandée / en examen / approuvée / refusée) | API `famille.test.ts` |
+| Plans | passenger `(app)/family/plans` | plans, active plan | API |
+| Trip (live) | passenger `(app)/family/[id]`, driver `(app)/family/[id]` | scheduled, en route (GPS every second), arrived, pick-up photo, awaiting approval (countdown), refused / expired, in progress, drop-off photo + code (attempts left, handover locked after 5 wrong codes), completed, cancelled; WhatsApp, police 19, invite, SOS; timeline | API, domain `famille.test.ts`, E2E `scenarios-feedback.spec.ts` (updated, not re-run) |
+| Co-parent follow link | passenger `suivi/[token]` (public) | active trip live, no trip, revoked link | API |
+| Driver home note | driver `(app)/(tabs)/index` | next or live Famille trip | — |
 
 ## Admin (apps/admin)
 

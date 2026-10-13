@@ -46,6 +46,11 @@ export interface User {
   identityCaseId: string | null;
   /** Driver only. */
   vehicleId: string | null;
+  /**
+   * Driver only: Naya Famille vetting. Absent means `not_requested` (stores written before
+   * 13 Oct). Contract shared with branch `feat/driver-signup`, which adds the review flow.
+   */
+  familleEligibility?: import('./famille').FamilleEligibility;
   ratingAverage: number | null;
   ratingCount: number;
 }
@@ -606,7 +611,8 @@ export interface AuditEvent {
 export interface Upload {
   id: UploadId;
   ownerId: UserId;
-  purpose: VerificationItemKey | 'support_attachment';
+  /** `family_proof`: Naya Famille pick-up and drop-off photos of a child. */
+  purpose: VerificationItemKey | 'support_attachment' | 'family_proof';
   mimeType: string;
   width: number | null;
   height: number | null;

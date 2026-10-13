@@ -139,7 +139,7 @@ describe('feedback prototype workflows', () => {
       ).status,
     ).toBe(404);
   });
-  it('requires arrival proof, child identity and authorized handover, then recurs', async () => {
+  it('requires the pick-up photo, the parent’s approval and an authorized handover, then recurs', async () => {
     const h = setup();
     const p = await h.login(PHONES.salma, 'passenger');
     const d = await h.login(PHONES.amina, 'driver');
@@ -155,26 +155,46 @@ describe('feedback prototype workflows', () => {
         .firstName,
     ).toBe('Lina');
     expect((await advance({ expectedStatus: 'scheduled' })).status).toBe(200);
-    expect((await advance({ expectedStatus: 'en_route' })).status).toBe(422);
+    expect((await advance({ expectedStatus: 'en_route' })).status).toBe(200);
+    expect(
+      (await advance({ expectedStatus: 'arrived', childName: 'Lina' })).status,
+    ).toBe(422);
     expect(
       (
         await advance({
-          expectedStatus: 'en_route',
-          proof: 'demo-arrival-photo',
+          expectedStatus: 'arrived',
+          proof: 'demo-pickup-photo',
+          childName: 'Wrong',
+        })
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await advance({
+          expectedStatus: 'arrived',
+          proof: 'demo-pickup-photo',
+          childName: 'Lina',
         })
       ).status,
     ).toBe(200);
-    expect(
-      (await advance({ expectedStatus: 'arrived', childName: 'Wrong' })).status,
-    ).toBe(422);
-    expect(
-      (await advance({ expectedStatus: 'arrived', childName: 'Lina' })).status,
-    ).toBe(200);
     expect((await advance({ expectedStatus: 'picked_up' })).status).toBe(200);
+    const waiting = await h.ok('GET', `/prototype/family/trips/${t.id}`, {
+      token: p,
+    });
+    await h.ok('POST', `/prototype/family/trips/${t.id}/approval`, {
+      token: p,
+      body: {
+        decision: 'approve',
+        mode: 'remote',
+        approvalId: waiting.approval.id,
+      },
+    });
+    h.advance(60);
     expect(
       (
         await advance({
           expectedStatus: 'in_progress',
+          proof: 'demo-dropoff-photo',
           recipientId: 'mother',
           code: '9999',
         })
@@ -184,6 +204,7 @@ describe('feedback prototype workflows', () => {
       (
         await advance({
           expectedStatus: 'in_progress',
+          proof: 'demo-dropoff-photo',
           recipientId: 'mother',
           code: '1234',
         })
@@ -191,7 +212,7 @@ describe('feedback prototype workflows', () => {
     ).toBe(200);
     const result = await h.ok('GET', '/prototype/family', { token: p });
     expect(result.trips).toHaveLength(2);
-    expect(result.trips[0].timeline).toHaveLength(6);
+    expect(result.trips[0].timeline).toHaveLength(9);
     expect(result.trips[1].status).toBe('scheduled');
   });
   it('records SOS simulation actions, enforces ownership and supports admin resolution', async () => {
