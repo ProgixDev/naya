@@ -34,7 +34,7 @@ Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: cover
 | D01 `9:2` | D01b | `(auth)/welcome` | capture |
 | D02 `9:119` | D02-consent | `(auth)/phone` | capture |
 | D03 `9:150` | D03-error | `(auth)/otp` | capture, API |
-| D04 `9:180` | D04-permit, -car, -insurance, -photos, -capture, -camera, -review | `(onboard)/documents`, `docs/start`, `docs/identity`, `docs/vehicle`, `docs/capture/[item]` | capture, E2E S10 |
+| D04 `9:180` | D04-permit, -car, -insurance, -photos, -capture, -camera, -review | `(onboard)/documents`, `docs/start` (hub), `docs/step/[id]` (one question, document or review per screen; 13 Oct brief), `docs/famille` (Naya Famille opt-in), `docs/capture/[item]` (« Renvoyer »); `docs/identity` and `docs/vehicle` redirect to the steps | capture, E2E S10, API signup.test.ts |
 | D05 `9:238` | D05-more, -refused, -approved | `docs/status` (person and vehicle independent) | capture, E2E S10 |
 | D06 `9:291` | D06-online, -debt, -gps, -docs, -restored, -casa, -opaque, -reduced | `(app)/(tabs)/index` | capture, E2E S11/S12 |
 | D07 `9:418` | D07-10, -expired, -declined, -withdrawn, D07-timer-29…1 | `(app)/offer` | capture, E2E S11, API S11 (deadline, race) |
