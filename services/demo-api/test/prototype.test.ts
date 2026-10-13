@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLACES } from '@naya/domain';
+import { FAMILY_DEMO_TIME_FACTOR, PLACES } from '@naya/domain';
 import { PHONES, setup, JPEG_B64 } from './harness';
 
 describe('feedback prototype workflows', () => {
@@ -256,6 +256,28 @@ describe('feedback prototype workflows', () => {
     expect(data.alerts[0].status).toBe('resolved');
     expect(data.alerts[0].actions).toHaveLength(3);
   });
+  /** Plays a Famille trip up to the school gate: pick-up photo, the parent's approval, the route. */
+  async function toSchool(h: ReturnType<typeof setup>, p: string, d: string, tripId: string, seen?: unknown[]) {
+    const call = async (token: string, method: string, path: string, body?: unknown) => {
+      const r = await h.call(method, path, { token, body });
+      if (token === d) seen?.push(r.body);
+      return r;
+    };
+    for (const [expectedStatus, extra] of [
+      ['scheduled', {}],
+      ['en_route', {}],
+      ['arrived', { proof: 'demo-pickup-photo', childName: 'Lina' }],
+      ['picked_up', {}],
+    ] as const)
+      expect((await call(d, 'POST', `/prototype/family/trips/${tripId}/advance`, { expectedStatus, ...extra })).status).toBe(200);
+    const waiting = await h.ok('GET', `/prototype/family/trips/${tripId}`, { token: p });
+    await h.ok('POST', `/prototype/family/trips/${tripId}/approval`, {
+      token: p,
+      body: { decision: 'approve', mode: 'on_site', approvalId: waiting.approval.id },
+    });
+    h.advance(Math.ceil(1020 / FAMILY_DEMO_TIME_FACTOR) + 1);
+    return call;
+  }
   it('never sends handover codes to the driver, while the parent keeps hers', async () => {
     const h = setup();
     const p = await h.login(PHONES.salma, 'passenger');
@@ -270,28 +292,19 @@ describe('feedback prototype workflows', () => {
     };
     await driver('GET', '/prototype/family');
     await driver('POST', '/prototype/family/example');
-    for (const [expectedStatus, extra] of [
-      ['scheduled', {}],
-      ['en_route', { proof: 'demo-arrival-photo' }],
-      ['arrived', { childName: 'Lina' }],
-      ['picked_up', {}],
-    ] as const)
-      expect(
-        (
-          await driver('POST', `/prototype/family/trips/${t.id}/advance`, {
-            expectedStatus,
-            ...extra,
-          })
-        ).status,
-      ).toBe(200);
+    await toSchool(h, p, d, t.id, seen);
+    await driver('GET', `/prototype/family/trips/${t.id}`);
+    await driver('GET', `/prototype/family/trips/${t.id}/live`);
     await driver('POST', `/prototype/family/trips/${t.id}/advance`, {
       expectedStatus: 'in_progress',
+      proof: 'demo-dropoff-photo',
       recipientId: 'mother',
       code: '0000',
     });
     await driver('POST', `/prototype/family/trips/${t.id}/incident`, {
       message: 'Petit retard à la sortie',
     });
+    await driver('POST', `/prototype/family/trips/${t.id}/call-request`);
     await driver('POST', '/prototype/sos', {
       rideId: null,
       familyTripId: t.id,
@@ -318,16 +331,17 @@ describe('feedback prototype workflows', () => {
     const d = await h.login(PHONES.amina, 'driver');
     const t = (await h.ok('POST', '/prototype/family/example', { token: p }))
       .trips[0];
+    await toSchool(h, p, d, t.id);
     const advance = (body: unknown) =>
       h.call('POST', `/prototype/family/trips/${t.id}/advance`, {
         token: d,
         body,
       });
-    await advance({ expectedStatus: 'scheduled' });
-    await advance({ expectedStatus: 'en_route', proof: 'demo-arrival-photo' });
-    await advance({ expectedStatus: 'arrived', childName: 'lina' });
-    await advance({ expectedStatus: 'picked_up' });
-    const wrong = { expectedStatus: 'in_progress', recipientId: 'mother' };
+    const wrong = {
+      expectedStatus: 'in_progress',
+      proof: 'demo-dropoff-photo',
+      recipientId: 'mother',
+    };
     // A blank entry is refused without using up an attempt.
     const blank = await advance({ ...wrong, code: '' });
     expect(blank.status).toBe(422);
@@ -349,6 +363,7 @@ describe('feedback prototype workflows', () => {
     expect(trip.handoverAttempts).toBe(5);
     expect(trip.incident).toContain('Remise bloquée');
     expect(trip.timeline.at(-1).label).toContain('Remise bloquée');
+    expect(trip.notifications.at(-1)).toMatchObject({ audience: 'parent', kind: 'incident' });
     const audit = h.ctx.store.state.audit.map((e) => e.action);
     expect(audit.filter((a) => a === 'family.handover_refused')).toHaveLength(
       5,

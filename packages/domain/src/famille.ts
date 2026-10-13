@@ -3,7 +3,7 @@ import type { LatLng, Place, User } from './entities';
 import { DomainError } from './errors';
 import { demoRoute, haversineMeters, pointAlong } from './geo';
 import { familyTripMachine, type FamilyTripEvent } from './machines/family';
-import type { FamilyApprovalMode, FamilyChild, FamilyLive, FamilyStartApproval, FamilyTrip, FamilyTripStatus } from './prototype';
+import { HANDOVER_MAX_ATTEMPTS, type FamilyApprovalMode, type FamilyChild, type FamilyLive, type FamilyStartApproval, type FamilyTrip, type FamilyTripStatus } from './prototype';
 
 /* ───────────── Driver eligibility for Naya Famille ───────────── */
 
@@ -49,6 +49,9 @@ export const FAMILY_DEMO_TIME_FACTOR = 20;
 /** Dev-mode stand-ins for photos when no camera is available. */
 export const FAMILY_DEMO_PROOFS = { pickup: 'demo-pickup-photo', dropoff: 'demo-dropoff-photo' } as const;
 
+/** Shown once a trip's handover is locked after HANDOVER_MAX_ATTEMPTS wrong codes. */
+export const HANDOVER_LOCKED_MESSAGE = `Remise bloquée après ${HANDOVER_MAX_ATTEMPTS} codes incorrects. Ne confiez pas l’enfant : contactez la famille ou le support Naya.`;
+
 /** « when set »: the handover code is required as soon as the child has a recipient with a code. */
 export const requiresHandoverCode = (child: Pick<FamilyChild, 'recipients'>) => child.recipients.some((r) => /^\d{4}$/.test(r.verificationCode));
 
@@ -74,7 +77,7 @@ export interface FamilyStepContext {
 const DRIVER_EVENTS: FamilyTripEvent[] = ['DEPART', 'ARRIVE', 'PICKUP', 'REQUEST_START', 'DROPOFF'];
 const PARENT_EVENTS: FamilyTripEvent[] = ['APPROVE', 'REFUSE'];
 
-type GuardTrip = Pick<FamilyTrip, 'status' | 'destination'> & Partial<Pick<FamilyTrip, 'pickupPhoto' | 'approval' | 'approvals'>>;
+type GuardTrip = Pick<FamilyTrip, 'status' | 'destination'> & Partial<Pick<FamilyTrip, 'pickupPhoto' | 'approval' | 'approvals' | 'handoverLocked'>>;
 
 /**
  * The single guard for every Famille transition. Returns the next status or throws a
@@ -111,6 +114,7 @@ export function assertFamilyStep(trip: GuardTrip, event: FamilyTripEvent, c: Fam
       break;
     }
     case 'DROPOFF': {
+      if (trip.handoverLocked) throw new DomainError('INVALID_TRANSITION', HANDOVER_LOCKED_MESSAGE, { locked: true });
       if (!c.input.proof) throw new DomainError('FAMILY_PROOF_REQUIRED', 'Photographiez l’enfant dans l’enceinte de l’école pour clôturer le trajet.');
       if (c.position) {
         const d = haversineMeters(c.position, trip.destination.location);
@@ -121,7 +125,8 @@ export function assertFamilyStep(trip: GuardTrip, event: FamilyTripEvent, c: Fam
         const recipient = c.child.recipients.find((r) => r.id === c.input.recipientId);
         if (!recipient) throw new DomainError('VALIDATION', 'Choisissez la personne autorisée qui reçoit l’enfant.');
         if (!/^\d{4}$/.test(c.input.code ?? '')) throw new DomainError('VALIDATION', 'Saisissez le code à 4 chiffres de la personne autorisée.');
-        if (recipient.verificationCode !== c.input.code) throw new DomainError('VALIDATION', 'Code de remise incorrect.');
+        // `wrongHandoverCode` lets the server count the attempt (HANDOVER_MAX_ATTEMPTS, then the handover locks).
+        if (recipient.verificationCode !== c.input.code) throw new DomainError('VALIDATION', 'Code de remise incorrect.', { wrongHandoverCode: true });
       }
       break;
     }

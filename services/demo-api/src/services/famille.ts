@@ -18,7 +18,10 @@ import {
   familyTripMachine,
   FAMILY_DEMO_PROOFS,
   FAMILY_DRIVER_STEP,
+  HANDOVER_LOCKED_MESSAGE,
   FAMILY_STATUS_LABELS,
+  HANDOVER_MAX_ATTEMPTS,
+  isDomainError,
   isFamilyTripActive,
   isFamilyTripClosed,
   MOROCCO_POLICE_NUMBER,
@@ -27,6 +30,7 @@ import {
   whatsappLink,
   type FamilyCallResult,
   type FamilyChild,
+  type FamilyChildView,
   type FamilyFollowView,
   type FamilyGuardian,
   type FamilyGuardianView,
@@ -103,9 +107,12 @@ function notify(s: State, t: FamilyTrip, at: string, n: Omit<FamilyNotification,
   t.notifications.push({ id: nextId(s, 'FN', 4), at, ...n });
 }
 
-/** Chauffeuse view of a child: never the handover codes (spec R7). */
-function childForDriver(c: FamilyChild): FamilyChild {
-  return { ...c, recipients: c.recipients.map((r) => ({ ...r, verificationCode: '' })) };
+/**
+ * Chauffeuse view of a child: never the handover codes (spec R7, P1). Recipients carry names and
+ * relationships only; the server alone checks the code.
+ */
+function childForDriver(c: FamilyChild): FamilyChildView {
+  return { ...c, recipients: c.recipients.map(({ id, name, relationship }) => ({ id, name, relationship })) };
 }
 
 function guardianView(g: FamilyGuardian): FamilyGuardianView {
@@ -364,6 +371,27 @@ export function applyFamilyEvent(ctx: Ctx, s: State, t: FamilyTrip, event: Famil
   return t;
 }
 
+/**
+ * Counts a wrong handover code (P1). Below HANDOVER_MAX_ATTEMPTS the driver is told how many tries
+ * are left; at the limit the handover is locked on the trip, the parent is told and the trip cannot
+ * close through the app any more. Returns the error for the caller to throw outside the transaction.
+ */
+function refuseHandover(s: State, nowMs: number, t: FamilyTrip, user: User): DomainError {
+  const at = iso(nowMs);
+  t.handoverAttempts = (t.handoverAttempts ?? 0) + 1;
+  const left = HANDOVER_MAX_ATTEMPTS - t.handoverAttempts;
+  audit(s, at, { kind: 'driver', user }, 'family.handover_refused', t.id, `Code de remise incorrect (${t.handoverAttempts}/${HANDOVER_MAX_ATTEMPTS})`);
+  if (left > 0)
+    return new DomainError('VALIDATION', `Code de remise incorrect. ${left > 1 ? `${left} essais restants` : 'Dernier essai'} avant le blocage de la remise.`, { attemptsLeft: left });
+  const label = `Remise bloquée · ${HANDOVER_MAX_ATTEMPTS} codes incorrects`;
+  t.handoverLocked = true;
+  t.incident = label;
+  timeline(t, at, 'incident', label, 'system');
+  notify(s, t, at, { kind: 'incident', audience: 'parent', title: `${t.childName} · ${label}`, body: 'La chauffeuse ne confiera pas l’enfant. Appelez-la ou contactez le support Naya.' });
+  audit(s, at, { kind: 'driver', user }, 'family.handover_locked', t.id, label);
+  return new DomainError('INVALID_TRANSITION', HANDOVER_LOCKED_MESSAGE, { locked: true });
+}
+
 function tripFor(s: State, id: string, user: User) {
   return mustFind(
     ensureFamille(s).trips,
@@ -595,20 +623,28 @@ export function mountFamilleRoutes(
   app.post('/prototype/family/trips/:id/advance', async (c) => {
     const u = userOf(c);
     const input = familyAdvanceSchema.parse(await c.req.json());
-    return c.json(
-      ctx.store.tx((s) => {
-        const t = tripFor(s, c.req.param('id'), u);
-        if (u.role === 'passenger' && !ctx.config.devMode) throw new DomainError('FORBIDDEN');
-        if (t.status !== input.expectedStatus) throw new DomainError('CONFLICT', 'Le trajet a changé. Rechargez avant de continuer.');
-        const event = FAMILY_DRIVER_STEP[t.status];
-        if (!event) throw new DomainError('FAMILY_APPROVAL_REQUIRED');
-        // Dev mode: the parent may play the chauffeuse's steps (labelled as such), never her own approval.
-        const driver = userById(s, t.driverId);
-        applyFamilyEvent(ctx, s, t, event, { kind: 'driver', user: u.role === 'driver' ? u : driver }, input);
-        if (u.role === 'passenger') t.timeline[t.timeline.length - 1]!.label += ' · joué par le parent (démo)';
-        return t;
-      }),
-    );
+    // A wrong handover code must be counted even though the request fails: the transaction
+    // returns the refusal (a throw would roll the count back). The guard throws before any change.
+    const result = ctx.store.tx((s): { trip: FamilyTrip } | { refused: DomainError } => {
+      const t = tripFor(s, c.req.param('id'), u);
+      if (u.role === 'passenger' && !ctx.config.devMode) throw new DomainError('FORBIDDEN');
+      if (t.status !== input.expectedStatus) throw new DomainError('CONFLICT', 'Le trajet a changé. Rechargez avant de continuer.');
+      const event = FAMILY_DRIVER_STEP[t.status];
+      if (!event) throw new DomainError('FAMILY_APPROVAL_REQUIRED');
+      // Dev mode: the parent may play the chauffeuse's steps (labelled as such), never her own approval.
+      const driver = userById(s, t.driverId);
+      const actor = u.role === 'driver' ? u : driver;
+      try {
+        applyFamilyEvent(ctx, s, t, event, { kind: 'driver', user: actor }, input);
+      } catch (e) {
+        if (event === 'DROPOFF' && isDomainError(e) && e.details?.wrongHandoverCode) return { refused: refuseHandover(s, ctx.clock.now(), t, actor) };
+        throw e;
+      }
+      if (u.role === 'passenger') t.timeline[t.timeline.length - 1]!.label += ' · joué par le parent (démo)';
+      return { trip: t };
+    });
+    if ('refused' in result) throw result.refused;
+    return c.json(result.trip);
   });
   app.post('/prototype/family/trips/:id/approval', async (c) => {
     const u = userOf(c, 'passenger');

@@ -9,10 +9,11 @@ import {
   FAMILY_DROPOFF_RADIUS_METERS,
   FAMILY_MAX_START_REQUESTS,
   FAMILY_STATUS_LABELS,
+  HANDOVER_MAX_ATTEMPTS,
   formatDateTime,
   isFamilyTripActive,
   isFamilyTripClosed,
-  type FamilyChild,
+  type FamilyChildView,
   type FamilyLive,
   type FamilyTrip,
 } from '@naya/domain';
@@ -103,6 +104,19 @@ export function FamilleTripScreen({ id, accountId, role, onBack }: { id: string;
           />
         ) : null}
 
+        {t.status === 'in_progress' && t.handoverLocked ? (
+          <StatusBanner
+            tone="danger"
+            title="Remise bloquée"
+            message={
+              role === 'driver'
+                ? `${HANDOVER_MAX_ATTEMPTS} codes incorrects. Ne confiez pas l’enfant : contactez la famille ou le support Naya.`
+                : `${HANDOVER_MAX_ATTEMPTS} codes incorrects ont été saisis : la chauffeuse ne confiera pas l’enfant. Appelez-la ou contactez le support Naya.`
+            }
+            testID="famille-handover-locked"
+          />
+        ) : null}
+
         {role === 'driver' && !isFamilyTripClosed(t.status) ? <DriverStepPanel trip={t} child={child} live={live.data} onChanged={refresh} /> : null}
         {role === 'passenger' && DEMO_MODE && t.status !== 'awaiting_approval' && !isFamilyTripClosed(t.status) && !t.demo?.driver ? <ParentPlaysDriver trip={t} child={child} onChanged={refresh} /> : null}
 
@@ -153,7 +167,7 @@ function DriverWaiting({ trip }: { trip: FamilyTrip }) {
 }
 
 /** The chauffeuse's steps: depart, arrive, photograph the child, ask to start, drop-off proof. */
-function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip; child?: FamilyChild; live?: FamilyLive; onChanged: () => Promise<void> }) {
+function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip; child?: FamilyChildView; live?: FamilyLive; onChanged: () => Promise<void> }) {
   useTheme();
   const api = useApi();
   const [busy, setBusy] = useState<string | null>(null);
@@ -169,6 +183,8 @@ function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip
       await onChanged();
     } catch (e) {
       toast(errorMessage(e), 'danger');
+      // A refused handover code is still counted: show the attempts left, or the lock, at once.
+      void onChanged();
     } finally {
       setBusy(null);
     }
@@ -228,7 +244,7 @@ function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip
           />
         </>
       ) : null}
-      {t.status === 'in_progress' ? (
+      {t.status === 'in_progress' && !t.handoverLocked ? (
         <>
           <Text variant="heading">Dépôt à l’école</Text>
           <Text variant="caption" tone="muted">
@@ -244,6 +260,13 @@ function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip
                 ))}
               </View>
               <FormField label="Code de remise" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={4} testID="famille-code" />
+              {t.handoverAttempts ? (
+                <Text variant="caption" tone="danger" testID="famille-code-attempts">
+                  {HANDOVER_MAX_ATTEMPTS - t.handoverAttempts > 1
+                    ? `Code incorrect · ${HANDOVER_MAX_ATTEMPTS - t.handoverAttempts} essais restants avant le blocage de la remise`
+                    : 'Code incorrect · dernier essai avant le blocage de la remise'}
+                </Text>
+              ) : null}
             </>
           ) : null}
           <Button
@@ -266,7 +289,7 @@ function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip
 }
 
 /** Dev mode only: lets a single tester play the chauffeuse from the parent's phone. */
-function ParentPlaysDriver({ trip: t, child, onChanged }: { trip: FamilyTrip; child?: FamilyChild; onChanged: () => Promise<void> }) {
+function ParentPlaysDriver({ trip: t, child, onChanged }: { trip: FamilyTrip; child?: FamilyChildView; onChanged: () => Promise<void> }) {
   useTheme();
   const api = useApi();
   const [busy, setBusy] = useState(false);

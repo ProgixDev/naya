@@ -132,8 +132,9 @@ describe('Naya Famille safety flow', () => {
     const { h, d, toApproval } = await familySetup();
     await toApproval();
     const view = await h.ok('GET', '/prototype/family', { token: d });
-    expect(view.children[0].recipients.map((r: any) => r.verificationCode)).toEqual(['', '']);
-    expect(JSON.stringify(view)).not.toMatch(/"verificationCode":"\d/);
+    // The field is absent, not blanked (P1): recipients carry names and relationships only.
+    expect(view.children[0].recipients.map((r: any) => Object.keys(r).sort())).toEqual([['id', 'name', 'relationship'], ['id', 'name', 'relationship']]);
+    expect(JSON.stringify(view)).not.toContain('verificationCode');
   });
 
   it('records WhatsApp (parent confirms), call requests and police calls on the trip', async () => {
