@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Info, Loader2, X, XCircle, Inbox } from 'lucide-react';
 import { create } from './store';
 
@@ -302,42 +302,62 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 
 /* ───────── Overlays ───────── */
 
+/**
+ * Moves focus into the overlay once when it opens, keeps Tab inside it, closes on Escape and gives focus back on close.
+ * The effect depends on `open` only: callers pass inline `onEscape` arrows, so re-running it on every render
+ * (each keystroke, each poll) used to pull focus back to the first field while the admin was typing in another one.
+ */
 function useFocusTrap(open: boolean, onEscape: () => void) {
   const ref = useRef<HTMLDivElement>(null);
+  const escape = useRef(onEscape);
+  useLayoutEffect(() => {
+    escape.current = onEscape;
+  });
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const el = ref.current;
     const focusables = () => Array.from(el?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? []).filter((x) => !x.hasAttribute('disabled'));
-    setTimeout(() => (focusables()[0] ?? el)?.focus(), 0);
+    // First editable field when there is one (a read-only id is reachable with Tab but is not where typing starts).
+    const timer = setTimeout(() => {
+      if (el?.contains(document.activeElement)) return;
+      const f = focusables();
+      (f.find((x) => !(x as HTMLInputElement).readOnly) ?? f[0] ?? el)?.focus();
+    }, 0);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onEscape();
+      if (e.key === 'Escape') escape.current();
       if (e.key === 'Tab') {
         const f = focusables();
         if (!f.length) return;
         const first = f[0]!;
         const last = f[f.length - 1]!;
-        if (e.shiftKey && document.activeElement === first) (e.preventDefault(), last.focus());
-        else if (!e.shiftKey && document.activeElement === last) (e.preventDefault(), first.focus());
+        // Focus falls back to <body> when the focused control disappears or is disabled (a step change, a pending save):
+        // bring it back inside instead of letting Tab leave the overlay.
+        const a = document.activeElement;
+        const lost = !a || a === document.body;
+        if (e.shiftKey && (lost || a === first)) (e.preventDefault(), last.focus());
+        else if (!e.shiftKey && (lost || a === last)) (e.preventDefault(), first.focus());
       }
     };
     document.addEventListener('keydown', onKey);
     return () => {
+      clearTimeout(timer);
       document.removeEventListener('keydown', onKey);
-      previous?.focus();
+      if (previous?.isConnected) previous.focus();
     };
-  }, [open, onEscape]);
+  }, [open]);
   return ref;
 }
 
 export function Dialog({ open, onClose, title, description, children, footer, busy, testId }: { open: boolean; onClose: () => void; title: string; description?: ReactNode; children?: ReactNode; footer?: ReactNode; busy?: boolean; testId?: string }) {
   const ref = useFocusTrap(open, () => !busy && onClose());
+  const titleId = useId();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/40" onClick={() => !busy && onClose()} aria-hidden />
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="dlg-title" tabIndex={-1} data-testid={testId} className="relative w-full max-w-[460px] rounded-3xl bg-surface p-6 shadow-float">
-        <h2 id="dlg-title" className="text-[19px] font-semibold leading-6">
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} data-testid={testId} className="relative max-h-full w-full max-w-[460px] overflow-y-auto rounded-3xl bg-surface p-6 shadow-float">
+        <h2 id={titleId} className="text-[19px] font-semibold leading-6">
           {title}
         </h2>
         {description ? <div className="mt-2 text-[14px] text-muted">{description}</div> : null}

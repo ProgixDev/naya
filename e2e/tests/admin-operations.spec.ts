@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { adminLogin, auditActions, PHONES, resetScenario, tokenFor, URLS } from './admin-helpers';
-import { authed } from './helpers';
+import { adminToken, api, authed } from './helpers';
 
 test('S14 · reply to and resolve a dispute opened by a passenger', async ({ page }) => {
   await resetScenario('default');
@@ -14,7 +14,15 @@ test('S14 · reply to and resolve a dispute opened by a passenger', async ({ pag
   await page.getByTestId('send-agent-reply').click();
   await expect(page.getByText('Réponse attendue').first()).toBeVisible();
   await page.getByTestId('resolve').click();
-  await page.getByTestId('resolve-note').fill('Prix conforme au devis accepté.');
+  // No default outcome: confirming needs an explicit choice (P10).
+  await expect(page.getByTestId('resolve-outcome')).toHaveValue('');
+  await expect(page.getByTestId('confirm-resolve')).toBeDisabled();
+  await page.getByTestId('resolve-outcome').selectOption('Tarif confirmé');
+  // Typed key by key: the note is the 2nd field, after the outcome select (P3).
+  await page.getByTestId('resolve-note').click();
+  await page.keyboard.type('Prix conforme au devis accepté.');
+  await expect(page.getByTestId('resolve-note')).toHaveValue('Prix conforme au devis accepté.');
+  await expect(page.getByTestId('resolve-outcome')).toHaveValue('Tarif confirmé');
   await page.getByTestId('confirm-resolve').click();
   await expect(page.getByText(/Résolue · Tarif confirmé/)).toBeVisible();
   const passengerView = await (await salma.get(`/support/tickets/${t.id}`)).json();
@@ -92,6 +100,62 @@ test('A09 · exceptional correction requires a reason and confirmation, and is a
   await expect(page.getByText(/Correction enregistrée · nouveau solde 75/)).toBeVisible();
   await expect(page.getByTestId('row-DR-001')).toContainText('75');
   expect(await auditActions()).toContain('finance.correction');
+});
+
+test('P3 · keystrokes stay in the field being typed in, inside a multi-field dialog', async ({ page }) => {
+  await resetScenario('default');
+  await adminLogin(page);
+  await page.goto('/finance');
+  const trigger = page.getByTestId('correct-DR-001');
+  await trigger.click();
+  // Focus moves to the first field once, when the dialog opens.
+  await expect(page.getByTestId('correction-driver')).toBeFocused();
+  // keyboard.type sends one key at a time like a person; fill() sets the value in one event and hid this bug.
+  await page.getByTestId('correction-amount').click();
+  await page.keyboard.type('12,5');
+  await page.getByTestId('correction-reason').click();
+  await page.keyboard.type('Remboursement de péage justifié par ticket.');
+  await expect(page.getByTestId('correction-reason')).toBeFocused();
+  await expect(page.getByTestId('correction-amount')).toHaveValue('12,5');
+  await expect(page.getByTestId('correction-reason')).toHaveValue('Remboursement de péage justifié par ticket.');
+  await expect(page.getByTestId('correction-driver')).toHaveValue('DR-001');
+  // Escape closes the dialog and gives focus back to the button that opened it.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('correction-dialog')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test('P12 · the Services catalog editor takes decimal fares and lists, empties to the city fare, and keeps the id', async ({ page }) => {
+  await resetScenario('default');
+  await adminLogin(page);
+  await page.goto('/services');
+  await page.getByTestId('catalog-edit-scooter').click();
+  const dialog = page.getByTestId('catalog-dialog');
+  await expect(page.getByTestId('catalog-id')).toHaveValue('scooter');
+  await expect(page.getByTestId('catalog-id')).toHaveAttribute('readonly', '');
+  await page.getByTestId('catalog-perKm').selectText();
+  await page.keyboard.type('2,5');
+  await page.getByTestId('catalog-baseFare').selectText();
+  await page.keyboard.press('Backspace');
+  await page.getByTestId('catalog-cityIds').click();
+  await page.keyboard.type('rabat, casablanca');
+  await page.getByTestId('catalog-minimumFare').selectText();
+  await page.keyboard.type('quinze');
+  await page.getByTestId('catalog-save').click();
+  await expect(dialog).toContainText('Montant invalide');
+  await page.getByTestId('catalog-minimumFare').selectText();
+  await page.keyboard.type('15.5');
+  await expect(page.getByTestId('catalog-perKm')).toHaveValue('2,5');
+  await expect(page.getByTestId('catalog-cityIds')).toHaveValue('rabat, casablanca');
+  await page.getByTestId('catalog-save').click();
+  await expect(dialog).toHaveCount(0);
+  const ctx = await api();
+  const proto = await (await ctx.get('/admin/prototype', { headers: { Authorization: `Bearer ${await adminToken()}` } })).json();
+  await ctx.dispose();
+  const scooters = proto.catalog.categories.filter((c: { id: string }) => c.id === 'scooter');
+  expect(proto.catalog.categories).toHaveLength(3);
+  expect(scooters).toHaveLength(1);
+  expect(scooters[0]).toMatchObject({ perKm: 250, baseFare: null, minimumFare: 1550, perMinute: 100, cityIds: ['rabat', 'casablanca'] });
 });
 
 test('A12 · a provider cannot be toggled without a reason; live providers stay unconfigured', async ({ page }) => {

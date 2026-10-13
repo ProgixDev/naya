@@ -6,6 +6,34 @@ import { appendAudit } from '../audit';
 import { requirePermission } from './permissions';
 import { ensurePrototype } from './prototype';
 
+/**
+ * Known resolution outcomes, as the labels the person sees, and the status each one closes the ticket with.
+ * The admin sends the label (apps/admin/src/pages/Ticket.tsx keeps the same list); the status is never guessed from free text.
+ */
+export const TICKET_OUTCOMES = {
+  'Tarif confirmé': 'resolved',
+  'Remboursement accordé': 'resolved',
+  'Information transmise': 'resolved',
+  'Signalement traité': 'resolved',
+  'Compte mis à jour': 'resolved',
+  Rejetée: 'rejected',
+} as const satisfies Record<string, 'resolved' | 'rejected'>;
+export type TicketOutcome = keyof typeof TICKET_OUTCOMES;
+/** Older API clients sent the status code instead of the label. A Map, so « constructor » or « __proto__ » never match. */
+const OUTCOME_ALIASES = new Map<string, TicketOutcome>([['rejected', 'Rejetée']]);
+const outcomeKey = (v: string) => v.trim().normalize('NFC').toLocaleLowerCase('fr');
+
+/** Exact (case-insensitive) match on a known outcome; anything else is refused instead of silently resolving the ticket. */
+export function ticketOutcome(raw: string): { outcome: TicketOutcome; status: 'resolved' | 'rejected' } {
+  const key = outcomeKey(raw);
+  const outcome = (Object.keys(TICKET_OUTCOMES) as TicketOutcome[]).find((o) => outcomeKey(o) === key) ?? OUTCOME_ALIASES.get(key);
+  if (!outcome) throw new DomainError('VALIDATION', `Issue inconnue. Choisissez : ${Object.keys(TICKET_OUTCOMES).join(', ')}.`, { field: 'outcome' });
+  return { outcome, status: TICKET_OUTCOMES[outcome] };
+}
+
+/** Resolved and rejected tickets are closed: no more messages, no second resolution. */
+export const isTicketClosed = (t: Pick<SupportTicket, 'status'>) => t.status === 'resolved' || t.status === 'rejected';
+
 export function createTicket(ctx: Ctx, user: User, raw: SupportTicketInput) {
   const input = supportTicketSchema.parse(raw);
   return ctx.store.tx((s) => {
@@ -51,7 +79,7 @@ export function userMessage(ctx: Ctx, user: User, ticketId: string, raw: Support
   const input = supportMessageSchema.parse(raw);
   return ctx.store.tx((s) => {
     const t = mustFind(s.tickets, (x) => x.id === ticketId && x.userId === user.id, 'demande');
-    if ((t.status === 'resolved' || t.status === 'rejected')) throw new DomainError('INVALID_TRANSITION', 'Cette demande est résolue. Ouvrez une nouvelle demande si besoin.');
+    if (isTicketClosed(t)) throw new DomainError('INVALID_TRANSITION', 'Cette demande est résolue. Ouvrez une nouvelle demande si besoin.');
     const now = ctx.clock.iso();
     for (const id of input.attachments) mustFind(s.uploads, u => u.id === id && u.ownerId === user.id && u.purpose === 'support_attachment', 'pièce jointe');
     t.messages.push({ id: nextId(s, 'MSG', 5), author: 'user', authorName: `${user.firstName} ${user.lastName}`.trim(), body: input.body, attachments: input.attachments, at: now });
@@ -66,7 +94,7 @@ export function agentMessage(ctx: Ctx, admin: AdminUser, ticketId: string, raw: 
   const input = supportMessageSchema.parse(raw);
   return ctx.store.tx((s) => {
     const t = mustFind(s.tickets, (x) => x.id === ticketId, 'demande');
-    if ((t.status === 'resolved' || t.status === 'rejected')) throw new DomainError('INVALID_TRANSITION', 'Demande déjà résolue.');
+    if (isTicketClosed(t)) throw new DomainError('INVALID_TRANSITION', 'Demande déjà résolue.');
     const now = ctx.clock.iso();
     t.messages.push({ id: nextId(s, 'MSG', 5), author: 'agent', authorName: `${admin.name} · Assistance Naya`, body: input.body, attachments: [], at: now });
     t.status = 'awaiting_user';
@@ -78,15 +106,17 @@ export function agentMessage(ctx: Ctx, admin: AdminUser, ticketId: string, raw: 
 
 export function resolveTicket(ctx: Ctx, admin: AdminUser, ticketId: string, input: ResolveTicketInput) {
   requirePermission(admin, 'support.resolve');
+  const { outcome, status } = ticketOutcome(input.outcome);
   return ctx.store.tx((s) => {
     const t = mustFind(s.tickets, (x) => x.id === ticketId, 'demande');
-    if ((t.status === 'resolved' || t.status === 'rejected')) throw new DomainError('CONFLICT', 'Demande déjà résolue.');
+    if (isTicketClosed(t)) throw new DomainError('CONFLICT', 'Demande déjà résolue.');
     const now = ctx.clock.iso();
-    t.status = /^(rejected|rejetée)$/i.test(input.outcome) ? 'rejected' : 'resolved';
-    t.resolution = { outcome: input.outcome, note: input.note, by: admin.name, at: now };
-    t.messages.push({ id: nextId(s, 'MSG', 5), author: 'agent', authorName: `${admin.name} · Assistance Naya`, body: `Demande ${t.status === 'rejected' ? 'rejetée' : 'résolue'} : ${input.outcome}. ${input.note}`, attachments: [], at: now });
+    t.status = status;
+    t.resolution = { outcome, note: input.note, by: admin.name, at: now };
+    // « Rejetée » is the only rejecting outcome: « Demande rejetée : Rejetée. » would say it twice.
+    t.messages.push({ id: nextId(s, 'MSG', 5), author: 'agent', authorName: `${admin.name} · Assistance Naya`, body: `${status === 'rejected' ? 'Demande rejetée.' : `Demande résolue : ${outcome}.`} ${input.note}`, attachments: [], at: now });
     t.updatedAt = now;
-    appendAudit(s, now, { actor: { type: 'admin', id: admin.id, name: admin.name }, action: 'support.resolved', entityType: 'support_ticket', entityId: t.id, cityId: t.cityId, reason: input.note, summary: `Demande ${t.id} résolue · ${input.outcome}` });
+    appendAudit(s, now, { actor: { type: 'admin', id: admin.id, name: admin.name }, action: 'support.resolved', entityType: 'support_ticket', entityId: t.id, cityId: t.cityId, reason: input.note, summary: status === 'rejected' ? `Demande ${t.id} rejetée` : `Demande ${t.id} résolue · ${outcome}` });
     return t;
   });
 }

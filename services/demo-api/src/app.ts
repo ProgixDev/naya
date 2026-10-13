@@ -84,7 +84,7 @@ import {
 } from './services/rides';
 import { applyProviderEvent, createCorrection, createRecharge, createWithdrawal, earningsOf, resolveManually, verifySignature, walletOf } from './services/finance';
 import { addZone, createCity, setCityStatus, setZoneActive, toggleProvider, updateRules } from './services/cities';
-import { agentMessage, createTicket, resolveTicket, userMessage } from './services/support';
+import { agentMessage, createTicket, isTicketClosed, resolveTicket, userMessage } from './services/support';
 import { requirePermission } from './services/permissions';
 import { tick } from './services/timers';
 import { mountPrototypeRoutes, prototypeMethods, prototypeProviders } from './services/prototype';
@@ -664,7 +664,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
       byMethod,
       activeRides: rides.filter((r) => isRideActive(r.status)).length,
       reviewQueue: queue.map((x) => ({ caseId: x.id, subject: x.subject, userId: x.userId, userName: (() => { const u = s.users.find((y) => y.id === x.userId)!; return `${u.firstName} ${u.lastName}`; })(), submittedAt: x.submittedAt })),
-      openTickets: s.tickets.filter((t) => t.cityId === cityId && t.status !== 'resolved').length,
+      openTickets: s.tickets.filter((t) => t.cityId === cityId && !isTicketClosed(t)).length,
       pendingTransfers: s.withdrawals.filter((w) => w.cityId === cityId && w.status === 'pending').length + s.recharges.filter((r) => r.cityId === cityId && r.status === 'pending').length,
       failedPayments: s.payments.filter((p) => p.status === 'failed' && rides.some((r) => r.id === p.rideId)).length,
       onlineDrivers: online.map((p) => ({ driverId: p.driverId, name: s.users.find((u) => u.id === p.driverId)!.firstName, location: p.location, bot: p.bot })),
@@ -798,7 +798,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     const disputes = c.req.query('disputes') === '1';
     return c.json(
       paginate(
-        S().tickets.filter((t) => (!status || (status === 'open' ? t.status !== 'resolved' : t.status === status)) && (!cityId || t.cityId === cityId) && (!disputes || t.isDispute)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+        S().tickets.filter((t) => (!status || (status === 'open' ? !isTicketClosed(t) : t.status === status)) && (!cityId || t.cityId === cityId) && (!disputes || t.isDispute)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
         c,
       ),
     );

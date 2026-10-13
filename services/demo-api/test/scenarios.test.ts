@@ -523,6 +523,41 @@ describe('S14 · history, support ticket, reply and admin resolution', () => {
     const nour = await h.login(PHONES.nour, 'passenger');
     expect((await h.call('POST', '/support/tickets', { token: nour, body: { rideId: 'NY-001', category: 'ride', subject: 'Test accès', body: 'Je ne devrais pas pouvoir faire ceci.', attachments: [] } })).status).toBe(403);
   });
+
+  it('P10 · the status comes from a known outcome: « Rejetée » rejects, other outcomes resolve, unknown text is refused', async () => {
+    const h = setup();
+    const salma = await h.login(PHONES.salma, 'passenger');
+    const admin = await h.adminLogin();
+    const open = (subject: string) => h.ok('POST', '/support/tickets', { token: salma, body: { rideId: null, category: 'account', subject, body: 'Je souhaite une vérification de mon compte.', attachments: [] } });
+    const note = 'Vérification faite avec la personne concernée.';
+    // Free text that used to slip through as « résolue » (or « rejetée » by regex) is refused, and the ticket stays open.
+    // Object property names must not match the legacy alias table either.
+    const a = await open('Demande A');
+    for (const outcome of ['Rejeté', 'Rejet', 'Résolu sans suite', 'constructor', '__proto__', 'toString']) {
+      const r = await h.call('POST', `/admin/support/${a.id}/resolve`, { token: admin, body: { outcome, note } });
+      expect(r.status).toBe(422);
+      expect(r.body.error.code).toBe('VALIDATION');
+    }
+    expect((await h.ok('GET', `/support/tickets/${a.id}`, { token: salma })).status).toBe('open');
+    // A known resolving outcome closes as resolved, case-insensitively, and stores the canonical label.
+    const resolved = await h.ok('POST', `/admin/support/${a.id}/resolve`, { token: admin, body: { outcome: '  remboursement ACCORDÉ ', note } });
+    expect(resolved.status).toBe('resolved');
+    expect(resolved.resolution.outcome).toBe('Remboursement accordé');
+    expect((await h.call('POST', `/admin/support/${a.id}/resolve`, { token: admin, body: { outcome: 'Rejetée', note } })).status).toBe(409);
+    // « Rejetée » closes as rejected, and the passenger sees a closed ticket.
+    const b = await open('Demande B');
+    const rejected = await h.ok('POST', `/admin/support/${b.id}/resolve`, { token: admin, body: { outcome: 'Rejetée', note } });
+    expect(rejected.status).toBe('rejected');
+    expect(rejected.messages.at(-1).body).toBe(`Demande rejetée. ${note}`);
+    expect((await h.call('POST', `/support/tickets/${b.id}/messages`, { token: salma, body: { body: 'Pourquoi ce refus ?' } })).body.error.code).toBe('INVALID_TRANSITION');
+    // The older status code is still accepted and stored as the label.
+    const c = await open('Demande C');
+    const legacy = await h.ok('POST', `/admin/support/${c.id}/resolve`, { token: admin, body: { outcome: 'rejected', note } });
+    expect([legacy.status, legacy.resolution.outcome]).toEqual(['rejected', 'Rejetée']);
+    // Rejected tickets leave the « À traiter » queue like resolved ones.
+    const queue = (await h.ok('GET', '/admin/support?status=open&limit=100', { token: admin })).items.map((t: { id: string }) => t.id);
+    expect([a.id, b.id, c.id].filter((id) => queue.includes(id))).toEqual([]);
+  });
 });
 
 describe('S15 · future city configuration with distinct rules and audit', () => {

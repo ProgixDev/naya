@@ -18,8 +18,10 @@ import {
   Dialog,
   Field,
   Input,
+  Select,
   toast,
 } from '../components/ui';
+import { fromCentimes, toCentimes } from '../lib/format';
 import { DocThumb, DocViewer } from '../components/DocViewer';
 import { logoConcepts, conceptSvg } from '@naya/assets/src/concepts';
 
@@ -35,9 +37,9 @@ const fields: Record<string, string> = {
   name: 'Nom',
   description: 'Description',
   label: 'Libellé',
-  icon: 'Icône (car / scooter / premium)',
+  icon: 'Icône',
   enabled: 'Activé',
-  cityIds: 'Villes (identifiants séparés par une virgule, vide = toutes)',
+  cityIds: 'Villes (identifiants, ex. rabat, casablanca)',
   etaMinutes: 'Arrivée estimée (minutes)',
   commissionBp: 'Commission (%)',
   baseFare: 'Prise en charge (MAD)',
@@ -47,10 +49,10 @@ const fields: Record<string, string> = {
   price: 'Prix de l’abonnement (MAD)',
   durationDays: 'Durée (jours)',
   includedTrips: 'Trajets inclus',
-  features: 'Avantages (séparés par une virgule)',
-  category: 'Catégorie (ride / payment / safety / account / wallet / other)',
+  features: 'Avantages',
+  category: 'Catégorie',
   evidenceRequired: 'Preuve obligatoire',
-  kind: 'Canal (card / mobile / agency)',
+  kind: 'Canal',
 };
 const moneyFields = new Set([
   'baseFare',
@@ -59,6 +61,104 @@ const moneyFields = new Set([
   'minimumFare',
   'price',
 ]);
+/** Category fares only: empty means the city fare applies (null on the server). */
+const nullableFares = new Set(['baseFare', 'perKm', 'perMinute', 'minimumFare']);
+const intRanges: Record<string, [number, number]> = {
+  etaMinutes: [1, 60],
+  durationDays: [1, 365],
+  includedTrips: [1, 500],
+};
+const enums: Record<string, Record<string, string>> = {
+  icon: { car: 'Voiture', scooter: 'Scooter', premium: 'Confort' },
+  category: {
+    ride: 'Course',
+    payment: 'Paiement',
+    safety: 'Sécurité',
+    account: 'Compte',
+    wallet: 'Portefeuille',
+    other: 'Autre',
+  },
+  kind: { card: 'Carte', mobile: 'Paiement mobile', agency: 'Agence' },
+};
+const listHints: Record<string, string> = {
+  cityIds: 'Séparés par une virgule. Vide = toutes les villes.',
+  features: 'Séparés par une virgule.',
+};
+const MAX_CENTIMES = 10_000_000;
+type Draft = Record<string, string | boolean>;
+
+/** Every field is edited as text (MAD amounts, commission in %, comma-separated lists) and parsed only on save. */
+const toDraft = (row: Record<string, unknown>): Draft =>
+  Object.fromEntries(
+    Object.entries(row).map(([k, v]) => [
+      k,
+      typeof v === 'boolean'
+        ? v
+        : Array.isArray(v)
+          ? v.join(', ')
+          : v === null || v === undefined
+            ? ''
+            : typeof v === 'number' && moneyFields.has(k)
+              ? fromCentimes(v)
+              : typeof v === 'number' && k === 'commissionBp'
+                ? String(v / 100).replace('.', ',')
+                : String(v),
+    ]),
+  );
+
+function fromDraft(
+  kind: Kind,
+  initial: Record<string, unknown>,
+  draft: Draft,
+  isNew: boolean,
+  takenIds: string[],
+): { row: Record<string, unknown> | null; errors: Record<string, string> } {
+  const row: Record<string, unknown> = {};
+  const errors: Record<string, string> = {};
+  for (const [k, before] of Object.entries(initial)) {
+    const v = draft[k];
+    if (typeof v === 'boolean') {
+      row[k] = v;
+      continue;
+    }
+    const s = (v ?? '').trim();
+    if (k === 'id') {
+      if (!isNew) row.id = before;
+      else if (!/^[a-z0-9][a-z0-9_-]*$/.test(s))
+        errors.id = 'Lettres minuscules, chiffres, - ou _ (ex. naya-xl).';
+      else if (takenIds.includes(s)) errors.id = 'Cet identifiant existe déjà.';
+      else row.id = s;
+    } else if (Array.isArray(before)) {
+      const list = s.split(',').map((x) => x.trim()).filter(Boolean);
+      if (k === 'features' && !list.length) errors[k] = 'Ajoutez au moins un avantage.';
+      row[k] = list;
+    } else if (moneyFields.has(k)) {
+      const c = toCentimes(s);
+      if (!s && kind === 'categories' && nullableFares.has(k)) row[k] = null;
+      else if (!s) errors[k] = 'Montant requis.';
+      else if (c === null || c < 0) errors[k] = 'Montant invalide, ex. 2,50 ou 2.5.';
+      else if (c > MAX_CENTIMES) errors[k] = 'Montant trop élevé.';
+      else if (k === 'minimumFare' && c === 0)
+        errors[k] = 'Le minimum doit dépasser 0. Laissez vide pour le tarif de la ville.';
+      else row[k] = c;
+    } else if (k === 'commissionBp') {
+      const pct = Number(s.replace(',', '.'));
+      if (!/^\d+([.,]\d{1,2})?$/.test(s) || pct > 50) errors[k] = 'Entre 0 et 50 %.';
+      else row[k] = Math.round(pct * 100);
+    } else if (intRanges[k]) {
+      const [min, max] = intRanges[k];
+      const n = Number(s);
+      if (!/^\d+$/.test(s) || n < min || n > max) errors[k] = `Nombre entier entre ${min} et ${max}.`;
+      else row[k] = n;
+    } else if (enums[k]) {
+      if (!Object.hasOwn(enums[k], s)) errors[k] = 'Choisissez une valeur.';
+      else row[k] = s;
+    } else if (!s) errors[k] = 'Champ requis.';
+    else if (s.length > 300) errors[k] = '300 caractères maximum.';
+    else row[k] = s;
+  }
+  return { row: Object.keys(errors).length ? null : row, errors };
+}
 export function PrototypePage() {
   const qc = useQueryClient();
   const q = useQuery({
@@ -72,6 +172,7 @@ export function PrototypePage() {
   const [editing, setEditing] = useState<{
     kind: Kind;
     row: Record<string, unknown>;
+    isNew: boolean;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<string>();
@@ -135,6 +236,7 @@ export function PrototypePage() {
                 const template = defaultPrototypeCatalog()[kind][0]!;
                 setEditing({
                   kind,
+                  isNew: true,
                   row: {
                     ...template,
                     id: '',
@@ -156,8 +258,13 @@ export function PrototypePage() {
                   <Button
                     size="sm"
                     variant="secondary"
+                    data-testid={`catalog-edit-${row.id}`}
                     onClick={() =>
-                      setEditing({ kind: tab as Kind, row: { ...row } })
+                      setEditing({
+                        kind: tab as Kind,
+                        row: { ...row },
+                        isNew: false,
+                      })
                     }
                   >
                     Modifier
@@ -258,37 +365,41 @@ export function PrototypePage() {
                 <p className="my-2 text-sm tabular">
                   Position : {a.location.lat}, {a.location.lng}
                 </p>
-                <div className="my-3 flex gap-2">
-                  <Button
-                    loading={busy}
-                    onClick={() =>
-                      run(() =>
-                        api.adminPrototype.alert(
-                          a.id,
-                          'responding',
-                          'Prise en charge par le support de démonstration',
-                        ),
-                      )
-                    }
-                  >
-                    Prendre en charge
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    loading={busy}
-                    onClick={() =>
-                      run(() =>
-                        api.adminPrototype.alert(
-                          a.id,
-                          'resolved',
-                          'Alerte de démonstration résolue',
-                        ),
-                      )
-                    }
-                  >
-                    Résoudre
-                  </Button>
-                </div>
+                {a.status !== 'resolved' ? (
+                  <div className="my-3 flex gap-2">
+                    {a.status === 'new' ? (
+                      <Button
+                        loading={busy}
+                        onClick={() =>
+                          run(() =>
+                            api.adminPrototype.alert(
+                              a.id,
+                              'responding',
+                              'Prise en charge par le support de démonstration',
+                            ),
+                          )
+                        }
+                      >
+                        Prendre en charge
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="secondary"
+                      loading={busy}
+                      onClick={() =>
+                        run(() =>
+                          api.adminPrototype.alert(
+                            a.id,
+                            'resolved',
+                            'Alerte de démonstration résolue',
+                          ),
+                        )
+                      }
+                    >
+                      Résoudre
+                    </Button>
+                  </div>
+                ) : null}
                 {a.actions.map((x, i) => (
                   <p key={i} className="text-sm text-muted">
                     {formatShort(x.at)} · {x.by} · {x.label}
@@ -428,6 +539,8 @@ export function PrototypePage() {
         <CatalogEditor
           kind={editing.kind}
           initial={editing.row}
+          isNew={editing.isNew}
+          takenIds={(p?.catalog[editing.kind] ?? []).map((r) => r.id)}
           busy={busy}
           onClose={() => setEditing(null)}
           onSave={(row) =>
@@ -450,79 +563,120 @@ export function PrototypePage() {
 function CatalogEditor({
   kind,
   initial,
+  isNew,
+  takenIds,
   busy,
   onSave,
   onClose,
 }: {
   kind: Kind;
   initial: Record<string, unknown>;
+  isNew: boolean;
+  takenIds: string[];
   busy: boolean;
   onSave: (row: Record<string, unknown>) => Promise<void>;
   onClose: () => void;
 }) {
-  const [row, setRow] = useState(initial);
+  const [draft, setDraft] = useState(() => toDraft(initial));
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const set = (name: string, value: string | boolean) => {
+    setDraft((d) => ({ ...d, [name]: value }));
+    setErrors((e) => (e[name] ? { ...e, [name]: '' } : e));
+  };
+  const save = () => {
+    const r = fromDraft(kind, initial, draft, isNew, takenIds);
+    setErrors(r.errors);
+    if (r.row) void onSave(r.row);
+  };
   return (
     <Dialog
       open
       onClose={onClose}
       busy={busy}
-      title={`Configurer · ${LABELS[kind]}`}
-      description="Les montants sont en MAD. Vide sur un tarif = tarif de la ville."
+      testId="catalog-dialog"
+      title={`${isNew ? 'Ajouter' : 'Configurer'} · ${LABELS[kind]}`}
+      description={
+        kind === 'categories'
+          ? 'Les montants sont en MAD, ex. 2,50. Vide sur un tarif = tarif de la ville.'
+          : kind === 'plans'
+            ? 'Le prix est en MAD, ex. 590 ou 590,50.'
+            : undefined
+      }
       footer={
-        <Button loading={busy} onClick={() => onSave(row)}>
-          Enregistrer
-        </Button>
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Annuler
+          </Button>
+          <Button loading={busy} onClick={save} data-testid="catalog-save">
+            Enregistrer
+          </Button>
+        </>
       }
     >
       <div className="grid gap-4">
-        {Object.entries(initial).map(([name, value]) => (
-          <Field key={name} label={fields[name] ?? name}>
-            {(id) =>
-              typeof value === 'boolean' ? (
-                <input
-                  id={id}
-                  type="checkbox"
-                  checked={Boolean(row[name])}
-                  onChange={(e) => setRow({ ...row, [name]: e.target.checked })}
-                />
-              ) : (
-                <Input
-                  id={id}
-                  value={
-                    Array.isArray(row[name])
-                      ? (row[name] as string[]).join(', ')
-                      : row[name] === null
-                        ? ''
-                        : String(
-                            typeof row[name] === 'number' &&
-                              (moneyFields.has(name) || name === 'commissionBp')
-                              ? Number(row[name]) / 100
-                              : (row[name] ?? ''),
-                          )
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setRow({
-                      ...row,
-                      [name]: Array.isArray(value)
-                        ? val
-                            .split(',')
-                            .map((x) => x.trim())
-                            .filter(Boolean)
-                        : typeof value === 'number' || value === null
-                          ? val === '' && value === null
-                            ? null
-                            : moneyFields.has(name) || name === 'commissionBp'
-                              ? Math.round(Number(val) * 100)
-                              : Number(val)
-                          : val,
-                    });
-                  }}
-                />
-              )
-            }
-          </Field>
-        ))}
+        {Object.entries(initial).map(([name, value]) => {
+          const nullable = kind === 'categories' && nullableFares.has(name);
+          const locked = name === 'id' && !isNew;
+          const hint = locked
+            ? 'L’identifiant ne peut pas être modifié.'
+            : nullable
+              ? 'Vide = tarif de la ville.'
+              : listHints[name];
+          const options = enums[name];
+          return (
+            <Field
+              key={name}
+              label={fields[name] ?? name}
+              error={errors[name] || null}
+              hint={hint}
+            >
+              {(id, describedBy) =>
+                typeof value === 'boolean' ? (
+                  <input
+                    id={id}
+                    type="checkbox"
+                    checked={draft[name] === true}
+                    onChange={(e) => set(name, e.target.checked)}
+                    data-testid={`catalog-${name}`}
+                  />
+                ) : options ? (
+                  <Select
+                    id={id}
+                    aria-describedby={describedBy}
+                    value={String(draft[name])}
+                    onChange={(e) => set(name, e.target.value)}
+                    data-testid={`catalog-${name}`}
+                  >
+                    {Object.entries(options).map(([v, label]) => (
+                      <option key={v} value={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    id={id}
+                    aria-describedby={describedBy}
+                    aria-invalid={errors[name] ? true : undefined}
+                    readOnly={locked}
+                    className={locked ? 'bg-background text-muted' : undefined}
+                    inputMode={
+                      moneyFields.has(name) || name === 'commissionBp'
+                        ? 'decimal'
+                        : name in intRanges
+                          ? 'numeric'
+                          : undefined
+                    }
+                    placeholder={nullable ? 'Tarif de la ville' : undefined}
+                    value={String(draft[name])}
+                    onChange={(e) => set(name, e.target.value)}
+                    data-testid={`catalog-${name}`}
+                  />
+                )
+              }
+            </Field>
+          );
+        })}
       </div>
     </Dialog>
   );

@@ -190,7 +190,7 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
             </Text>
           </View>
           {t.status === 'awaiting_user' ? <StatusBanner compact tone="warning" title="L’équipe attend votre réponse" message="répondez ci-dessous" /> : null}
-          {t.resolution ? <StatusBanner tone={t.status === 'rejected' ? 'danger' : 'success'} title={`${t.status === 'rejected' ? 'Rejetée' : 'Résolue'} · ${t.resolution.outcome}`} message={t.resolution.note} /> : null}
+          {t.resolution ? <StatusBanner tone={t.status === 'rejected' ? 'danger' : 'success'} title={t.status === 'rejected' ? 'Rejetée' : `Résolue · ${t.resolution.outcome}`} message={t.resolution.note} /> : null}
           <View style={{ gap: 10, marginTop: 4 }} accessibilityLabel="Échanges">
               {t.messages.map((m) => {
                 const mine = m.author === 'user';

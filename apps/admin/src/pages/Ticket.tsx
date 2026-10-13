@@ -5,11 +5,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@naya/api';
 import { api } from '../lib/api';
 import { fmtDateTime, money } from '../lib/format';
-import { Banner, Button, Card, DefinitionList, Dialog, ErrorState, Field, Input, PageHeader, Skeleton, Textarea, toast, cx } from '../components/ui';
+import { Banner, Button, Card, DefinitionList, Dialog, ErrorState, Field, PageHeader, Select, Skeleton, Textarea, toast, cx } from '../components/ui';
 import { PaymentBadge, RideBadge, TicketBadge } from '../components/status';
 import { AuditList } from './Audit';
 
-const OUTCOMES = ['Rejetée', 'Tarif confirmé', 'Remboursement accordé', 'Information transmise', 'Signalement traité', 'Compte mis à jour'];
+/** Same labels as the server list (services/demo-api/src/services/support.ts, TICKET_OUTCOMES): « Rejetée » rejects, every other one resolves. No default: the agent always chooses. */
+const OUTCOMES = ['Tarif confirmé', 'Remboursement accordé', 'Information transmise', 'Signalement traité', 'Compte mis à jour'];
+const REJECTED = 'Rejetée';
 
 /** A08 · Fil d’une demande, réponse et résolution motivée. */
 export function TicketPage() {
@@ -19,22 +21,23 @@ export function TicketPage() {
   const [attachment, setAttachment] = useState<string>();
   const [reply, setReply] = useState('');
   const [resolveOpen, setResolveOpen] = useState(false);
-  const [outcome, setOutcome] = useState(OUTCOMES[0]!);
+  const [outcome, setOutcome] = useState('');
   const [note, setNote] = useState('');
   const [noteError, setNoteError] = useState<string | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin'] });
   const send = useMutation({ mutationFn: () => api.admin.replyTicket(id, reply.trim()), onSuccess: () => (setReply(''), toast('Réponse envoyée', 'success'), invalidate()), onError: (e) => toast(errorMessage(e), 'danger') });
-  const resolve = useMutation({ mutationFn: () => api.admin.resolveTicket(id, { outcome, note: note.trim() }), onSuccess: () => (setResolveOpen(false), toast('Demande résolue', 'success'), invalidate()), onError: (e) => setNoteError(errorMessage(e)) });
+  const resolve = useMutation({ mutationFn: () => api.admin.resolveTicket(id, { outcome, note: note.trim() }), onSuccess: (r) => (setResolveOpen(false), toast(r.status === 'rejected' ? 'Demande rejetée' : 'Demande résolue', 'success'), invalidate()), onError: (e) => setNoteError(errorMessage(e)) });
   if (q.isLoading) return <Skeleton className="mt-6 h-[420px] w-full" />;
   if (q.isError || !q.data) return <Card><ErrorState onRetry={() => q.refetch()} /></Card>;
   const { ticket: t, ride, payments, audit } = q.data;
   const open = t.status !== 'resolved' && t.status !== 'rejected';
+  const rejecting = outcome === REJECTED;
   return (
     <>
-      <PageHeader eyebrow={<Link to="/support" className="hover:text-accent">Support</Link>} title={t.subject} subtitle={`${t.id} · ${t.userName} · ${t.userRole === 'driver' ? 'chauffeuse' : 'passagère'} · ouverte le ${fmtDateTime(t.createdAt)}`} actions={<><TicketBadge status={t.status} />{open ? <Button onClick={() => (setResolveOpen(true), setNoteError(null))} data-testid="resolve">Résoudre</Button> : null}</>} />
+      <PageHeader eyebrow={<Link to="/support" className="hover:text-accent">Support</Link>} title={t.subject} subtitle={`${t.id} · ${t.userName} · ${t.userRole === 'driver' ? 'chauffeuse' : 'passagère'} · ouverte le ${fmtDateTime(t.createdAt)}`} actions={<><TicketBadge status={t.status} />{open ? <Button onClick={() => (setResolveOpen(true), setOutcome(''), setNoteError(null))} data-testid="resolve">Résoudre</Button> : null}</>} />
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
         <div className="flex flex-col gap-5">
-          {t.resolution ? <Banner tone={t.status === 'rejected' ? 'danger' : 'success'} title={`${t.status === 'rejected' ? 'Rejetée' : 'Résolue'} · ${t.resolution.outcome}`}>{t.resolution.note} · {t.resolution.by} · {fmtDateTime(t.resolution.at)}</Banner> : null}
+          {t.resolution ? <Banner tone={t.status === 'rejected' ? 'danger' : 'success'} title={t.status === 'rejected' ? REJECTED : `Résolue · ${t.resolution.outcome}`}>{t.resolution.note} · {t.resolution.by} · {fmtDateTime(t.resolution.at)}</Banner> : null}
           <Card title="Échanges">
             <ol className="flex flex-col gap-3">
               {t.messages.map((m) => (
@@ -93,32 +96,35 @@ export function TicketPage() {
         onClose={() => setResolveOpen(false)}
         busy={resolve.isPending}
         testId="resolve-dialog"
-        title="Résoudre la demande ?"
+        title={rejecting ? 'Rejeter la demande ?' : 'Résoudre la demande ?'}
         description="La personne verra l’issue et la note. La résolution est inscrite au journal d’audit."
         footer={
           <>
             <Button variant="ghost" onClick={() => setResolveOpen(false)}>Annuler</Button>
             <Button
+              variant={rejecting ? 'danger' : 'primary'}
+              disabled={!outcome}
               loading={resolve.isPending}
               data-testid="confirm-resolve"
               onClick={() => {
-                if (note.trim().length < 10) return setNoteError('Expliquez la résolution (10 caractères minimum).');
+                if (note.trim().length < 10) return setNoteError(rejecting ? 'Expliquez le refus (10 caractères minimum).' : 'Expliquez la résolution (10 caractères minimum).');
                 setNoteError(null);
                 resolve.mutate();
               }}
             >
-              Confirmer la résolution
+              {rejecting ? 'Rejeter la demande' : 'Confirmer la résolution'}
             </Button>
           </>
         }
       >
         <div className="flex flex-col gap-4">
-          <Field label="Issue">
-            {(fid) => (
-              <>
-                <Input id={fid} list="outcomes" value={outcome} onChange={(e) => setOutcome(e.target.value)} data-testid="resolve-outcome" />
-                <datalist id="outcomes">{OUTCOMES.map((o) => <option key={o} value={o} />)}</datalist>
-              </>
+          <Field label="Issue" hint={rejecting ? 'La demande sera close comme « Rejetée ». La personne verra le refus et votre note.' : outcome ? 'La demande sera close comme « Résolue ».' : 'Choisissez l’issue pour pouvoir confirmer.'}>
+            {(fid, d) => (
+              <Select id={fid} aria-describedby={d} required value={outcome} onChange={(e) => setOutcome(e.target.value)} data-testid="resolve-outcome">
+                <option value="" disabled>Choisir l’issue</option>
+                <optgroup label="Résoudre">{OUTCOMES.map((o) => <option key={o} value={o}>{o}</option>)}</optgroup>
+                <optgroup label="Refuser"><option value={REJECTED}>{REJECTED}</option></optgroup>
+              </Select>
             )}
           </Field>
           <Field label="Note de résolution" error={noteError}>
