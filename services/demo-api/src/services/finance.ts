@@ -141,6 +141,12 @@ export function applyProviderEventIn(s: State, now: string, event: ProviderCallb
   if (ride) {
     ride.timeline.push({ at: now, type: `payment.${p.status}`, actor: 'provider', label: p.status === 'confirmed' ? `Paiement carte confirmé · ${formatMoney(p.amount)}` : 'Paiement carte refusé' });
   }
+  // Car-wash payments have no driver to credit: the outcome only reaches the order's timeline.
+  const wash = p.washOrderId ? s.carWash?.orders.find((o) => o.id === p.washOrderId) : undefined;
+  if (wash) {
+    const what = p.purpose === 'car_wash_fee' ? 'Frais d’annulation' : 'Paiement carte';
+    wash.timeline.push({ at: now, type: `payment.${p.status}`, label: p.status === 'confirmed' ? `${what} confirmé · ${formatMoney(p.amount)}` : `${what} refusé` });
+  }
   if (p.status === 'confirmed' && ride?.driverId) {
     if (p.purpose === 'ride') {
       const split = splitFare(p.amount, ride.terms.commissionBp);

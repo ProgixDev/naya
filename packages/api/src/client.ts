@@ -1,4 +1,5 @@
 import {
+  type CreateWashOrderInput, type WashCancellationPolicy, type WashCancellationPreview, type WashOrder, type WashPackage, type WashPaymentOption, type WashScheduling,
   type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type PassengerWallet, type SafetyAlert, type PrototypeAdmin,
   ERROR_MESSAGES,
   type AdminUser,
@@ -219,6 +220,33 @@ export interface AdminCityRow {
   providers: PaymentProviderConfig[];
 }
 
+/** « Lavage à domicile »: packages and rules for a city. Prices are demo placeholders. */
+export type CarWashCatalog =
+  | { cityId: string; cityName: string; available: false; placeholder: true }
+  | {
+      cityId: string;
+      cityName: string;
+      available: true;
+      placeholder: boolean;
+      rulesVersion: number;
+      packages: WashPackage[];
+      scheduling: WashScheduling;
+      nowEtaMinutes: number;
+      cancellation: WashCancellationPolicy;
+    };
+
+export interface WashOrderDetail {
+  order: WashOrder;
+  payments: Payment[];
+}
+
+export interface AdminWashOrderRow {
+  order: WashOrder;
+  customerName: string;
+  payment: Payment | null;
+  statusLabel: string;
+}
+
 export interface DevScenarios {
   scenarios: Record<string, string>;
   accounts: {
@@ -436,6 +464,18 @@ export function createApiClient(opts: ClientOptions) {
       tokenize: (last4: string) => post<{ providerToken: string }>('/provider-sandbox/tokenize', { last4 }),
     },
 
+    /** « Lavage à domicile », for passengers (their car) and drivers (their Naya car). */
+    carWash: {
+      catalog: (cityId: string) => get<CarWashCatalog>(`/car-wash/catalog${qs({ cityId })}`),
+      paymentOptions: (cityId: string) => get<WashPaymentOption[]>(`/car-wash/payment-options${qs({ cityId })}`),
+      create: (input: CreateWashOrderInput, key: string) => post<WashOrder>('/car-wash/orders', input, key),
+      list: () => get<WashOrder[]>('/car-wash/orders'),
+      get: (id: string) => get<WashOrderDetail>(`/car-wash/orders/${id}`),
+      cancellationPreview: (id: string) => get<WashCancellationPreview>(`/car-wash/orders/${id}/cancellation-preview`),
+      cancel: (id: string, input: CancelInput, key: string) => post<WashOrder>(`/car-wash/orders/${id}/cancel`, input, key),
+      rate: (id: string, stars: number, comment: string | null) => post<WashOrder>(`/car-wash/orders/${id}/rating`, { stars, comment }),
+    },
+
     support: {
       list: () => get<SupportTicket[]>('/support/tickets'),
       get: (id: string) => get<SupportTicket>(`/support/tickets/${id}`),
@@ -477,6 +517,7 @@ export function createApiClient(opts: ClientOptions) {
       startReview: (id: string) => post<VerificationCase>(`/admin/verifications/${id}/start-review`),
       decide: (id: string, input: DecisionInput) => post<VerificationCase>(`/admin/verifications/${id}/decision`, input),
       rides: (p: { q?: string; status?: string; cityId?: string; method?: string; sort?: string; cursor?: number; limit?: number }) => get<Page<AdminRideRow>>(`/admin/rides${qs(p)}`),
+      carWashOrders: (cityId?: string) => get<AdminWashOrderRow[]>(`/admin/car-wash/orders${qs({ cityId })}`),
       scheduled: (cityId?: string) => get<{ booking: ScheduledBooking; passengerName: string }[]>(`/admin/scheduled${qs({ cityId })}`),
       ride: (id: string) => get<AdminRideDetail>(`/admin/rides/${id}`),
       tickets: (p: { status?: string; cityId?: string; disputes?: boolean; cursor?: number }) => get<Page<SupportTicket>>(`/admin/support${qs({ ...p, disputes: p.disputes ? 1 : undefined })}`),

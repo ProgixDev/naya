@@ -25,6 +25,11 @@ export const qk = {
   recharge: (a: string, id: string) => ['naya', a, 'driver', 'recharge', id] as const,
   withdrawal: (a: string, id: string) => ['naya', a, 'driver', 'withdrawal', id] as const,
   providers: (a: string, purpose: string) => ['naya', a, 'providers', purpose] as const,
+  carWashCatalog: (a: string, cityId: string) => ['naya', a, 'car-wash', 'catalog', cityId] as const,
+  carWashPaymentOptions: (a: string, cityId: string) => ['naya', a, 'car-wash', 'payment-options', cityId] as const,
+  carWashOrders: (a: string) => ['naya', a, 'car-wash', 'orders'] as const,
+  carWashOrder: (a: string, id: string) => ['naya', a, 'car-wash', 'order', id] as const,
+  carWashCancelPreview: (a: string, id: string) => ['naya', a, 'car-wash', 'cancel-preview', id] as const,
   tickets: (a: string) => ['naya', a, 'support'] as const,
   ticket: (a: string, id: string) => ['naya', a, 'support', id] as const,
 };

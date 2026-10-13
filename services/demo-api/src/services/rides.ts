@@ -518,7 +518,7 @@ export function rateRide(ctx: Ctx, user: User, rideId: string, stars: number, co
 }
 
 /** Card outcomes in the demo depend on the tokenised test card, like provider sandboxes. */
-function queueCardOutcome(s: State, ctx: Ctx, ref: string, token: string | null) {
+export function queueCardOutcome(s: State, ctx: Ctx, ref: string, token: string | null) {
   const due = new Date(ctx.clock.now() + ctx.config.providerDelaySeconds.payment * 1000).toISOString();
   if (token?.endsWith('0002')) queueProviderJob(s, { kind: 'payment', ref, outcome: 'failed', reason: 'Carte refusée par la banque émettrice.', dueAt: due });
   else if (token?.endsWith('3155')) queueProviderJob(s, { kind: 'payment', ref, outcome: 'manual', reason: null, dueAt: null });

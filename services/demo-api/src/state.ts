@@ -85,6 +85,8 @@ export interface TrackingOverride {
 
 export interface State {
   prototype?: import('@naya/domain').PrototypeState;
+  /** « Lavage à domicile ». Optional and created lazily, so no schemaVersion bump (ADR-0029). */
+  carWash?: import('./services/carWash').CarWashState;
   schemaVersion: 1;
   scenario: string;
   version: number;
