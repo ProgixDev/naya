@@ -1,12 +1,12 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { illustrations } from '@naya/assets';
+import { illustrations, photos } from '@naya/assets';
 import { DEMO_MODE, DemoBadge, PressableScale, WelcomeJourney } from '@naya/ui';
 import { usePrefs } from '@/lib/prefs';
 
 const SLIDES = [
-  { image: illustrations.passengerWelcome, title: 'Vos trajets, entre femmes.', body: 'Des chauffeuses vérifiées à Rabat. Vous voyez son nom, sa voiture et sa plaque avant de monter.', note: 'Chauffeuses vérifiées' },
+  { image: illustrations.passengerWelcome, photo: photos.passengersBetweenWomen, photoLabel: 'Une chauffeuse au volant, une passagère au téléphone sur la banquette arrière', title: 'Vos trajets, entre femmes.', body: 'Des chauffeuses vérifiées à Rabat. Vous voyez son nom, sa voiture et sa plaque avant de monter.', note: 'Chauffeuses vérifiées' },
   { image: illustrations.passengerPlanning, title: 'À votre rythme.', body: 'Réservez maintenant ou planifiez un départ. Le prix est affiché avant de confirmer.', note: 'Prix annoncé avant le départ' },
-  { image: illustrations.passengerIdentity, title: 'Une communauté vérifiée.', body: 'Chaque compte est examiné par une personne de l’équipe Naya avant la première course.', note: 'Un examen humain' },
+  { image: illustrations.passengerIdentity, photo: photos.familleDeparture, photoLabel: 'Une chauffeuse se retourne vers une écolière qui attache sa ceinture, sa mère à la portière', title: 'Une communauté vérifiée.', body: 'Chaque compte est examiné par une personne de l’équipe Naya avant la première course.', note: 'Un examen humain' },
 ] as const;
 
 export default function Welcome() {

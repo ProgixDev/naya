@@ -5,13 +5,15 @@ import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { ArrowUpRight, ShieldCheck } from 'lucide-react-native';
 import { BrandMark, Illustration } from './Brand';
 import { Button } from './Button';
 import { Text } from './Text';
 import { useA11yPrefs } from './a11y';
 
-export interface WelcomeSlide { image: number; title: string; body: string; note: string }
+/** `photo` replaces the drawn artwork: it fills the stage, cropped from the top so faces stay in frame. */
+export interface WelcomeSlide { image: number; photo?: number; photoLabel?: string; title: string; body: string; note: string }
 
 /** Shared editorial opening: artwork has its own stage; content remains scrollable at large text sizes. */
 export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { slides: readonly WelcomeSlide[]; onFinish: () => void; badge?: ReactNode; driver?: boolean }) {
@@ -42,14 +44,20 @@ export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { sl
         {slides.map((slide, i) => (
           <ScrollView bounces={false} overScrollMode="never" key={slide.title} style={{ width }} contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 14, paddingBottom: 16, flexGrow: 1 }} showsVerticalScrollIndicator={false} accessibilityElementsHidden={i !== index} importantForAccessibility={i === index ? 'auto' : 'no-hide-descendants'}>
             <View style={[styles.stage, { height: artHeight }]}>
-              <LinearGradient colors={driver ? [colors.selected, colors.mauveSoft] : [colors.selected, colors.surface]} style={StyleSheet.absoluteFill} />
-              <View pointerEvents="none" style={styles.orbit} />
-              <View pointerEvents="none" style={[styles.orbit, { width: 190, height: 190, top: 26, right: -52 }]} />
-              <View style={styles.stageLabel}>
+              {slide.photo ? (
+                <Image source={slide.photo} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition="top" accessible={!!slide.photoLabel} accessibilityRole="image" accessibilityLabel={slide.photoLabel} />
+              ) : (
+                <>
+                  <LinearGradient colors={driver ? [colors.selected, colors.mauveSoft] : [colors.selected, colors.surface]} style={StyleSheet.absoluteFill} />
+                  <View pointerEvents="none" style={styles.orbit} />
+                  <View pointerEvents="none" style={[styles.orbit, { width: 190, height: 190, top: 26, right: -52 }]} />
+                </>
+              )}
+              <View style={[styles.stageLabel, slide.photo ? styles.stageLabelOnPhoto : null]}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent }} />
                 <Text variant="micro" tone="accent">{driver ? 'L’espace chauffeuse' : 'La ville, à votre rythme'}</Text>
               </View>
-              <Illustration source={slide.image} aspect={4 / 3} width="100%" maxHeight={artHeight - 28} style={{ marginTop: 24 }} />
+              {slide.photo ? null : <Illustration source={slide.image} aspect={4 / 3} width="100%" maxHeight={artHeight - 28} style={{ marginTop: 24 }} />}
             </View>
             <View style={{ paddingHorizontal: 4, paddingTop: 24, gap: 12 }}>
               <Text variant="hero" accessibilityRole="header" style={{ maxWidth: 345 }}>{slide.title}</Text>
@@ -79,5 +87,6 @@ const styles = themedStyles(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter + 4, height: 58 },
   stage: { borderRadius: 34, overflow: 'hidden', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
   stageLabel: { position: 'absolute', top: 20, left: 20, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  stageLabelOnPhoto: { top: 14, left: 14, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surface },
   orbit: { position: 'absolute', width: 310, height: 310, borderRadius: 180, borderWidth: 1, borderColor: colors.glassBorder, top: 32, right: -42 },
 }));

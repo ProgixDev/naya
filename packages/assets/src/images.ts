@@ -7,6 +7,13 @@ export const illustrations = {
   driverWallet: require('../illustrations/naya-chauffeuse-portefeuille.png'),
 } as const;
 
+/** Onboarding photos (GPT Image, 13 October 2026), cropped from 9:16 to 941 × 1100 with the faces in the upper half. */
+export const photos = {
+  driverOnRoad: require('../photos/naya-chauffeuse-route.jpg'),
+  passengersBetweenWomen: require('../photos/naya-passageres-trajet.jpg'),
+  familleDeparture: require('../photos/naya-famille-depart.jpg'),
+} as const;
+
 /** Original Naya Signature car. Colour variants do not imply a fare tier. */
 export const cars = {
   pearl: require('../cars/naya-signature-pearl.png'),
@@ -42,4 +49,5 @@ export const aspect = {
   carSmall: 420 / 237,
   carTop: 103 / 192,
   portrait: 360 / 620,
+  photo: 941 / 1100,
 } as const;
