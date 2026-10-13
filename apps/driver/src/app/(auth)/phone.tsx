@@ -8,7 +8,7 @@ export default function Phone() {
       role="driver"
       initialPhone={phone}
       title="Votre numéro"
-      subtitle="Il sert à vous connecter et à joindre vos passagères de façon masquée."
+      subtitle="Il sert à vous connecter à votre espace chauffeuse."
       onBack={router.canGoBack() ? () => router.back() : undefined}
       onCodeSent={(p, demoCode) => router.push({ pathname: '/(auth)/otp', params: { phone: p, demoCode: demoCode ?? '' } })}
       legal={

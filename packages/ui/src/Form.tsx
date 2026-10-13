@@ -103,16 +103,19 @@ export function FieldRow({ children }: { children: ReactNode }) {
   return <View style={{ flexDirection: largeText ? 'column' : 'row', gap: 10 }}>{Children.map(children, (c) => <View style={{ flex: largeText ? undefined : 1 }}>{c}</View>)}</View>;
 }
 
-const pad2 = (s: string) => s.padStart(2, '0');
-/** "JJ/MM/AAAA" typed with digits only → ISO "AAAA-MM-JJ" (or partial while typing). */
+/** Digits typed so far, shown as "JJ / MM / AAAA" (partial while typing). */
 export function maskDate(digits: string) {
   const d = digits.replace(/\D/g, '').slice(0, 8);
   return [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean).join(' / ');
 }
+const daysInMonth = (y: number, m: number) => [31, (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1] ?? 0;
+/** Eight digits JJMMAAAA → ISO "AAAA-MM-JJ"; null while incomplete or when the day does not exist (31/02). */
 export function isoFromDigits(digits: string): string | null {
   const d = digits.replace(/\D/g, '');
   if (d.length !== 8) return null;
-  return `${d.slice(4, 8)}-${pad2(d.slice(2, 4))}-${pad2(d.slice(0, 2))}`;
+  const [day, month, year] = [Number(d.slice(0, 2)), Number(d.slice(2, 4)), Number(d.slice(4, 8))];
+  if (year < 1 || day < 1 || day > daysInMonth(year, month)) return null;
+  return `${d.slice(4, 8)}-${d.slice(2, 4)}-${d.slice(0, 2)}`;
 }
 export const digitsFromIso = (iso: string | null | undefined) => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8, 10)}${iso.slice(5, 7)}${iso.slice(0, 4)}` : '');
 
@@ -125,14 +128,23 @@ export interface DateFieldProps {
   testID?: string;
 }
 
-/** Date of birth as one pill with a JJ / MM / AAAA mask and the number pad. */
+/**
+ * Date of birth as one pill with a JJ / MM / AAAA mask and the number pad. The typed digits
+ * are local: the parent receives the ISO date once it is complete and real, '' before that,
+ * and its echo of that value never rewrites what is being typed. Only a value the field did
+ * not send itself (a loaded record, a form reset) replaces the digits. A reset while the date
+ * is still incomplete leaves value at '' and cannot be seen: remount with a `key` to clear it.
+ */
 export function DateField({ label, value, onChange, error, testID }: DateFieldProps) {
   useTheme();
   const [digits, setDigits] = useState(() => digitsFromIso(value));
+  const sent = useRef(value);
   useEffect(() => {
-    if (value && digitsFromIso(value) !== digits) setDigits(digitsFromIso(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (value === sent.current) return;
+    sent.current = value;
+    setDigits(digitsFromIso(value));
   }, [value]);
+  const invalid = digits.length === 8 && !isoFromDigits(digits);
   return (
     <FormField
       icon={CalendarDays}
@@ -144,9 +156,12 @@ export function DateField({ label, value, onChange, error, testID }: DateFieldPr
       onChangeText={(t) => {
         const d = t.replace(/\D/g, '').slice(0, 8);
         setDigits(d);
-        onChange(isoFromDigits(d) ?? d);
+        const iso = isoFromDigits(d) ?? '';
+        if (iso === sent.current) return;
+        sent.current = iso;
+        onChange(iso);
       }}
-      error={error}
+      error={invalid ? 'Cette date n’existe pas. Vérifiez le jour et le mois.' : error}
       maxLength={14}
     />
   );

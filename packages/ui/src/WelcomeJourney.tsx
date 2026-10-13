@@ -30,7 +30,7 @@ export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { sl
   return (
     <View style={[styles.root, { paddingTop: insets.top }]} testID="onboarding">
       <StatusBar style={getColorScheme() === 'dark' ? 'light' : 'dark'} />
-      <LinearGradient pointerEvents="none" colors={['#F1E6EF', '#FAF8FA', colors.background]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+      <LinearGradient pointerEvents="none" colors={[colors.mauveSoft, colors.background, colors.background]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <BrandMark height={30} />
@@ -42,7 +42,7 @@ export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { sl
         {slides.map((slide, i) => (
           <ScrollView bounces={false} overScrollMode="never" key={slide.title} style={{ width }} contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 14, paddingBottom: 16, flexGrow: 1 }} showsVerticalScrollIndicator={false} accessibilityElementsHidden={i !== index} importantForAccessibility={i === index ? 'auto' : 'no-hide-descendants'}>
             <View style={[styles.stage, { height: artHeight }]}>
-              <LinearGradient colors={driver ? ['#E6D8E3', '#F7F0F5'] : ['#EBDFE8', '#F8F3F7']} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={driver ? [colors.selected, colors.mauveSoft] : [colors.selected, colors.surface]} style={StyleSheet.absoluteFill} />
               <View pointerEvents="none" style={styles.orbit} />
               <View pointerEvents="none" style={[styles.orbit, { width: 190, height: 190, top: 26, right: -52 }]} />
               <View style={styles.stageLabel}>
@@ -77,7 +77,7 @@ export function WelcomeJourney({ slides, onFinish, badge, driver = false }: { sl
 const styles = themedStyles(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter + 4, height: 58 },
-  stage: { borderRadius: 34, overflow: 'hidden', justifyContent: 'center', borderWidth: 1, borderColor: '#FFFFFF' },
+  stage: { borderRadius: 34, overflow: 'hidden', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
   stageLabel: { position: 'absolute', top: 20, left: 20, flexDirection: 'row', alignItems: 'center', gap: 7 },
-  orbit: { position: 'absolute', width: 310, height: 310, borderRadius: 180, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', top: 32, right: -42 },
+  orbit: { position: 'absolute', width: 310, height: 310, borderRadius: 180, borderWidth: 1, borderColor: colors.glassBorder, top: 32, right: -42 },
 }));

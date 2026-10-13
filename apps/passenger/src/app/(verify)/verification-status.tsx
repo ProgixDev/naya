@@ -1,5 +1,5 @@
 import { useTheme , Button, ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Screen, SkeletonList, StatusBanner, Text, TextButton, haptic, toast } from '@naya/ui';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BadgeCheck, CircleAlert, Clock3, FileText, XCircle } from 'lucide-react-native';
@@ -7,7 +7,7 @@ import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { formatDay, ITEM_LABELS, STATUS_LABELS } from '@naya/domain';
 import { aspect, illustrations } from '@naya/assets';
-import { colors } from '@naya/tokens';
+import { colors, themedStyles } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 
@@ -105,19 +105,19 @@ export default function Status() {
   );
 }
 
-const toneColors = {
+const toneColors = themedStyles(() => ({
   info: { bg: colors.infoSoft, fg: colors.info },
   success: { bg: colors.successSoft, fg: colors.success },
   warning: { bg: colors.warningSoft, fg: colors.warning },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
-} as const;
+}));
 
 /** One card per decision: tone disc, title, one line. */
 function StatusHero({ tone, Icon, title, message }: { tone: keyof typeof toneColors; Icon: typeof Clock3; title: string; message: string }) {
   useTheme();
   const t = toneColors[tone];
   return (
-    <View accessible accessibilityRole="summary" style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 18, gap: 10, borderWidth: 1, borderColor: 'rgba(46,32,44,0.06)' }}>
+    <View accessible accessibilityRole="summary" style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 18, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }}>
       <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
         <Icon size={24} color={t.fg} />
       </View>

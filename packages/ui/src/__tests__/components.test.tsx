@@ -1,6 +1,6 @@
-import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen, userEvent } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { computeFare, mad, RABAT_RULES } from '@naya/domain';
 import { create } from 'zustand';
@@ -9,11 +9,19 @@ import type { SessionStore } from '../core/session';
 import { qk, serverClock } from '@naya/api';
 import { useDeadline } from '@naya/api/react';
 import { Button } from '../Button';
-import { OTPField, Pill } from '../Form';
+import { DateField, OTPField, Pill } from '../Form';
 import { SegmentedControl } from '../SegmentedControl';
 import { CountdownRing, FareBreakdown, WalletSummary } from '../Ride';
 import { StatusBanner } from '../Feedback';
 import { useSingleFlight } from '../core/useSingleFlight';
+import { WelcomeJourney } from '../WelcomeJourney';
+import { darkColors, setColorScheme } from '@naya/tokens';
+
+// Gradients render as plain views so their colour stops can be read back.
+jest.mock('expo-linear-gradient', () => {
+  const { View } = require('react-native');
+  return { LinearGradient: (p: object) => require('react').createElement(View, { ...p, testID: 'gradient' }) };
+});
 
 const safeArea = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } };
 const wrap = (ui: ReactNode) => <SafeAreaProvider initialMetrics={safeArea}>{ui}</SafeAreaProvider>;
@@ -57,6 +65,81 @@ describe('OTPField', () => {
   it('announces errors', async () => {
     await render(<OTPField value="12" onChange={() => {}} error="Code incorrect. Vérifiez le SMS et réessayez." />);
     expect(screen.getByRole('alert')).toHaveTextContent('Code incorrect. Vérifiez le SMS et réessayez.');
+  });
+});
+
+describe('DateField (birth date)', () => {
+  /** A parent that echoes the value back, as react-hook-form's Controller does. */
+  function Controlled({ onChange }: { onChange: (iso: string) => void }) {
+    const [value, setValue] = useState('');
+    return (
+      <>
+        <DateField label="Date de naissance" value={value} onChange={(v) => { setValue(v); onChange(v); }} testID="birth-date" />
+        <Button label="Effacer" onPress={() => setValue('')} testID="reset" />
+        <Button label="Charger" onPress={() => setValue('1988-12-01')} testID="load" />
+      </>
+    );
+  }
+
+  it('keeps each digit typed one at a time and sends the ISO date only once complete', async () => {
+    const onChange = jest.fn();
+    const user = userEvent.setup();
+    await render(<Controlled onChange={onChange} />);
+    const input = screen.getByTestId('birth-date');
+    await user.type(input, '1503');
+    expect(input).toHaveDisplayValue('15 / 03');
+    expect(onChange).not.toHaveBeenCalled();
+    await user.type(input, '1990');
+    expect(input).toHaveDisplayValue('15 / 03 / 1990');
+    expect(onChange).toHaveBeenLastCalledWith('1990-03-15');
+  });
+
+  it('backspace removes one digit and withdraws the date until it is complete again', async () => {
+    const onChange = jest.fn();
+    const user = userEvent.setup();
+    await render(<Controlled onChange={onChange} />);
+    const input = screen.getByTestId('birth-date');
+    await user.type(input, '15031990');
+    await user.type(input, '{Backspace}');
+    expect(input).toHaveDisplayValue('15 / 03 / 199');
+    expect(onChange).toHaveBeenLastCalledWith('');
+    await user.type(input, '{Backspace}{Backspace}{Backspace}{Backspace}');
+    expect(input).toHaveDisplayValue('15 / 0');
+    await user.type(input, '41991');
+    expect(input).toHaveDisplayValue('15 / 04 / 1991');
+    expect(onChange).toHaveBeenLastCalledWith('1991-04-15');
+  });
+
+  it('clears on an external reset and shows a date loaded from outside', async () => {
+    const user = userEvent.setup();
+    await render(<Controlled onChange={() => {}} />);
+    const input = screen.getByTestId('birth-date');
+    await user.type(input, '15031990');
+    await fireEvent.press(screen.getByTestId('reset'));
+    expect(input).toHaveDisplayValue('');
+    await fireEvent.press(screen.getByTestId('load'));
+    expect(input).toHaveDisplayValue('01 / 12 / 1988');
+  });
+
+  it('flags a day that does not exist instead of sending it', async () => {
+    const onChange = jest.fn();
+    const user = userEvent.setup();
+    await render(<Controlled onChange={onChange} />);
+    await user.type(screen.getByTestId('birth-date'), '31021990');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Cette date n’existe pas. Vérifiez le jour et le mois.');
+  });
+});
+
+describe('WelcomeJourney (first screen) in dark mode', () => {
+  afterEach(() => act(() => setColorScheme('light')));
+
+  it('paints the backdrop and the art stage from the dark palette', async () => {
+    setColorScheme('dark');
+    await render(wrap(<WelcomeJourney slides={[{ image: 1, title: 'Vos trajets, entre femmes.', body: 'Des chauffeuses vérifiées à Rabat.', note: 'Chauffeuses vérifiées' }]} onFinish={() => {}} />));
+    const [backdrop, stage] = screen.getAllByTestId('gradient');
+    expect(backdrop!.props.colors).toEqual([darkColors.mauveSoft, darkColors.background, darkColors.background]);
+    expect(stage!.props.colors).toEqual([darkColors.selected, darkColors.surface]);
   });
 });
 

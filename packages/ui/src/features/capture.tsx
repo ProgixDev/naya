@@ -122,7 +122,7 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
           </View>
         )
       ) : (
-        <View style={[frame, { borderWidth: 2, borderStyle: 'dashed', borderColor: existingUploadId ? colors.success : colors.mauve, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 10 }]}>
+        <View style={[frame, { borderWidth: 2, borderStyle: 'dashed', borderColor: existingUploadId ? colors.success : colors.mauve, backgroundColor: colors.glass, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 10 }]}>
           {selfie ? <ScanFace size={34} color={colors.accent} /> : <IdCard size={34} color={colors.accent} />}
           <Text variant="caption" tone="muted" align="center">
             {existingUploadId ? 'Pièce ajoutée · vous pouvez la remplacer' : guidance}

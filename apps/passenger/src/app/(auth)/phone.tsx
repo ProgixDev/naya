@@ -27,7 +27,7 @@ function ProviderButtons() {
         style={{ height: 50, width: '100%' }}
         onPress={async () => {
           await AppleAuthentication.signInAsync({ requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME] });
-          // The identity token must be verified server-side; see docs/INTEGRATIONS.md.
+          // The identity token must be verified server-side; see docs/status/integrations.md.
         }}
       />
     </View>
@@ -41,7 +41,7 @@ export default function Phone() {
       role="passenger"
       initialPhone={phone}
       title="Votre numéro"
-      subtitle="Il sert à vous connecter et à joindre votre chauffeuse de façon masquée."
+      subtitle="Il sert à vous connecter à votre compte Naya."
       onBack={router.canGoBack() ? () => router.back() : undefined}
       onCodeSent={(p, demoCode) => router.push({ pathname: '/(auth)/otp', params: { phone: p, demoCode: demoCode ?? '' } })}
       providers={<ProviderButtons />}

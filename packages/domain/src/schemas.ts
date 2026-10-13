@@ -56,7 +56,7 @@ const isAdult = (iso: string) => {
 export const identityDetailsSchema = z.object({
   firstName: z.string().trim().min(1, 'Prénom requis').max(60),
   lastName: z.string().trim().min(1, 'Nom requis').max(60),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format AAAA-MM-JJ').refine(isAdult, 'Vous devez avoir 18 ans ou plus'),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Saisissez votre date de naissance (JJ / MM / AAAA).').refine(isAdult, 'Vous devez avoir 18 ans ou plus'),
   documentType: z.enum(['cin', 'passport', 'residence_permit']),
   documentNumber: z.string().trim().min(5, 'Numéro trop court').max(20).regex(/^[A-Za-z0-9]+$/, 'Lettres et chiffres uniquement'),
 });
