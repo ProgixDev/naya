@@ -1,12 +1,14 @@
-import { useTheme , useStackMotion, useA11yPrefs } from '@naya/ui';
+import { useTheme , useStackMotion, useA11yPrefs, toast } from '@naya/ui';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Stack, router, usePathname } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { colors } from '@naya/tokens';
+import { serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { useDriverStatus } from '@/lib/queries';
 import { useLocationStream } from '@/lib/location';
+import { startRideTracking, stopRideTracking } from '@/lib/backgroundLocation';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
@@ -28,11 +30,13 @@ function useOfferAndRideWatcher() {
     if (offer?.status === 'pending' && seenOffer.current !== offer.id) {
       seenOffer.current = offer.id;
       if (!pathname.startsWith('/offer')) router.push('/offer');
-      if (AppState.currentState !== 'active' && Platform.OS !== 'web') {
-        Notifications.scheduleNotificationAsync({ content: { title: 'Nouvelle course', body: 'Vous avez 30 secondes pour répondre.' }, trigger: null }).catch(() => undefined);
+      // The response window is set per city: announce what is left of this offer's deadline.
+      const left = Math.ceil((Date.parse(offer.expiresAt) - serverClock.now()) / 1000);
+      if (AppState.currentState !== 'active' && Platform.OS !== 'web' && left > 0) {
+        Notifications.scheduleNotificationAsync({ content: { title: 'Nouvelle course', body: `Vous avez ${left} seconde${left > 1 ? 's' : ''} pour répondre.` }, trigger: null }).catch(() => undefined);
       }
     }
-  }, [offer?.id, offer?.status, pathname]);
+  }, [offer?.id, offer?.status, offer?.expiresAt, pathname]);
   useEffect(() => {
     if (!restored.current && status.data) {
       restored.current = true;
@@ -41,10 +45,35 @@ function useOfferAndRideWatcher() {
   }, [status.data, ride, pathname]);
 }
 
+/**
+ * Lock-screen location sharing follows the server's active ride, not the ride screen: going back
+ * home keeps it on, and it stops once the server reports no accepted ride (completion or
+ * cancellation by either side), including at app start after the app was killed mid-ride.
+ * Sign-out stops it too (lib/session).
+ */
+function useRideTracking() {
+  const status = useDriverStatus();
+  const rideId = status.data ? (status.data.activeRide?.id ?? null) : undefined;
+  const tracked = useRef<string | null>(null);
+  useEffect(() => {
+    if (rideId === undefined) return;
+    if (rideId && tracked.current !== rideId) {
+      tracked.current = rideId;
+      startRideTracking().then((r) => {
+        if (r === 'foreground-only') toast('Position partagée seulement quand l’application est ouverte.');
+      });
+    } else if (!rideId) {
+      tracked.current = null;
+      void stopRideTracking();
+    }
+  }, [rideId]);
+}
+
 export default function AppLayout() {
   useTheme();
   const stackMotion = useStackMotion();
   useOfferAndRideWatcher();
+  useRideTracking();
   const { reduceMotion } = useA11yPrefs();
   const api = useApi();
   const status = useDriverStatus();

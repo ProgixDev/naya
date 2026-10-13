@@ -8,7 +8,9 @@ import { resolveApiBase, STANDALONE_DEMO } from '@naya/ui';
  * Background location is used only while a ride is accepted (pickup and trip) so the
  * passenger sees the car even when the phone is locked. It requires a development or
  * production build (not Expo Go) with the background location config in app.config.ts,
- * and "Always" permission granted in context. It stops at completion or cancellation.
+ * and "Always" permission granted in context. Its lifecycle follows the server's active ride
+ * ((app)/_layout), not the ride screen; it also stops at sign-out (lib/session) and stops
+ * itself when the server reports the ride is over, the driver offline or the session gone.
  */
 export const RIDE_LOCATION_TASK = 'naya-driver-ride-location';
 
@@ -18,13 +20,17 @@ if (!STANDALONE_DEMO && Platform.OS !== 'web' && !TaskManager.isTaskDefined(RIDE
     const last = data.locations[data.locations.length - 1]!;
     try {
       const raw = await SecureStore.getItemAsync('naya.driver.session');
-      if (!raw) return;
+      // Signed out: the position is no longer shared with anyone.
+      if (!raw) return stopRideTracking();
       const { token } = JSON.parse(raw) as { token: string };
-      await fetch(`${resolveApiBase()}/driver/location`, {
+      const res = await fetch(`${resolveApiBase()}/driver/location`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ location: { lat: last.coords.latitude, lng: last.coords.longitude }, heading: last.coords.heading ?? null }),
       });
+      // Refused (offline without a ride, session expired) or the ride ended while the phone was locked.
+      if (res.status === 401 || res.status === 403 || res.status === 409) return stopRideTracking();
+      if (res.ok && ((await res.json()) as { onRide?: boolean }).onRide === false) return stopRideTracking();
     } catch {
       // Network loss is surfaced to the passenger as stale tracking; nothing to do here.
     }
@@ -48,7 +54,8 @@ export async function startRideTracking(): Promise<BackgroundResult> {
       timeInterval: 5000,
       showsBackgroundLocationIndicator: true,
       pausesUpdatesAutomatically: false,
-      foregroundService: { notificationTitle: 'Course Naya en cours', notificationBody: 'Votre position est partagée avec la passagère jusqu’à la fin de la course.', notificationColor: '#6B3657' },
+      // killServiceOnDestroy: a killed app must not leave the service sharing the position on its own.
+      foregroundService: { notificationTitle: 'Course Naya en cours', notificationBody: 'Votre position est partagée avec la passagère jusqu’à la fin de la course.', notificationColor: '#6B3657', killServiceOnDestroy: true },
     });
     return 'started';
   } catch {

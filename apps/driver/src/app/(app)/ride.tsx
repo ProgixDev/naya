@@ -1,6 +1,6 @@
 import { useTheme , SafetyButton , Button, DemoBadge, Glass, IconButton, IconDisc, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
-import { useEffect, useRef, useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Linking, Platform, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
@@ -11,7 +11,6 @@ import { useApi } from '@naya/api/react';
 import { DRIVER_CANCEL_REASONS, formatMoney, formatTime, type LatLng, type Ride } from '@naya/domain';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { useAccountId, useDriverStatus } from '@/lib/queries';
-import { startRideTracking, stopRideTracking } from '@/lib/backgroundLocation';
 
 function openNavigation(to: LatLng, label: string) {
   const q = `${to.lat},${to.lng}`;
@@ -33,27 +32,11 @@ export default function RideScreen() {
   const [reason, setReason] = useState<string>('passenger_unreachable');
   const [cancelledByMe, setCancelledByMe] = useState<Ride | null>(null);
   const [offline, setOffline] = useState(false);
-  const tracking = useRef(false);
 
   const ride = status.data?.activeRide ?? null;
   if (ride && ride.id !== lastRideId) setLastRideId(ride.id);
 
   useEffect(() => NetInfo.addEventListener((s) => setOffline(!s.isConnected || s.isInternetReachable === false)), []);
-
-  // Background location only while a ride is accepted.
-  useEffect(() => {
-    if (ride && !tracking.current) {
-      tracking.current = true;
-      startRideTracking().then((r) => {
-        if (r === 'foreground-only') toast('Position partagée seulement quand l’application est ouverte.');
-      });
-    }
-    if (!ride && tracking.current) {
-      tracking.current = false;
-      stopRideTracking();
-    }
-  }, [ride]);
-  useEffect(() => () => void stopRideTracking(), []);
 
   // The ride disappeared from the active state: find out why (passenger cancellation, completion).
   const ended = useQuery({
@@ -78,7 +61,6 @@ export default function RideScreen() {
       step.reset();
       refresh(r);
       if (r.status === 'completed') {
-        stopRideTracking();
         qc.invalidateQueries({ queryKey: qk.wallet(a) });
         router.replace({ pathname: '/ride-end/[id]', params: { id: r.id } });
       }
@@ -96,12 +78,13 @@ export default function RideScreen() {
       haptic.warning();
       setCancelOpen(false);
       setCancelledByMe(r);
-      stopRideTracking();
       qc.invalidateQueries({ queryKey: qk.driverStatus(a) });
     },
     onError: (e) => toast(errorMessage(e), 'danger'),
   });
 
+  // Background location follows the server's active ride ((app)/_layout), not this screen:
+  // going home mid-ride (« la course continue ») keeps the position shared with the passenger.
   const home = () => router.dismissTo('/');
 
   if (cancelledByMe) {
@@ -219,11 +202,12 @@ export default function RideScreen() {
         {ride.status !== 'in_progress' ? <TextButton label="Annuler avec un motif" onPress={() => setCancelOpen(true)} testID="ride-cancel" /> : <TextButton label="Contacter le support" onPress={() => router.push({ pathname: '/support/new', params: { rideId: ride.id } })} />}
       </View>
 
-      <Sheet visible={contactOpen} onClose={() => setContactOpen(false)} title={`Contacter ${ride.passenger.firstName}`} subtitle="Votre numéro reste masqué des deux côtés.">
+      <Sheet visible={contactOpen} onClose={() => setContactOpen(false)} title={`Contacter ${ride.passenger.firstName}`} subtitle="L’appel et le message via Naya ne sont pas encore disponibles." testID="contact-sheet">
         <View style={{ gap: 12 }}>
           <Text variant="caption" tone="muted">
-            En cas de problème de sécurité, appelez le 19 (police).
+            En cas d’urgence, composez le 19 (police).
           </Text>
+          <Button label="Appeler le 19 (police)" variant="danger" full onPress={() => Linking.openURL('tel:19').catch(() => Alert.alert('Appel impossible depuis cet appareil', 'Composez le 19 depuis un téléphone.'))} testID="call-police" />
           <Button label="Compris" variant="secondary" full onPress={() => setContactOpen(false)} />
         </View>
       </Sheet>

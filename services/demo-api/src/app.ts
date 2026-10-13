@@ -488,7 +488,12 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   });
   app.post('/driver/location', async (c) => {
     const input = await body(c, locationUpdateSchema);
-    return c.json(updateLocation(ctx, userOf(c, 'driver'), input.location));
+    const driver = userOf(c, 'driver');
+    // Positions are accepted only while online or on an accepted ride, so a background task left
+    // running after the ride (app killed, phone locked) is refused; `onRide` lets it stop itself.
+    const onRide = S().rides.some((r) => r.driverId === driver.id && ['driver_assigned', 'driver_arrived', 'in_progress'].includes(r.status));
+    if (!onRide && !S().presence.find((p) => p.driverId === driver.id)?.online) throw new DomainError('INVALID_TRANSITION', 'Passez en ligne pour partager votre position.', { reason: 'offline_without_ride' });
+    return c.json({ ...updateLocation(ctx, driver, input.location), onRide });
   });
   app.post('/driver/offers/:id/accept', async (c) => {
     const driver = userOf(c, 'driver');

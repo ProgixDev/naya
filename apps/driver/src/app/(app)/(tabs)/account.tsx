@@ -1,10 +1,10 @@
-import { useTheme , ProfileHero, Avatar, avatarFor, ConfirmDialog, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, Text, TextButton } from '@naya/ui';
+import { useTheme , ProfileHero, Avatar, avatarFor, ConfirmDialog, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, Text, TextButton, toast } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bell, Car, FileText, FlaskConical, History, LifeBuoy, UserRound } from 'lucide-react-native';
-import { qk } from '@naya/api';
+import { isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { STATUS_LABELS } from '@naya/domain';
 import { colors } from '@naya/tokens';
@@ -26,8 +26,14 @@ export default function Account() {
   const v = me.data?.vehicle;
   const signOut = async () => {
     setLeaving(true);
-    // Leave the dispatch pool first so no offer is sent to a signed-out device.
-    await api.driver.setOnline(false, null).catch(() => undefined);
+    // Leave the dispatch pool first so no offer is sent to a signed-out device. The server refuses
+    // during an accepted ride: signing out would stop sharing the position with the passenger.
+    const onRide = await api.driver.setOnline(false, null).then(() => false, (e) => isApiError(e) && e.code === 'ACTIVE_RIDE_EXISTS');
+    if (onRide) {
+      setLeaving(false);
+      setConfirm(false);
+      return toast('Terminez la course en cours avant de vous déconnecter.', 'danger');
+    }
     await api.auth.logout().catch(() => undefined);
     qc.removeQueries({ queryKey: qk.root });
     await useSession.getState().signOut();

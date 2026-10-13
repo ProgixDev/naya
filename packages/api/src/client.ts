@@ -409,7 +409,7 @@ export function createApiClient(opts: ClientOptions) {
     driver: {
       status: () => get<DriverStatus>('/driver/status'),
       setOnline: (online: boolean, location: LatLng | null) => post<DriverStatus>('/driver/online', { online, location }),
-      sendLocation: (location: LatLng) => post<{ ok: true }>('/driver/location', { location }),
+      sendLocation: (location: LatLng) => post<{ ok: true; onRide: boolean }>('/driver/location', { location }),
       acceptOffer: (offerId: string, key: string) => post<Ride>(`/driver/offers/${offerId}/accept`, {}, key),
       declineOffer: (offerId: string, reasonCode: string) => post<DriverOffer>(`/driver/offers/${offerId}/decline`, { reasonCode }),
       arrive: (rideId: string) => post<Ride>(`/driver/rides/${rideId}/arrive`),
