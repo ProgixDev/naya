@@ -13,6 +13,7 @@ const config: ExpoConfig = {
   backgroundColor: '#FAF4F7',
   ios: {
     bundleIdentifier: 'ma.naya.chauffeuse',
+    appleTeamId: '89884BGNZR',
     supportsTablet: false,
     buildNumber: '5',
     config: { usesNonExemptEncryption: false },
@@ -30,6 +31,7 @@ const config: ExpoConfig = {
   plugins: [
     // iOS 27 requires the UIScene life cycle; see plugins/with-scene-lifecycle.js.
     '../../plugins/with-scene-lifecycle',
+    '../../plugins/with-ios-build-paths',
     'expo-router',
     ['expo-secure-store', { faceIDPermission: 'Naya utilise Face ID uniquement si vous choisissez de protéger l’accès à votre compte.' }],
     'expo-web-browser',
