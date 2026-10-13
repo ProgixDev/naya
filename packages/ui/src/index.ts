@@ -35,6 +35,7 @@ export * from './DocumentPicker';
 export * from './motion';
 
 export * from './features/prototype';
+export * from './features/famille';
 
 export * from './core/theme';
 

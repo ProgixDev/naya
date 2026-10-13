@@ -27,6 +27,10 @@ export const qk = {
   providers: (a: string, purpose: string) => ['naya', a, 'providers', purpose] as const,
   tickets: (a: string) => ['naya', a, 'support'] as const,
   ticket: (a: string, id: string) => ['naya', a, 'support', id] as const,
+  family: (a: string) => ['naya', a, 'family'] as const,
+  familyTrip: (a: string, id: string) => ['naya', a, 'family', 'trip', id] as const,
+  familyLive: (a: string, id: string) => ['naya', a, 'family', 'live', id] as const,
+  familyFollow: (token: string) => ['naya', 'public', 'family-follow', token] as const,
 };
 
 /** Bounded retries: never retry client errors (4xx), at most twice for network/server errors. */
