@@ -1,18 +1,25 @@
 import { z } from 'zod';
 import type { Hono, Context } from 'hono';
 import {
+  canRespondToSafety,
   defaultPrototypeCatalog,
   DomainError,
   FAMILY_NEXT,
   FAMILY_STATUS_LABELS,
+  HANDOVER_MAX_ATTEMPTS,
   PLACES,
+  SAFETY_STATUS_LABELS,
+  SAFETY_TRANSITIONS,
   type User,
   type AdminUser,
+  type AdminSafetyAlert,
   type PrototypeState,
   type PassengerWallet,
+  type FamilyOverview,
   type FamilyTrip,
   type Place,
   type PrototypeCatalog,
+  type SafetyAlert,
 } from '@naya/domain';
 import type { Principal } from './auth';
 import type { State } from '../state';
@@ -216,6 +223,21 @@ export function prototypeProviders(s: State, force = false) {
     for (const option of p.catalog.payments) {
       const id = `${city.id}-${option.id}-recharge`;
       let existing = s.providers.find((x) => x.id === id);
+      // The city already has its own card recharge (seed.ts): a second « Carte bancaire (démo) » would
+      // show twice in the driver's list. Stores that already got the copy keep it, disabled.
+      if (
+        option.kind === 'card' &&
+        s.providers.some(
+          (x) =>
+            x.id !== id &&
+            x.cityId === city.id &&
+            x.purpose === 'recharge' &&
+            x.kind === 'card',
+        )
+      ) {
+        if (existing) existing.enabled = false;
+        continue;
+      }
       const created = !existing;
       if (!existing)
         s.providers.push(
@@ -247,14 +269,30 @@ export function categoryFor(s: State, cityId: string, id = 'standard') {
     'catégorie disponible',
   );
 }
-function family(s: State, user: User) {
+function family(s: State, user: User): FamilyOverview {
   const p = ensurePrototype(s);
+  const driver = user.role === 'driver';
   return {
-    children: p.children.filter((x) =>
-      user.role === 'driver'
-        ? p.trips.some((t) => t.driverId === user.id && t.childId === x.id)
-        : x.passengerId === user.id,
-    ),
+    // Handover codes stay between the parent and the recipient: the chauffeuse gets
+    // names and relationships only, and the server alone checks the code.
+    children: p.children
+      .filter((x) =>
+        driver
+          ? p.trips.some((t) => t.driverId === user.id && t.childId === x.id)
+          : x.passengerId === user.id,
+      )
+      .map((x) =>
+        driver
+          ? {
+              ...x,
+              recipients: x.recipients.map((r) => ({
+                id: r.id,
+                name: r.name,
+                relationship: r.relationship,
+              })),
+            }
+          : x,
+      ),
     subscription:
       p.subscriptions.find((x) => x.passengerId === user.id) ?? null,
     trips: p.trips
@@ -264,6 +302,72 @@ function family(s: State, user: User) {
           : x.passengerId === user.id,
       )
       .sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)),
+  };
+}
+const HANDOVER_LOCKED = `Remise bloquée après ${HANDOVER_MAX_ATTEMPTS} codes incorrects. Ne confiez pas l’enfant : contactez la famille ou le support Naya.`;
+/** Counts a wrong handover code; at the limit the handover is locked and recorded on the trip. */
+function refuseHandover(ctx: Ctx, s: State, u: User, t: FamilyTrip) {
+  t.handoverAttempts = (t.handoverAttempts ?? 0) + 1;
+  const left = HANDOVER_MAX_ATTEMPTS - t.handoverAttempts;
+  log(
+    ctx,
+    s,
+    u,
+    'family.handover_refused',
+    t.id,
+    `Code de remise incorrect (${t.handoverAttempts}/${HANDOVER_MAX_ATTEMPTS})`,
+  );
+  if (left > 0)
+    return new DomainError(
+      'VALIDATION',
+      `Code de remise incorrect. ${left > 1 ? `${left} essais restants` : 'Dernier essai'} avant le blocage de la remise.`,
+      { attemptsLeft: left },
+    );
+  const label = `Remise bloquée · ${HANDOVER_MAX_ATTEMPTS} codes incorrects`;
+  t.handoverLocked = true;
+  t.incident = label;
+  t.timeline.push({ at: ctx.clock.iso(), label, location: t.location });
+  t.notifications.push({
+    at: ctx.clock.iso(),
+    title: `${t.childName} · ${label}`,
+  });
+  log(ctx, s, u, 'family.handover_locked', t.id, label);
+  return new DomainError('INVALID_TRANSITION', HANDOVER_LOCKED, {
+    locked: true,
+  });
+}
+/** The SOS queue as the safety desk reads it: reporter, city and the ride or family trip concerned. */
+function adminAlert(s: State, a: SafetyAlert): AdminSafetyAlert {
+  const reporter = s.users.find((x) => x.id === a.userId);
+  const ride = a.rideId ? s.rides.find((x) => x.id === a.rideId) : undefined;
+  const trip = a.familyTripId
+    ? ensurePrototype(s).trips.find((x) => x.id === a.familyTripId)
+    : undefined;
+  const stops = ride?.route.stops ?? [];
+  return {
+    ...a,
+    cityId: ride?.cityId ?? reporter?.cityId ?? null,
+    reporterPhone: reporter?.phone ?? null,
+    ride: ride
+      ? {
+          id: ride.id,
+          status: ride.status,
+          pickup: stops[0]?.label ?? '—',
+          destination: stops[stops.length - 1]?.label ?? '—',
+          passengerName: ride.passenger.firstName,
+          driverName: ride.driver?.firstName ?? null,
+        }
+      : null,
+    trip: trip
+      ? {
+          id: trip.id,
+          childName: trip.childName,
+          status: trip.status,
+          driverName: trip.driverName,
+          pickup: trip.pickup.label,
+          destination: trip.destination.label,
+        }
+      : null,
   };
 }
 function log(
@@ -443,6 +547,13 @@ export function mountPrototypeRoutes(
   },
 ) {
   const { userOf, adminOf, idempotent } = auth;
+  /** SOS handling has its own permission (support agents hold it); see canRespondToSafety. */
+  const safetyResponder = (c: Context<Env>) => {
+    const admin = adminOf(c);
+    if (!canRespondToSafety(admin.permissions))
+      requirePermission(admin, 'safety.respond');
+    return admin;
+  };
   app.get('/prototype/catalog', (c) => {
     userOf(c);
     return c.json(ensurePrototype(ctx.store.state).catalog);
@@ -644,8 +755,10 @@ export function mountPrototypeRoutes(
         code: z.string().optional(),
       })
       .parse(await c.req.json());
-    return c.json(
-      ctx.store.tx((s) => {
+    // A wrong handover code must be counted even though the request fails: the
+    // transaction returns the refusal (a throw would roll the count back).
+    const result = ctx.store.tx(
+      (s): { trip: FamilyTrip } | { refused: DomainError } => {
         const p = ensurePrototype(s);
         const t = mustFind(
           p.trips,
@@ -680,8 +793,14 @@ export function mountPrototypeRoutes(
               (x) => x.id === input.proof && x.ownerId === u.id,
               'photo',
             );
-            if (photo.purpose !== 'support_attachment' || !photo.mimeType.startsWith('image/'))
-              throw new DomainError('VALIDATION', 'Ajoutez une photo d’arrivée.');
+            if (
+              photo.purpose !== 'support_attachment' ||
+              !photo.mimeType.startsWith('image/')
+            )
+              throw new DomainError(
+                'VALIDATION',
+                'Ajoutez une photo d’arrivée.',
+              );
           }
           t.arrivalProof = input.proof;
         }
@@ -692,18 +811,28 @@ export function mountPrototypeRoutes(
           )
             throw new DomainError(
               'VALIDATION',
-              'Confirmez le prénom de l’enfant après vérification.',
+              'Le prénom ne correspond pas. Demandez son prénom à l’enfant avant de confirmer.',
             );
           t.pickupVerified = true;
         }
         if (next === 'completed') {
+          if (t.handoverLocked)
+            throw new DomainError('INVALID_TRANSITION', HANDOVER_LOCKED, {
+              locked: true,
+            });
           const recipient = mustFind(
             child.recipients,
             (x) => x.id === input.recipientId,
             'personne autorisée',
           );
+          // A blank or malformed entry is a typing slip, not a guess: it does not use up an attempt.
+          if (!/^\d{4}$/.test(input.code ?? ''))
+            throw new DomainError(
+              'VALIDATION',
+              'Saisissez le code à 4 chiffres de la personne autorisée.',
+            );
           if (recipient.verificationCode !== input.code)
-            throw new DomainError('VALIDATION', 'Code de remise incorrect.');
+            return { refused: refuseHandover(ctx, s, u, t) };
           t.recipientId = recipient.id;
         }
         t.status = next;
@@ -758,9 +887,11 @@ export function mountPrototypeRoutes(
               weekdays: t.weekdays,
             });
         }
-        return t;
-      }),
+        return { trip: t };
+      },
     );
+    if ('refused' in result) throw result.refused;
+    return c.json(result.trip);
   });
   app.post('/prototype/family/trips/:id/incident', async (c) => {
     const u = userOf(c);
@@ -923,25 +1054,75 @@ export function mountPrototypeRoutes(
       }),
     );
   });
+  app.get('/admin/prototype/alerts', (c) => {
+    safetyResponder(c);
+    const s = ctx.store.state;
+    const rank = { new: 0, responding: 1, resolved: 2 };
+    return c.json(
+      ensurePrototype(s)
+        .alerts.map((a) => adminAlert(s, a))
+        // New first, then taken in charge, by order of arrival; resolved ones newest first.
+        .sort(
+          (a, b) =>
+            rank[a.status] - rank[b.status] ||
+            (a.status === 'resolved'
+              ? b.createdAt.localeCompare(a.createdAt)
+              : a.createdAt.localeCompare(b.createdAt)),
+        ),
+    );
+  });
   app.post('/admin/prototype/alerts/:id', async (c) => {
-    const admin = adminOf(c);
-    requirePermission(admin, 'config.edit');
+    const admin = safetyResponder(c);
     const input = z
-      .object({ status: z.enum(['new', 'responding', 'resolved']), note: text })
+      .object({
+        status: z.enum(['new', 'responding', 'resolved']),
+        note: z.string().trim().max(300).optional(),
+      })
       .parse(await c.req.json());
     return c.json(
       ctx.store.tx((s) => {
         const a = mustFind(
           ensurePrototype(s).alerts,
           (x) => x.id === c.req.param('id'),
+          'alerte',
         );
+        if (!SAFETY_TRANSITIONS[a.status].includes(input.status))
+          throw new DomainError(
+            'INVALID_TRANSITION',
+            a.status === input.status
+              ? `Cette alerte est déjà « ${SAFETY_STATUS_LABELS[a.status]} »${a.ownerName ? ` (${a.ownerName})` : ''}.`
+              : `Cette alerte est « ${SAFETY_STATUS_LABELS[a.status]} » : elle ne peut pas passer à « ${SAFETY_STATUS_LABELS[input.status]} ».`,
+            { from: a.status, to: input.status },
+          );
+        const note = input.note ?? '';
+        if (input.status === 'resolved' && note.length < 3)
+          throw new DomainError(
+            'REASON_REQUIRED',
+            'Ajoutez une note de résolution : ce qui a été fait et avec qui.',
+          );
+        const at = ctx.clock.iso();
+        if (input.status === 'responding' || !a.ownerId) {
+          a.ownerId = admin.id;
+          a.ownerName = admin.name;
+        }
+        if (input.status === 'resolved') {
+          a.resolvedAt = at;
+          a.resolutionNote = note;
+        }
         a.status = input.status;
-        a.actions.push({
-          at: ctx.clock.iso(),
-          by: admin.name,
-          label: input.note,
-        });
-        log(ctx, s, admin, 'sos.updated', a.id, input.note);
+        const label =
+          input.status === 'resolved'
+            ? `Alerte clôturée · ${note}`
+            : note || 'Alerte prise en charge';
+        a.actions.push({ at, by: admin.name, label });
+        log(
+          ctx,
+          s,
+          admin,
+          input.status === 'resolved' ? 'sos.resolved' : 'sos.taken',
+          a.id,
+          label,
+        );
         return a;
       }),
     );

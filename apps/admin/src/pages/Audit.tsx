@@ -92,6 +92,8 @@ export function AuditPage() {
             <option value="payment">Paiements</option>
             <option value="support">Support</option>
             <option value="ride">Courses</option>
+            <option value="sos">Alertes SOS</option>
+            <option value="family">Naya Famille</option>
             <option value="admin">Connexions</option>
           </Select>
           <Select aria-label="Acteur" value={actorType} onChange={(e) => (setActorType(e.target.value), setCursor(0))} className="w-48">

@@ -35,7 +35,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
       })
       .click();
     await d
-      .getByLabel('Prénom de l’enfant vérifié', { exact: true })
+      .getByLabel('Prénom confirmé par la chauffeuse', { exact: true })
       .fill('Lina');
     await d
       .getByRole('button', {

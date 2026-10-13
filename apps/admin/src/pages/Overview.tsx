@@ -1,12 +1,13 @@
 import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Car, ChevronRight, ShieldCheck, User } from 'lucide-react';
-import type { Ride } from '@naya/domain';
+import { ArrowRight, Car, ChevronRight, ShieldCheck, Siren, User } from 'lucide-react';
+import { SAFETY_STATUS_LABELS, type Ride } from '@naya/domain';
 import { api } from '../lib/api';
 import { PERIOD_LABELS, useWorkspace, type Period } from '../lib/context';
 import { fmtDateTime, fmtToday, money } from '../lib/format';
 import { Button, Card, DataTable, EmptyState, ErrorState, Kpi, PageHeader, Segmented, Skeleton } from '../components/ui';
 import { MiniMap } from '../components/MiniMap';
+import { useAllowed, useSosAlerts } from '../components/Layout';
 import { METHOD_LABELS, RideBadge, SUBJECT_LABELS } from '../components/status';
 
 /** A01 · Centre des opérations. */
@@ -17,6 +18,9 @@ export function OverviewPage() {
   const cities = useQuery({ queryKey: ['admin', 'cities'], queryFn: api.admin.cities });
   const cityRow = cities.data?.find((c) => c.city.id === cityId);
   const d = q.data;
+  const canSos = useAllowed()('safety.respond');
+  const sos = useSosAlerts();
+  const openSos = (sos.data ?? []).filter((a) => a.status !== 'resolved');
   return (
     <>
       <PageHeader
@@ -24,6 +28,38 @@ export function OverviewPage() {
         subtitle={`${cityRow?.city.name ?? cityId} · ${fmtToday()}`}
         actions={<Segmented<Period> label="Période" value={period} onChange={setPeriod} options={(Object.keys(PERIOD_LABELS) as Period[]).map((p) => ({ value: p, label: PERIOD_LABELS[p] }))} />}
       />
+      {canSos ? (
+        <div className="mb-5" data-testid="overview-sos">
+          <Card
+            title="Alertes SOS"
+            subtitle={sos.data ? (openSos.length ? `${openSos.length} alerte(s) ouverte(s) · toutes villes` : 'Aucune alerte ouverte') : undefined}
+            action={<Button size="sm" variant={openSos.length ? 'danger' : 'secondary'} icon={<Siren className="h-4 w-4" />} onClick={() => navigate('/sos')}>Ouvrir les alertes SOS</Button>}
+          >
+            {sos.isError ? <ErrorState onRetry={() => sos.refetch()} /> : null}
+            {openSos.length ? (
+              <ul className="flex flex-col gap-2">
+                {openSos.slice(0, 3).map((a) => (
+                  <li key={a.id}>
+                    <Link to="/sos" className="flex items-center gap-3 rounded-2xl bg-danger-soft px-4 py-3 hover:brightness-[0.98]">
+                      <Siren className="h-5 w-5 text-danger" aria-hidden />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[14px] font-semibold">
+                          {a.id} · {a.userName} · {SAFETY_STATUS_LABELS[a.status]}
+                        </div>
+                        <div className="text-[12px] text-muted">
+                          {a.ride ? `Course ${a.ride.id}` : a.trip ? `Trajet familial de ${a.trip.childName}` : 'Sans course'} · {fmtDateTime(a.createdAt)}
+                          {a.ownerName ? ` · prise en charge par ${a.ownerName}` : ''}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted" aria-hidden />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </Card>
+        </div>
+      ) : null}
       {q.isError ? (
         <Card>
           <ErrorState onRetry={() => q.refetch()} />

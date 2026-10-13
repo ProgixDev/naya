@@ -1,5 +1,5 @@
 import {
-  type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type PassengerWallet, type SafetyAlert, type PrototypeAdmin,
+  type PrototypeCatalog, type FamilyOverview, type FamilySubscription, type FamilyChild, type FamilyTrip, type PassengerWallet, type SafetyAlert, type PrototypeAdmin, type AdminSafetyAlert,
   ERROR_MESSAGES,
   type AdminUser,
   type AuditEvent,
@@ -462,7 +462,10 @@ export function createApiClient(opts: ClientOptions) {
     adminPrototype: {
       get: () => get<PrototypeAdmin>('/admin/prototype'),
       save: (kind: 'categories' | 'plans' | 'reasons' | 'payments', input: unknown) => request<PrototypeCatalog>('PUT', `/admin/prototype/catalog/${kind}`, input),
-      alert: (id: string, status: SafetyAlert['status'], note: string) => post<SafetyAlert>(`/admin/prototype/alerts/${id}`, { status, note }),
+      /** SOS queue (safety.respond): new, then taken in charge, by order of arrival; resolved last. */
+      alerts: () => get<AdminSafetyAlert[]>('/admin/prototype/alerts'),
+      /** Forward-only status change; a note is required to resolve. */
+      alert: (id: string, status: SafetyAlert['status'], note = '') => post<SafetyAlert>(`/admin/prototype/alerts/${id}`, { status, note }),
       assign: (id: string, driverId: string) => post(`/admin/prototype/assignment/${id}`, { driverId }),
       categories: (id: string, categoryIds: string[]) => post(`/admin/prototype/driver-categories/${id}`, { categoryIds }),
     },

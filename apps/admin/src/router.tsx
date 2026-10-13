@@ -16,6 +16,7 @@ const RidesPage = page(() => import('./pages/Rides'), 'RidesPage');
 const RidePage = page(() => import('./pages/Ride'), 'RidePage');
 const SupportPage = page(() => import('./pages/Support'), 'SupportPage');
 const TicketPage = page(() => import('./pages/Ticket'), 'TicketPage');
+const SosPage = page(() => import('./pages/Sos'), 'SosPage');
 const FinancePage = page(() => import('./pages/Finance'), 'FinancePage');
 const CitiesPage = page(() => import('./pages/Cities'), 'CitiesPage');
 const RulesPage = page(() => import('./pages/Rules'), 'RulesPage');
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: 'courses/:id', element: gate('rides.read', 'Détail de course', S(<RidePage />)) },
       { path: 'support', element: gate('support.resolve', 'Support', S(<SupportPage />)) },
       { path: 'support/:id', element: gate('support.resolve', 'Demande', S(<TicketPage />)) },
+      { path: 'sos', element: gate('safety.respond', 'Alertes SOS', S(<SosPage />)) },
       { path: 'finance', element: gate('finance.read', 'Finance', S(<FinancePage />)) },
       { path: 'villes', element: S(<CitiesPage />) },
       { path: 'villes/:id/regles', element: S(<RulesPage />) },

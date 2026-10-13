@@ -235,6 +235,224 @@ describe('feedback prototype workflows', () => {
     expect(data.alerts[0].status).toBe('resolved');
     expect(data.alerts[0].actions).toHaveLength(3);
   });
+  it('never sends handover codes to the driver, while the parent keeps hers', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const f = await h.ok('POST', '/prototype/family/example', { token: p });
+    const t = f.trips[0];
+    const seen: unknown[] = [];
+    const driver = async (method: string, path: string, body?: unknown) => {
+      const r = await h.call(method, path, { token: d, body });
+      seen.push(r.body);
+      return r;
+    };
+    await driver('GET', '/prototype/family');
+    await driver('POST', '/prototype/family/example');
+    for (const [expectedStatus, extra] of [
+      ['scheduled', {}],
+      ['en_route', { proof: 'demo-arrival-photo' }],
+      ['arrived', { childName: 'Lina' }],
+      ['picked_up', {}],
+    ] as const)
+      expect(
+        (
+          await driver('POST', `/prototype/family/trips/${t.id}/advance`, {
+            expectedStatus,
+            ...extra,
+          })
+        ).status,
+      ).toBe(200);
+    await driver('POST', `/prototype/family/trips/${t.id}/advance`, {
+      expectedStatus: 'in_progress',
+      recipientId: 'mother',
+      code: '0000',
+    });
+    await driver('POST', `/prototype/family/trips/${t.id}/incident`, {
+      message: 'Petit retard à la sortie',
+    });
+    await driver('POST', '/prototype/sos', {
+      rideId: null,
+      familyTripId: t.id,
+      location: PLACES.agdal.location,
+      contactName: 'Support',
+    });
+    await driver('GET', '/prototype/sos');
+    // She still gets who may receive the child (the handover pills), without any code.
+    const view = (await driver('GET', '/prototype/family')).body;
+    expect(view.children[0].recipients).toEqual([
+      { id: 'mother', name: expect.any(String), relationship: 'Mère' },
+      { id: 'father', name: 'Youssef', relationship: 'Père' },
+    ]);
+    const json = JSON.stringify(seen);
+    expect(json).toContain('Lina');
+    expect(json).not.toContain('verificationCode');
+    expect(json).not.toMatch(/"(1234|5678)"/);
+    const parent = await h.ok('GET', '/prototype/family', { token: p });
+    expect(parent.children[0].recipients[0].verificationCode).toBe('1234');
+  });
+  it('locks the handover after too many wrong codes and records it on the trip', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const t = (await h.ok('POST', '/prototype/family/example', { token: p }))
+      .trips[0];
+    const advance = (body: unknown) =>
+      h.call('POST', `/prototype/family/trips/${t.id}/advance`, {
+        token: d,
+        body,
+      });
+    await advance({ expectedStatus: 'scheduled' });
+    await advance({ expectedStatus: 'en_route', proof: 'demo-arrival-photo' });
+    await advance({ expectedStatus: 'arrived', childName: 'lina' });
+    await advance({ expectedStatus: 'picked_up' });
+    const wrong = { expectedStatus: 'in_progress', recipientId: 'mother' };
+    // A blank entry is refused without using up an attempt.
+    const blank = await advance({ ...wrong, code: '' });
+    expect(blank.status).toBe(422);
+    expect(blank.body.error.details?.attemptsLeft).toBeUndefined();
+    for (const left of [4, 3, 2, 1]) {
+      const r = await advance({ ...wrong, code: '0000' });
+      expect(r.status).toBe(422);
+      expect(r.body.error.details.attemptsLeft).toBe(left);
+    }
+    const locked = await advance({ ...wrong, code: '0000' });
+    expect(locked.status).toBe(409);
+    expect(locked.body.error.message).toContain('Remise bloquée');
+    expect((await advance({ ...wrong, code: '1234' })).status).toBe(409);
+    const trip = (
+      await h.ok('GET', '/prototype/family', { token: p })
+    ).trips.find((x: any) => x.id === t.id);
+    expect(trip.status).toBe('in_progress');
+    expect(trip.handoverLocked).toBe(true);
+    expect(trip.handoverAttempts).toBe(5);
+    expect(trip.incident).toContain('Remise bloquée');
+    expect(trip.timeline.at(-1).label).toContain('Remise bloquée');
+    const audit = h.ctx.store.state.audit.map((e) => e.action);
+    expect(audit.filter((a) => a === 'family.handover_refused')).toHaveLength(
+      5,
+    );
+    expect(audit).toContain('family.handover_locked');
+  });
+  it('lets the support agent run the SOS queue with forward-only statuses', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const support = await h.adminLogin(
+      'youssra@naya.demo',
+      'Naya-Support-2026',
+    );
+    const f = await h.ok('POST', '/prototype/family/example', { token: p });
+    const alert = await h.ok('POST', '/prototype/sos', {
+      token: p,
+      body: {
+        familyTripId: f.trips[0].id,
+        rideId: null,
+        location: PLACES.hayRiad.location,
+        contactName: 'Ma sœur',
+      },
+    });
+    const [listed] = await h.ok('GET', '/admin/prototype/alerts', {
+      token: support,
+    });
+    expect(listed).toMatchObject({
+      id: alert.id,
+      status: 'new',
+      cityId: 'rabat',
+      reporterPhone: PHONES.salma,
+      trip: { id: f.trips[0].id, childName: 'Lina' },
+      ride: null,
+    });
+    expect(
+      (await h.call('GET', '/admin/prototype', { token: support })).status,
+    ).toBe(403);
+    const update = (status: string, note?: string) =>
+      h.call('POST', `/admin/prototype/alerts/${alert.id}`, {
+        token: support,
+        body: { status, note },
+      });
+    expect((await update('resolved', ' ')).status).toBe(422);
+    const taken = await update('responding');
+    expect(taken.status).toBe(200);
+    expect(taken.body.ownerName).toBe('Youssra Kettani');
+    const again = await update('responding');
+    expect(again.status).toBe(409);
+    expect(again.body.error.message).toContain('déjà « Prise en charge »');
+    expect((await update('new', 'Retour arrière')).status).toBe(409);
+    const resolved = await update(
+      'resolved',
+      'Appel à la cliente, en sécurité chez elle.',
+    );
+    expect(resolved.status).toBe(200);
+    expect(resolved.body.resolutionNote).toBe(
+      'Appel à la cliente, en sécurité chez elle.',
+    );
+    expect(resolved.body.resolvedAt).toBeTruthy();
+    expect(resolved.body.actions.at(-1).label).toBe(
+      'Alerte clôturée · Appel à la cliente, en sécurité chez elle.',
+    );
+    expect((await update('responding')).status).toBe(409);
+    expect((await h.ok('GET', '/prototype/sos', { token: p }))[0].status).toBe(
+      'resolved',
+    );
+    const audit = h.ctx.store.state.audit.map((e) => e.action);
+    expect(audit).toContain('sos.taken');
+    expect(audit).toContain('sos.resolved');
+    // A role without safety.respond (and without config.edit) is refused.
+    const agent = h.ctx.store.state.admins.find((a) => a.id === 'AD-002')!;
+    agent.permissions = ['support.resolve', 'rides.read', 'people.read'];
+    expect(
+      (await h.call('GET', '/admin/prototype/alerts', { token: support }))
+        .status,
+    ).toBe(403);
+    expect((await update('resolved', 'Sans permission')).status).toBe(403);
+    // Admins stored before safety.respond existed keep access through config.edit.
+    const admin = await h.adminLogin();
+    const meryem = h.ctx.store.state.admins.find((a) => a.id === 'AD-001')!;
+    meryem.permissions = meryem.permissions.filter(
+      (x) => x !== 'safety.respond',
+    );
+    expect(
+      (await h.call('GET', '/admin/prototype/alerts', { token: admin })).status,
+    ).toBe(200);
+  });
+  it('lists a single card recharge provider per city', async () => {
+    const h = setup();
+    const d = await h.login(PHONES.amina, 'driver');
+    const admin = await h.adminLogin();
+    const cards = async () =>
+      (
+        await h.ok('GET', '/payment-providers?purpose=recharge', { token: d })
+      ).filter((x: any) => x.kind === 'card');
+    expect(await cards()).toHaveLength(1);
+    const catalog = await h.ok('GET', '/prototype/catalog', { token: d });
+    await h.ok('PUT', '/admin/prototype/catalog/payments', {
+      token: admin,
+      body: catalog.payments.find((x: any) => x.id === 'demo-card'),
+    });
+    expect(await cards()).toHaveLength(1);
+    // A store that already holds the duplicate keeps it, disabled.
+    h.ctx.store.state.providers.push({
+      id: 'rabat-demo-card-recharge',
+      cityId: 'rabat',
+      purpose: 'recharge',
+      kind: 'card',
+      name: 'Carte bancaire (démo)',
+      enabled: true,
+      mode: 'demo',
+      configured: true,
+    });
+    expect(await cards()).toHaveLength(1);
+    for (const city of h.ctx.store.state.cities)
+      expect(
+        h.ctx.store.state.providers.filter(
+          (x) =>
+            x.cityId === city.id &&
+            x.purpose === 'recharge' &&
+            x.kind === 'card' &&
+            x.enabled,
+        ),
+      ).toHaveLength(1);
+  });
   it('validates dispute evidence and audits replies and rejected decisions', async () => {
     const h = setup();
     const p = await h.login(PHONES.salma, 'passenger');

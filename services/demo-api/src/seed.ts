@@ -297,8 +297,8 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
   }
 
   s.admins.push(
-    { id: 'AD-001', email: 'meryem@naya.demo', name: 'Meryem Lahlou', title: 'Administratrice', permissions: ['verification.decide', 'finance.read', 'finance.correct', 'config.edit', 'support.resolve', 'rides.read', 'audit.read', 'people.read'] },
-    { id: 'AD-002', email: 'youssra@naya.demo', name: 'Youssra Kettani', title: 'Agente support', permissions: ['support.resolve', 'rides.read', 'people.read'] },
+    { id: 'AD-001', email: 'meryem@naya.demo', name: 'Meryem Lahlou', title: 'Administratrice', permissions: ['verification.decide', 'finance.read', 'finance.correct', 'config.edit', 'support.resolve', 'safety.respond', 'rides.read', 'audit.read', 'people.read'] },
+    { id: 'AD-002', email: 'youssra@naya.demo', name: 'Youssra Kettani', title: 'Agente support', permissions: ['support.resolve', 'safety.respond', 'rides.read', 'people.read'] },
   );
   s.adminCredentials.push({ adminId: 'AD-001', ...hashPassword('Naya-Admin-2026') }, { adminId: 'AD-002', ...hashPassword('Naya-Support-2026') });
 

@@ -1,5 +1,5 @@
 import type { Centimes } from './money';
-import type { LatLng, Place } from './entities';
+import type { AdminPermission, LatLng, Place, RideStatus } from './entities';
 
 export interface ServiceCategory {
   id: string;
@@ -56,7 +56,14 @@ export interface AuthorizedRecipient {
   id: string;
   name: string;
   relationship: string;
+  /** Known to the parent and the recipient only: checked by the server, never sent to the chauffeuse. */
   verificationCode: string;
+}
+/** A child as `/prototype/family` returns it: the parent sees her handover codes, the chauffeuse gets recipients without them. */
+export interface FamilyChildView extends Omit<FamilyChild, 'recipients'> {
+  recipients: (Omit<AuthorizedRecipient, 'verificationCode'> & {
+    verificationCode?: string;
+  })[];
 }
 export interface FamilyChild {
   id: string;
@@ -102,7 +109,11 @@ export interface FamilyTrip {
   location: LatLng;
   recipientId: string | null;
   arrivalProof: string | null;
+  /** The chauffeuse attested the child's first name (an attestation, not a proof of identity). */
   pickupVerified: boolean;
+  /** Wrong handover codes entered on this trip; at HANDOVER_MAX_ATTEMPTS the handover is locked. */
+  handoverAttempts?: number;
+  handoverLocked?: boolean;
   timeline: { at: string; label: string; location: LatLng; proof?: string }[];
   notifications: { at: string; title: string }[];
   incident: string | null;
@@ -119,6 +130,53 @@ export interface SafetyAlert {
   status: 'new' | 'responding' | 'resolved';
   actions: { at: string; by: string; label: string }[];
   contactName: string;
+  /** Admin who took charge of the alert (absent on alerts stored before ownership existed). */
+  ownerId?: string | null;
+  ownerName?: string | null;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
+}
+export const SAFETY_STATUS_LABELS: Record<SafetyAlert['status'], string> = {
+  new: 'Nouvelle',
+  responding: 'Prise en charge',
+  resolved: 'Résolue',
+};
+/** Forward only: an alert is taken in charge, then resolved (with a note); it never goes back. */
+export const SAFETY_TRANSITIONS: Record<
+  SafetyAlert['status'],
+  SafetyAlert['status'][]
+> = {
+  new: ['responding', 'resolved'],
+  responding: ['resolved'],
+  resolved: [],
+};
+/**
+ * `safety.respond` grants the SOS queue. Admin records stored before it existed (dev JSON
+ * store) do not carry it: `config.edit` holders, the only SOS responders until then, keep
+ * access without a reseed. Everyone else needs the explicit permission.
+ */
+export const canRespondToSafety = (permissions: readonly AdminPermission[]) =>
+  permissions.includes('safety.respond') || permissions.includes('config.edit');
+/** An SOS alert as the safety desk sees it: the reporter, the city and the ride or family trip it concerns. */
+export interface AdminSafetyAlert extends SafetyAlert {
+  cityId: string | null;
+  reporterPhone: string | null;
+  ride: {
+    id: string;
+    status: RideStatus;
+    pickup: string;
+    destination: string;
+    passengerName: string;
+    driverName: string | null;
+  } | null;
+  trip: {
+    id: string;
+    childName: string;
+    status: FamilyTripStatus;
+    driverName: string;
+    pickup: string;
+    destination: string;
+  } | null;
 }
 export interface PassengerWalletEntry {
   id: string;
@@ -145,7 +203,7 @@ export interface PrototypeState {
   driverCategories: Record<string, string[]>;
 }
 export interface FamilyOverview {
-  children: FamilyChild[];
+  children: FamilyChildView[];
   subscription: FamilySubscription | null;
   trips: FamilyTrip[];
 }
@@ -165,6 +223,8 @@ export const FAMILY_STATUS_LABELS: Record<FamilyTripStatus, string> = {
   in_progress: 'Trajet en cours',
   completed: 'Remis à une personne autorisée',
 };
+/** Wrong handover codes allowed on one trip before the handover is locked. */
+export const HANDOVER_MAX_ATTEMPTS = 5;
 export const FAMILY_NEXT: Partial<Record<FamilyTripStatus, FamilyTripStatus>> =
   {
     scheduled: 'en_route',

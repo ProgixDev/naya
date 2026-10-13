@@ -56,6 +56,8 @@ export type AdminPermission =
   | 'finance.correct'
   | 'config.edit'
   | 'support.resolve'
+  /** See and act on SOS alerts (take charge, resolve with a note). */
+  | 'safety.respond'
   | 'rides.read'
   | 'audit.read'
   | 'people.read';

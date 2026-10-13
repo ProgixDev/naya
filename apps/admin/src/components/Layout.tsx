@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, CreditCard, FileText, LogOut, MapPin, Menu, MessageCircle, Route, ShieldCheck, Users, Wallet, X, Lock } from 'lucide-react';
-import type { AdminPermission } from '@naya/domain';
+import { BarChart3, CreditCard, FileText, LogOut, MapPin, Menu, MessageCircle, Route, ShieldCheck, Siren, Users, Wallet, X, Lock } from 'lucide-react';
+import { canRespondToSafety, type AdminPermission } from '@naya/domain';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useWorkspace } from '../lib/context';
@@ -16,6 +16,7 @@ export const NAV: { to: string; label: string; icon: typeof BarChart3; permissio
   { to: '/personnes', label: 'Personnes & véhicules', icon: Users, permission: 'people.read', group: 'travail' },
   { to: '/courses', label: 'Courses', icon: Route, permission: 'rides.read', group: 'travail' },
   { to: '/support', label: 'Support', icon: MessageCircle, permission: 'support.resolve', group: 'travail' },
+  { to: '/sos', label: 'Alertes SOS', icon: Siren, permission: 'safety.respond', group: 'travail' },
   { to: '/finance', label: 'Finance', icon: Wallet, permission: 'finance.read', group: 'gestion' },
   { to: '/villes', label: 'Villes & règles', icon: MapPin, group: 'gestion' },
   { to: '/paiements', label: 'Paiements', icon: CreditCard, group: 'gestion' },
@@ -23,8 +24,21 @@ export const NAV: { to: string; label: string; icon: typeof BarChart3; permissio
   { to: '/audit', label: 'Journal d’audit', icon: FileText, permission: 'audit.read', group: 'gestion' },
 ];
 
+/** `can`, plus the SOS rule shared with the API (canRespondToSafety: config.edit holders stored before safety.respond keep access). */
+export function useAllowed() {
+  const { admin, can } = useAuth();
+  return (p?: AdminPermission) => !p || (p === 'safety.respond' ? canRespondToSafety(admin?.permissions ?? []) : can(p));
+}
+
+/** The SOS queue, shared by the nav badge, the Overview card and the Alertes SOS page (same query key). */
+export function useSosAlerts(refetchInterval = 10_000) {
+  const allowed = useAllowed()('safety.respond');
+  return useQuery({ queryKey: ['admin', 'sos'], queryFn: api.adminPrototype.alerts, enabled: allowed, refetchInterval });
+}
+
 function Nav({ onNavigate }: { onNavigate?: () => void }) {
-  const { can } = useAuth();
+  const can = useAllowed();
+  const openSos = (useSosAlerts().data ?? []).filter((a) => a.status !== 'resolved').length;
   const section = (g: 'travail' | 'gestion', label: string) => (
     <div>
       <div className="px-3 pb-2 pt-5 text-[11px] font-medium uppercase tracking-[0.09em] text-white/45">{label}</div>
@@ -41,6 +55,12 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <n.icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
                 <span className="flex-1 truncate">{n.label}</span>
+                {n.to === '/sos' && allowed && openSos ? (
+                  <span className="min-w-[24px] rounded-full bg-danger px-2 py-0.5 text-center text-[11px] font-semibold tabular text-white" data-testid="sos-open-count">
+                    {openSos}
+                    <span className="sr-only"> alerte(s) ouverte(s)</span>
+                  </span>
+                ) : null}
                 {!allowed ? <Lock className="h-3.5 w-3.5 text-muted" aria-label="Accès restreint" /> : null}
               </NavLink>
             </li>
@@ -151,9 +171,10 @@ export function Layout() {
 
 /** A00-denied: shown in place of a page the administrator's role cannot open. */
 export function RequirePermission({ permission, page, children }: { permission?: AdminPermission; page: string; children: ReactNode }) {
-  const { can, admin } = useAuth();
+  const { admin } = useAuth();
+  const allowed = useAllowed();
   const navigate = useNavigate();
-  if (!permission || can(permission)) return <>{children}</>;
+  if (allowed(permission)) return <>{children}</>;
   return (
     <div className="mx-auto mt-16 max-w-[520px]" data-testid="access-denied">
       <div className="card p-8 text-center">

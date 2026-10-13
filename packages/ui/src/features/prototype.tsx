@@ -7,12 +7,13 @@ import { useApi } from '@naya/api/react';
 import { errorMessage } from '@naya/api';
 import {
   FAMILY_STATUS_LABELS,
+  HANDOVER_MAX_ATTEMPTS,
   PLACES,
   formatMoney,
   formatShort,
   casablancaLocalToUtc,
   toCasablancaParts,
-  type FamilyChild,
+  type FamilyChildView,
   type FamilyTrip,
   type LatLng,
   type SafetyAlert,
@@ -331,6 +332,8 @@ export function FamilyScreen({
       await qc.invalidateQueries({ queryKey });
     } catch (e) {
       toast(errorMessage(e), 'danger');
+      // A refused handover code is still counted: show the attempts left, or the lock, at once.
+      void qc.invalidateQueries({ queryKey });
     } finally {
       setBusy(false);
     }
@@ -352,7 +355,7 @@ export function FamilyScreen({
           title="Un trajet en confiance"
           message={
             role === 'driver'
-              ? 'Photo à l’arrivée, vérification de l’enfant, puis remise à une personne autorisée.'
+              ? 'Photo à l’arrivée, prénom de l’enfant confirmé, puis remise à une personne autorisée sur présentation de son code.'
               : 'Une chauffeuse dédiée, les étapes du trajet et les personnes autorisées réunies ici.'
           }
         />
@@ -600,7 +603,7 @@ function FamilyTripCard({
   run,
 }: {
   trip: FamilyTrip;
-  child?: FamilyChild;
+  child?: FamilyChildView;
   role: 'passenger' | 'driver';
   busy: boolean;
   run: (action: () => Promise<unknown>) => Promise<void>;
@@ -695,7 +698,7 @@ function FamilyTripCard({
           {t.status === 'arrived' ? (
             <>
               <FormField
-                label="Prénom de l’enfant vérifié"
+                label="Prénom confirmé par la chauffeuse"
                 value={name}
                 onChangeText={setName}
               />
@@ -713,7 +716,18 @@ function FamilyTripCard({
               onPress={() => advance()}
             />
           ) : null}
-          {t.status === 'in_progress' ? (
+          {t.status === 'in_progress' && t.handoverLocked ? (
+            <StatusBanner
+              tone="danger"
+              title="Remise bloquée"
+              message={
+                role === 'driver'
+                  ? `${HANDOVER_MAX_ATTEMPTS} codes incorrects. Ne confiez pas l’enfant : contactez la famille ou le support Naya.`
+                  : `${HANDOVER_MAX_ATTEMPTS} codes incorrects ont été saisis : la chauffeuse ne confiera pas l’enfant. Appelez-la ou contactez le support Naya.`
+              }
+            />
+          ) : null}
+          {t.status === 'in_progress' && !t.handoverLocked ? (
             <>
               {child?.recipients.map((r) => (
                 <Pill
@@ -730,6 +744,13 @@ function FamilyTripCard({
                 keyboardType="number-pad"
                 maxLength={4}
               />
+              {t.handoverAttempts ? (
+                <Text variant="caption" tone="danger">
+                  {HANDOVER_MAX_ATTEMPTS - t.handoverAttempts > 1
+                    ? `Code incorrect · ${HANDOVER_MAX_ATTEMPTS - t.handoverAttempts} essais restants avant le blocage de la remise`
+                    : 'Code incorrect · dernier essai avant le blocage de la remise'}
+                </Text>
+              ) : null}
               {role === 'passenger' ? (
                 <Text variant="caption" tone="muted">
                   Code démo à communiquer :{' '}
