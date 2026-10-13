@@ -1,4 +1,4 @@
-import { useTheme , activeFamilyTrip, nextFamilyTrip, useFamily, Avatar, avatarFor, Button, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
+import { useTheme , activeFamilyTrip, nextFamilyTrip, useFamily, Avatar, avatarFor, Button, CarWashEntry, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
 import { useMemo, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -178,6 +178,7 @@ export default function Dashboard() {
               onPress={() => toggle.mutate(!online)}
               testID="toggle-online"
             />
+            {!online && !d.activeRide ? <CarWashEntry onPress={() => router.push('/car-wash')} /> : null}
           </>
         ) : (
           <StatusBanner tone="danger" title="Statut indisponible" message="Impossible de joindre Naya. Vérifiez votre connexion." action={{ label: 'Réessayer', onPress: () => status.refetch() }} />

@@ -37,6 +37,7 @@ export * from './motion';
 
 export * from './features/prototype';
 export * from './features/famille';
+export * from './features/carWash';
 
 export * from './core/theme';
 

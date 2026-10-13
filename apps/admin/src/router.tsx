@@ -23,6 +23,7 @@ const RulesPage = page(() => import('./pages/Rules'), 'RulesPage');
 const ProvidersPage = page(() => import('./pages/Providers'), 'ProvidersPage');
 const AuditPage = page(() => import('./pages/Audit'), 'AuditPage');
 const PrototypePage = page(() => import('./pages/Prototype'), 'PrototypePage');
+const CarWashPage = page(() => import('./pages/CarWash'), 'CarWashPage');
 const NotFoundPage = page(() => import('./pages/NotFound'), 'NotFoundPage');
 
 function PageFallback() {
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
       { path: 'personnes/:id', element: gate('people.read', 'Profil', S(<PersonPage />)) },
       { path: 'courses', element: gate('rides.read', 'Courses', S(<RidesPage />)) },
       { path: 'courses/:id', element: gate('rides.read', 'Détail de course', S(<RidePage />)) },
+      { path: 'lavages', element: gate('rides.read', 'Lavages à domicile', S(<CarWashPage />)) },
       { path: 'support', element: gate('support.resolve', 'Support', S(<SupportPage />)) },
       { path: 'support/:id', element: gate('support.resolve', 'Demande', S(<TicketPage />)) },
       { path: 'sos', element: gate('safety.respond', 'Alertes SOS', S(<SosPage />)) },

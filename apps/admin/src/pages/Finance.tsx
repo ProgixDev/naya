@@ -9,7 +9,7 @@ import { useAuth } from '../lib/auth';
 import { useWorkspace } from '../lib/context';
 import { fmtDateTime, money, signed, toCentimes } from '../lib/format';
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, Kpi, PageHeader, Pagination, Segmented, Select, Skeleton, TableSkeleton, Textarea, toast } from '../components/ui';
-import { LEDGER_LABELS, METHOD_LABELS, PaymentBadge, TransferBadge } from '../components/status';
+import { LEDGER_LABELS, METHOD_LABELS, PAYMENT_PURPOSE_LABELS, PaymentBadge, TransferBadge } from '../components/status';
 
 type Tab = 'wallets' | 'transfers' | 'payments' | 'ledger';
 type DriverRow = { driver: User; wallet: Wallet };
@@ -114,7 +114,7 @@ function PaymentsToWatch({ failed, pending }: { failed: Payment[]; pending: Paym
       columns={[
         { key: 'id', header: 'Paiement', render: (p) => <span className="font-semibold">{p.id}</span> },
         { key: 'r', header: 'Course', render: (p) => (p.rideId ? <Link className="text-accent" to={`/courses/${p.rideId}`}>{p.rideId}</Link> : '—') },
-        { key: 'm', header: 'Moyen', render: (p) => `${METHOD_LABELS[p.method]} · ${p.purpose === 'ride' ? 'course' : 'frais d’annulation'}` },
+        { key: 'm', header: 'Moyen', render: (p) => `${METHOD_LABELS[p.method]} · ${PAYMENT_PURPOSE_LABELS[p.purpose].toLowerCase()}` },
         { key: 'at', header: 'Mise à jour', render: (p) => fmtDateTime(p.updatedAt) },
         { key: 's', header: 'Statut', render: (p) => <div className="flex flex-col items-start gap-1"><PaymentBadge status={p.status} />{p.failureReason ? <span className="text-[12px] text-muted">{p.failureReason}</span> : null}</div> },
         { key: 'a', header: 'Montant', align: 'right', render: (p) => money(p.amount) },

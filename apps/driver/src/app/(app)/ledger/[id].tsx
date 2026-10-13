@@ -15,6 +15,8 @@ const TYPE: Record<string, string> = {
   recharge: 'Recharge confirmée',
   withdrawal: 'Retrait confirmé',
   correction: 'Correction exceptionnelle',
+  car_wash: 'Lavage à domicile',
+  car_wash_refund: 'Remboursement · lavage annulé',
 };
 
 /** D13-detail */

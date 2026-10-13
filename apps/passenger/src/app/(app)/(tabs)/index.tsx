@@ -1,4 +1,4 @@
-import { useTheme , FamilleHomeCard, Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
+import { useTheme , CarWashEntry, FamilleHomeCard, Illustration, FrostLayers, frostOutline, GlassButton, IconButton, NayaMap, PressableScale, Sheet, StatusBanner, StatusPill, Text, haptic, toast, Avatar, ListGroup, ListRow, avatarFor } from '@naya/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -83,7 +83,7 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="home">
-      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={240} testID="home-map" />
+      <NayaMap center={pickup.location} zoom={15} markers={markers} bottomInset={310} testID="home-map" />
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <GlassButton label={city?.name ?? 'Rabat'} icon={<MapPin size={18} color={colors.ink} />} onPress={() => setCityPicker(true)} testID="city-pill" accessibilityHint="Changer de ville" />
         <View style={{ flex: 1 }} />
@@ -91,7 +91,7 @@ export default function Home() {
           <Avatar name={user?.firstName ?? 'N'} size={44} source={avatarFor(user?.firstName ?? '')} />
         </PressableScale>
       </View>
-      <View style={{ position: 'absolute', right: gutter, bottom: tabSpace + 266 }}>
+      <View style={{ position: 'absolute', right: gutter, bottom: tabSpace + 338 }}>
         <IconButton icon={<LocateFixed size={22} color={colors.ink} />} accessibilityLabel="Utiliser ma position" onPress={() => (loc.status === 'granted' ? applyMyPosition() : setExplainer(true))} testID="locate" />
       </View>
 
@@ -131,6 +131,7 @@ export default function Home() {
             <QuickPill label="Plus tard" icon={<CalendarClock size={16} color={colors.accent} />} onPress={() => goTo(null, true)} testID="plan-trip" a11y="Planifier un trajet" />
             <QuickPill label="Famille" icon={<Baby size={16} color={colors.accent} />} onPress={() => router.push('/family')} testID="home-famille" a11y="Naya Famille : trajets enfants avec une chauffeuse dédiée" />
           </View>
+          <CarWashEntry onPress={() => router.push('/car-wash')} />
         </View>
       </View>
 

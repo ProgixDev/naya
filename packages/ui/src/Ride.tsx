@@ -3,7 +3,7 @@ import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { ArrowDownLeft, ArrowUpRight, Banknote, CreditCard, GripVertical, MapPin, Receipt, Star, Trash2, Wrench } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Banknote, CreditCard, Droplets, GripVertical, MapPin, Receipt, Star, Trash2, Wrench } from 'lucide-react-native';
 import { cars, aspect } from '@naya/assets';
 import { Illustration , Avatar } from './Brand';
 import {
@@ -274,6 +274,8 @@ const ledgerMeta: Record<LedgerEntry['type'], { label: string; Icon: typeof Rece
   recharge: { label: 'Recharge', Icon: ArrowDownLeft },
   withdrawal: { label: 'Retrait', Icon: ArrowUpRight },
   correction: { label: 'Correction exceptionnelle', Icon: Wrench },
+  car_wash: { label: 'Lavage à domicile', Icon: Droplets },
+  car_wash_refund: { label: 'Remboursement · lavage annulé', Icon: ArrowDownLeft },
 };
 
 export function TransactionRow({ entry, onPress, subtitle }: { entry: Pick<LedgerEntry, 'type' | 'amount' | 'createdAt' | 'rideId' | 'id'>; onPress?: () => void; subtitle?: string }) {

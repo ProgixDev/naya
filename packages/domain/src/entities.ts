@@ -533,8 +533,10 @@ export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'cancelled';
 export interface Payment {
   id: string;
   rideId: string | null;
+  /** Car-wash payments (« Lavage à domicile ») reference their order instead of a ride. */
+  washOrderId?: string | null;
   payerId: UserId;
-  purpose: 'ride' | 'cancellation_fee';
+  purpose: 'ride' | 'cancellation_fee' | 'car_wash' | 'car_wash_fee';
   method: PaymentMethodKind;
   amount: Centimes;
   status: PaymentStatus;
@@ -551,7 +553,10 @@ export type LedgerEntryType =
   | 'cancellation_fee_credit'
   | 'recharge'
   | 'withdrawal'
-  | 'correction';
+  | 'correction'
+  /** The driver paid a car wash from her wallet, and its refund on cancellation. */
+  | 'car_wash'
+  | 'car_wash_refund';
 
 export interface LedgerEntry {
   id: string;

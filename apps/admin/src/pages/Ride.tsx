@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { fmtDateTime, money, signed } from '../lib/format';
 import { Card, DataTable, DefinitionList, EmptyState, ErrorState, PageHeader, Skeleton, Banner } from '../components/ui';
 import { MiniMap } from '../components/MiniMap';
-import { LEDGER_LABELS, METHOD_LABELS, OfferBadge, PaymentBadge, RideBadge, TicketBadge } from '../components/status';
+import { LEDGER_LABELS, METHOD_LABELS, OfferBadge, PAYMENT_PURPOSE_LABELS, PaymentBadge, RideBadge, TicketBadge } from '../components/status';
 import { AuditList } from './Audit';
 
 /** A07 · Détail et chronologie d’une course. */
@@ -118,7 +118,7 @@ export function RidePage() {
                 {payments.map((p) => (
                   <li key={p.id} className="flex items-center justify-between gap-3 rounded-2xl bg-background px-4 py-3 text-[14px]">
                     <div>
-                      <div className="font-medium">{p.purpose === 'ride' ? 'Course' : 'Frais d’annulation'} · {METHOD_LABELS[p.method]} · {p.id}</div>
+                      <div className="font-medium">{PAYMENT_PURPOSE_LABELS[p.purpose]} · {METHOD_LABELS[p.method]} · {p.id}</div>
                       <div className="text-[12px] text-muted">{fmtDateTime(p.updatedAt)}{p.failureReason ? ` · ${p.failureReason}` : ''}</div>
                     </div>
                     <div className="flex flex-col items-end gap-1"><span className="tabular font-semibold">{money(p.amount)}</span><PaymentBadge status={p.status} /></div>

@@ -11,6 +11,7 @@ import {
   correctionSchema,
   createCitySchema,
   createRideSchema,
+  createWashOrderSchema,
   declineOfferSchema,
   decisionSchema,
   DomainError,
@@ -90,6 +91,7 @@ import { requirePermission } from './services/permissions';
 import { tick } from './services/timers';
 import { mountPrototypeRoutes, prototypeMethods, prototypeProviders } from './services/prototype';
 import { mountFamilleRoutes } from './services/famille';
+import { adminWashOrders, cancelWashOrder, createWashOrder, rateWashOrder, readWashOrder, washCancellationPreviewFor, washCatalog, washPaymentOptions, withWashTracking } from './services/carWash';
 import { buildSeed, DEMO_ACCOUNTS, SCENARIOS, type ScenarioId } from './seed';
 
 type Env = { Variables: { principal: Principal | null } };
@@ -486,6 +488,42 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     return c.json(cancelScheduled(ctx, userOf(c, 'passenger'), c.req.param('id'), input.reasonCode, input.reasonText));
   });
 
+  /* ───────── Car wash (« Lavage à domicile »), passengers and drivers ───────── */
+  app.get('/car-wash/catalog', (c) => {
+    const user = userOf(c);
+    return c.json(washCatalog(S(), c.req.query('cityId') ?? user.cityId));
+  });
+  app.get('/car-wash/payment-options', (c) => {
+    const user = userOf(c);
+    return c.json(washPaymentOptions(S(), user, c.req.query('cityId') ?? user.cityId, ctx.clock.iso()));
+  });
+  app.post('/car-wash/orders', async (c) => {
+    const user = userOf(c);
+    const input = await body(c, createWashOrderSchema);
+    return c.json(await idempotent(ctx, c, user.id, input, () => withWashTracking(createWashOrder(ctx, user, input), now())));
+  });
+  app.get('/car-wash/orders', (c) => {
+    const user = userOf(c);
+    const orders = (S().carWash?.orders ?? []).filter((o) => o.customerId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return c.json(orders.map((o) => withWashTracking(o, now())));
+  });
+  app.get('/car-wash/orders/:id', (c) => {
+    const user = userOf(c);
+    const s = S();
+    const order = readWashOrder(s, user, c.req.param('id'));
+    return c.json({ order: withWashTracking(order, now()), payments: s.payments.filter((p) => p.washOrderId === order.id) });
+  });
+  app.get('/car-wash/orders/:id/cancellation-preview', (c) => c.json(washCancellationPreviewFor(ctx, userOf(c), c.req.param('id'))));
+  app.post('/car-wash/orders/:id/cancel', async (c) => {
+    const user = userOf(c);
+    const input = await body(c, cancelSchema);
+    return c.json(await idempotent(ctx, c, user.id, input, () => withWashTracking(cancelWashOrder(ctx, user, c.req.param('id'), input), now()), false));
+  });
+  app.post('/car-wash/orders/:id/rating', async (c) => {
+    const input = await body(c, ratingSchema);
+    return c.json(withWashTracking(rateWashOrder(ctx, userOf(c), c.req.param('id'), input.stars, input.comment), now()));
+  });
+
   /* ───────── Driver ───────── */
   app.get('/driver/status', (c) => c.json(driverStatus(ctx, userOf(c, 'driver'))));
   app.post('/driver/online', async (c) => {
@@ -778,6 +816,10 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
         return b.ride.requestedAt.localeCompare(a.ride.requestedAt);
       });
     return c.json(paginate(rides, c));
+  });
+  app.get('/admin/car-wash/orders', (c) => {
+    requirePermission(adminOf(c), 'rides.read');
+    return c.json(adminWashOrders(S(), c.req.query('cityId') || undefined, now()));
   });
   app.get('/admin/scheduled', (c) => {
     const admin = adminOf(c);

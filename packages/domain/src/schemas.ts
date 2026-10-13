@@ -280,6 +280,29 @@ export const cancelSchema = z.object({
 
 export const ratingSchema = z.object({ stars: z.number().int().min(1).max(5), comment: z.string().trim().max(500).nullable() });
 
+export const washCarSchema = z.object({
+  make: z.string().trim().min(1, 'Marque requise').max(40),
+  model: z.string().trim().min(1, 'Modèle requis').max(40),
+  color: z.string().trim().min(1, 'Couleur requise').max(30),
+  plate: z.string().trim().min(2, 'Immatriculation requise').max(20),
+});
+
+export const createWashOrderSchema = z
+  .object({
+    cityId: z.string().min(1),
+    location: placeSchema,
+    parkingNotes: z.string().trim().max(200),
+    car: washCarSchema,
+    vehicleId: z.string().min(1).nullable(),
+    packageId: z.enum(['exterior', 'interior_exterior', 'complete']),
+    /** The price the screen showed. The server refuses the order if its own price differs. */
+    expectedPrice: positiveCentimes,
+    timing: z.enum(['now', 'scheduled']),
+    startAt: z.iso.datetime().nullable(),
+    paymentMethodId: z.string().min(1),
+  })
+  .refine((v) => v.timing === 'now' || !!v.startAt, { message: 'Choisissez un créneau.', path: ['startAt'] });
+
 export const declineOfferSchema = z.object({ reasonCode: z.string().min(1) });
 
 export const goOnlineSchema = z.object({ online: z.boolean(), location: latLngSchema.nullable().optional() });
@@ -385,6 +408,8 @@ export type VehicleDetailsInput = z.infer<typeof vehicleDetailsSchema>;
 export type UploadInput = z.infer<typeof uploadSchema>;
 export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
 export type CreateRide = z.infer<typeof createRideSchema>;
+export type CreateWashOrderInput = z.infer<typeof createWashOrderSchema>;
+export type WashCarInput = z.infer<typeof washCarSchema>;
 export type ScheduleRide = z.infer<typeof scheduleRideSchema>;
 export type ModifyScheduled = z.infer<typeof modifyScheduledSchema>;
 export type CancelInput = z.infer<typeof cancelSchema>;
