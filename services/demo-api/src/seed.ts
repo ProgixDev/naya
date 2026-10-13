@@ -11,6 +11,7 @@ import {
   splitFare,
   type CityConfig,
   type CityRules,
+  type FamilleEligibility,
   type IdentityDetails,
   type PaymentProviderConfig,
   type Ride,
@@ -25,6 +26,7 @@ import { appendAudit, SYSTEM } from './audit';
 import { hashPassword } from './services/auth';
 import { nextId } from './store';
 import { postLedger } from './services/finance';
+import { addTrip, ensureExampleFamily } from './services/famille';
 
 
 
@@ -34,6 +36,7 @@ export const SCENARIOS = {
   'after-cash': 'NY-001 terminée en espèces : portefeuille d’Amina à −15 MAD. Idéal pour S04 (carte → 70 MAD).',
   'no-casablanca': 'Casablanca n’est pas encore configurée. Idéal pour S15 (ajout d’une ville en test).',
   'dynamic-pricing': 'Tarification dynamique ×1,2 active à Rabat. Idéal pour S06.',
+  famille: 'Naya Famille prête : Lina (8 ans), formule Essentiel avec Amina, trajet Hay Riad → École Agdal dans 10 minutes. Codes de remise 1234 (Salma) et 5678 (Youssef).',
 } as const;
 export type ScenarioId = keyof typeof SCENARIOS;
 
@@ -45,11 +48,11 @@ export const DEMO_ACCOUNTS = {
     { phone: '+212645678901', name: 'Rania Alaoui', state: 'Dossier refusé, pièce expirée (récupérable)' },
   ],
   drivers: [
-    { phone: '+212661234567', name: 'Amina Bennani', state: 'Personne et véhicule approuvés' },
-    { phone: '+212662345678', name: 'Khadija Idrissi', state: 'Personne approuvée · véhicule en examen' },
-    { phone: '+212665678901', name: 'Samira Fassi', state: 'Véhicule approuvé · permis à corriger' },
-    { phone: '+212664567890', name: 'Leila Amrani', state: 'Solde −150 MAD : offres bloquées' },
-    { phone: '+212663456789', name: 'Nadia Chraibi', state: 'Chauffeuse simulée (bot de démonstration)' },
+    { phone: '+212661234567', name: 'Amina Bennani', state: 'Personne et véhicule approuvés · Naya Famille approuvée' },
+    { phone: '+212662345678', name: 'Khadija Idrissi', state: 'Personne approuvée · véhicule en examen · Famille en examen' },
+    { phone: '+212665678901', name: 'Samira Fassi', state: 'Véhicule approuvé · permis à corriger · Famille refusée' },
+    { phone: '+212664567890', name: 'Leila Amrani', state: 'Solde −150 MAD : offres bloquées · Famille non demandée' },
+    { phone: '+212663456789', name: 'Nadia Chraibi', state: 'Chauffeuse simulée (bot de démonstration) · Famille approuvée' },
   ],
   admins: [
     { email: 'meryem@naya.demo', password: 'Naya-Admin-2026', name: 'Meryem Lahlou', role: 'Administratrice (toutes permissions)' },
@@ -132,6 +135,8 @@ interface PersonSpec {
   doc: string;
   testerCities?: string[];
   rating?: number;
+  /** Driver only: Naya Famille vetting (see `familleEligibility`). */
+  famille?: FamilleEligibility;
   decisionReason?: string;
   corrections?: { key: VerificationItemKey; note: string }[];
 }
@@ -155,6 +160,7 @@ function person(s: State, dataDir: string, spec: PersonSpec, at: string): User {
     vehicleId: null,
     ratingAverage: spec.rating ?? null,
     ratingCount: spec.rating ? 42 : 0,
+    ...(spec.role === 'driver' ? { familleEligibility: spec.famille ?? 'not_requested' } : {}),
   };
   s.users.push(user);
   const identity: IdentityDetails = { firstName: spec.first, lastName: spec.last, birthDate: spec.birth, documentType: 'cin', documentNumber: spec.doc };
@@ -326,15 +332,15 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
   for (const u of s.users.filter((x) => x.role === 'passenger' && !s.paymentMethods.some((p) => p.userId === x.id))) pm(u.id, 'cash', 'Espèces', null, null, true);
 
   // Drivers
-  const amina = person(s, dataDir, { role: 'driver', first: 'Amina', last: 'Bennani', phone: '+212661234567', who: 'amina', status: 'approved', birth: '1988-09-03', doc: 'CD654321', rating: 4.9, testerCities: [] }, at);
+  const amina = person(s, dataDir, { role: 'driver', first: 'Amina', last: 'Bennani', phone: '+212661234567', who: 'amina', status: 'approved', birth: '1988-09-03', doc: 'CD654321', rating: 4.9, testerCities: [], famille: 'approved' }, at);
   vehicleFor(s, dataDir, amina, 'approved', 'pearl', 'DÉMO-001', at);
-  const khadija = person(s, dataDir, { role: 'driver', first: 'Khadija', last: 'Idrissi', phone: '+212662345678', who: 'generic', status: 'approved', birth: '1985-05-22', doc: 'MN223344', rating: 4.8 }, at);
+  const khadija = person(s, dataDir, { role: 'driver', first: 'Khadija', last: 'Idrissi', phone: '+212662345678', who: 'generic', status: 'approved', birth: '1985-05-22', doc: 'MN223344', rating: 4.8, famille: 'pending' }, at);
   vehicleFor(s, dataDir, khadija, 'submitted', 'plum', 'DÉMO-002', iso(nowMs - 3_600_000));
-  const nadia = person(s, dataDir, { role: 'driver', first: 'Nadia', last: 'Chraibi', phone: '+212663456789', who: 'generic', status: 'approved', birth: '1991-12-02', doc: 'OP556677', rating: 4.7 }, at);
+  const nadia = person(s, dataDir, { role: 'driver', first: 'Nadia', last: 'Chraibi', phone: '+212663456789', who: 'generic', status: 'approved', birth: '1991-12-02', doc: 'OP556677', rating: 4.7, famille: 'approved' }, at);
   vehicleFor(s, dataDir, nadia, 'approved', 'plum', 'DÉMO-003', at);
   const leila = person(s, dataDir, { role: 'driver', first: 'Leila', last: 'Amrani', phone: '+212664567890', who: 'generic', status: 'approved', birth: '1987-08-19', doc: 'QR889900', rating: 4.6 }, at);
   vehicleFor(s, dataDir, leila, 'approved', 'pearl', 'DÉMO-004', at);
-  const samira = person(s, dataDir, { role: 'driver', first: 'Samira', last: 'Fassi', phone: '+212665678901', who: 'generic', status: 'more_info_requested', birth: '1992-10-10', doc: 'ST001122', corrections: [{ key: 'driving_licence', note: 'Le permis est flou : photographiez-le à plat, en pleine lumière.' }] }, at);
+  const samira = person(s, dataDir, { role: 'driver', first: 'Samira', last: 'Fassi', phone: '+212665678901', who: 'generic', status: 'more_info_requested', birth: '1992-10-10', doc: 'ST001122', corrections: [{ key: 'driving_licence', note: 'Le permis est flou : photographiez-le à plat, en pleine lumière.' }], famille: 'rejected' }, at);
   vehicleFor(s, dataDir, samira, 'approved', 'pearl', 'DÉMO-005', at);
 
   for (const d of [amina, khadija, nadia, leila, samira]) {
@@ -399,6 +405,11 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
     createdAt: iso(nowMs - 20 * 3_600_000),
     updatedAt: iso(nowMs - 20 * 3_600_000),
   });
+
+  if (scenario === 'famille') {
+    const { child } = ensureExampleFamily(s, nowMs, salma, amina);
+    addTrip(s, nowMs, salma, { childId: child.id, pickup: PLACES.hayRiad, destination: { ...PLACES.agdal, label: 'École Agdal' }, pickupAt: iso(nowMs + 10 * 60_000), weekdays: [1, 2, 3, 4, 5] });
+  }
 
   appendAudit(s, iso(nowMs), { actor: SYSTEM, action: 'demo.seeded', entityType: 'environment', entityId: 'demo', summary: `Données de démonstration chargées · scénario « ${scenario} »` });
   void mad;

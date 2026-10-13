@@ -32,8 +32,18 @@ export function createEmbeddedDemo(options: { dataDir: string; role: MobileRole;
     if (bot && bot.online !== (options.role === 'passenger')) {
       store.tx(() => { bot.online = options.role === 'passenger'; bot.updatedAt = clock.iso(); });
     }
-    tick(ctx);
     const principal = authenticate(ctx, token ?? undefined);
+    // Naya Famille: the other side of a family trip is simulated on this device. The passenger
+    // app gets a simulated chauffeuse; the driver app a simulated parent who approves the start.
+    // Choices made in the scenario launcher (trip.demo already set) are kept.
+    if (principal?.kind === 'user') {
+      const me = principal.user;
+      const unset = (s.prototype?.trips ?? []).filter((t) => t.demo === undefined && (me.role === 'passenger' ? t.passengerId === me.id : t.driverId === me.id));
+      if (unset.length && me.role === options.role) {
+        store.tx(() => { for (const t of unset) t.demo = options.role === 'passenger' ? { driver: true, parent: null } : { driver: false, parent: 'approve' }; });
+      }
+    }
+    tick(ctx);
     if (principal?.kind !== 'user') return;
     const user = principal.user;
     // Locally submitted demo documents receive a simulated review. Seeded review states

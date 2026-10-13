@@ -2,6 +2,7 @@ import type { Ctx } from '../context';
 import { runBots } from './bot';
 import { deliverDueProviderJobs } from './finance';
 import { hasDueRideTimers, runRideTimers } from './rides';
+import { runFamilyBots, runFamilyTimers } from './famille';
 
 /** One pass over everything time-driven. Called on an interval and by the dev clock. */
 export function tick(ctx: Ctx) {
@@ -9,4 +10,6 @@ export function tick(ctx: Ctx) {
   if (hasDueRideTimers(ctx.store.state, now)) ctx.store.tx((s) => runRideTimers(s, now));
   deliverDueProviderJobs(ctx);
   runBots(ctx);
+  runFamilyTimers(ctx);
+  runFamilyBots(ctx);
 }

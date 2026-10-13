@@ -97,6 +97,7 @@ export function verifyOtp(ctx: Ctx, phone: string, role: MobileRole, code: strin
         vehicleId: null,
         ratingAverage: null,
         ratingCount: 0,
+        ...(role === 'driver' ? { familleEligibility: 'not_requested' as const } : {}),
       } satisfies User;
       s.users.push(user);
       s.cases.push({

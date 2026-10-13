@@ -1,18 +1,13 @@
 import { z } from 'zod';
 import type { Hono, Context } from 'hono';
 import {
+  canReceiveFamilleTrips,
   defaultPrototypeCatalog,
   DomainError,
-  FAMILY_NEXT,
-  FAMILY_STATUS_LABELS,
-  PLACES,
   type User,
   type AdminUser,
   type PrototypeState,
   type PassengerWallet,
-  type FamilyTrip,
-  type Place,
-  type PrototypeCatalog,
 } from '@naya/domain';
 import type { Principal } from './auth';
 import type { State } from '../state';
@@ -27,12 +22,6 @@ const cents = z.number().int().min(0).max(10_000_000);
 const location = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
-});
-const place = z.object({
-  id: z.string().nullable(),
-  label: text,
-  address: text,
-  location,
 });
 const categorySchema = z.object({
   id: text,
@@ -71,27 +60,6 @@ const paymentSchema = z.object({
   enabled: z.boolean(),
   cityIds: z.array(text),
 });
-const childSchema = z.object({
-  firstName: text,
-  age: z.number().int().min(1).max(17),
-  school: text,
-  notes: z.string().trim().max(500),
-  recipients: z
-    .array(
-      z.object({
-        id: text,
-        name: text,
-        relationship: text,
-        verificationCode: z
-          .string()
-          .regex(/^\d{4}$/, 'Code à 4 chiffres requis'),
-      }),
-    )
-    .min(1)
-    .max(8),
-});
-const closed = (status: string) => status === 'completed';
-
 export function ensurePrototype(s: State): PrototypeState {
   return (s.prototype ??= {
     catalog: defaultPrototypeCatalog(),
@@ -101,6 +69,7 @@ export function ensurePrototype(s: State): PrototypeState {
     alerts: [],
     wallets: [],
     driverCategories: {},
+    guardians: [],
   });
 }
 export function passengerWallet(s: State, userId: string): PassengerWallet {
@@ -247,25 +216,6 @@ export function categoryFor(s: State, cityId: string, id = 'standard') {
     'catégorie disponible',
   );
 }
-function family(s: State, user: User) {
-  const p = ensurePrototype(s);
-  return {
-    children: p.children.filter((x) =>
-      user.role === 'driver'
-        ? p.trips.some((t) => t.driverId === user.id && t.childId === x.id)
-        : x.passengerId === user.id,
-    ),
-    subscription:
-      p.subscriptions.find((x) => x.passengerId === user.id) ?? null,
-    trips: p.trips
-      .filter((x) =>
-        user.role === 'driver'
-          ? x.driverId === user.id
-          : x.passengerId === user.id,
-      )
-      .sort((a, b) => a.pickupAt.localeCompare(b.pickupAt)),
-  };
-}
 function log(
   ctx: Ctx,
   s: State,
@@ -287,145 +237,6 @@ function log(
     summary: label,
   });
 }
-function addSubscription(ctx: Ctx, s: State, user: User, planId: string) {
-  const p = ensurePrototype(s);
-  if (
-    !s.cases.some(
-      (c) => c.id === user.identityCaseId && c.status === 'approved',
-    )
-  )
-    throw new DomainError('VERIFICATION_REQUIRED');
-  const plan = mustFind(
-    p.catalog.plans,
-    (x) => x.id === planId && x.enabled,
-    'abonnement',
-  );
-  const driver = mustFind(
-    s.users,
-    (x) =>
-      x.role === 'driver' &&
-      x.cityId === user.cityId &&
-      x.status === 'active' &&
-      s.cases.some(
-        (c) => c.id === x.identityCaseId && c.status === 'approved',
-      ) &&
-      s.cases.some(
-        (c) =>
-          c.userId === x.id &&
-          c.subject === 'vehicle' &&
-          c.status === 'approved',
-      ),
-    'chauffeuse vérifiée',
-  );
-  const current = p.subscriptions.find((x) => x.passengerId === user.id);
-  if (
-    current?.status === 'active' &&
-    Date.parse(current.endsAt) > ctx.clock.now()
-  )
-    throw new DomainError('CONFLICT', 'Vous avez déjà un abonnement actif.');
-  const subscription = {
-    id: nextId(s, 'SUB'),
-    passengerId: user.id,
-    planId,
-    planName: plan.name,
-    price: plan.price,
-    includedTrips: plan.includedTrips,
-    driverId: driver.id,
-    driverName: `${driver.firstName} ${driver.lastName}`,
-    status: 'active' as const,
-    startsAt: ctx.clock.iso(),
-    endsAt: new Date(
-      ctx.clock.now() + plan.durationDays * 86400000,
-    ).toISOString(),
-  };
-  if (current) Object.assign(current, subscription);
-  else p.subscriptions.push(subscription);
-  log(
-    ctx,
-    s,
-    user,
-    'family.subscribed',
-    subscription.id,
-    'Abonnement famille activé · paiement simulé',
-  );
-  return subscription;
-}
-function addTrip(
-  ctx: Ctx,
-  s: State,
-  user: User,
-  input: {
-    childId: string;
-    pickup: Place;
-    destination: Place;
-    pickupAt: string;
-    weekdays: number[];
-  },
-) {
-  const p = ensurePrototype(s);
-  const sub = mustFind(
-    p.subscriptions,
-    (x) =>
-      x.passengerId === user.id &&
-      x.status === 'active' &&
-      Date.parse(x.endsAt) > ctx.clock.now(),
-    'abonnement actif',
-  );
-  if (input.pickupAt >= sub.endsAt || input.pickupAt < sub.startsAt)
-    throw new DomainError(
-      'VALIDATION',
-      'Le trajet doit être compris dans la période de l’abonnement.',
-    );
-  const child = mustFind(
-    p.children,
-    (x) => x.id === input.childId && x.passengerId === user.id,
-    'enfant',
-  );
-  if (
-    p.trips.filter(
-      (t) =>
-        t.passengerId === user.id &&
-        t.pickupAt >= sub.startsAt &&
-        t.pickupAt < sub.endsAt,
-    ).length >= sub.includedTrips
-  )
-    throw new DomainError(
-      'VALIDATION',
-      'Le nombre de trajets inclus est atteint.',
-    );
-  const trip: FamilyTrip = {
-    ...input,
-    id: nextId(s, 'FT'),
-    passengerId: user.id,
-    childName: child.firstName,
-    driverId: sub.driverId,
-    driverName: sub.driverName,
-    status: 'scheduled',
-    location: input.pickup.location,
-    recipientId: null,
-    arrivalProof: null,
-    pickupVerified: false,
-    timeline: [],
-    notifications: [],
-    incident: null,
-  };
-  trip.timeline.push({
-    at: ctx.clock.iso(),
-    label: 'Trajet familial planifié',
-    location: trip.location,
-  });
-  p.trips.push(trip);
-  log(
-    ctx,
-    s,
-    user,
-    'family.trip_created',
-    trip.id,
-    `Trajet de ${child.firstName} planifié`,
-  );
-  return trip;
-}
-
 export function mountPrototypeRoutes(
   app: Hono<Env>,
   ctx: Ctx,
@@ -512,278 +323,6 @@ export function mountPrototypeRoutes(
         e.label = `Recharge ${option?.name ?? ''} · ${outcome === 'confirmed' ? 'confirmée' : 'refusée'}`;
         log(ctx, s, u, `wallet.topup_${outcome}`, e.id, e.label);
         return passengerWallet(s, u.id);
-      }),
-    );
-  });
-  app.get('/prototype/family', (c) =>
-    c.json(family(ctx.store.state, userOf(c))),
-  );
-  app.post('/prototype/family/children', async (c) => {
-    const u = userOf(c, 'passenger');
-    const input = childSchema.parse(await c.req.json());
-    return c.json(
-      ctx.store.tx((s) => {
-        const child = { ...input, id: nextId(s, 'CH'), passengerId: u.id };
-        ensurePrototype(s).children.push(child);
-        log(ctx, s, u, 'family.child_added', child.id, 'Profil enfant ajouté');
-        return child;
-      }),
-    );
-  });
-  app.post('/prototype/family/subscribe', async (c) => {
-    const u = userOf(c, 'passenger');
-    const input = z.object({ planId: text }).parse(await c.req.json());
-    return c.json(
-      await idempotent(ctx, c, u.id, input, () =>
-        ctx.store.tx((s) => addSubscription(ctx, s, u, input.planId)),
-      ),
-    );
-  });
-  app.post('/prototype/family/trips', async (c) => {
-    const u = userOf(c, 'passenger');
-    const input = z
-      .object({
-        childId: text,
-        pickup: place,
-        destination: place,
-        pickupAt: z.iso.datetime(),
-        weekdays: z.array(z.number().int().min(0).max(6)).max(7),
-      })
-      .parse(await c.req.json());
-    if (Date.parse(input.pickupAt) < ctx.clock.now())
-      throw new DomainError('VALIDATION', 'Choisissez un horaire futur.');
-    return c.json(
-      await idempotent(ctx, c, u.id, input, () =>
-        ctx.store.tx((s) => addTrip(ctx, s, u, input)),
-      ),
-    );
-  });
-  app.post('/prototype/family/example', (c) => {
-    if (!ctx.config.devMode) throw new DomainError('FORBIDDEN');
-    const actor = userOf(c);
-    return c.json(
-      ctx.store.tx((s) => {
-        const u =
-          actor.role === 'passenger'
-            ? actor
-            : mustFind(
-                s.users,
-                (x) => x.role === 'passenger' && x.cityId === actor.cityId,
-                'cliente de démonstration',
-              );
-        const p = ensurePrototype(s);
-        let child = p.children.find((x) => x.passengerId === u.id);
-        if (!child)
-          p.children.push(
-            (child = {
-              id: nextId(s, 'CH'),
-              passengerId: u.id,
-              firstName: 'Lina',
-              age: 8,
-              school: 'École Agdal',
-              notes: 'Attendre à l’entrée principale.',
-              recipients: [
-                {
-                  id: 'mother',
-                  name: u.firstName,
-                  relationship: 'Mère',
-                  verificationCode: '1234',
-                },
-                {
-                  id: 'father',
-                  name: 'Youssef',
-                  relationship: 'Père',
-                  verificationCode: '5678',
-                },
-              ],
-            }),
-          );
-        let sub = p.subscriptions.find(
-          (x) =>
-            x.passengerId === u.id &&
-            x.status === 'active' &&
-            Date.parse(x.endsAt) > ctx.clock.now(),
-        );
-        if (!sub)
-          sub = addSubscription(
-            ctx,
-            s,
-            u,
-            p.catalog.plans.find((x) => x.enabled)!.id,
-          );
-        if (actor.role === 'driver') {
-          sub.driverId = actor.id;
-          sub.driverName = `${actor.firstName} ${actor.lastName}`;
-        }
-        if (!p.trips.some((x) => x.passengerId === u.id && !closed(x.status)))
-          addTrip(ctx, s, u, {
-            childId: child.id,
-            pickup: PLACES.hayRiad,
-            destination: PLACES.agdal,
-            pickupAt: new Date(ctx.clock.now() + 3600000).toISOString(),
-            weekdays: [1, 2, 3, 4, 5],
-          });
-        return family(s, actor);
-      }),
-    );
-  });
-  app.post('/prototype/family/trips/:id/advance', async (c) => {
-    const u = userOf(c);
-    const input = z
-      .object({
-        expectedStatus: z.enum([
-          'scheduled',
-          'en_route',
-          'arrived',
-          'picked_up',
-          'in_progress',
-        ]),
-        proof: z.string().max(200).optional(),
-        childName: z.string().optional(),
-        recipientId: z.string().optional(),
-        code: z.string().optional(),
-      })
-      .parse(await c.req.json());
-    return c.json(
-      ctx.store.tx((s) => {
-        const p = ensurePrototype(s);
-        const t = mustFind(
-          p.trips,
-          (x) =>
-            x.id === c.req.param('id') &&
-            (u.role === 'driver'
-              ? x.driverId === u.id
-              : x.passengerId === u.id),
-          'trajet',
-        );
-        if (u.role === 'passenger' && !ctx.config.devMode)
-          throw new DomainError('FORBIDDEN');
-        if (t.status !== input.expectedStatus)
-          throw new DomainError(
-            'CONFLICT',
-            'Le trajet a changé. Rechargez avant de continuer.',
-          );
-        const next = FAMILY_NEXT[t.status];
-        if (!next) throw new DomainError('INVALID_TRANSITION');
-        const child = mustFind(p.children, (x) => x.id === t.childId);
-        if (next === 'arrived') {
-          if (!input.proof)
-            throw new DomainError(
-              'VALIDATION',
-              'Ajoutez la confirmation photo.',
-            );
-          if (input.proof === 'demo-arrival-photo' && !ctx.config.devMode)
-            throw new DomainError('FORBIDDEN');
-          if (input.proof !== 'demo-arrival-photo') {
-            const photo = mustFind(
-              s.uploads,
-              (x) => x.id === input.proof && x.ownerId === u.id,
-              'photo',
-            );
-            if (photo.purpose !== 'support_attachment' || !photo.mimeType.startsWith('image/'))
-              throw new DomainError('VALIDATION', 'Ajoutez une photo d’arrivée.');
-          }
-          t.arrivalProof = input.proof;
-        }
-        if (next === 'picked_up') {
-          if (
-            input.childName?.trim().toLowerCase() !==
-            child.firstName.toLowerCase()
-          )
-            throw new DomainError(
-              'VALIDATION',
-              'Confirmez le prénom de l’enfant après vérification.',
-            );
-          t.pickupVerified = true;
-        }
-        if (next === 'completed') {
-          const recipient = mustFind(
-            child.recipients,
-            (x) => x.id === input.recipientId,
-            'personne autorisée',
-          );
-          if (recipient.verificationCode !== input.code)
-            throw new DomainError('VALIDATION', 'Code de remise incorrect.');
-          t.recipientId = recipient.id;
-        }
-        t.status = next;
-        t.location =
-          next === 'in_progress'
-            ? {
-                lat: (t.pickup.location.lat + t.destination.location.lat) / 2,
-                lng: (t.pickup.location.lng + t.destination.location.lng) / 2,
-              }
-            : next === 'completed'
-              ? t.destination.location
-              : t.pickup.location;
-        const label = FAMILY_STATUS_LABELS[next];
-        t.timeline.push({
-          at: ctx.clock.iso(),
-          label,
-          location: t.location,
-          ...(input.proof ? { proof: input.proof } : {}),
-        });
-        t.notifications.push({
-          at: ctx.clock.iso(),
-          title: `${child.firstName} · ${label}`,
-        });
-        log(ctx, s, u, `family.${next}`, t.id, label);
-        if (next === 'completed' && t.weekdays.length) {
-          const date = new Date(t.pickupAt);
-          do {
-            date.setUTCDate(date.getUTCDate() + 1);
-          } while (
-            !t.weekdays.includes(date.getUTCDay()) ||
-            date.getTime() <= ctx.clock.now()
-          );
-          const owner = mustFind(s.users, (x) => x.id === t.passengerId);
-          const sub = p.subscriptions.find(
-            (x) => x.passengerId === owner.id && x.status === 'active',
-          );
-          if (
-            sub &&
-            date.toISOString() < sub.endsAt &&
-            p.trips.filter(
-              (x) =>
-                x.passengerId === owner.id &&
-                x.pickupAt >= sub.startsAt &&
-                x.pickupAt < sub.endsAt,
-            ).length < sub.includedTrips
-          )
-            addTrip(ctx, s, owner, {
-              childId: t.childId,
-              pickup: t.pickup,
-              destination: t.destination,
-              pickupAt: date.toISOString(),
-              weekdays: t.weekdays,
-            });
-        }
-        return t;
-      }),
-    );
-  });
-  app.post('/prototype/family/trips/:id/incident', async (c) => {
-    const u = userOf(c);
-    const { message } = z.object({ message: text }).parse(await c.req.json());
-    return c.json(
-      ctx.store.tx((s) => {
-        const t = mustFind(
-          ensurePrototype(s).trips,
-          (x) =>
-            x.id === c.req.param('id') &&
-            (u.role === 'driver'
-              ? x.driverId === u.id
-              : x.passengerId === u.id),
-        );
-        t.incident = message;
-        t.notifications.push({ at: ctx.clock.iso(), title: message });
-        t.timeline.push({
-          at: ctx.clock.iso(),
-          label: message,
-          location: t.location,
-        });
-        log(ctx, s, u, 'family.incident', t.id, message);
-        return t;
       }),
     );
   });
@@ -877,13 +416,16 @@ export function mountPrototypeRoutes(
   app.get('/admin/prototype', (c) => {
     requirePermission(adminOf(c), 'config.edit');
     const s = ctx.store.state;
+    const p = ensurePrototype(s);
     return c.json({
-      ...ensurePrototype(s),
+      ...p,
+      guardians: (p.guardians ?? []).map(({ tokenHash: _hidden, ...g }) => g),
       people: s.users.map((x) => ({
         id: x.id,
         name: `${x.firstName} ${x.lastName}`,
         role: x.role,
         cityId: x.cityId,
+        ...(x.role === 'driver' ? { familleEligibility: x.familleEligibility ?? 'not_requested' } : {}),
       })),
     });
   });
@@ -964,7 +506,7 @@ export function mountPrototypeRoutes(
             x.id === driverId &&
             x.role === 'driver' &&
             x.cityId === owner.cityId &&
-            x.status === 'active' &&
+            canReceiveFamilleTrips(x) &&
             s.cases.some(
               (v) => v.id === x.identityCaseId && v.status === 'approved',
             ) &&
@@ -974,7 +516,7 @@ export function mountPrototypeRoutes(
                 v.subject === 'vehicle' &&
                 v.status === 'approved',
             ),
-          'chauffeuse vérifiée de la ville',
+          'chauffeuse approuvée pour Naya Famille dans la ville',
         );
         sub.driverId = d.id;
         sub.driverName = `${d.firstName} ${d.lastName}`;
