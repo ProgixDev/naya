@@ -1,0 +1,35 @@
+# Paths where a mistake moves money, weakens safety or eligibility, or widens who can see or do something.
+# A pull request touching them needs a review from an owner below, once branch protection on master turns on
+# "Require review from Code Owners" (docs/adr/0057-branch-review-and-ci-policy.md).
+#
+# TODO before enabling that rule:
+# - Confirm @Achref23illi is the right GitHub handle (it is the local git user name) and that it has write access.
+# - Add Arselene's GitHub handle to every line. GitHub never counts an author's own approval, so with a single
+#   owner nobody could approve that owner's pull requests on these paths.
+# The last matching line wins, so keep any broader pattern above the specific ones.
+
+# Money: integer centimes, pricing, the driver ledger and ride settlement
+/packages/domain/src/money.ts                    @Achref23illi
+/packages/domain/src/wallet.ts                   @Achref23illi
+/packages/domain/src/pricing.ts                  @Achref23illi
+/services/demo-api/src/services/finance.ts       @Achref23illi
+/services/demo-api/src/services/rides.ts         @Achref23illi
+
+# Safety, Naya Famille and eligibility (identity review, SOS, child handover, passenger wallet)
+/packages/domain/src/prototype.ts                @Achref23illi
+/services/demo-api/src/services/prototype.ts     @Achref23illi
+/services/demo-api/src/services/verification.ts  @Achref23illi
+/packages/ui/src/features/prototype.tsx          @Achref23illi
+/apps/admin/src/pages/CaseReview.tsx             @Achref23illi
+/apps/admin/src/pages/Sos.tsx                    @Achref23illi
+
+# Permissions: roles, server-side enforcement and the seeded admin accounts
+/packages/domain/src/entities.ts                 @Achref23illi
+/services/demo-api/src/services/permissions.ts   @Achref23illi
+/services/demo-api/src/seed.ts                   @Achref23illi
+
+# Decisions
+/docs/adr/                                       @Achref23illi
+
+# This file and the CI gates: editing either can switch off every rule above
+/.github/                                        @Achref23illi

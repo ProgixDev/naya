@@ -1,7 +1,8 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHmac } from 'node:crypto';
+import { afterAll } from 'vitest';
 import { PLACES, type Place } from '@naya/domain';
 import { createApp } from '../src/app';
 import { ManualClock } from '../src/clock';
@@ -12,8 +13,14 @@ import { tick } from '../src/services/timers';
 
 export const START = '2026-10-01T08:00:00.000Z';
 
+// Every setup() seeds its own temp data dir (fixture uploads, ~2.5 MB each). Keep them for the
+// whole test file, so a harness shared across tests keeps its uploads, then remove them all.
+const dataDirs: string[] = [];
+afterAll(() => { for (const dir of dataDirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+
 export function setup(scenario: ScenarioId = 'default') {
   const dataDir = mkdtempSync(join(tmpdir(), 'naya-test-'));
+  dataDirs.push(dataDir);
   const clock = new ManualClock(START);
   const store = new Store(buildSeed(dataDir, scenario, clock.now()), null);
   const ctx: Ctx = {

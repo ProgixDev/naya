@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "packageManager": "pnpm@12.8.1",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "api": "pnpm --filter @naya/demo-api dev",
@@ -14,7 +14,8 @@
     "driver": "pnpm --filter @naya/driver start",
     "admin": "pnpm --filter @naya/admin dev",
     "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r --if-present test",
+    "test": "pnpm -r --filter '!@naya/e2e' --if-present test",
+    "lint": "pnpm --filter @naya/passenger lint && pnpm --filter @naya/driver lint",
     "e2e": "pnpm --filter @naya/e2e test",
     "doctor": "pnpm --filter @naya/passenger doctor && pnpm --filter @naya/driver doctor",
     "web": "pnpm --filter @naya/web dev",
