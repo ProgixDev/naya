@@ -44,15 +44,3 @@ export function Avatar({ source, name, size = 44 }: { source?: number | { uri: s
     </View>
   );
 }
-
-/** Marks content produced by the demo environment (simulated movement, sandbox payments…). */
-export function DemoBadge({ label = 'Démo' }: { label?: string }) {
-  useTheme();
-  return (
-    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, height: 22, borderRadius: 999, backgroundColor: colors.warningSoft, justifyContent: 'center' }} accessibilityLabel={`${label} : environnement de démonstration`}>
-      <Text variant="micro" weight="semibold" tone="warning">
-        {label}
-      </Text>
-    </View>
-  );
-}

@@ -65,6 +65,8 @@ describe('car wash (« Lavage à domicile »)', () => {
     const detail = await h.ok('GET', `/car-wash/orders/${created.id}`, { token: salma });
     expect(detail.order.status).toBe('completed');
     expect(detail.order.photos.filter((p: any) => p.stage === 'after')).toHaveLength(2);
+    // Photo labels and the timeline read like a real team's (the apps show the mock photos).
+    expect(detail.order.photos.map((p: any) => p.label)).toEqual(['Avant · carrosserie', 'Avant · habitacle', 'Après · carrosserie', 'Après · habitacle']);
     expect(detail.order.teamLocation).toBeNull();
     expect(detail.payments).toHaveLength(1);
     expect(detail.payments[0]).toMatchObject({ purpose: 'car_wash', method: 'card', amount: mad(110), status: 'pending' });
@@ -72,6 +74,7 @@ describe('car wash (« Lavage à domicile »)', () => {
     const paid = await h.ok('GET', `/car-wash/orders/${created.id}`, { token: salma });
     expect(paid.payments[0].status).toBe('confirmed');
     expect(paid.order.timeline.map((t: any) => t.type)).toEqual(['booked', 'assigned', 'departed', 'started', 'completed', 'payment.pending', 'payment.confirmed']);
+    expect(JSON.stringify(paid.order.timeline)).not.toMatch(/d[ée]mo|simul/i);
     // No driver ledger is touched by a passenger's wash.
     expect(h.ctx.store.state.ledger.some((e) => e.description.includes(created.id))).toBe(false);
 
@@ -162,7 +165,7 @@ describe('car wash (« Lavage à domicile »)', () => {
     const h = setup('default');
     const amina = await h.login(PHONES.amina, 'driver');
     const me = await h.ok('GET', '/me', { token: amina });
-    expect(me.vehicle.plate).toBe('DÉMO-001');
+    expect(me.vehicle.plate).toBe('48213-A-1');
     const options = await optionsOf(h, amina);
     expect(options.map((o: any) => o.kind)).toEqual(['driver_wallet', 'cash']);
     const walletOpt = options[0];

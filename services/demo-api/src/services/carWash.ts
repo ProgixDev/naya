@@ -107,12 +107,12 @@ export function washPaymentOptions(s: State, user: User, cityId: string, at: str
     kind: m.kind,
     label: m.label,
     available: m.kind === 'wallet' ? walletAvailable > 0 : m.kind === 'mobile_wallet' ? mobileOn : rideProviders.has(m.kind),
-    note: m.kind === 'cash' ? 'À régler à l’équipe à la fin du lavage' : m.kind === 'wallet' ? `Disponible : ${formatMoney(Math.max(0, walletAvailable))}` : m.kind === 'card' ? 'Débitée à la fin du lavage' : 'Paiement simulé (démo)',
+    note: m.kind === 'cash' ? 'À régler à l’équipe à la fin du lavage' : m.kind === 'wallet' ? `Disponible : ${formatMoney(Math.max(0, walletAvailable))}` : m.kind === 'card' ? 'Débitée à la fin du lavage' : 'Débité à la fin du lavage',
     isDefault: m.isDefault,
   }));
   // The wallet methods are created on first use (see prototypeMethods); list them before they exist.
   if (!own.some((m) => m.kind === 'wallet')) options.push({ id: `wallet-${user.id}`, kind: 'wallet', label: 'Portefeuille Naya', available: walletAvailable > 0, note: `Disponible : ${formatMoney(Math.max(0, walletAvailable))}`, isDefault: false });
-  if (!own.some((m) => m.kind === 'mobile_wallet')) options.push({ id: `mobile-${user.id}`, kind: 'mobile_wallet', label: 'Wallet marocain (démo)', available: mobileOn, note: 'Paiement simulé (démo)', isDefault: false });
+  if (!own.some((m) => m.kind === 'mobile_wallet')) options.push({ id: `mobile-${user.id}`, kind: 'mobile_wallet', label: 'Wallet marocain', available: mobileOn, note: 'Débité à la fin du lavage', isDefault: false });
   return options;
 }
 
@@ -357,10 +357,11 @@ function dueAt(o: WashOrder): number | null {
   }
 }
 
+/** The team's shots. No upload: the apps show the mock photos of @naya/assets (`mockPhotos`). */
 const demoPhotos = (s: State, o: WashOrder, stage: WashPhoto['stage'], at: string): WashPhoto[] => {
   const word = stage === 'before' ? 'Avant' : 'Après';
   const shots = o.terms.packageId === 'exterior' ? ['carrosserie', 'jantes'] : ['carrosserie', 'habitacle'];
-  return shots.map((what) => ({ id: nextId(s, 'LVP', 4), stage, uploadId: null, label: `${word} · ${what} (photo simulée)`, at }));
+  return shots.map((what) => ({ id: nextId(s, 'LVP', 4), stage, uploadId: null, label: `${word} · ${what}`, at }));
 };
 
 export function hasDueCarWashTimers(s: State, nowMs: number) {
@@ -402,7 +403,7 @@ function step(ctx: Ctx, s: State, state: CarWashState, o: WashOrder, at: string)
       o.teamBase = teamBaseNear(o.location.location);
       o.assignedAt = at;
       tl(o, at, 'assigned', `${team.name} assignée à votre lavage`);
-      appendAudit(s, at, { actor: SYSTEM, action: 'car_wash.assigned', entityType: 'car_wash', entityId: o.id, cityId: o.cityId, summary: `${team.name} assignée (simulation)` });
+      appendAudit(s, at, { actor: SYSTEM, action: 'car_wash.assigned', entityType: 'car_wash', entityId: o.id, cityId: o.cityId, summary: `${team.name} assignée automatiquement` });
       return;
     }
     case 'washer_assigned':
@@ -442,7 +443,7 @@ function settleWash(ctx: Ctx, s: State, o: WashOrder, at: string) {
     case 'wallet':
       settlePassengerWallet(s, o.customerId, o.id, o.terms.price, at);
       p.status = 'confirmed';
-      tl(o, at, 'payment.confirmed', `Payé avec le portefeuille Naya · ${formatMoney(p.amount)} (démo)`);
+      tl(o, at, 'payment.confirmed', `Payé avec le portefeuille Naya · ${formatMoney(p.amount)}`);
       return;
     case 'driver_wallet':
       p.status = 'confirmed';
@@ -450,11 +451,11 @@ function settleWash(ctx: Ctx, s: State, o: WashOrder, at: string) {
       return;
     case 'mobile_wallet':
       p.status = 'confirmed';
-      tl(o, at, 'payment.confirmed', `Paiement mobile confirmé · ${formatMoney(p.amount)} (simulation)`);
+      tl(o, at, 'payment.confirmed', `Paiement mobile confirmé · ${formatMoney(p.amount)}`);
       return;
     case 'cash':
       p.status = 'confirmed';
-      tl(o, at, 'payment.confirmed', `Espèces remises à l’équipe · ${formatMoney(p.amount)} (simulation)`);
+      tl(o, at, 'payment.confirmed', `Espèces remises à l’équipe · ${formatMoney(p.amount)}`);
       return;
   }
 }

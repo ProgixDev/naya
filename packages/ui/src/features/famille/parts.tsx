@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Linking, Platform, Share, View } from 'react-native';
+import { Image, Linking, Platform, Share, View } from 'react-native';
 import * as ExpoLinking from 'expo-linking';
-import { Camera, CheckCircle2, Clock, MapPin, MessageCircle, School, ShieldAlert, ShieldCheck, Signal, UserPlus, XCircle } from 'lucide-react-native';
+import { CheckCircle2, Clock, MapPin, MessageCircle, School, ShieldAlert, ShieldCheck, Signal, UserPlus, XCircle } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { errorMessage, newIdempotencyKey, qk } from '@naya/api';
 import { useApi, useDeadline } from '@naya/api/react';
@@ -9,19 +9,20 @@ import {
   formatDistance,
   formatTime,
   FAMILY_APPROVAL_TIMEOUT_SECONDS,
+  FAMILY_DEMO_PROOFS,
   MOROCCO_POLICE_NUMBER,
   type FamilyLive,
   type FamilyProof,
   type FamilyTimelineEntry,
   type FamilyTrip,
 } from '@naya/domain';
+import { mockPhotos } from '@naya/assets';
 import { colors, radius, themedStyles } from '@naya/tokens';
 import { useTheme } from '../../core/theme';
 import { DEMO_MODE } from '../../core/apiBase';
 import { useA11yPrefs } from '../../a11y';
 import { Text } from '../../Text';
 import { Button } from '../../Button';
-import { DemoBadge } from '../../Brand';
 import { StatusBanner } from '../../Feedback';
 import { FormField } from '../../Form';
 import { IconDisc, ListGroup, ListRow } from '../../List';
@@ -36,7 +37,7 @@ export const styles = themedStyles(() => ({
   soft: { backgroundColor: colors.selected, borderRadius: radius.card, padding: 18, gap: 10 },
   mapBox: { borderRadius: 22, overflow: 'hidden' as const, backgroundColor: colors.map },
   chip: { position: 'absolute' as const, left: 10, bottom: 10, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: colors.surface },
-  photo: { width: 132, height: 99, borderRadius: 14, backgroundColor: colors.mauveSoft, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 4, padding: 8 },
+  photo: { width: 132, height: 99, borderRadius: 14, backgroundColor: colors.mauveSoft },
   row: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
 }));
@@ -71,11 +72,6 @@ export function FamilleLiveMap({ trip, live, height = 240, testID }: { trip: Pic
           </Text>
         </View>
       ) : null}
-      {live?.source === 'demo' && moving ? (
-        <View style={{ position: 'absolute', right: 10, bottom: 10 }}>
-          <DemoBadge label={`Déplacement simulé ×${live.timeFactor}`} />
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -103,12 +99,8 @@ export function ProofPhoto({ proof, accountId, label }: { proof: FamilyProof | n
         {label} · {formatTime(proof.at)}
       </Text>
       {proof.simulated ? (
-        <View style={styles.photo} accessibilityLabel={`${label} simulée`}>
-          <Camera size={22} color={colors.accent} />
-          <Text variant="micro" tone="muted" align="center">
-            Photo simulée (démo)
-          </Text>
-        </View>
+        // No upload behind this proof (mock chauffeuse, or a device without a camera): the mock photo.
+        <Image source={proof.uploadId === FAMILY_DEMO_PROOFS.dropoff ? mockPhotos.familleDropoff : mockPhotos.famillePickup} style={styles.photo} resizeMode="cover" accessible accessibilityRole="image" accessibilityLabel={label} />
       ) : (
         <Attachment id={proof.uploadId} accountId={accountId} label={label} />
       )}
@@ -129,6 +121,14 @@ const KIND_TONE: Partial<Record<NonNullable<FamilyTimelineEntry['kind']>, 'succe
   incident: 'warning',
 };
 
+/** Lines written before 14 Oct 2026 carry a « simulation » / « (démo) » marker: shown without it. */
+const timelineLabel = (label: string) =>
+  label
+    .replace(/ · simulation$/, '')
+    .replace(/ \((?:simulée|démo)\)/g, '')
+    .replace(' · joué par le parent', ' · saisi depuis le compte parent')
+    .replace('un trajet de démonstration', 'un nouveau trajet');
+
 /** Every step of the trip, timestamped (kept in the history once the trip closes). */
 export function FamilleTimeline({ trip, testID }: { trip: FamilyTrip; testID?: string }) {
   useTheme();
@@ -141,7 +141,7 @@ export function FamilleTimeline({ trip, testID }: { trip: FamilyTrip; testID?: s
           <View key={`${e.at}-${i}`} style={{ flexDirection: 'row', gap: 10 }}>
             <View style={[styles.dot, { backgroundColor: tone ? tones[tone] : colors.line }]} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="label">{e.label}</Text>
+              <Text variant="label">{timelineLabel(e.label)}</Text>
               <Text variant="caption" tone="muted" numeric>
                 {formatTime(e.at)} · {e.location.lat.toFixed(4)}, {e.location.lng.toFixed(4)}
                 {e.proof ? ' · photo jointe' : ''}
@@ -236,7 +236,8 @@ export function FamilleContactBar({ trip, role, accountId }: { trip: FamilyTrip;
         toast('Demande envoyée · le parent confirme puis vous appelle');
       } else {
         const r = await api.prototype.familyCall(trip.id, 'whatsapp');
-        if (r.simulated || DEMO_MODE) toast(`Démo : WhatsApp n’est pas ouvert (${r.url})`);
+        // Mock accounts carry made-up numbers: the call is noted on the trip, WhatsApp is not opened.
+        if (r.simulated || DEMO_MODE) toast(`Appel vers ${r.counterpartName} noté sur le trajet`);
         else {
           const app = r.appUrl && (await Linking.canOpenURL(r.appUrl).catch(() => false));
           await Linking.openURL(app ? r.appUrl! : r.url);
@@ -253,7 +254,7 @@ export function FamilleContactBar({ trip, role, accountId }: { trip: FamilyTrip;
   const callPolice = async () => {
     setBusy(true);
     try {
-      // The call itself is never simulated: someone may really need it.
+      // Always a real call: someone may really need it.
       await api.prototype.familyCall(trip.id, 'police').catch(() => undefined);
       setSheet(null);
       await Linking.openURL(`tel:${MOROCCO_POLICE_NUMBER}`);
@@ -288,16 +289,21 @@ export function FamilleContactBar({ trip, role, accountId }: { trip: FamilyTrip;
         onClose={() => setSheet(null)}
         dismissible={!busy}
         title={role === 'driver' ? 'Demander un appel au parent' : `Appeler ${driverFirst} sur WhatsApp ?`}
-        subtitle={role === 'driver' ? 'Le parent reçoit votre demande, confirme, puis vous appelle. Vous ne voyez pas son numéro.' : 'WhatsApp s’ouvre sur la conversation avec la chauffeuse ; touchez l’icône d’appel. Votre numéro lui sera visible.'}
+        subtitle={
+          role === 'driver'
+            ? 'Le parent reçoit votre demande, confirme, puis vous appelle. Vous ne voyez pas son numéro.'
+            : DEMO_MODE
+              ? 'L’appel est noté sur le trajet. La mise en relation WhatsApp n’est pas encore disponible.'
+              : 'WhatsApp s’ouvre sur la conversation avec la chauffeuse ; touchez l’icône d’appel. Votre numéro lui sera visible.'
+        }
         testID="famille-whatsapp-sheet"
       >
         <View style={{ gap: 12 }}>
-          {DEMO_MODE ? <StatusBanner compact tone="warning" title="Démo" message="l’appel est enregistré sur le trajet, WhatsApp n’est pas ouvert" /> : null}
           {role === 'driver' ? <StatusBanner compact tone="info" title="Sécurité" message="à l’arrêt uniquement, jamais en conduisant" /> : null}
-          <Button label={role === 'driver' ? 'Envoyer la demande' : 'Confirmer et appeler'} size="major" full loading={busy} onPress={callWhatsApp} testID="famille-whatsapp-confirm" />
+          <Button label={role === 'driver' ? 'Envoyer la demande' : DEMO_MODE ? 'Confirmer' : 'Confirmer et appeler'} size="major" full loading={busy} onPress={callWhatsApp} testID="famille-whatsapp-confirm" />
         </View>
       </Sheet>
-      <Sheet visible={sheet === 'police'} onClose={() => setSheet(null)} dismissible={!busy} title={`Appeler la police (${MOROCCO_POLICE_NUMBER}) ?`} subtitle="Appel réel depuis votre téléphone, même en démonstration. Le trajet et l’autre partie sont informés." testID="famille-police-sheet">
+      <Sheet visible={sheet === 'police'} onClose={() => setSheet(null)} dismissible={!busy} title={`Appeler la police (${MOROCCO_POLICE_NUMBER}) ?`} subtitle="L’appel part de votre téléphone. Il est noté sur le trajet et l’autre partie est prévenue." testID="famille-police-sheet">
         <View style={{ gap: 12 }}>
           <StatusBanner compact tone="danger" title="Urgence" message={`police secours · ${MOROCCO_POLICE_NUMBER}`} />
           <Button label={`Appeler le ${MOROCCO_POLICE_NUMBER}`} variant="danger" size="major" full loading={busy} onPress={callPolice} testID="famille-police-confirm" />
@@ -315,8 +321,8 @@ export function InviteSheet({ visible, onClose, accountId }: { visible: boolean;
   useTheme();
   const api = useApi();
   const qc = useQueryClient();
-  const [name, setName] = useState('Youssef');
-  const [relationship, setRelationship] = useState('Père');
+  const [name, setName] = useState('');
+  const [relationship, setRelationship] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState<string | null>(null);
@@ -355,8 +361,8 @@ export function InviteSheet({ visible, onClose, accountId }: { visible: boolean;
           </>
         ) : (
           <>
-            <FormField label="Prénom" value={name} onChangeText={setName} />
-            <FormField label="Lien avec l’enfant" value={relationship} onChangeText={setRelationship} />
+            <FormField label="Prénom" value={name} onChangeText={setName} autoCapitalize="words" testID="famille-invite-name" />
+            <FormField label="Lien avec l’enfant" value={relationship} onChangeText={setRelationship} placeholder="Père, grand-mère, tante…" testID="famille-invite-relationship" />
             <FormField label="Téléphone (facultatif)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+212…" />
             <Button label="Créer et partager le lien" size="major" full loading={busy} disabled={name.trim().length < 2 || relationship.trim().length < 2} onPress={invite} testID="famille-invite-confirm" />
           </>

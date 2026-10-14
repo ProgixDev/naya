@@ -2,6 +2,7 @@ import { copyFileSync, mkdirSync, rmSync, join, fixturePath } from './platform';
 import {
   CASABLANCA_RULES,
   CASABLANCA_ZONE,
+  casablancaLocalToUtc,
   computeFare,
   demoRoute,
   mad,
@@ -17,6 +18,8 @@ import {
   casablancaToday,
   familleEligibilityFor,
   interviewDays,
+  toCasablancaParts,
+  type FamilyChild,
   type PaymentProviderConfig,
   type Ride,
   type User,
@@ -30,23 +33,21 @@ import { appendAudit, SYSTEM } from './audit';
 import { hashPassword } from './services/auth';
 import { nextId } from './store';
 import { postLedger } from './services/finance';
-import { addTrip, ensureExampleFamily } from './services/famille';
-
-
+import { addSubscription, addTrip, ensureFamille } from './services/famille';
 
 export const SCENARIOS = {
-  default: 'Monde de démonstration complet : NY-001 (espèces) et NY-002 (carte) terminées, portefeuille d’Amina à 70 MAD, file de vérification, Leila en dette.',
+  default: 'Jeu de données complet : NY-001 (espèces) et NY-002 (carte) terminées, portefeuille d’Amina à 70 MAD, file de vérification, Leila en dette, famille de Salma (Lina) suivie par Amina.',
   'first-ride': 'Aucune course : portefeuille d’Amina à 0 MAD. Idéal pour S03 (NY-001 en espèces → −15 MAD).',
   'after-cash': 'NY-001 terminée en espèces : portefeuille d’Amina à −15 MAD. Idéal pour S04 (carte → 70 MAD).',
   'no-casablanca': 'Casablanca n’est pas encore configurée. Idéal pour S15 (ajout d’une ville en test).',
   'dynamic-pricing': 'Tarification dynamique ×1,2 active à Rabat. Idéal pour S06.',
-  famille: 'Naya Famille prête : Lina (8 ans), formule Essentiel avec Amina, trajet Hay Riad → École Agdal dans 10 minutes. Codes de remise 1234 (Salma) et 5678 (Youssef).',
+  famille: 'Comme « default », mais le prochain trajet Famille de Lina (Hay Riad → École Agdal, avec Amina) part dans 10 minutes. Codes de remise 1234 (Salma) et 5678 (Youssef).',
 } as const;
 export type ScenarioId = keyof typeof SCENARIOS;
 
 export const DEMO_ACCOUNTS = {
   passengers: [
-    { phone: '+212612345678', name: 'Salma El Mansouri', state: 'Identité approuvée · testeuse Casablanca' },
+    { phone: '+212612345678', name: 'Salma El Mansouri', state: 'Identité approuvée · testeuse Casablanca · Naya Famille (Lina)' },
     { phone: '+212623456789', name: 'Nour Benali', state: 'Dossier envoyé, en attente d’examen' },
     { phone: '+212634567890', name: 'Imane Tazi', state: 'Complément demandé (verso illisible)' },
     { phone: '+212645678901', name: 'Rania Alaoui', state: 'Dossier refusé, pièce expirée (récupérable)' },
@@ -56,7 +57,7 @@ export const DEMO_ACCOUNTS = {
     { phone: '+212662345678', name: 'Khadija Idrissi', state: 'Personne approuvée · véhicule en examen' },
     { phone: '+212665678901', name: 'Samira Fassi', state: 'Véhicule approuvé · permis à corriger' },
     { phone: '+212664567890', name: 'Leila Amrani', state: 'Solde −150 MAD : offres bloquées · Famille non demandée' },
-    { phone: '+212663456789', name: 'Nadia Chraibi', state: 'Chauffeuse simulée (bot de démonstration) · Naya Famille approuvée' },
+    { phone: '+212663456789', name: 'Nadia Chraibi', state: 'Chauffeuse automatique (bot) · Naya Famille approuvée' },
     { phone: '+212666789012', name: 'Yasmine Berrada', state: 'Inscription en cours : reprend à la date de naissance' },
     { phone: '+212667890123', name: 'Houda Lamrani', state: 'Approuvée · candidature Naya Famille en examen' },
   ],
@@ -68,6 +69,83 @@ export const DEMO_ACCOUNTS = {
 };
 
 const iso = (ms: number) => new Date(ms).toISOString();
+
+/* ───────────── Mock records (add or edit entries here, never in the screens) ───────────── */
+
+interface MockFamily {
+  /** Seeded passenger (by phone). */
+  parentPhone: string;
+  /** Seeded chauffeuse approved for Naya Famille (by phone). */
+  driverPhone: string;
+  planId: string;
+  /** The subscription started this many days before the seed. */
+  startedDaysAgo: number;
+  children: (Omit<FamilyChild, 'id' | 'passengerId'> & {
+    /** Weekly trips: `time` is Rabat time; `weekdays` 0 = dimanche … 6 = samedi. */
+    trips: { pickup: keyof typeof PLACES; destination: keyof typeof PLACES; destinationLabel?: string; time: string; weekdays: number[] }[];
+  })[];
+}
+
+/**
+ * Naya Famille families seeded in every scenario, so the feature is populated from the first
+ * launch. Each trip is created once, on its next weekday, and the server plans the following
+ * one after each drop-off. Handover codes are the recipients' `verificationCode`.
+ */
+export const MOCK_FAMILIES: MockFamily[] = [
+  {
+    parentPhone: '+212612345678', // Salma
+    driverPhone: '+212661234567', // Amina
+    planId: 'family-essential',
+    startedDaysAgo: 3,
+    children: [
+      {
+        firstName: 'Lina',
+        age: 8,
+        school: 'École Agdal',
+        notes: 'Attendre à l’entrée principale.',
+        recipients: [
+          { id: 'mother', name: 'Salma', relationship: 'Mère', verificationCode: '1234' },
+          { id: 'father', name: 'Youssef', relationship: 'Père', verificationCode: '5678' },
+        ],
+        trips: [{ pickup: 'hayRiad', destination: 'agdal', destinationLabel: 'École Agdal', time: '08:00', weekdays: [1, 2, 3, 4, 5] }],
+      },
+    ],
+  },
+];
+
+/** Next `time` (Rabat) on one of `weekdays`, at least 30 minutes after `nowMs`. */
+function nextWeekly(nowMs: number, time: string, weekdays: number[]): string {
+  for (let i = 0; i < 9; i++) {
+    const at = casablancaLocalToUtc(toCasablancaParts(iso(nowMs + i * 86_400_000)).date, time);
+    if (Date.parse(at) > nowMs + 30 * 60_000 && weekdays.includes(new Date(at).getUTCDay())) return at;
+  }
+  throw new Error(`MOCK_FAMILIES: no day in [${weekdays.join(', ')}]`);
+}
+
+/** Seeds MOCK_FAMILIES. `firstPickupMs` moves the first family's first trip (scenario « famille »). */
+function seedFamilies(s: State, nowMs: number, firstPickupMs?: number) {
+  const p = ensureFamille(s);
+  MOCK_FAMILIES.forEach((f, fi) => {
+    const parent = s.users.find((u) => u.role === 'passenger' && u.phone === f.parentPhone);
+    const driver = s.users.find((u) => u.role === 'driver' && u.phone === f.driverPhone);
+    if (!parent || !driver) return;
+    addSubscription(s, nowMs - f.startedDaysAgo * 86_400_000, parent, f.planId, driver);
+    f.children.forEach(({ trips, ...spec }, ci) => {
+      const child: FamilyChild = { ...spec, id: nextId(s, 'CH'), passengerId: parent.id };
+      p.children.push(child);
+      trips.forEach((t, ti) => {
+        const first = fi === 0 && ci === 0 && ti === 0 && firstPickupMs !== undefined;
+        addTrip(s, nowMs, parent, {
+          childId: child.id,
+          pickup: PLACES[t.pickup],
+          destination: { ...PLACES[t.destination], label: t.destinationLabel ?? PLACES[t.destination].label },
+          pickupAt: first ? iso(firstPickupMs) : nextWeekly(nowMs, t.time, t.weekdays),
+          weekdays: t.weekdays,
+        });
+      });
+    });
+  });
+}
 
 function emptyState(scenario: string): State {
   return {
@@ -109,13 +187,13 @@ function emptyState(scenario: string): State {
 
 function city(s: State, id: string, name: string, status: CityConfig['status'], center: CityConfig['center'], rules: CityRules, at: string) {
   s.cities.push({ id, name, status, timezone: 'Africa/Casablanca', currency: 'MAD', center, rules, rulesVersion: 1, updatedAt: at, updatedBy: 'system' });
-  s.cityRuleVersions.push({ cityId: id, version: 1, rules, createdAt: at, createdBy: 'system', reason: 'Configuration initiale de démonstration' });
+  s.cityRuleVersions.push({ cityId: id, version: 1, rules, createdAt: at, createdBy: 'system', reason: 'Configuration initiale' });
   const providers: Omit<PaymentProviderConfig, 'cityId'>[] = [
     { id: `${id}-ride-cash`, purpose: 'ride', kind: 'cash', name: 'Espèces', enabled: true, mode: 'demo', configured: true },
-    { id: `${id}-ride-card`, purpose: 'ride', kind: 'card', name: 'Carte bancaire (démo)', enabled: true, mode: 'demo', configured: true },
-    { id: `${id}-recharge-card`, purpose: 'recharge', kind: 'card', name: 'Carte bancaire (démo)', enabled: true, mode: 'demo', configured: true },
-    { id: `${id}-recharge-agency`, purpose: 'recharge', kind: 'cash_network', name: 'Réseau d’agences (démo)', enabled: id === 'rabat', mode: 'demo', configured: true },
-    { id: `${id}-withdrawal-bank`, purpose: 'withdrawal', kind: 'bank_transfer', name: 'Virement bancaire (démo)', enabled: true, mode: 'demo', configured: true },
+    { id: `${id}-ride-card`, purpose: 'ride', kind: 'card', name: 'Carte bancaire', enabled: true, mode: 'demo', configured: true },
+    { id: `${id}-recharge-card`, purpose: 'recharge', kind: 'card', name: 'Carte bancaire', enabled: true, mode: 'demo', configured: true },
+    { id: `${id}-recharge-agency`, purpose: 'recharge', kind: 'cash_network', name: 'Réseau d’agences', enabled: id === 'rabat', mode: 'demo', configured: true },
+    { id: `${id}-withdrawal-bank`, purpose: 'withdrawal', kind: 'bank_transfer', name: 'Virement bancaire', enabled: true, mode: 'demo', configured: true },
     { id: `${id}-ride-card-live`, purpose: 'ride', kind: 'card', name: 'Prestataire carte (production)', enabled: false, mode: 'live', configured: false },
   ];
   for (const p of providers) s.providers.push({ ...p, cityId: id });
@@ -178,7 +256,7 @@ function person(s: State, dataDir: string, spec: PersonSpec, at: string): User {
     birthDate: spec.birth,
     documentType: 'cin',
     documentNumber: spec.doc,
-    ...(driver ? { address: spec.address ?? 'Adresse fictive, Hay Riad', city: 'Rabat' } : {}),
+    ...(driver ? { address: spec.address ?? '14 avenue Annakhil, Hay Riad', city: 'Rabat' } : {}),
   };
   const since = spec.licenceSince ?? 2012;
   const licence: LicenceDetails | null = driver ? { number: `${String(since).slice(2)}/${spec.doc.slice(2)}`, category: 'B', issueDate: `${since}-06-18`, expiryDate: `${since + 20}-06-18`, experienceYears: 2026 - since - 1 } : null;
@@ -377,40 +455,43 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
     return id;
   };
   const salmaCash = pm(salma.id, 'cash', 'Espèces', null, null, true);
-  const salmaCard = pm(salma.id, 'card', 'Carte de démonstration •••• 4242', 'tok_demo_4242', '4242', false);
-  pm(salma.id, 'card', 'Carte test refusée •••• 0002', 'tok_demo_0002', '0002', false);
-  pm(salma.id, 'card', 'Carte test en attente •••• 3155', 'tok_demo_3155', '3155', false);
+  // Card outcomes stay deterministic for tests (services/rides.ts: a token ending 0002 is declined,
+  // 3155 waits for a manual decision); the labels never say so.
+  const salmaCard = pm(salma.id, 'card', 'Visa •••• 4242', 'tok_demo_4242', '4242', false);
+  pm(salma.id, 'card', 'Mastercard •••• 0002', 'tok_demo_0002', '0002', false);
+  pm(salma.id, 'card', 'Visa •••• 3155', 'tok_demo_3155', '3155', false);
   const hibaCash = pm(hiba.id, 'cash', 'Espèces', null, null, true);
   for (const u of s.users.filter((x) => x.role === 'passenger' && !s.paymentMethods.some((p) => p.userId === x.id))) pm(u.id, 'cash', 'Espèces', null, null, true);
 
   // Drivers
   const amina = person(s, dataDir, { role: 'driver', first: 'Amina', last: 'Bennani', phone: '+212661234567', who: 'amina', status: 'approved', birth: '1988-09-03', doc: 'CD654321', rating: 4.9, testerCities: [] }, at);
-  vehicleFor(s, dataDir, amina, 'approved', 'pearl', 'DÉMO-001', at);
+  vehicleFor(s, dataDir, amina, 'approved', 'pearl', '48213-A-1', at);
   const khadija = person(s, dataDir, { role: 'driver', first: 'Khadija', last: 'Idrissi', phone: '+212662345678', who: 'generic', status: 'approved', birth: '1985-05-22', doc: 'MN223344', rating: 4.8 }, at);
-  vehicleFor(s, dataDir, khadija, 'submitted', 'plum', 'DÉMO-002', iso(nowMs - 3_600_000));
+  vehicleFor(s, dataDir, khadija, 'submitted', 'plum', '51907-B-1', iso(nowMs - 3_600_000));
   const nadia = person(s, dataDir, { role: 'driver', first: 'Nadia', last: 'Chraibi', phone: '+212663456789', who: 'generic', status: 'approved', birth: '1991-12-02', doc: 'OP556677', rating: 4.7 }, at);
-  vehicleFor(s, dataDir, nadia, 'approved', 'plum', 'DÉMO-003', at);
+  vehicleFor(s, dataDir, nadia, 'approved', 'plum', '36420-D-1', at);
   const leila = person(s, dataDir, { role: 'driver', first: 'Leila', last: 'Amrani', phone: '+212664567890', who: 'generic', status: 'approved', birth: '1987-08-19', doc: 'QR889900', rating: 4.6 }, at);
-  vehicleFor(s, dataDir, leila, 'approved', 'pearl', 'DÉMO-004', at);
+  vehicleFor(s, dataDir, leila, 'approved', 'pearl', '72185-A-1', at);
   const samira = person(s, dataDir, { role: 'driver', first: 'Samira', last: 'Fassi', phone: '+212665678901', who: 'generic', status: 'more_info_requested', birth: '1992-10-10', doc: 'ST001122', corrections: [{ key: 'driving_licence', note: 'Le permis est flou : photographiez-le à plat, en pleine lumière.' }] }, at);
-  vehicleFor(s, dataDir, samira, 'approved', 'pearl', 'DÉMO-005', at);
+  vehicleFor(s, dataDir, samira, 'approved', 'pearl', '19634-H-1', at);
 
-  // Driver sign-up (13 Oct brief). Amina and Nadia (the simulated chauffeuse of the Famille
-  // demo engine) are approved for Naya Famille; Houda's application waits in the review queue;
+  // Driver sign-up (13 Oct brief). Amina and Nadia (the bot chauffeuse of the Famille mock
+  // engine) are approved for Naya Famille; Houda's application waits in the review queue;
   // Yasmine stopped her sign-up after giving her name. The flag always follows the dossier.
   familleCase(s, dataDir, amina, 'approved', at);
   familleCase(s, dataDir, nadia, 'approved', at);
   const houda = person(s, dataDir, { role: 'driver', first: 'Houda', last: 'Lamrani', phone: '+212667890123', who: 'generic', status: 'approved', birth: '1990-04-25', doc: 'UV334455', rating: 4.9, licenceSince: 2011, address: '8 avenue Al Majd, Hay Riad' }, at);
-  vehicleFor(s, dataDir, houda, 'approved', 'pearl', 'DÉMO-006', at);
+  vehicleFor(s, dataDir, houda, 'approved', 'pearl', '60358-B-1', at);
   familleCase(s, dataDir, houda, 'submitted', iso(nowMs - 2 * 3_600_000));
   const yasmine = person(s, dataDir, { role: 'driver', first: 'Yasmine', last: 'Berrada', phone: '+212666789012', who: 'generic', status: 'draft', birth: '1995-01-01', doc: 'WX556677' }, at);
   const yCase = s.cases.find((c) => c.id === yasmine.identityCaseId)!;
   Object.assign(yCase, { identity: null, licence: null, items: [], draft: { firstName: 'Yasmine', lastName: 'Berrada' }, history: [{ at, status: 'draft', by: yasmine.id }], version: 2 });
 
   for (const d of [amina, khadija, nadia, leila, samira, houda]) {
-    s.payoutAccounts.push({ id: nextId(s, 'PO'), driverId: d.id, label: 'Compte principal', bankName: 'Banque de démonstration', last4: d === amina ? '4821' : '7310' });
+    s.payoutAccounts.push({ id: nextId(s, 'PO'), driverId: d.id, label: 'Compte principal', bankName: d === amina ? 'Attijariwafa bank' : 'CIH Bank', last4: d === amina ? '4821' : '7310' });
   }
-  s.payoutAccounts.push({ id: nextId(s, 'PO'), driverId: amina.id, label: 'Compte test (virement refusé)', bankName: 'Banque de démonstration', last4: '0000' });
+  // Transfers to an account ending 0000 are refused by the mock bank (services/finance.ts).
+  s.payoutAccounts.push({ id: nextId(s, 'PO'), driverId: amina.id, label: 'Compte épargne', bankName: 'Banque Populaire', last4: '0000' });
 
   s.presence.push(
     { driverId: amina.id, online: false, location: { lat: 34.0205, lng: -6.831 }, locationAt: null, locationSource: 'demo', bot: false, updatedAt: at },
@@ -422,7 +503,7 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
   const today = nowMs - 5 * 3_600_000;
   if (scenario !== 'first-ride') {
     completedRide(s, salma, amina, 'cash', salmaCash, 'Espèces', today);
-    if (scenario !== 'after-cash') completedRide(s, salma, amina, 'card', salmaCard, 'Carte de démonstration •••• 4242', today + 2 * 3_600_000);
+    if (scenario !== 'after-cash') completedRide(s, salma, amina, 'card', salmaCard, 'Visa •••• 4242', today + 2 * 3_600_000);
   }
   if (scenario !== 'first-ride') {
     // Independent debt scenario: ten earlier cash rides (series NY-H), 15 MAD commission each.
@@ -470,12 +551,10 @@ export function buildSeed(dataDir: string, scenario: ScenarioId = 'default', now
     updatedAt: iso(nowMs - 20 * 3_600_000),
   });
 
-  if (scenario === 'famille') {
-    const { child } = ensureExampleFamily(s, nowMs, salma, amina);
-    addTrip(s, nowMs, salma, { childId: child.id, pickup: PLACES.hayRiad, destination: { ...PLACES.agdal, label: 'École Agdal' }, pickupAt: iso(nowMs + 10 * 60_000), weekdays: [1, 2, 3, 4, 5] });
-  }
+  // Naya Famille: Salma's family (Lina) with Amina, in every scenario.
+  seedFamilies(s, nowMs, scenario === 'famille' ? nowMs + 10 * 60_000 : undefined);
 
-  appendAudit(s, iso(nowMs), { actor: SYSTEM, action: 'demo.seeded', entityType: 'environment', entityId: 'demo', summary: `Données de démonstration chargées · scénario « ${scenario} »` });
+  appendAudit(s, iso(nowMs), { actor: SYSTEM, action: 'demo.seeded', entityType: 'environment', entityId: scenario, summary: `Données initiales chargées · jeu « ${scenario} »` });
   void mad;
   return s;
 }

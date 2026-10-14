@@ -18,6 +18,7 @@ import {
   familyTripMachine,
   FAMILY_DEMO_PROOFS,
   FAMILY_DRIVER_STEP,
+  FAMILY_MAX_START_REQUESTS,
   HANDOVER_LOCKED_MESSAGE,
   FAMILY_STATUS_LABELS,
   HANDOVER_MAX_ATTEMPTS,
@@ -42,6 +43,7 @@ import {
   type FamilyTimelineEntry,
   type FamilyTrip,
   type FamilyTripEvent,
+  type AuditActor,
   type Place,
   type User,
 } from '@naya/domain';
@@ -58,11 +60,18 @@ import { ensurePrototype } from './prototype';
  * parent approves (on site or remotely), and cannot close without the drop-off photo and,
  * when the child has recipients, a valid handover code. Calls are hand-offs (WhatsApp, 19)
  * recorded on the trip; positions are simulated by the demo engine unless the chauffeuse's
- * phone streams a fix.
+ * phone streams a fix. Steps played by the mock bot read like any other step on the trip; only
+ * the audit trail records them under the `system:mock-bot` actor.
  */
 
 type Env = { Variables: { principal: Principal | null } };
 type Actor = { kind: 'driver' | 'parent'; user: User } | { kind: 'system' };
+/** Audit actor of the steps played by `runFamilyBots` (never shown in the apps). */
+const MOCK_BOT: AuditActor = { type: 'system', id: 'mock-bot', name: 'Automate Famille (bot)' };
+/** Audit actor of the server's own rules (expiry of a start request…). */
+const FAMILLE_SYSTEM: AuditActor = { type: 'system', id: 'famille', name: 'Système Famille' };
+/** The bot chauffeuse waits this long after an expired or refused start request before acting again. */
+const BOT_RETRY_MS = 30_000;
 
 const text = z.string().trim().min(1).max(300);
 const location = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
@@ -88,14 +97,14 @@ export function ensureFamille(s: State) {
 const childOf = (s: State, t: FamilyTrip) => mustFind(ensurePrototype(s).children, (x) => x.id === t.childId, 'enfant');
 const userById = (s: State, id: string) => mustFind(s.users, (u) => u.id === id, 'compte');
 
-function audit(s: State, at: string, actor: Actor, action: string, entityId: string, summary: string) {
+function audit(s: State, at: string, actor: Actor, action: string, entityId: string, summary: string, as?: AuditActor) {
   appendAudit(s, at, {
-    actor: actor.kind === 'system' ? { type: 'system', id: 'famille', name: 'Moteur de démonstration Famille' } : { type: 'user', id: actor.user.id, name: actor.user.firstName },
+    actor: as ?? (actor.kind === 'system' ? FAMILLE_SYSTEM : { type: 'user', id: actor.user.id, name: actor.user.firstName }),
     action,
     entityType: 'family',
     entityId,
     cityId: actor.kind === 'system' ? null : actor.user.cityId,
-    summary,
+    summary: as && actor.kind !== 'system' ? `${summary} · pour ${actor.user.firstName}` : summary,
   });
 }
 
@@ -153,11 +162,12 @@ function famillePool(s: State, cityId: string) {
   );
 }
 
-export function addSubscription(s: State, nowMs: number, user: User, planId: string): FamilySubscription {
+export function addSubscription(s: State, nowMs: number, user: User, planId: string, driverOverride?: User): FamilySubscription {
   const p = ensureFamille(s);
   if (!s.cases.some((c) => c.id === user.identityCaseId && c.status === 'approved')) throw new DomainError('VERIFICATION_REQUIRED');
   const plan = mustFind(p.catalog.plans, (x) => x.id === planId && x.enabled, 'abonnement');
-  const driver = famillePool(s, user.cityId)[0];
+  const driver = driverOverride ?? famillePool(s, user.cityId)[0];
+  if (driverOverride) assertFamilleEligible(driverOverride);
   if (!driver) throw new DomainError('NOT_FOUND', 'Aucune chauffeuse approuvée pour Naya Famille n’est disponible dans votre ville.');
   const current = p.subscriptions.find((x) => x.passengerId === user.id);
   if (current?.status === 'active' && Date.parse(current.endsAt) > nowMs) throw new DomainError('CONFLICT', 'Vous avez déjà un abonnement actif.');
@@ -176,7 +186,7 @@ export function addSubscription(s: State, nowMs: number, user: User, planId: str
   };
   if (current) Object.assign(current, subscription);
   else p.subscriptions.push(subscription);
-  audit(s, iso(nowMs), { kind: 'parent', user }, 'family.subscribed', subscription.id, 'Abonnement famille activé · paiement simulé');
+  audit(s, iso(nowMs), { kind: 'parent', user }, 'family.subscribed', subscription.id, `Abonnement famille activé · ${plan.name}`);
   return subscription;
 }
 
@@ -254,7 +264,7 @@ function proofFrom(s: State, devMode: boolean, nowMs: number, t: FamilyTrip, dri
   const at = iso(nowMs);
   const where = kind === 'pickup' ? t.pickup.location : familyLive(t, nowMs).location;
   if (proof === FAMILY_DEMO_PROOFS[kind] || proof === 'demo-arrival-photo') {
-    if (!devMode) throw new DomainError('FORBIDDEN', 'Les photos simulées sont réservées à la démonstration.');
+    if (!devMode) throw new DomainError('FORBIDDEN', 'Cette photo n’est pas acceptée. Photographiez l’enfant avec l’appareil photo.');
     return { uploadId: FAMILY_DEMO_PROOFS[kind], at, location: where, simulated: true };
   }
   const photo = mustFind(s.uploads, (x) => x.id === proof && x.ownerId === driverId, 'photo');
@@ -266,7 +276,7 @@ function proofFrom(s: State, devMode: boolean, nowMs: number, t: FamilyTrip, dri
  * Applies one event to a trip inside the caller's transaction. Guards come from the domain;
  * side effects (timestamps, proofs, approvals, timeline, notifications, audit) live here.
  */
-export function applyFamilyEvent(ctx: Ctx, s: State, t: FamilyTrip, event: FamilyTripEvent, actor: Actor, input: FamilyStepInput = {}): FamilyTrip {
+export function applyFamilyEvent(ctx: Ctx, s: State, t: FamilyTrip, event: FamilyTripEvent, actor: Actor, input: FamilyStepInput = {}, auditAs?: AuditActor): FamilyTrip {
   const nowMs = ctx.clock.now();
   const at = iso(nowMs);
   const child = childOf(s, t);
@@ -304,7 +314,7 @@ export function applyFamilyEvent(ctx: Ctx, s: State, t: FamilyTrip, event: Famil
       t.pickupPhoto = proof;
       t.pickupVerified = true;
       t.pickedUpAt = at;
-      timeline(t, at, 'pickup_photo', `Photo de ${child.firstName} prise à la prise en charge${proof?.simulated ? ' (simulée)' : ''}`, by, { proof: proof!.uploadId });
+      timeline(t, at, 'pickup_photo', `Photo de ${child.firstName} prise à la prise en charge`, by, { proof: proof!.uploadId });
       notify(s, t, at, { kind: 'status', audience: 'parent', title: `${child.firstName} est avec ${driver.firstName}`, body: 'Photo de prise en charge disponible dans le suivi.' });
       break;
     case 'REQUEST_START': {
@@ -355,7 +365,7 @@ export function applyFamilyEvent(ctx: Ctx, s: State, t: FamilyTrip, event: Famil
       t.completedAt = at;
       t.location = t.destination.location;
       t.lastFix = null;
-      timeline(t, at, 'dropoff_photo', `Photo de ${child.firstName} dans l’enceinte de l’école${proof?.simulated ? ' (simulée)' : ''}`, by, { proof: proof!.uploadId });
+      timeline(t, at, 'dropoff_photo', `Photo de ${child.firstName} dans l’enceinte de l’école`, by, { proof: proof!.uploadId });
       timeline(t, at, 'completed', t.recipientId ? `Remise confirmée à ${child.recipients.find((r) => r.id === t.recipientId)?.name ?? 'la personne autorisée'}` : 'Trajet clôturé', by);
       notify(s, t, at, { kind: 'status', audience: 'parent', title: `${child.firstName} est arrivée`, body: `Déposée à ${t.destination.label} · photo jointe.` });
       scheduleNext(s, nowMs, t);
@@ -367,7 +377,7 @@ export function applyFamilyEvent(ctx: Ctx, s: State, t: FamilyTrip, event: Famil
       notify(s, t, at, { kind: 'status', audience: actor.kind === 'driver' ? 'parent' : 'driver', title: 'Trajet annulé', body: t.cancellation.reason });
       break;
   }
-  audit(s, at, actor, `family.${event.toLowerCase()}`, t.id, `${child.firstName} · ${FAMILY_STATUS_LABELS[next]}`);
+  audit(s, at, actor, `family.${event.toLowerCase()}`, t.id, `${child.firstName} · ${FAMILY_STATUS_LABELS[next]}`, auditAs);
   return t;
 }
 
@@ -400,7 +410,7 @@ function tripFor(s: State, id: string, user: User) {
   );
 }
 
-/* ───────────── Timers and the demo engine ───────────── */
+/* ───────────── Timers and the mock bot ───────────── */
 
 /** Expires unanswered start requests against their server deadline. */
 export function runFamilyTimers(ctx: Ctx) {
@@ -417,9 +427,10 @@ export function runFamilyTimers(ctx: Ctx) {
 }
 
 /**
- * Simulated counterpart for Famille trips (`trip.demo`): a chauffeuse who departs, arrives,
+ * Mock counterpart for Famille trips (`trip.demo`): a chauffeuse who departs, arrives,
  * photographs the child, asks to start and drops her at school; and/or a parent who approves,
- * refuses or ignores the start request. Every step is labelled « simulée » on the trip.
+ * refuses or ignores the start request. On the trip, its steps read like real ones (the apps
+ * never say a step was automated); the audit trail records them under `system:mock-bot`.
  */
 export function runFamilyBots(ctx: Ctx) {
   const nowMs = ctx.clock.now();
@@ -435,7 +446,14 @@ export function runFamilyBots(ctx: Ctx) {
       else if (snapshot.status === 'en_route' && live.progress >= 1) step = { event: 'ARRIVE', actor: 'driver' };
       else if (snapshot.status === 'arrived' && since(snapshot.arrivedAt) >= 4000) step = { event: 'PICKUP', actor: 'driver', input: { proof: FAMILY_DEMO_PROOFS.pickup, childName: snapshot.childName } };
       else if (snapshot.status === 'picked_up' && !(snapshot.approvals ?? []).length && since(snapshot.pickedUpAt) >= 3000) step = { event: 'REQUEST_START', actor: 'driver' };
-      else if (snapshot.status === 'in_progress' && live.progress >= 1) {
+      else if (snapshot.status === 'picked_up' && snapshot.approval && snapshot.approval.status !== 'pending' && since(snapshot.approval.decidedAt) >= BOT_RETRY_MS) {
+        // Seeded trips run this bot without anyone launching them: like a real chauffeuse, it asks
+        // again after an unanswered request, and hands the child back after a refusal or the last try.
+        step =
+          snapshot.approval.status === 'expired' && (snapshot.approvals ?? []).length < FAMILY_MAX_START_REQUESTS
+            ? { event: 'REQUEST_START', actor: 'driver' }
+            : { event: 'CANCEL', actor: 'driver', input: { reason: 'Enfant remis à sa famille au point de prise en charge' } };
+      } else if (snapshot.status === 'in_progress' && live.progress >= 1) {
         const child = ctx.store.state.prototype!.children.find((c) => c.id === snapshot.childId);
         const r = child?.recipients[0];
         step = { event: 'DROPOFF', actor: 'driver', input: { proof: FAMILY_DEMO_PROOFS.dropoff, recipientId: r?.id, code: r?.verificationCode } };
@@ -445,7 +463,7 @@ export function runFamilyBots(ctx: Ctx) {
       step =
         demo.parent === 'approve'
           ? { event: 'APPROVE', actor: 'parent', input: { approvalId: snapshot.approval.id, mode: 'remote' } }
-          : { event: 'REFUSE', actor: 'parent', input: { approvalId: snapshot.approval.id, reason: 'Je viens chercher l’enfant moi-même (démo)' } };
+          : { event: 'REFUSE', actor: 'parent', input: { approvalId: snapshot.approval.id, reason: 'Je viens chercher l’enfant moi-même' } };
     }
     if (!step) continue;
     const chosen = step;
@@ -453,8 +471,7 @@ export function runFamilyBots(ctx: Ctx) {
       ctx.store.tx((s) => {
         const t = s.prototype!.trips.find((x) => x.id === snapshot.id)!;
         const user = userById(s, chosen.actor === 'driver' ? t.driverId : t.passengerId);
-        applyFamilyEvent(ctx, s, t, chosen.event, { kind: chosen.actor, user }, chosen.input);
-        t.timeline[t.timeline.length - 1]!.label += ' · simulation';
+        applyFamilyEvent(ctx, s, t, chosen.event, { kind: chosen.actor, user }, chosen.input, MOCK_BOT);
       });
       acted = true;
     } catch (e) {
@@ -464,7 +481,10 @@ export function runFamilyBots(ctx: Ctx) {
   return acted;
 }
 
-/** Demo creation shared by « Charger l’exemple », the scenario launcher and the `famille` seed. */
+/**
+ * Dev tools only (`POST /prototype/family/example`, `/dev/family/play`): gives any parent a
+ * ready family. Seeded accounts already have theirs (MOCK_FAMILIES in seed.ts).
+ */
 export function ensureExampleFamily(s: State, nowMs: number, parent: User, driver?: User) {
   const p = ensureFamille(s);
   let child = p.children.find((x) => x.passengerId === parent.id);
@@ -499,8 +519,8 @@ export function startDemoTrip(s: State, nowMs: number, parent: User, driver: Use
   const at = iso(nowMs);
   for (const t of p.trips.filter((x) => x.passengerId === parent.id && !isFamilyTripClosed(x.status))) {
     t.status = 'cancelled';
-    t.cancellation = { at, by: 'parent', reason: 'Remplacé par un trajet de démonstration' };
-    timeline(t, at, 'cancelled', 'Remplacé par un trajet de démonstration', 'system');
+    t.cancellation = { at, by: 'parent', reason: 'Remplacé par un nouveau trajet' };
+    timeline(t, at, 'cancelled', 'Remplacé par un nouveau trajet', 'system');
   }
   const trip = addTrip(s, nowMs, parent, { childId: child.id, pickup: PLACES.hayRiad, destination: { ...PLACES.agdal, label: 'École Agdal' }, pickupAt: iso(nowMs + leadSeconds * 1000), weekdays: [] }, { ignoreQuota: true });
   trip.demo = demo;
@@ -588,7 +608,7 @@ export function mountFamilleRoutes(
     const actor = userOf(c);
     return c.json(
       ctx.store.tx((s) => {
-        const parent = actor.role === 'passenger' ? actor : mustFind(s.users, (x) => x.role === 'passenger' && x.cityId === actor.cityId && s.cases.some((v) => v.id === x.identityCaseId && v.status === 'approved'), 'cliente de démonstration');
+        const parent = actor.role === 'passenger' ? actor : mustFind(s.users, (x) => x.role === 'passenger' && x.cityId === actor.cityId && s.cases.some((v) => v.id === x.identityCaseId && v.status === 'approved'), 'cliente');
         const { child } = ensureExampleFamily(s, now(), parent, actor.role === 'driver' ? actor : undefined);
         if (!ensureFamille(s).trips.some((x) => x.passengerId === parent.id && !isFamilyTripClosed(x.status)))
           addTrip(s, now(), parent, { childId: child.id, pickup: PLACES.hayRiad, destination: { ...PLACES.agdal, label: 'École Agdal' }, pickupAt: iso(now() + 3_600_000), weekdays: [1, 2, 3, 4, 5] });
@@ -631,7 +651,7 @@ export function mountFamilleRoutes(
       if (t.status !== input.expectedStatus) throw new DomainError('CONFLICT', 'Le trajet a changé. Rechargez avant de continuer.');
       const event = FAMILY_DRIVER_STEP[t.status];
       if (!event) throw new DomainError('FAMILY_APPROVAL_REQUIRED');
-      // Dev mode: the parent may play the chauffeuse's steps (labelled as such), never her own approval.
+      // Dev mode: the parent may play the chauffeuse's steps (noted as such), never her own approval.
       const driver = userById(s, t.driverId);
       const actor = u.role === 'driver' ? u : driver;
       try {
@@ -640,7 +660,7 @@ export function mountFamilleRoutes(
         if (event === 'DROPOFF' && isDomainError(e) && e.details?.wrongHandoverCode) return { refused: refuseHandover(s, ctx.clock.now(), t, actor) };
         throw e;
       }
-      if (u.role === 'passenger') t.timeline[t.timeline.length - 1]!.label += ' · joué par le parent (démo)';
+      if (u.role === 'passenger') t.timeline[t.timeline.length - 1]!.label += ' · saisi depuis le compte parent';
       return { trip: t };
     });
     if ('refused' in result) throw result.refused;
@@ -681,14 +701,14 @@ export function mountFamilleRoutes(
         const role = u.role === 'driver' ? 'driver' : 'parent';
         if (input.channel === 'police') {
           timeline(t, at, 'police', `${u.firstName} a appelé la police (${MOROCCO_POLICE_NUMBER})`, role);
-          notify(s, t, at, { kind: 'police', audience: role === 'driver' ? 'parent' : 'driver', title: `${u.firstName} a appelé la police (${MOROCCO_POLICE_NUMBER})`, body: 'Restez joignable. Le support Naya est informé.' });
+          notify(s, t, at, { kind: 'police', audience: role === 'driver' ? 'parent' : 'driver', title: `${u.firstName} a appelé la police (${MOROCCO_POLICE_NUMBER})`, body: 'Restez joignable. L’appel est noté sur le trajet.' });
           t.incident = `Appel police (${MOROCCO_POLICE_NUMBER}) par ${u.firstName}`;
           audit(s, at, { kind: role, user: u }, 'family.police_call', t.id, t.incident);
           return { channel: 'police', url: `tel:${MOROCCO_POLICE_NUMBER}`, appUrl: null, simulated: false, counterpartName: 'Police' };
         }
         if (role === 'driver') throw new DomainError('FORBIDDEN', 'Demandez un appel : le parent confirme, puis vous appelle sur WhatsApp.');
         const driver = userById(s, t.driverId);
-        timeline(t, at, 'call', `Appel WhatsApp vers ${driver.firstName} lancé par ${u.firstName}${ctx.config.devMode ? ' (démo)' : ''}`, 'parent');
+        timeline(t, at, 'call', `Appel WhatsApp vers ${driver.firstName} demandé par ${u.firstName}`, 'parent');
         audit(s, at, { kind: 'parent', user: u }, 'family.whatsapp_call', t.id, 'Appel WhatsApp parent → chauffeuse');
         return { channel: 'whatsapp', url: whatsappLink(driver.phone), appUrl: whatsappLink(driver.phone, 'app'), simulated: ctx.config.devMode, counterpartName: driver.firstName };
       }),
@@ -780,16 +800,16 @@ export function mountFamilleRoutes(
     return c.json(ctx.store.read((s) => followView(s, now(), g)));
   });
 
-  /* Scenario launcher: play a full Famille trip with a simulated counterpart. */
+  /* Scenario launcher (dev only): play a full Famille trip with the mock bot as counterpart. */
   if (ctx.config.devMode) {
     app.post('/dev/family/play', async (c) => {
       const actor = userOf(c);
       const demo = familyDemoSchema.parse(await c.req.json());
       return c.json(
         ctx.store.tx((s) => {
-          const parent = actor.role === 'passenger' ? actor : mustFind(s.users, (x) => x.phone === '+212612345678' && x.role === 'passenger', 'cliente de démonstration');
+          const parent = actor.role === 'passenger' ? actor : mustFind(s.users, (x) => x.phone === '+212612345678' && x.role === 'passenger', 'cliente');
           const trip = startDemoTrip(s, now(), parent, actor.role === 'driver' ? actor : undefined, demo, 20);
-          audit(s, ctx.clock.iso(), { kind: 'system' }, 'dev.family_play', trip.id, `Trajet Famille de démonstration · chauffeuse ${demo.driver ? 'simulée' : 'réelle'} · parent ${demo.parent ?? 'réel'}`);
+          audit(s, ctx.clock.iso(), { kind: 'system' }, 'dev.family_play', trip.id, `Trajet Famille lancé par les outils de développement · chauffeuse ${demo.driver ? 'bot' : 'réelle'} · parent ${demo.parent ? `bot (${demo.parent})` : 'réel'}`, MOCK_BOT);
           return trip;
         }),
       );

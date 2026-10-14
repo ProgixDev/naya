@@ -64,7 +64,7 @@ export function createCity(ctx: Ctx, admin: AdminUser, input: CreateCityInput) {
         cityId: city.id,
         purpose,
         kind: purpose === 'withdrawal' ? 'bank_transfer' : 'card',
-        name: purpose === 'withdrawal' ? 'Virement bancaire (démo)' : 'Carte bancaire (démo)',
+        name: purpose === 'withdrawal' ? 'Virement bancaire' : 'Carte bancaire',
         enabled: false,
         mode: 'demo',
         configured: true,

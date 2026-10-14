@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Camera } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
@@ -79,7 +79,6 @@ export function FamilleTripScreen({ id, accountId, role, onBack }: { id: string;
       <View style={{ gap: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <StatusPill tone={statusTone(t)} label={FAMILY_STATUS_LABELS[t.status]} testID="famille-status" />
-          {t.demo?.driver || t.demo?.parent ? <StatusPill tone="warning" label={t.demo.driver ? 'Chauffeuse simulée' : 'Parent simulé'} /> : null}
         </View>
         <Text variant="title" accessibilityLiveRegion="polite" testID="famille-trip-title">
           {t.childName} · {FAMILY_STATUS_LABELS[t.status]}
@@ -118,7 +117,6 @@ export function FamilleTripScreen({ id, accountId, role, onBack }: { id: string;
         ) : null}
 
         {role === 'driver' && !isFamilyTripClosed(t.status) ? <DriverStepPanel trip={t} child={child} live={live.data} onChanged={refresh} /> : null}
-        {role === 'passenger' && DEMO_MODE && t.status !== 'awaiting_approval' && !isFamilyTripClosed(t.status) && !t.demo?.driver ? <ParentPlaysDriver trip={t} child={child} onChanged={refresh} /> : null}
 
         {!isFamilyTripClosed(t.status) ? <FamilleContactBar trip={t} role={role} accountId={accountId} /> : null}
         {isFamilyTripActive(t.status) ? <SafetyButton familyTripId={t.id} location={live.data?.location ?? t.location} /> : null}
@@ -143,7 +141,7 @@ export function FamilleTripScreen({ id, accountId, role, onBack }: { id: string;
       </View>
       <Sheet visible={cancelOpen} onClose={() => setCancelOpen(false)} dismissible={!busy} title="Annuler ce trajet ?" subtitle={role === 'driver' ? 'Le parent est prévenu. Si l’enfant est avec vous, remettez-le à sa famille avant de partir.' : 'La chauffeuse est prévenue immédiatement.'}>
         <View style={{ gap: 12 }}>
-          <FormField label="Motif" value={reason} onChangeText={setReason} placeholder={role === 'driver' ? 'Enfant remis à sa mère sur place' : 'Lina est malade aujourd’hui'} />
+          <FormField label="Motif" value={reason} onChangeText={setReason} placeholder={role === 'driver' ? 'Enfant remis à sa famille sur place' : `${t.childName} est malade aujourd’hui`} />
           <Button label="Confirmer l’annulation" variant="danger" full loading={busy} disabled={!reason.trim()} onPress={cancel} testID="famille-cancel-confirm" />
         </View>
       </Sheet>
@@ -190,9 +188,20 @@ function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip
     }
   };
   const advance = (extra: { proof?: string; childName?: string; recipientId?: string; code?: string } = {}) => api.prototype.advance(t.id, { expectedStatus: t.status, ...extra });
-  const takePhoto = () =>
+  /**
+   * With the mock backend (DEMO_MODE), a device without a camera (web, iOS Simulator) attaches the
+   * stand-in proof, which the parent sees as the mock photo of @naya/assets. Real devices use the camera.
+   */
+  const takePhoto = (kind: 'pickup' | 'dropoff') =>
     run('photo', async () => {
-      const f = await pickFile('camera');
+      if (DEMO_MODE && Platform.OS === 'web') return setPhoto(FAMILY_DEMO_PROOFS[kind]);
+      let f: Awaited<ReturnType<typeof pickFile>>;
+      try {
+        f = await pickFile('camera');
+      } catch (e) {
+        if (DEMO_MODE) return setPhoto(FAMILY_DEMO_PROOFS[kind]);
+        throw e;
+      }
       if (f === 'denied') throw new Error('Autorisez l’appareil photo dans les réglages pour photographier l’enfant.');
       if (!f) return;
       const u = await uploadFile(api, f, 'family_proof');
@@ -201,12 +210,9 @@ function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip
   const photoButtons = (kind: 'pickup' | 'dropoff') => (
     <View style={{ gap: 8 }}>
       {photo ? (
-        <StatusBanner compact tone="success" title="Photo prête" message={photo.startsWith('demo-') ? 'photo simulée (démo)' : 'elle sera jointe au trajet'} />
+        <StatusBanner compact tone="success" title="Photo prête" message="elle sera jointe au trajet" />
       ) : (
-        <>
-          <Button label={kind === 'pickup' ? `Photographier ${t.childName}` : `Photographier ${t.childName} dans l’école`} variant="secondary" full icon={<Camera size={17} color={colors.accent} />} loading={busy === 'photo'} onPress={takePhoto} testID={`famille-${kind}-camera`} />
-          {DEMO_MODE ? <Button label="Photo simulée (démo)" variant="ghost" full onPress={() => setPhoto(FAMILY_DEMO_PROOFS[kind])} testID={`famille-${kind}-demo-photo`} /> : null}
-        </>
+        <Button label={kind === 'pickup' ? `Photographier ${t.childName}` : `Photographier ${t.childName} dans l’école`} variant="secondary" full icon={<Camera size={17} color={colors.accent} />} loading={busy === 'photo'} onPress={() => takePhoto(kind)} testID={`famille-${kind}-camera`} />
       )}
     </View>
   );
@@ -286,30 +292,4 @@ function DriverStepPanel({ trip: t, child, live, onChanged }: { trip: FamilyTrip
       </Text>
     </View>
   );
-}
-
-/** Dev mode only: lets a single tester play the chauffeuse from the parent's phone. */
-function ParentPlaysDriver({ trip: t, child, onChanged }: { trip: FamilyTrip; child?: FamilyChildView; onChanged: () => Promise<void> }) {
-  useTheme();
-  const api = useApi();
-  const [busy, setBusy] = useState(false);
-  const step = async () => {
-    setBusy(true);
-    try {
-      const r = child?.recipients[0];
-      const extra =
-        t.status === 'arrived'
-          ? { proof: FAMILY_DEMO_PROOFS.pickup, childName: t.childName }
-          : t.status === 'in_progress'
-            ? { proof: FAMILY_DEMO_PROOFS.dropoff, recipientId: r?.id, code: r?.verificationCode }
-            : {};
-      await api.prototype.advance(t.id, { expectedStatus: t.status, ...extra });
-      await onChanged();
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
-  return <Button label="Démo · jouer l’étape suivante de la chauffeuse" variant="ghost" size="compact" full loading={busy} onPress={step} testID="famille-parent-plays" />;
 }

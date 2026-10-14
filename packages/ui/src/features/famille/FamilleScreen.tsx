@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Baby, CalendarClock, ChevronRight, History, ShieldCheck, Sparkles } from 'lucide-react-native';
+import { Baby, CalendarClock, ChevronRight, History, ShieldCheck } from 'lucide-react-native';
 import { errorMessage, newIdempotencyKey, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import {
@@ -19,7 +19,6 @@ import {
 } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useTheme } from '../../core/theme';
-import { DEMO_MODE } from '../../core/apiBase';
 import { Screen, Section } from '../../Screen';
 import { Header } from '../../Header';
 import { Text } from '../../Text';
@@ -41,7 +40,6 @@ export interface FamilleNav {
 /** Naya Famille overview: subscription, children, live trip, upcoming trips and history. */
 export function FamilleScreen({ accountId, role, onBack, onOpenTrip, onOpenPlans }: { accountId: string; role: 'passenger' | 'driver' } & FamilleNav) {
   useTheme();
-  const api = useApi();
   const qc = useQueryClient();
   const family = useFamily(accountId);
   const [busy, setBusy] = useState<string | null>(null);
@@ -59,10 +57,6 @@ export function FamilleScreen({ accountId, role, onBack, onOpenTrip, onOpenPlans
     } finally {
       setBusy(null);
     }
-  };
-  const play = async (demo: { driver: boolean; parent: 'approve' | 'refuse' | 'timeout' | null }) => {
-    const t = (await run('play', () => api.dev.playFamily(demo))) as FamilyTrip | null;
-    if (t) onOpenTrip(t.id);
   };
   const live = activeFamilyTrip(data);
   const upcoming = (data?.trips ?? []).filter((t) => t.status === 'scheduled');
@@ -111,26 +105,6 @@ export function FamilleScreen({ accountId, role, onBack, onOpenTrip, onOpenPlans
               <ListRow key={t.id} title={`${t.childName} · ${FAMILY_STATUS_LABELS[t.status]}`} subtitle={`${formatShort(t.pickupAt)} · ${t.pickup.label} → ${t.destination.label}`} leading={<IconDisc><History size={18} color={colors.accent} /></IconDisc>} onPress={() => onOpenTrip(t.id)} testID={`famille-history-${t.id}`} />
             ))}
           </ListGroup>
-        ) : null}
-
-        {DEMO_MODE ? (
-          <Section title="Démonstration">
-            <View style={{ gap: 8 }}>
-              <Button label="Charger l’exemple de démo" variant="secondary" loading={busy === 'example'} onPress={() => run('example', api.prototype.example)} testID="family-example" />
-              {role === 'passenger' ? (
-                <Button label="Lancer un trajet complet (chauffeuse simulée)" variant="secondary" icon={<Sparkles size={16} color={colors.accent} />} loading={busy === 'play'} onPress={() => play({ driver: true, parent: null })} testID="famille-play" />
-              ) : eligible ? (
-                <>
-                  <Button label="Trajet de démo · le parent approuve" variant="secondary" loading={busy === 'play'} onPress={() => play({ driver: false, parent: 'approve' })} testID="famille-play-approve" />
-                  <Button label="Trajet de démo · le parent refuse" variant="secondary" onPress={() => play({ driver: false, parent: 'refuse' })} testID="famille-play-refuse" />
-                  <Button label="Trajet de démo · le parent ne répond pas" variant="secondary" onPress={() => play({ driver: false, parent: 'timeout' })} testID="famille-play-timeout" />
-                </>
-              ) : null}
-              <Text variant="caption" tone="muted">
-                L’autre partie est simulée et chaque étape simulée est indiquée dans le journal.
-              </Text>
-            </View>
-          </Section>
         ) : null}
       </View>
       {role === 'passenger' ? <InviteSheet visible={invite} onClose={() => setInvite(false)} accountId={accountId} /> : null}
@@ -211,17 +185,24 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
   const [childForm, setChildForm] = useState(false);
   const [tripForm, setTripForm] = useState(false);
   const [name, setName] = useState('');
-  const [age, setAge] = useState('8');
+  const [age, setAge] = useState('');
   const [school, setSchool] = useState('');
   const [notes, setNotes] = useState('');
   const [recipient, setRecipient] = useState('');
   const [code, setCode] = useState('');
   const [childId, setChildId] = useState('');
-  const [pickup, setPickup] = useState('Hay Riad');
-  const [destination, setDestination] = useState('École Agdal');
+  const [pickup, setPickup] = useState('');
+  const [destination, setDestination] = useState('');
   const [date, setDate] = useState(() => toCasablancaParts(new Date(Date.now() + 86400000).toISOString()).date);
   const [pickupTime, setPickupTime] = useState('08:00');
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const childReady = !!name.trim() && Number(age) >= 1 && Number(age) <= 17 && !!school.trim() && !!recipient.trim() && /^\d{4}$/.test(code);
+  // The school is the usual destination: prefill it for the chosen child (still editable).
+  const pickChild = (id: string) => {
+    setChildId(id);
+    const c = data?.children.find((x) => x.id === id);
+    if (c) setDestination(c.school);
+  };
   return (
     <>
       <ListGroup label="Mes enfants">
@@ -233,14 +214,16 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
       <Button label="Ajouter un enfant" variant="secondary" onPress={() => setChildForm(!childForm)} />
       {childForm ? (
         <View style={styles.panel}>
-          <FormField label="Prénom" value={name} onChangeText={setName} />
-          <FormField label="Âge" value={age} onChangeText={setAge} keyboardType="number-pad" />
+          <FormField label="Prénom" value={name} onChangeText={setName} autoCapitalize="words" />
+          <FormField label="Âge" value={age} onChangeText={setAge} keyboardType="number-pad" maxLength={2} />
           <FormField label="École" value={school} onChangeText={setSchool} />
           <FormField label="Consignes" value={notes} onChangeText={setNotes} />
-          <FormField label="Personne autorisée" value={recipient} onChangeText={setRecipient} />
+          <FormField label="Personne autorisée" value={recipient} onChangeText={setRecipient} autoCapitalize="words" />
           <FormField label="Code de remise (4 chiffres)" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={4} />
           <Button
             label="Enregistrer l’enfant"
+            disabled={!childReady}
+            disabledReason={childReady ? undefined : 'Complétez le profil et le code à 4 chiffres'}
             loading={busy === 'child'}
             onPress={() =>
               run('child', async () => {
@@ -256,7 +239,7 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
           label="Planifier un trajet"
           icon={<CalendarClock size={17} color={colors.inverse} />}
           onPress={() => {
-            setChildId(data.children[0]!.id);
+            pickChild(childId || data.children[0]!.id);
             setTripForm(!tripForm);
           }}
         />
@@ -265,10 +248,10 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
         <View style={styles.panel}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {data?.children.map((c) => (
-              <Pill key={c.id} label={c.firstName} selected={childId === c.id} onPress={() => setChildId(c.id)} />
+              <Pill key={c.id} label={c.firstName} selected={childId === c.id} onPress={() => pickChild(c.id)} />
             ))}
           </View>
-          <FormField label="Départ" value={pickup} onChangeText={setPickup} />
+          <FormField label="Départ" value={pickup} onChangeText={setPickup} placeholder="Adresse de prise en charge" />
           <FormField label="Destination" value={destination} onChangeText={setDestination} />
           <FormField label="Date du départ (AAAA-MM-JJ)" value={date} onChangeText={setDate} />
           <FormField label="Heure du départ (HH:MM)" value={pickupTime} onChangeText={setPickupTime} />
@@ -279,18 +262,20 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
             ))}
           </View>
           <Text variant="caption" tone="muted">
-            Adresses et positions de démonstration · prochain trajet créé après chaque dépôt.
+            Le trajet suivant est créé automatiquement après chaque dépôt.
           </Text>
           <Button
             label="Enregistrer le trajet"
+            disabled={!pickup.trim() || !destination.trim()}
+            disabledReason={!pickup.trim() || !destination.trim() ? 'Indiquez le départ et la destination' : undefined}
             loading={busy === 'trip'}
             onPress={() =>
               run('trip', async () => {
                 await api.prototype.trip(
                   {
                     childId,
-                    pickup: { ...PLACES.hayRiad, label: pickup, address: pickup },
-                    destination: { ...PLACES.agdal, label: destination, address: destination },
+                    pickup: { ...PLACES.hayRiad, label: pickup.trim(), address: pickup.trim() },
+                    destination: { ...PLACES.agdal, label: destination.trim(), address: destination.trim() },
                     pickupAt: casablancaLocalToUtc(date, pickupTime),
                     weekdays: days,
                   },
@@ -321,7 +306,7 @@ export function FamillePlansScreen({ accountId, onBack, onSubscribed }: { accoun
     try {
       await api.prototype.subscribe(planId, newIdempotencyKey());
       await qc.invalidateQueries({ queryKey: qk.family(accountId) });
-      toast('Formule activée (paiement simulé)', 'success');
+      toast('Formule activée', 'success');
       onSubscribed?.();
     } catch (e) {
       toast(errorMessage(e), 'danger');
@@ -333,7 +318,6 @@ export function FamillePlansScreen({ accountId, onBack, onSubscribed }: { accoun
     <Screen header={<Header title="Formules Famille" subtitle="Chauffeuse dédiée, approuvée pour les trajets enfants" onBack={onBack} />} testID="famille-plans">
       <View style={{ gap: 16 }}>
         {catalog.isError ? <ErrorState onRetry={() => catalog.refetch()} /> : null}
-        <StatusBanner compact tone="warning" title="Démo" message="aucun paiement réel n’est débité" />
         {(catalog.data?.plans ?? [])
           .filter((p) => p.enabled)
           .map((p) => {
@@ -357,7 +341,7 @@ export function FamillePlansScreen({ accountId, onBack, onSubscribed }: { accoun
                     • {f}
                   </Text>
                 ))}
-                {!active ? <Button label="Activer en démo" loading={busy === p.id} onPress={() => subscribe(p.id)} testID={`famille-subscribe-${p.id}`} /> : null}
+                {!active ? <Button label="Choisir cette formule" loading={busy === p.id} onPress={() => subscribe(p.id)} testID={`famille-subscribe-${p.id}`} /> : null}
               </View>
             );
           })}

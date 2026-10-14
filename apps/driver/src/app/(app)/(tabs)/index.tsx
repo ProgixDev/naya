@@ -1,4 +1,4 @@
-import { useTheme , activeFamilyTrip, nextFamilyTrip, useFamily, Avatar, avatarFor, Button, CarWashEntry, DEMO_MODE, DemoBadge, Glass, IconButton, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
+import { useTheme , activeFamilyTrip, nextFamilyTrip, useFamily, Avatar, avatarFor, Button, CarWashEntry, DEMO_MODE, Glass, Money, NayaMap, PressableScale, Skeleton, StatusBanner, Text, haptic, toast } from '@naya/ui';
 import { useMemo, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -97,11 +97,6 @@ export default function Dashboard() {
             {cityLabel}
           </Text>
         </Glass>
-        {DEMO_MODE ? (
-          <PressableScale onPress={() => router.push('/dev')} accessibilityRole="button" accessibilityLabel="Lanceur de scénarios de démonstration" hitSlop={12}>
-            <DemoBadge />
-          </PressableScale>
-        ) : null}
         <View style={{ flex: 1 }} />
         <PressableScale onPress={() => router.navigate('/account')} accessibilityRole="button" accessibilityLabel="Mon compte"><Avatar name={firstName || 'Naya'} source={avatarFor(firstName)} size={44} /></PressableScale>
       </View>
@@ -155,8 +150,9 @@ export default function Dashboard() {
               />
             ) : null}
             {gpsDenied && DEMO_MODE ? (
+              // Mock backend only: go online from the last position the server knows for this account.
               <Button
-                label="Utiliser la position de démo"
+                label="Utiliser ma dernière position connue"
                 variant="secondary"
                 full
                 icon={<Navigation size={16} color={colors.accent} />}

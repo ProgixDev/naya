@@ -345,7 +345,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     const cityId = c.req.query('cityId') ?? 'rabat';
     const city = mustFind(S().cities, x => x.id === cityId, 'ville');
     const prefix = cityId === 'casablanca' ? 'casa' : cityId;
-    const generated: Place[] = ['Centre-ville', 'Gare', 'École', 'Quartier résidentiel', 'Hôpital', 'Aéroport'].map((label, i) => ({ id: `${cityId}-demo-${i}`, label: `${city.name} · ${label}`, address: `${label}, ${city.name} (démo)`, location: { lat: city.center.lat + i * 0.0015, lng: city.center.lng + i * 0.001 } }));
+    const generated: Place[] = ['Centre-ville', 'Gare', 'École', 'Quartier résidentiel', 'Hôpital', 'Aéroport'].map((label, i) => ({ id: `${cityId}-demo-${i}`, label: `${city.name} · ${label}`, address: `${label}, ${city.name}`, location: { lat: city.center.lat + i * 0.0015, lng: city.center.lng + i * 0.001 } }));
     const all = ['rabat', 'casablanca'].includes(cityId) ? Object.values(PLACES) as Place[] : generated;
     const results = all.filter((p) => (p.id?.startsWith(prefix) || (cityId === 'rabat' && p.id?.startsWith('sale'))) && (!q || normalize(`${p.label} ${p.address}`).includes(q)));
     return c.json(results.slice(0, 8));

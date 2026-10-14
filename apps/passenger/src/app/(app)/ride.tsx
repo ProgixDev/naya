@@ -10,7 +10,7 @@ import { formatDuration, formatMoney, haversineMeters, RIDE_STATUS_LABELS, secon
 import { errorMessage, newIdempotencyKey, qk, serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Button, DemoBadge, DriverCard, ErrorState, IconButton, NayaMap, RouteStopRow, StatusBanner, Text, haptic, toast, type MapMarker } from '@naya/ui';
+import { Button, DriverCard, ErrorState, IconButton, NayaMap, RouteStopRow, StatusBanner, Text, haptic, toast, type MapMarker } from '@naya/ui';
 import { useAccountId, useActiveRide } from '@/lib/queries';
 import { CancelSheet } from '@/features/ride/CancelSheet';
 import { useDraft } from '@/lib/draft';
@@ -119,11 +119,6 @@ export default function RideScreen() {
             <Text variant="label" numberOfLines={1}>{RIDE_STATUS_LABELS[ride.status]}</Text>
           </View>
         </View>
-        {ride.simulated && ride.driverLocation?.source === 'demo' ? (
-          <View style={{ position: 'absolute', right: gutter, bottom: 44 }}>
-            <DemoBadge label="Déplacement simulé" />
-          </View>
-        ) : null}
       </View>
 
       <View style={{ maxHeight: '62%', marginTop: -28, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingBottom: insets.bottom + 12, ...shadow.float }}>
@@ -175,7 +170,7 @@ export default function RideScreen() {
         {ride.status === 'in_progress' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <CheckCircle2 size={16} color={colors.success} />
-            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Suivi de démonstration · utilisez SOS pour tester une alerte.</Text>
+            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Votre trajet s’affiche en direct · SOS à portée de main pendant toute la course.</Text>
           </View>
         ) : null}
         {ride.status === 'no_driver' ? (

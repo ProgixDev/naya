@@ -1,4 +1,4 @@
-import { useTheme , SafetyButton , Button, DemoBadge, Glass, IconButton, IconDisc, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
+import { useTheme , SafetyButton , Button, Glass, IconButton, IconDisc, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Platform, View } from 'react-native';
 import { router } from 'expo-router';
@@ -130,7 +130,6 @@ export default function RideScreen() {
           <Text variant="label" numberOfLines={1} style={{ flex: 1 }}>
             {title}
           </Text>
-          {ride.driverLocation?.source === 'demo' ? <DemoBadge label="Trajet simulé" /> : null}
         </Glass>
       </View>
 

@@ -123,7 +123,8 @@ describe('Naya Famille safety flow', () => {
   it('new subscriptions only pick a Famille-approved chauffeuse', async () => {
     const h = setup();
     for (const u of h.ctx.store.state.users) if (u.role === 'driver' && u.phone !== PHONES.nadia) u.familleEligibility = 'pending';
-    const p = await h.login(PHONES.salma, 'passenger');
+    // Salma already has the seeded subscription: Hiba (approved, no family yet) subscribes.
+    const p = await h.login(PHONES.hiba, 'passenger');
     const sub = await h.ok('POST', '/prototype/family/subscribe', { token: p, body: { planId: 'family-essential' } });
     expect(sub.driverName).toBe('Nadia Chraibi');
   });
@@ -179,8 +180,31 @@ describe('Naya Famille safety flow', () => {
   });
 });
 
-describe('Naya Famille demo engine', () => {
-  it('plays a whole trip with a simulated chauffeuse; the parent approves', async () => {
+describe('Naya Famille mock data and bot', () => {
+  it('seeds Salma’s family in every scenario: Lina, two recipients, a subscription with Amina, a weekly trip', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const f = await h.ok('GET', '/prototype/family', { token: p });
+    expect(f.children).toEqual([expect.objectContaining({ firstName: 'Lina', age: 8, school: 'École Agdal' })]);
+    expect(f.children[0].recipients.map((r: any) => [r.name, r.relationship, r.verificationCode])).toEqual([['Salma', 'Mère', '1234'], ['Youssef', 'Père', '5678']]);
+    expect(f.subscription).toMatchObject({ planId: 'family-essential', driverName: 'Amina Bennani', status: 'active' });
+    expect(Date.parse(f.subscription.startsAt)).toBeLessThan(h.clock.now());
+    expect(f.trips).toHaveLength(1);
+    const [trip] = f.trips;
+    expect(trip).toMatchObject({ childName: 'Lina', status: 'scheduled', weekdays: [1, 2, 3, 4, 5], pickup: { label: 'Hay Riad' }, destination: { label: 'École Agdal' } });
+    // Next weekday at 08:00, Rabat time (harness: Thursday 1 Oct 2026, 09:00 in Rabat).
+    expect(trip.pickupAt).toBe('2026-10-02T07:00:00.000Z');
+    expect(trip.demo).toBeUndefined();
+    // Amina sees the same trip; the default world is populated without any dev tool.
+    const d = await h.login(PHONES.amina, 'driver');
+    expect((await h.ok('GET', '/prototype/family', { token: d })).trips.map((t: any) => t.id)).toEqual([trip.id]);
+    for (const scenario of ['first-ride', 'after-cash', 'no-casablanca', 'dynamic-pricing'] as const) {
+      const other = setup(scenario);
+      expect(other.ctx.store.state.prototype?.trips.map((t) => t.childName)).toEqual(['Lina']);
+    }
+  });
+
+  it('plays a whole trip with the bot chauffeuse; its steps read like real ones, the audit names the bot', async () => {
     const h = setup();
     const p = await h.login(PHONES.salma, 'passenger');
     const trip = await h.ok('POST', '/dev/family/play', { token: p, body: { driver: true, parent: null } });
@@ -193,7 +217,34 @@ describe('Naya Famille demo engine', () => {
     for (let i = 0; i < 40 && (await get()).status !== 'completed'; i++) h.advance(2);
     t = await get();
     expect(t.status).toBe('completed');
-    expect(t.timeline.filter((e: any) => /simulation/.test(e.label)).length).toBeGreaterThanOrEqual(5);
+    // What the apps show: timeline labels and notification texts (proof ids are internal).
+    const visible = [...t.timeline.map((e: any) => e.label), ...t.notifications.flatMap((n: any) => [n.title, n.body ?? ''])].join('\n');
+    expect(visible).not.toMatch(/d[ée]mo|simul/i);
+    const bot = h.ctx.store.state.audit.filter((e) => e.entityId === trip.id && e.actor.id === 'mock-bot');
+    expect(bot.map((e) => e.action)).toEqual(expect.arrayContaining(['family.depart', 'family.arrive', 'family.pickup', 'family.request_start', 'family.dropoff']));
+    // The parent's own approval stays hers in the audit.
+    expect(h.ctx.store.state.audit.find((e) => e.entityId === trip.id && e.action === 'family.approve')?.actor).toMatchObject({ type: 'user', name: 'Salma' });
+  });
+
+  it('the bot chauffeuse asks again after an unanswered request and hands the child back after a refusal', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const trip = await h.ok('POST', '/dev/family/play', { token: p, body: { driver: true, parent: null } });
+    const get = async () => (await h.ok('GET', `/prototype/family/trips/${trip.id}`, { token: p })) as any;
+    for (let i = 0; i < 30 && (await get()).status !== 'awaiting_approval'; i++) h.advance(2);
+    // No answer: the request expires, the chauffeuse waits with the child, then asks again.
+    h.advance(FAMILY_APPROVAL_TIMEOUT_SECONDS + 1);
+    expect((await get()).status).toBe('picked_up');
+    h.advance(31);
+    let t = await get();
+    expect(t.status).toBe('awaiting_approval');
+    expect(t.approvals).toHaveLength(2);
+    // Refused: she hands the child back and the trip is closed, instead of waiting forever.
+    await h.ok('POST', `/prototype/family/trips/${trip.id}/approval`, { token: p, body: { decision: 'refuse', mode: 'remote', approvalId: t.approval.id, reason: 'Je viens la chercher' } });
+    h.advance(31);
+    t = await get();
+    expect(t.status).toBe('cancelled');
+    expect(t.cancellation).toMatchObject({ by: 'driver', reason: 'Enfant remis à sa famille au point de prise en charge' });
   });
 
   it('plays the parent for the driver app: approve, refuse or no answer', async () => {

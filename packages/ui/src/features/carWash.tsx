@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronRight, Clock, Droplets, LocateFixed, MapPin, Star, X } from 'lucide-react-native';
 import { errorMessage, isApiError, qk, serverClock } from '@naya/api';
@@ -29,7 +29,7 @@ import {
   type WashCar,
   type WashTiming,
 } from '@naya/domain';
-import { cars, aspect } from '@naya/assets';
+import { mockPhotos, mockPhotoAspect } from '@naya/assets';
 import { colors, gutter, radius, shadow, themedStyles } from '@naya/tokens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../core/theme';
@@ -44,16 +44,17 @@ import { Card, IconDisc, ListGroup, ListRow } from '../List';
 import { Sheet } from '../BottomSheet';
 import { SegmentedControl } from '../SegmentedControl';
 import { PressableScale } from '../PressableScale';
-import { DemoBadge, Illustration } from '../Brand';
 import { Money } from '../Ride';
 import { toast } from '../Toast';
 import { haptic } from '../haptics';
 import { NayaMap } from '../map';
+import { Attachment } from './Attachment';
 
 /**
  * « Lavage à domicile », shared by the passenger and driver apps. Route files stay thin:
  * they pass the account, the role and what only the app knows (saved places, vehicle,
- * how to read the phone's position). The washing team is simulated by the demo API.
+ * how to read the phone's position). The washing team is played by the mock backend; its
+ * before/after shots come from @naya/assets `mockPhotos` until the team uploads real ones.
  */
 
 const STATUS_TONE: Record<WashOrderStatus, BannerTone> = {
@@ -102,12 +103,11 @@ export function CarWashOrdersScreen({ accountId, onBack, onNew, onOpen }: { acco
   const past = orders.data?.filter((o) => !isWashOpen(o.status)) ?? [];
   return (
     <Screen
-      header={<Header title="Lavage à domicile" subtitle="Une équipe vient laver votre voiture là où elle est garée." onBack={onBack} right={<DemoBadge />} />}
+      header={<Header title="Lavage à domicile" subtitle="Une équipe vient laver votre voiture là où elle est garée." onBack={onBack} />}
       footer={<Button label="Commander un lavage" size="major" full onPress={onNew} testID="car-wash-new" />}
       testID="car-wash-orders"
     >
       <View style={{ gap: 16 }}>
-        <StatusBanner tone="info" title="Service en démonstration" message="L’équipe de lavage, son trajet et les photos sont simulés. Les prix sont provisoires." />
         {orders.isLoading ? <Skeleton height={64} /> : null}
         {orders.isError ? <ErrorState onRetry={() => orders.refetch()} /> : null}
         {orders.data && !orders.data.length ? <EmptyState title="Aucun lavage pour le moment" message="Choisissez l’endroit, la formule et le créneau : l’équipe vient à votre voiture." /> : null}
@@ -277,7 +277,7 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
     <Screen
       keyboard
       testID="car-wash-booking"
-      header={<Header title={STEPS[step]} onBack={back} progress={{ step: step + 1, total: STEPS.length }} right={<DemoBadge />} />}
+      header={<Header title={STEPS[step]} onBack={back} progress={{ step: step + 1, total: STEPS.length }} />}
       footer={
         step < STEPS.length - 1 ? (
           <Button label="Continuer" size="major" full disabled={!canContinue} disabledReason={canContinue ? undefined : reason} onPress={() => setStep(step + 1)} testID="car-wash-continue" />
@@ -360,7 +360,6 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
               </PressableScale>
             );
           })}
-          {cat?.placeholder ? <Text variant="micro" tone="muted">Prix et durées de démonstration : ils seront fixés par Naya avant le lancement.</Text> : null}
         </View>
       ) : null}
 
@@ -516,7 +515,7 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
   const after = o.photos.filter((p) => p.stage === 'after');
 
   return (
-    <Screen header={<Header title={WASH_STATUS_LABELS[o.status]} subtitle={`${o.terms.packageName} · ${o.id}`} onBack={onBack} right={o.simulated ? <DemoBadge /> : undefined} />} testID="car-wash-order">
+    <Screen header={<Header title={WASH_STATUS_LABELS[o.status]} subtitle={`${o.terms.packageName} · ${o.id}`} onBack={onBack} />} testID="car-wash-order">
       <View style={{ gap: 16 }}>
         {o.status === 'cancelled' && o.cancellation ? (
           <StatusBanner tone="danger" title={o.cancellation.fee > 0 ? `Lavage annulé · frais ${formatMoney(o.cancellation.fee)}` : 'Lavage annulé sans frais'} message={o.cancellation.reasonText} testID="car-wash-cancelled" />
@@ -541,7 +540,6 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
               <Text variant="label" weight="semibold" style={{ flex: 1 }} testID="car-wash-eta">
                 {o.status === 'en_route' ? `Arrivée dans ~${o.teamLocation.etaMinutes ?? 1} min` : `Fin prévue vers ${formatTime(new Date(Date.parse(o.startedAt ?? o.startAt) + o.terms.durationMinutes * 60_000).toISOString())}`}
               </Text>
-              <Text variant="micro" tone="muted">Position simulée</Text>
             </View>
           </Card>
         ) : null}
@@ -568,9 +566,9 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
         {before.length || after.length ? (
           <Section title="Photos" style={{ marginTop: 4 }}>
             <View style={{ gap: 10 }} testID="car-wash-photos">
-              {before.length ? <PhotoRow title="Avant" photos={before} dusty /> : null}
-              {after.length ? <PhotoRow title="Après" photos={after} /> : null}
-              <Text variant="micro" tone="muted">Photos simulées pour la démonstration. L’équipe les prendra sur place.</Text>
+              {before.length ? <PhotoRow title="Avant" photos={before} accountId={accountId} /> : null}
+              {after.length ? <PhotoRow title="Après" photos={after} accountId={accountId} /> : null}
+              <Text variant="micro" tone="muted">Photos prises par l’équipe avant et après le lavage.</Text>
             </View>
           </Section>
         ) : null}
@@ -628,17 +626,27 @@ function stepAt(o: WashOrder, s: (typeof WASH_PROGRESS)[number]): string | null 
   return { booked: o.createdAt, washer_assigned: o.assignedAt, en_route: o.departedAt, washing: o.startedAt, completed: o.completedAt }[s];
 }
 
-function PhotoRow({ title, photos, dusty }: { title: string; photos: WashOrder['photos']; dusty?: boolean }) {
+/** Labels written before 14 Oct 2026 end with a « (photo …) » marker: shown without it. */
+const photoCaption = (label: string) => label.replace(/ \(photo [^)]*\)$/, '');
+
+function PhotoRow({ title, photos, accountId }: { title: string; photos: WashOrder['photos']; accountId: string }) {
   useTheme();
   return (
     <View style={{ gap: 6 }}>
       <Text variant="caption" weight="semibold">{title}</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {photos.map((p) => (
-          <View key={p.id} style={[styles.photo, dusty ? { backgroundColor: colors.warningSoft } : { backgroundColor: colors.successSoft }]} accessible accessibilityRole="image" accessibilityLabel={p.label}>
-            <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width="80%" style={dusty ? { opacity: 0.55 } : undefined} />
-            <Text variant="micro" tone="muted" numberOfLines={1} style={{ marginTop: 4 }}>{p.label.replace(/ \(photo simulée\)$/, '')}</Text>
-          </View>
+          p.uploadId ? (
+            <View key={p.id} style={{ flex: 1 }}>
+              <Attachment id={p.uploadId} accountId={accountId} label={photoCaption(p.label)} />
+            </View>
+          ) : (
+            // One element for screen readers: the photo and its caption are announced once.
+            <View key={p.id} style={{ flex: 1, gap: 4 }} accessible accessibilityRole="image" accessibilityLabel={photoCaption(p.label)}>
+              <Image source={p.stage === 'before' ? mockPhotos.carWashBefore : mockPhotos.carWashAfter} style={styles.photo} resizeMode="cover" />
+              <Text variant="micro" tone="muted" numberOfLines={1}>{photoCaption(p.label)}</Text>
+            </View>
+          )
         ))}
       </View>
     </View>
@@ -750,6 +758,6 @@ const styles = themedStyles(() =>
     dot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     dotCurrent: { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 6 },
     stem: { width: 2, flex: 1, minHeight: 14, backgroundColor: colors.line },
-    photo: { flex: 1, borderRadius: 16, padding: 10, alignItems: 'center' },
+    photo: { width: '100%', aspectRatio: mockPhotoAspect, borderRadius: 14, backgroundColor: colors.map },
   }),
 );
