@@ -253,17 +253,22 @@ Mock outcomes (timed jobs, the dev tools, the sandbox route) use the same functi
   every 500 ms.
 
 **R22 · Only the provider confirms money. A payer can never confirm her own payment, recharge or top-up outside
-dev mode.** ⚠️ ❓
+dev mode.** ✅ ❓
 
-Today the payer can still approve her own card payment or recharge on the sandbox route in any mode, although no
-screen calls it since 14 Oct 2026. Checked on 2026-10-13 with `devMode` off: a passenger created and confirmed a
-100 000 MAD top-up herself. Since 14 Oct 2026 the top-up resolve route answers 404 outside dev mode, and the mock
-provider confirms every top-up on its own, so any top-up still becomes money (P7).
+The routes that settle a pending reference at once are registered only in dev mode (API-03, 14 Oct 2026):
+`POST /provider-sandbox/:kind/:ref/:outcome` (card payment or recharge: the payer her own reference, an admin any)
+and `POST /prototype/wallet/:id/resolve` (the passagère's own top-up), like `POST /dev/providers/:kind/:ref/:outcome`.
+With `NAYA_DEV=0` all three answer 404 and nothing is settled; no screen calls them. Before that, the payer could
+approve her own card payment or recharge on the sandbox route in any mode, and on 2026-10-13, with `devMode` off, a
+passenger created and confirmed a 100 000 MAD top-up herself. The mock provider still confirms every top-up on its
+own, so in a mock build any top-up still becomes money (P7).
 
-- Enforced at: `services/demo-api/src/app.ts:593-607` (sandbox: the owner is always allowed);
-  `services/demo-api/src/services/prototype.ts:494-517` (top-up resolve).
-- Tested by: `services/demo-api/test/prototype.test.ts:77` (another passenger gets 404; the owner may confirm).
-- Gap: P7 (API-03, PRD-12, UI-05). Gating the routes needs no decision; the demo flag rules are
+- Enforced at: `services/demo-api/src/app.ts` (`/provider-sandbox/:kind/:ref/:outcome` inside
+  `if (ctx.config.devMode)`); `services/demo-api/src/services/prototype.ts` (`/prototype/wallet/:id/resolve`, same).
+- Tested by: `services/demo-api/test/devOnlyMoney.test.ts` (API-03: with dev mode off, 404 for the payer's own
+  pending card payment, recharge and top-up, and each stays pending; in dev mode the sandbox still settles);
+  `services/demo-api/test/prototype.test.ts:77` (dev mode: another passenger gets 404; the owner may confirm).
+- Gap: P7 (PRD-12, UI-05). Dev mode is on unless `NAYA_DEV=0`; the demo flag rules are
   [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md).
 
 **R23 · Booking and money mutations require an `Idempotency-Key`. The same key and body replay the first answer; the

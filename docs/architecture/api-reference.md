@@ -28,7 +28,7 @@ which are local to `services/prototype.ts`. Who may call what, and why: [permiss
 | Admin routes with a permission check | 30 of 34 |
 | Idempotency-Key required | 13 |
 | Idempotency-Key optional (honoured when sent) | 3 |
-| Registered only in dev mode | 15 |
+| Registered only in dev mode | 17 |
 | Body read without validation | 12 |
 
 ## Global behaviour
@@ -161,18 +161,18 @@ The generator follows each handler into every function it calls inside `services
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| POST | `/provider-sandbox/:kind/:ref/:outcome` | signed in (user or admin) | — | — | — | dev-mode branch | [app.ts:644](../../services/demo-api/src/app.ts#L644) |
-| POST | `/provider-sandbox/tokenize` | passenger | — | — | raw JSON (not validated) |  | [app.ts:659](../../services/demo-api/src/app.ts#L659) |
-| POST | `/providers/:provider/callback` | provider (HMAC) | — | — | `providerCallbackSchema`; raw body, signed |  | [app.ts:666](../../services/demo-api/src/app.ts#L666) |
+| POST | `/provider-sandbox/:kind/:ref/:outcome` | signed in (user or admin) | — | — | — | dev mode only | [app.ts:648](../../services/demo-api/src/app.ts#L648) |
+| POST | `/provider-sandbox/tokenize` | passenger | — | — | raw JSON (not validated) |  | [app.ts:663](../../services/demo-api/src/app.ts#L663) |
+| POST | `/providers/:provider/callback` | provider (HMAC) | — | — | `providerCallbackSchema`; raw body, signed |  | [app.ts:670](../../services/demo-api/src/app.ts#L670) |
 
 ## Support (passenger and driver)
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| GET | `/support/tickets` | user (any role) | — | — | — |  | [app.ts:674](../../services/demo-api/src/app.ts#L674) |
-| POST | `/support/tickets` | user (any role) | — | — | `supportTicketSchema` |  | [app.ts:678](../../services/demo-api/src/app.ts#L678) |
-| GET | `/support/tickets/:id` | user (any role) | — | — | — |  | [app.ts:679](../../services/demo-api/src/app.ts#L679) |
-| POST | `/support/tickets/:id/messages` | user (any role) | — | — | `supportMessageSchema` |  | [app.ts:683](../../services/demo-api/src/app.ts#L683) |
+| GET | `/support/tickets` | user (any role) | — | — | — |  | [app.ts:678](../../services/demo-api/src/app.ts#L678) |
+| POST | `/support/tickets` | user (any role) | — | — | `supportTicketSchema` |  | [app.ts:682](../../services/demo-api/src/app.ts#L682) |
+| GET | `/support/tickets/:id` | user (any role) | — | — | — |  | [app.ts:683](../../services/demo-api/src/app.ts#L683) |
+| POST | `/support/tickets/:id/messages` | user (any role) | — | — | `supportMessageSchema` |  | [app.ts:687](../../services/demo-api/src/app.ts#L687) |
 
 ## Oct 6 features ("prototype"): passenger and driver
 
@@ -198,78 +198,78 @@ The generator follows each handler into every function it calls inside `services
 | GET | `/prototype/catalog` | user (any role) | — | — | — |  | [services/prototype.ts:423](../../services/demo-api/src/services/prototype.ts#L423) |
 | GET | `/prototype/wallet` | passenger | — | — | — |  | [services/prototype.ts:427](../../services/demo-api/src/services/prototype.ts#L427) |
 | POST | `/prototype/wallet/topup` | passenger | — | required | inline zod |  | [services/prototype.ts:430](../../services/demo-api/src/services/prototype.ts#L430) |
-| POST | `/prototype/wallet/:id/resolve` | passenger | — | — | inline zod | dev-mode branch | [services/prototype.ts:476](../../services/demo-api/src/services/prototype.ts#L476) |
-| POST | `/prototype/sos` | user (any role) | — | required | inline zod |  | [services/prototype.ts:496](../../services/demo-api/src/services/prototype.ts#L496) |
-| GET | `/prototype/sos` | user (any role) | — | — | — |  | [services/prototype.ts:553](../../services/demo-api/src/services/prototype.ts#L553) |
-| POST | `/prototype/sos/:id/action` | user (any role) | — | — | inline zod |  | [services/prototype.ts:559](../../services/demo-api/src/services/prototype.ts#L559) |
+| POST | `/prototype/wallet/:id/resolve` | passenger | — | — | inline zod | dev mode only | [services/prototype.ts:478](../../services/demo-api/src/services/prototype.ts#L478) |
+| POST | `/prototype/sos` | user (any role) | — | required | inline zod |  | [services/prototype.ts:498](../../services/demo-api/src/services/prototype.ts#L498) |
+| GET | `/prototype/sos` | user (any role) | — | — | — |  | [services/prototype.ts:555](../../services/demo-api/src/services/prototype.ts#L555) |
+| POST | `/prototype/sos/:id/action` | user (any role) | — | — | inline zod |  | [services/prototype.ts:561](../../services/demo-api/src/services/prototype.ts#L561) |
 
 ## Admin sign-in
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| POST | `/admin/auth/login` | public | — | — | `adminLoginSchema` |  | [app.ts:686](../../services/demo-api/src/app.ts#L686) |
-| GET | `/admin/me` | admin | — | — | — |  | [app.ts:690](../../services/demo-api/src/app.ts#L690) |
+| POST | `/admin/auth/login` | public | — | — | `adminLoginSchema` |  | [app.ts:690](../../services/demo-api/src/app.ts#L690) |
+| GET | `/admin/me` | admin | — | — | — |  | [app.ts:694](../../services/demo-api/src/app.ts#L694) |
 
 ## Admin: Oct 6 features ("prototype")
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| GET | `/admin/prototype` | admin | `config.edit` | — | — |  | [services/prototype.ts:577](../../services/demo-api/src/services/prototype.ts#L577) |
-| PUT | `/admin/prototype/catalog/:kind` | admin | `config.edit` | — | schema picked at runtime |  | [services/prototype.ts:593](../../services/demo-api/src/services/prototype.ts#L593) |
-| GET | `/admin/prototype/alerts` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | — |  | [services/prototype.ts:629](../../services/demo-api/src/services/prototype.ts#L629) |
-| POST | `/admin/prototype/alerts/:id` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | inline zod |  | [services/prototype.ts:646](../../services/demo-api/src/services/prototype.ts#L646) |
-| POST | `/admin/prototype/assignment/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:702](../../services/demo-api/src/services/prototype.ts#L702) |
-| POST | `/admin/prototype/driver-categories/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:752](../../services/demo-api/src/services/prototype.ts#L752) |
+| GET | `/admin/prototype` | admin | `config.edit` | — | — |  | [services/prototype.ts:579](../../services/demo-api/src/services/prototype.ts#L579) |
+| PUT | `/admin/prototype/catalog/:kind` | admin | `config.edit` | — | schema picked at runtime |  | [services/prototype.ts:595](../../services/demo-api/src/services/prototype.ts#L595) |
+| GET | `/admin/prototype/alerts` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | — |  | [services/prototype.ts:631](../../services/demo-api/src/services/prototype.ts#L631) |
+| POST | `/admin/prototype/alerts/:id` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | inline zod |  | [services/prototype.ts:648](../../services/demo-api/src/services/prototype.ts#L648) |
+| POST | `/admin/prototype/assignment/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:704](../../services/demo-api/src/services/prototype.ts#L704) |
+| POST | `/admin/prototype/driver-categories/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:754](../../services/demo-api/src/services/prototype.ts#L754) |
 
 ## Admin
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| GET | `/admin/overview` | admin | — | — | query `cityId`, `period` |  | [app.ts:698](../../services/demo-api/src/app.ts#L698) |
-| GET | `/admin/people` | admin | `people.read` | — | query `q`, `role`, `cityId`, `verification`, `limit`, `cursor` |  | [app.ts:726](../../services/demo-api/src/app.ts#L726) |
-| GET | `/admin/people/:id` | admin | `people.read`; inline: `finance.read` | — | — |  | [app.ts:747](../../services/demo-api/src/app.ts#L747) |
-| GET | `/admin/verifications` | admin | `people.read` | — | query `status`, `subject`, `cityId`, `limit`, `cursor` |  | [app.ts:767](../../services/demo-api/src/app.ts#L767) |
-| GET | `/admin/verifications/:id` | admin | `people.read`; inline: `verification.decide` | — | — |  | [app.ts:782](../../services/demo-api/src/app.ts#L782) |
-| POST | `/admin/verifications/:id/start-review` | admin | `verification.decide` | — | — |  | [app.ts:798](../../services/demo-api/src/app.ts#L798) |
-| POST | `/admin/verifications/:id/decision` | admin | `verification.decide` | — | `decisionSchema` |  | [app.ts:799](../../services/demo-api/src/app.ts#L799) |
-| GET | `/admin/rides` | admin | `rides.read` | — | query `q`, `status`, `cityId`, `method`, `sort`, `limit`, `cursor` |  | [app.ts:801](../../services/demo-api/src/app.ts#L801) |
-| GET | `/admin/car-wash/orders` | admin | `rides.read` | — | query `cityId` |  | [app.ts:820](../../services/demo-api/src/app.ts#L820) |
-| GET | `/admin/scheduled` | admin | `rides.read` | — | query `cityId` |  | [app.ts:824](../../services/demo-api/src/app.ts#L824) |
-| GET | `/admin/rides/:id` | admin | `rides.read`; inline: `finance.read` | — | — |  | [app.ts:831](../../services/demo-api/src/app.ts#L831) |
-| GET | `/admin/support` | admin | `support.resolve` | — | query `status`, `cityId`, `disputes`, `limit`, `cursor` |  | [app.ts:849](../../services/demo-api/src/app.ts#L849) |
-| GET | `/admin/support/:id` | admin | `support.resolve` | — | — |  | [app.ts:862](../../services/demo-api/src/app.ts#L862) |
-| POST | `/admin/support/:id/messages` | admin | `support.resolve` | — | `supportMessageSchema` |  | [app.ts:869](../../services/demo-api/src/app.ts#L869) |
-| POST | `/admin/support/:id/resolve` | admin | `support.resolve` | — | `resolveTicketSchema` |  | [app.ts:870](../../services/demo-api/src/app.ts#L870) |
-| GET | `/admin/finance/summary` | admin | `finance.read` | — | query `cityId` |  | [app.ts:872](../../services/demo-api/src/app.ts#L872) |
-| GET | `/admin/finance/ledger` | admin | `finance.read` | — | query `driverId`, `type`, `cityId`, `limit`, `cursor` |  | [app.ts:894](../../services/demo-api/src/app.ts#L894) |
-| POST | `/admin/finance/corrections` | admin | `finance.correct` | required | `correctionSchema` |  | [app.ts:907](../../services/demo-api/src/app.ts#L907) |
-| GET | `/admin/cities` | admin | — | — | — |  | [app.ts:915](../../services/demo-api/src/app.ts#L915) |
-| POST | `/admin/cities` | admin | `config.edit` | — | `createCitySchema` |  | [app.ts:920](../../services/demo-api/src/app.ts#L920) |
-| PUT | `/admin/cities/:id/rules` | admin | `config.edit` | — | `updateRulesSchema` |  | [app.ts:921](../../services/demo-api/src/app.ts#L921) |
-| POST | `/admin/cities/:id/status` | admin | `config.edit` | — | `cityStatusSchema` |  | [app.ts:922](../../services/demo-api/src/app.ts#L922) |
-| POST | `/admin/cities/:id/zones` | admin | `config.edit` | — | `zoneSchema` |  | [app.ts:923](../../services/demo-api/src/app.ts#L923) |
-| POST | `/admin/zones/:id/active` | admin | `config.edit` | — | `reasonSchema`; raw JSON (not validated) |  | [app.ts:924](../../services/demo-api/src/app.ts#L924) |
-| GET | `/admin/providers` | admin | — | — | query `cityId` |  | [app.ts:928](../../services/demo-api/src/app.ts#L928) |
-| POST | `/admin/providers/:id` | admin | `config.edit` | — | `providerToggleSchema` |  | [app.ts:933](../../services/demo-api/src/app.ts#L933) |
-| GET | `/admin/audit` | admin | `audit.read` | — | query `q`, `action`, `cityId`, `actorType`, `limit`, `cursor` |  | [app.ts:935](../../services/demo-api/src/app.ts#L935) |
+| GET | `/admin/overview` | admin | — | — | query `cityId`, `period` |  | [app.ts:702](../../services/demo-api/src/app.ts#L702) |
+| GET | `/admin/people` | admin | `people.read` | — | query `q`, `role`, `cityId`, `verification`, `limit`, `cursor` |  | [app.ts:730](../../services/demo-api/src/app.ts#L730) |
+| GET | `/admin/people/:id` | admin | `people.read`; inline: `finance.read` | — | — |  | [app.ts:751](../../services/demo-api/src/app.ts#L751) |
+| GET | `/admin/verifications` | admin | `people.read` | — | query `status`, `subject`, `cityId`, `limit`, `cursor` |  | [app.ts:771](../../services/demo-api/src/app.ts#L771) |
+| GET | `/admin/verifications/:id` | admin | `people.read`; inline: `verification.decide` | — | — |  | [app.ts:786](../../services/demo-api/src/app.ts#L786) |
+| POST | `/admin/verifications/:id/start-review` | admin | `verification.decide` | — | — |  | [app.ts:802](../../services/demo-api/src/app.ts#L802) |
+| POST | `/admin/verifications/:id/decision` | admin | `verification.decide` | — | `decisionSchema` |  | [app.ts:803](../../services/demo-api/src/app.ts#L803) |
+| GET | `/admin/rides` | admin | `rides.read` | — | query `q`, `status`, `cityId`, `method`, `sort`, `limit`, `cursor` |  | [app.ts:805](../../services/demo-api/src/app.ts#L805) |
+| GET | `/admin/car-wash/orders` | admin | `rides.read` | — | query `cityId` |  | [app.ts:824](../../services/demo-api/src/app.ts#L824) |
+| GET | `/admin/scheduled` | admin | `rides.read` | — | query `cityId` |  | [app.ts:828](../../services/demo-api/src/app.ts#L828) |
+| GET | `/admin/rides/:id` | admin | `rides.read`; inline: `finance.read` | — | — |  | [app.ts:835](../../services/demo-api/src/app.ts#L835) |
+| GET | `/admin/support` | admin | `support.resolve` | — | query `status`, `cityId`, `disputes`, `limit`, `cursor` |  | [app.ts:853](../../services/demo-api/src/app.ts#L853) |
+| GET | `/admin/support/:id` | admin | `support.resolve` | — | — |  | [app.ts:866](../../services/demo-api/src/app.ts#L866) |
+| POST | `/admin/support/:id/messages` | admin | `support.resolve` | — | `supportMessageSchema` |  | [app.ts:873](../../services/demo-api/src/app.ts#L873) |
+| POST | `/admin/support/:id/resolve` | admin | `support.resolve` | — | `resolveTicketSchema` |  | [app.ts:874](../../services/demo-api/src/app.ts#L874) |
+| GET | `/admin/finance/summary` | admin | `finance.read` | — | query `cityId` |  | [app.ts:876](../../services/demo-api/src/app.ts#L876) |
+| GET | `/admin/finance/ledger` | admin | `finance.read` | — | query `driverId`, `type`, `cityId`, `limit`, `cursor` |  | [app.ts:898](../../services/demo-api/src/app.ts#L898) |
+| POST | `/admin/finance/corrections` | admin | `finance.correct` | required | `correctionSchema` |  | [app.ts:911](../../services/demo-api/src/app.ts#L911) |
+| GET | `/admin/cities` | admin | — | — | — |  | [app.ts:919](../../services/demo-api/src/app.ts#L919) |
+| POST | `/admin/cities` | admin | `config.edit` | — | `createCitySchema` |  | [app.ts:924](../../services/demo-api/src/app.ts#L924) |
+| PUT | `/admin/cities/:id/rules` | admin | `config.edit` | — | `updateRulesSchema` |  | [app.ts:925](../../services/demo-api/src/app.ts#L925) |
+| POST | `/admin/cities/:id/status` | admin | `config.edit` | — | `cityStatusSchema` |  | [app.ts:926](../../services/demo-api/src/app.ts#L926) |
+| POST | `/admin/cities/:id/zones` | admin | `config.edit` | — | `zoneSchema` |  | [app.ts:927](../../services/demo-api/src/app.ts#L927) |
+| POST | `/admin/zones/:id/active` | admin | `config.edit` | — | `reasonSchema`; raw JSON (not validated) |  | [app.ts:928](../../services/demo-api/src/app.ts#L928) |
+| GET | `/admin/providers` | admin | — | — | query `cityId` |  | [app.ts:932](../../services/demo-api/src/app.ts#L932) |
+| POST | `/admin/providers/:id` | admin | `config.edit` | — | `providerToggleSchema` |  | [app.ts:937](../../services/demo-api/src/app.ts#L937) |
+| GET | `/admin/audit` | admin | `audit.read` | — | query `q`, `action`, `cityId`, `actorType`, `limit`, `cursor` |  | [app.ts:939](../../services/demo-api/src/app.ts#L939) |
 
 ## Development tools
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| GET | `/dev/scenarios` | public | — | — | — | dev mode only | [app.ts:952](../../services/demo-api/src/app.ts#L952) |
-| POST | `/dev/reset` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:953](../../services/demo-api/src/app.ts#L953) |
-| POST | `/dev/clock/advance` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:962](../../services/demo-api/src/app.ts#L962) |
-| POST | `/dev/tick` | public | — | — | — | dev mode only | [app.ts:968](../../services/demo-api/src/app.ts#L968) |
-| POST | `/dev/providers/:kind/:ref/:outcome` | public | — | — | — | dev mode only | [app.ts:972](../../services/demo-api/src/app.ts#L972) |
-| POST | `/dev/bot` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:976](../../services/demo-api/src/app.ts#L976) |
-| POST | `/dev/tracking/:rideId/freeze` | public | — | — | — | dev mode only | [app.ts:990](../../services/demo-api/src/app.ts#L990) |
-| POST | `/dev/tracking/:rideId/resume` | public | — | — | — | dev mode only | [app.ts:999](../../services/demo-api/src/app.ts#L999) |
-| GET | `/dev/provider-jobs` | public | — | — | — | dev mode only | [app.ts:1007](../../services/demo-api/src/app.ts#L1007) |
-| POST | `/dev/navigate` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:1014](../../services/demo-api/src/app.ts#L1014) |
-| GET | `/dev/navigate` | public | — | — | query `app` | dev mode only | [app.ts:1020](../../services/demo-api/src/app.ts#L1020) |
-| POST | `/dev/verification/:id/simulate` | driver | — | — | `verificationItemKeySchema`; raw JSON (not validated) | dev mode only | [app.ts:1048](../../services/demo-api/src/app.ts#L1048) |
-| POST | `/dev/sample-upload` | user (any role) | — | — | raw JSON (not validated) | dev mode only | [app.ts:1055](../../services/demo-api/src/app.ts#L1055) |
+| GET | `/dev/scenarios` | public | — | — | — | dev mode only | [app.ts:956](../../services/demo-api/src/app.ts#L956) |
+| POST | `/dev/reset` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:957](../../services/demo-api/src/app.ts#L957) |
+| POST | `/dev/clock/advance` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:966](../../services/demo-api/src/app.ts#L966) |
+| POST | `/dev/tick` | public | — | — | — | dev mode only | [app.ts:972](../../services/demo-api/src/app.ts#L972) |
+| POST | `/dev/providers/:kind/:ref/:outcome` | public | — | — | — | dev mode only | [app.ts:976](../../services/demo-api/src/app.ts#L976) |
+| POST | `/dev/bot` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:980](../../services/demo-api/src/app.ts#L980) |
+| POST | `/dev/tracking/:rideId/freeze` | public | — | — | — | dev mode only | [app.ts:994](../../services/demo-api/src/app.ts#L994) |
+| POST | `/dev/tracking/:rideId/resume` | public | — | — | — | dev mode only | [app.ts:1003](../../services/demo-api/src/app.ts#L1003) |
+| GET | `/dev/provider-jobs` | public | — | — | — | dev mode only | [app.ts:1011](../../services/demo-api/src/app.ts#L1011) |
+| POST | `/dev/navigate` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:1018](../../services/demo-api/src/app.ts#L1018) |
+| GET | `/dev/navigate` | public | — | — | query `app` | dev mode only | [app.ts:1024](../../services/demo-api/src/app.ts#L1024) |
+| POST | `/dev/verification/:id/simulate` | driver | — | — | `verificationItemKeySchema`; raw JSON (not validated) | dev mode only | [app.ts:1052](../../services/demo-api/src/app.ts#L1052) |
+| POST | `/dev/sample-upload` | user (any role) | — | — | raw JSON (not validated) | dev mode only | [app.ts:1059](../../services/demo-api/src/app.ts#L1059) |
 | POST | `/dev/family/play` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:805](../../services/demo-api/src/services/famille.ts#L805) |
 | POST | `/dev/family/trips/:id/demo` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:817](../../services/demo-api/src/services/famille.ts#L817) |
 

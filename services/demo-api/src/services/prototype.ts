@@ -469,30 +469,32 @@ export function mountPrototypeRoutes(
       ),
     );
   });
-  /**
-   * Dev mode only (scenario tests): gives the provider's answer before its delay. The apps never
-   * call it; top-ups are answered by settleDueWalletTopups.
-   */
-  app.post('/prototype/wallet/:id/resolve', async (c) => {
-    const u = userOf(c, 'passenger');
-    if (!ctx.config.devMode) throw new DomainError('NOT_FOUND');
-    const { outcome } = z
-      .object({ outcome: z.enum(['confirmed', 'failed']) })
-      .parse(await c.req.json());
-    return c.json(
-      ctx.store.tx((s) => {
-        const w = passengerWallet(s, u.id);
-        const e = mustFind(
-          w.entries,
-          (x) => x.id === c.req.param('id') && x.amount > 0,
-          'recharge',
-        );
-        if (e.status !== 'pending') return w;
-        resolveTopup(s, e, outcome, ctx.clock.iso(), WALLET_PROVIDER, u.cityId);
-        return passengerWallet(s, u.id);
-      }),
-    );
-  });
+  if (ctx.config.devMode) {
+    /**
+     * Dev mode only (scenario tests, API-03): gives the provider's answer before its delay. Not
+     * registered when NAYA_DEV=0, so a passagère can never settle her own top-up. The apps never
+     * call it; top-ups are answered by settleDueWalletTopups.
+     */
+    app.post('/prototype/wallet/:id/resolve', async (c) => {
+      const u = userOf(c, 'passenger');
+      const { outcome } = z
+        .object({ outcome: z.enum(['confirmed', 'failed']) })
+        .parse(await c.req.json());
+      return c.json(
+        ctx.store.tx((s) => {
+          const w = passengerWallet(s, u.id);
+          const e = mustFind(
+            w.entries,
+            (x) => x.id === c.req.param('id') && x.amount > 0,
+            'recharge',
+          );
+          if (e.status !== 'pending') return w;
+          resolveTopup(s, e, outcome, ctx.clock.iso(), WALLET_PROVIDER, u.cityId);
+          return passengerWallet(s, u.id);
+        }),
+      );
+    });
+  }
   app.post('/prototype/sos', async (c) => {
     const u = userOf(c);
     const input = z

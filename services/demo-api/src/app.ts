@@ -637,25 +637,29 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
   });
 
   /* ───────── Provider sandbox and callbacks ───────── */
-  /**
-   * Stands in for the provider's hosted checkout (card authentication or agency counter).
-   * It never receives card numbers from Naya screens; it resolves a pending reference.
-   */
-  app.post('/provider-sandbox/:kind/:ref/:outcome', (c) => {
-    const p = c.get('principal');
-    if (!p) throw new DomainError('UNAUTHORIZED');
-    const kind = c.req.param('kind') as 'recharge' | 'payment';
-    const outcome = c.req.param('outcome') === 'approve' ? 'confirmed' : 'failed';
-    const s = S();
-    const owned =
-      p.kind === 'user' &&
-      (kind === 'recharge'
-        ? s.recharges.some((r) => r.providerRef === c.req.param('ref') && r.driverId === p.user.id)
-        : s.payments.some((x) => x.providerRef === c.req.param('ref') && x.payerId === p.user.id));
-    if (!owned && !ctx.config.devMode) throw new DomainError('FORBIDDEN');
-    if (!owned && p.kind === 'user') throw new DomainError('FORBIDDEN');
-    return c.json(resolveManually(ctx, kind, c.req.param('ref'), outcome, outcome === 'failed' ? 'Paiement refusé sur la page du prestataire.' : null));
-  });
+  if (ctx.config.devMode) {
+    /**
+     * Dev mode only (API-03): stands in for the provider's hosted checkout (card authentication or
+     * agency counter) so tests can settle a pending reference at once. It never receives card
+     * numbers from Naya screens, and no screen calls it. Not registered when NAYA_DEV=0: a payer
+     * can never settle her own payment or recharge; the provider answers on its own (provider
+     * jobs) or through the signed callback below.
+     */
+    app.post('/provider-sandbox/:kind/:ref/:outcome', (c) => {
+      const p = c.get('principal');
+      if (!p) throw new DomainError('UNAUTHORIZED');
+      const kind = c.req.param('kind') as 'recharge' | 'payment';
+      const outcome = c.req.param('outcome') === 'approve' ? 'confirmed' : 'failed';
+      const s = S();
+      const owned =
+        p.kind === 'user' &&
+        (kind === 'recharge'
+          ? s.recharges.some((r) => r.providerRef === c.req.param('ref') && r.driverId === p.user.id)
+          : s.payments.some((x) => x.providerRef === c.req.param('ref') && x.payerId === p.user.id));
+      if (!owned && p.kind === 'user') throw new DomainError('FORBIDDEN');
+      return c.json(resolveManually(ctx, kind, c.req.param('ref'), outcome, outcome === 'failed' ? 'Paiement refusé sur la page du prestataire.' : null));
+    });
+  }
   app.post('/provider-sandbox/tokenize', async (c) => {
     // The provider's hosted field returns a token; Naya never sees the card number.
     userOf(c, 'passenger');
