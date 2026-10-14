@@ -88,7 +88,7 @@ pnpm --filter @naya/passenger ios      # expo run:ios
 pnpm --filter @naya/driver ios
 ```
 
-Native demo builds are standalone by default: no backend or SMS service is required. Sign in with any Moroccan number (a new account goes through the document flow and is approved on the device 20–40 s after it is sent) or with a mock account's number below; the code `123456` arrives like a text message, as a notification « Naya » or a message card on the code screen. The apps show no demo wording ([ADR-0058](docs/adr/0058-present-the-mock-backed-apps-as-a-real-product.md)). Each app stores its own fictional data on the device and simulates the other party. The apps do not synchronize with one another or the admin in this mode. Map tiles may still use the map provider’s network connection.
+Native demo builds are standalone by default: no backend or SMS service is required. Sign in with any Moroccan number (a new account goes through the document flow and is approved on the device 20–40 s after it is sent) or with a mock account's number below, then type any 6-digit code (no SMS is sent and none is shown). The apps show no demo wording ([ADR-0058](docs/adr/0058-present-the-mock-backed-apps-as-a-real-product.md)). Each app stores its own fictional data on the device and simulates the other party. The apps do not synchronize with one another or the admin in this mode. Map tiles may still use the map provider’s network connection.
 
 For a connected development demo, set `EXPO_PUBLIC_STANDALONE=0` in `apps/<app>/.env` and run `pnpm api`. A physical device on the same network then uses the Metro host automatically, or set `EXPO_PUBLIC_API_URL`. Web builds always use the shared API. All modes: [docs/runbooks/local-dev.md](docs/runbooks/local-dev.md#runtime-modes-in-one-table).
 
@@ -119,7 +119,7 @@ pnpm --filter @naya/demo-api seed first-ride   # any named scenario
 
 Scenarios: `default`, `first-ride` (S03: NY-001 cash → −15 MAD), `after-cash` (S04: card → 70 MAD), `no-casablanca` (S15), `dynamic-pricing` (S06). In development builds (`__DEV__`) the **scenario launcher** (long-press the Naya logo on the welcome screen for 2 s, or open `naya://dev` / `naya-chauffeuse://dev`; no visible entry) resets scenarios, lists the mock accounts, advances the server clock, resolves provider outcomes and toggles a simulated second driver. More: [docs/runbooks/demo-data.md](docs/runbooks/demo-data.md).
 
-### Mock accounts (OTP code `123456` in dev mode)
+### Mock accounts (any 6-digit code in dev mode)
 
 | App | Phone / e-mail | State |
 |---|---|---|

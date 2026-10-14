@@ -36,9 +36,9 @@ test.describe('passenger', () => {
     await page.goto(URLS.passenger + '/phone');
     await tid(page, 'phone-input').fill('677123456');
     await tid(page, 'send-code').click();
-    // The code arrives like an SMS (an in-app message on the web); tapping it fills and verifies the code.
+    // Nothing is prefilled or shown on the code screen. The mock API accepts any 6-digit code; the 6th digit verifies.
     await expect(tid(page, 'otp-input')).toHaveValue('');
-    await tid(page, 'sms-code').click();
+    await tid(page, 'otp-input').fill('482913');
     await tid(page, 'first-name').fill('Yasmine');
     await tid(page, 'last-name').fill('Kabbaj');
     await tid(page, 'birth-date').fill('01051998');

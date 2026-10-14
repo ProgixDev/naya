@@ -18,7 +18,8 @@ export const START = '2026-10-01T08:00:00.000Z';
 const dataDirs: string[] = [];
 afterAll(() => { for (const dir of dataDirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
-export function setup(scenario: ScenarioId = 'default') {
+/** `devMode: false` is the API under NAYA_DEV=0: no /dev routes, and only the code it generated signs in. */
+export function setup(scenario: ScenarioId = 'default', { devMode = true }: { devMode?: boolean } = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), 'naya-test-'));
   dataDirs.push(dataDir);
   const clock = new ManualClock(START);
@@ -26,7 +27,7 @@ export function setup(scenario: ScenarioId = 'default') {
   const ctx: Ctx = {
     store,
     clock,
-    config: { devMode: true, otpMode: 'fixed', providerSecret: 'test-secret', dataDir, providerDelaySeconds: { payment: 3, withdrawalConfirm: 8, withdrawalFail: 5 } },
+    config: { devMode, otpMode: devMode ? 'any' : 'random', providerSecret: 'test-secret', dataDir, providerDelaySeconds: { payment: 3, withdrawalConfirm: 8, withdrawalFail: 5 } },
   };
   const app = createApp(ctx);
   let keyCounter = 0;
@@ -49,7 +50,8 @@ export function setup(scenario: ScenarioId = 'default') {
 
   async function login(phone: string, role: 'passenger' | 'driver') {
     await ok('POST', '/auth/otp/request', { body: { phone, role } });
-    const r = await ok('POST', '/auth/otp/verify', { body: { phone, role, code: '123456' } });
+    // Mock mode: any 6-digit code signs in (ADR-0058).
+    const r = await ok('POST', '/auth/otp/verify', { body: { phone, role, code: '482913' } });
     return r.token as string;
   }
 

@@ -81,8 +81,8 @@ await tid('onboarding-next').click();
 await tid('phone-input').fill('661234567');
 await shot('D02-phone');
 await tid('send-code').click();
-// The code arrives as an in-app message about 1.6 s after sending (web): wait for it to be in the shot.
-await page.waitForTimeout(2500);
+// The code screen shows no code: wait for the transition to finish before the shot.
+await page.waitForTimeout(1500);
 await shot('D03-otp');
 await tid('send-code').isVisible().catch(() => false);
 

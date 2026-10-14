@@ -10,7 +10,8 @@ const OTP_RESEND_S = 30;
 const OTP_MAX_ATTEMPTS = 5;
 const USER_SESSION_DAYS = 30;
 const ADMIN_SESSION_HOURS = 12;
-export const DEMO_OTP = '123456';
+/** A sign-in code is six digits. In mock mode any code of this shape signs in (ADR-0058). */
+export const OTP_FORMAT = /^\d{6}$/;
 
 export const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
 
@@ -32,7 +33,9 @@ export function requestOtp(ctx: Ctx, phone: string, role: MobileRole) {
     if (existing && Date.parse(existing.resendAvailableAt) > now) {
       throw new DomainError('OTP_RATE_LIMITED', undefined, { retryAfterSeconds: Math.ceil((Date.parse(existing.resendAvailableAt) - now) / 1000) });
     }
-    const code = ctx.config.otpMode === 'fixed' ? DEMO_OTP : String(randomInt(0, 1_000_000)).padStart(6, '0');
+    // Every challenge stores the hash of a random code. With NAYA_DEV=0 it is printed to the server console, the
+    // stand-in for an SMS provider. In mock mode nothing is sent and any 6-digit code signs in (codeMatches).
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     if (ctx.config.otpMode === 'random') console.info(`[otp] ${phone} (${role}) → ${code}`);
     s.otps = s.otps.filter((o) => !(o.phone === phone && o.role === role));
     const challenge = {
@@ -47,11 +50,18 @@ export function requestOtp(ctx: Ctx, phone: string, role: MobileRole) {
     return {
       expiresAt: challenge.expiresAt,
       resendAvailableAt: challenge.resendAvailableAt,
-      /** Dev mode only (there is no SMS provider): the apps deliver it on the device like a text message (packages/ui/src/features/auth.tsx). */
-      demoCode: ctx.config.otpMode === 'fixed' ? code : null,
-      delivery: ctx.config.otpMode === 'fixed' ? ('demo' as const) : ('console' as const),
+      delivery: ctx.config.otpMode === 'any' ? ('demo' as const) : ('console' as const),
     };
   });
+}
+
+/** Mock mode (dev mode, and always on the device): any 6-digit code. Otherwise only the code that was sent. */
+function codeMatches(ctx: Ctx, codeHash: string, phone: string, code: string) {
+  if (!OTP_FORMAT.test(code)) return false;
+  if (ctx.config.otpMode === 'any') return true;
+  const a = Buffer.from(codeHash);
+  const b = Buffer.from(sha256(`${phone}:${code}`));
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export function verifyOtp(ctx: Ctx, phone: string, role: MobileRole, code: string) {
@@ -61,9 +71,7 @@ export function verifyOtp(ctx: Ctx, phone: string, role: MobileRole, code: strin
     const ch = s.otps.find((o) => o.phone === phone && o.role === role);
     if (!ch || Date.parse(ch.expiresAt) <= now) return 'expired' as const;
     if (ch.attempts >= OTP_MAX_ATTEMPTS) return 'locked' as const;
-    const a = Buffer.from(ch.codeHash);
-    const b = Buffer.from(sha256(`${phone}:${code}`));
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    if (!codeMatches(ctx, ch.codeHash, phone, code)) {
       ch.attempts += 1;
       return ch.attempts >= OTP_MAX_ATTEMPTS ? ('locked' as const) : ('invalid' as const);
     }

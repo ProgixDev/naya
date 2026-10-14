@@ -29,7 +29,8 @@ So code under `src/` (except `main.ts` and `cli.ts`) must run under Metro too: i
    Booking, money, SOS and family POSTs go through `idempotent(ctx, c, subjectId, input, () => …)`.
 4. Client: a method in `packages/api/src/client.ts` (pass the key for idempotent routes) and its response type.
 5. Query key in `packages/api/src/keys.ts` (`['naya', accountId, …]`); invalidate it after the mutation.
-6. Test in `test/*.test.ts` with `setup()` from `test/harness.ts`: fixed OTP 123456, `login()`, `adminLogin()`,
+6. Test in `test/*.test.ts` with `setup()` from `test/harness.ts`: any 6-digit OTP (`setup(s, { devMode: false })` for
+   the NAYA_DEV=0 code check), `login()`, `adminLogin()`,
    `advance(seconds)`. Every POST gets an Idempotency-Key automatically; pass `key: false` to test the missing-key path.
 7. Admin configuration change: `reasonSchema` (≥ 10 chars) + `expectedVersion` (throw `CONFLICT` on mismatch) +
    `appendAudit` with `before` and `after` (see `updateRules` in `src/services/cities.ts`).
@@ -51,7 +52,7 @@ So code under `src/` (except `main.ts` and `cli.ts`) must run under Metro too: i
 - **Responses** carry `X-Server-Time` (clients correct clock skew with it) and `Cache-Control: no-store`.
 
 ## NAYA_DEV and /dev routes
-- Dev mode is on unless `NAYA_DEV=0` (`src/main.ts:13`). It enables the fixed OTP 123456 and registers `/dev/*`:
+- Dev mode is on unless `NAYA_DEV=0` (`src/main.ts:13`). It makes any 6-digit OTP sign in (`otpMode: 'any'`) and registers `/dev/*`:
   scenarios, reset, clock/advance, tick, providers, bot, tracking freeze/resume, provider-jobs, navigate, sample-upload.
 - Embedded builds and tests always run in dev mode. With `NAYA_DEV=0`, `NAYA_PROVIDER_SECRET` must be set or the server exits.
 - Env vars are read from the process only (no dotenv): `PORT`, `NAYA_DEV`, `NAYA_PROVIDER_SECRET`, `NAYA_DATA_DIR`,

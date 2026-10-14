@@ -17,8 +17,8 @@ All people, documents, vehicles and events are fictional. Identity documents are
 
 | What | Value | Where it works |
 |---|---|---|
-| SMS code (OTP) | `123456` | Any API in dev mode: `pnpm api` unless `NAYA_DEV=0`, every standalone build, tests |
-| Delivery | About 1.6 s after « Recevoir le code », a notification « Naya » (« Votre code de connexion Naya : 123456 »), or, when notifications are not allowed and on the web, a message card « Nouveau message · Naya » on the code screen. Tapping either fills and verifies the code; iOS also offers it above the keyboard (one-time-code autofill). | Wherever the API returns the code (dev mode). With `NAYA_DEV=0` nothing is delivered on the device (`packages/ui/src/features/auth.tsx`). |
+| SMS code (OTP) | Any 6 digits, for any number, seeded or new (`123456`, `482913`, …). Letters or another length are refused (« Le code contient 6 chiffres »). | Any API in dev mode: `pnpm api` unless `NAYA_DEV=0`, every standalone build, tests (`otpMode: 'any'`, `services/demo-api/src/services/auth.ts`) |
+| Delivery | Nothing: no SMS, no notification, no message on the code screen, nothing prefilled. The screen asks for the code « Envoyé par SMS au … » and verifies on the 6th digit (decided 14 Oct 2026, ADR-0058). | With `NAYA_DEV=0` only the random code printed to the API's stdout (`[otp] …`) signs in. |
 
 There is no « compte démo » shortcut: type the number of a mock account below, or any other valid number.
 

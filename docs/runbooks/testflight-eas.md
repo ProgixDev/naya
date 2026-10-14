@@ -13,8 +13,8 @@ Last verified: 2026-10-13 against HEAD c38429d.
 - Flags, both apps: `EXPO_PUBLIC_DEMO=1`, `EXPO_PUBLIC_STANDALONE=1`, `EXPO_PUBLIC_REVIEW=0`.
   Never point a TestFlight build at localhost or at the placeholder `https://api.naya.example`.
 - Tester flow (since 14 Oct 2026, ADR-0058): type a mock account's number (Salma +212 6 12 34 56 78 in the passenger
-  app, Amina +212 6 61 23 45 67 in the driver app) or any other valid number; the code 123456 arrives as a notification
-  « Naya » (or a message card when notifications are off). Other numbers follow the sign-up and are approved on the
+  app, Amina +212 6 61 23 45 67 in the driver app) or any other valid number, then any 6-digit code (no SMS is sent and
+  none is shown). Other numbers follow the sign-up and are approved on the
   phone 20–40 s after sending the dossier. The apps show no demo wording: tell testers the build runs on mock data.
   Release builds have no scenario launcher; to start over, delete and reinstall the app.
 - Testers' data persists across launches. **A `schemaVersion` change in the demo store wipes it on the next launch**

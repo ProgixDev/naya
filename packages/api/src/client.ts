@@ -87,7 +87,7 @@ export interface MeResponse {
 export interface OtpRequestResponse {
   expiresAt: string;
   resendAvailableAt: string;
-  demoCode: string | null;
+  /** 'demo': mock mode, no SMS is sent and any 6-digit code signs in (ADR-0058). 'console': NAYA_DEV=0, the code is in the API log. */
   delivery: 'demo' | 'console' | 'sms';
 }
 

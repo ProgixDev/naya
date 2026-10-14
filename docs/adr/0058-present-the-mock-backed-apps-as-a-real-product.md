@@ -23,8 +23,8 @@ as a real app but with mock data we can add. » The backend stays a mock: the de
 simulated providers and bots (ADR-0011, ADR-0012). Only what people see changes.
 
 This replaces the labelling invariant for the UI. It also replaces the « shown with a "Démo" label » clause of
-ADR-0021 (the rest of ADR-0021 stands: phone + OTP, fixed code in dev mode, hashed codes, expiry, lockout) and the
-label clauses of the Proposed ADR-0035 (item 7), ADR-0040 and ADR-0044 (item 5).
+ADR-0021 (the rest of ADR-0021 stands: phone + OTP, hashed codes, expiry, lockout; its fixed code in dev mode is
+replaced by item 2 below) and the label clauses of the Proposed ADR-0035 (item 7), ADR-0040 and ADR-0044 (item 5).
 
 ## Decision
 
@@ -33,8 +33,11 @@ Present the passenger app, the driver app and the admin as a real product runnin
 1. **No demo wording in the UI.** No « Démo », « démo », « démonstration », « simulé(e) », « Simuler », « exemple de
    démo », « compte démo », test-card hints or scenario-launcher entry anywhere a user or an operator looks. Internal
    identifiers stay (`DEMO_MODE`, `NAYA_DEV`, `demo-api`, `/dev` routes, provider ids `demo-*`, `tok_demo_*`).
-2. **Mock outcomes happen on their own.** Sign-in codes arrive like an SMS (a local notification « Naya », or an
-   in-app message card when notifications are off and on the web). Payments, recharges, top-ups and withdrawals are
+2. **Mock outcomes happen on their own.** Sign-in needs no delivered code: in mock builds any 6-digit code signs in,
+   for any number, seeded or new (amended 14 Oct 2026, owner: « any 6-digit code be accepted »; this replaces the
+   code first delivered on the device as a local notification « Naya » or an in-app message card). The code screen
+   reads « Entrez le code » / « Envoyé par SMS au … », shows, suggests or prefills no code and never hints that any
+   code works. Letters or another length are refused. Payments, recharges, top-ups and withdrawals are
    answered by the mock provider after a short, realistic delay. In standalone builds the on-device reviewer takes a
    new dossier up and approves it 20–40 s after submission. Bots act behind the scenes and their timeline lines read
    like real events.
@@ -43,10 +46,10 @@ Present the passenger app, the driver app and the admin as a real product runnin
    enregistrée » and offers the 19 call, without claiming that a team was notified. « Appeler le 19 (police) » is
    always a real call.
 4. **Mock outcomes exist only in mock builds**, that is builds that talk to the demo API (embedded on the phone or
-   `pnpm api`): the timed provider answers, the on-device reviewer and the bots come from it. The fixed code and its
-   delivery on the device, the stand-in proof photos and `/dev` also need dev mode (`NAYA_DEV` unset or `1`, always
-   on in the embedded API). A production build talks to a production backend with real providers (ADR-0045) and must
-   not ship the demo API (P9, UI-04).
+   `pnpm api`): the timed provider answers, the on-device reviewer and the bots come from it. The any-code sign-in,
+   the stand-in proof photos and `/dev` also need dev mode (`NAYA_DEV` unset or `1`, always on in the embedded API);
+   with `NAYA_DEV=0` only the random code the API generated (printed to its log) signs in. A production build talks
+   to a production backend with real providers (ADR-0045) and must not ship the demo API (P9, UI-04).
 5. **Mock data is data.** Mock records live in `services/demo-api/src/seed.ts` (`MOCK_FAMILIES`, accounts, cards,
    payout accounts, vehicles), in `services/demo-api/fixtures/` and in `packages/assets/mock/` (photos), never inside
    screens.
@@ -63,9 +66,11 @@ Present the passenger app, the driver app and the admin as a real product runnin
   approved; corrections and refusals come only from a person in the admin (connected mode).
 - Some deterministic test hooks stay but are never mentioned in the UI: the card tokens ending 0002 (declined) and
   3155 (left pending), the payout account ending 0000 (refused), `/dev/providers/...` to force an outcome.
-- The e2e suite drives the new flows: the code arrives in the `sms-code` card, documents are imported through
-  `import-photo`, recharges show `recharge-processing` until the timed answer, a refusal is forced through the dev
-  API, Salma's family is seeded. Runbooks e2e.md and demo-data.md describe them.
+- Anyone who knows a number can open that account on a mock build. Acceptable for mock data only; it is one more
+  reason a mock build must never hold real people's data (item 4, P9).
+- The e2e suite drives the new flows: any 6 digits typed into `otp-input` sign in (S01 types `482913`), documents
+  are imported through `import-photo`, recharges show `recharge-processing` until the timed answer, a refusal is
+  forced through the dev API, Salma's family is seeded. Runbooks e2e.md and demo-data.md describe them.
 - Stores seeded before this change keep their old labels until a reset (plates « DÉMO-00x », « Carte de
   démonstration », « (démo) » provider names in past records). The server cleans card and provider labels on read;
   `POST /dev/reset` or `pnpm demo:reset` reseeds. A schemaVersion bump is not used (it would wipe testers' data).
@@ -84,8 +89,11 @@ Present the passenger app, the driver app and the admin as a real product runnin
 
 Changes on branch `integration/trial-2026-10-14` after `7393e27`.
 
-- Sign-in code delivery: `packages/ui/src/features/auth.tsx` (`deliverSignInCode`, `sms-code`); tested by
-  `packages/ui/src/__tests__/auth.test.tsx` and `e2e/tests/passenger-flows.spec.ts` (S01).
+- Any-code sign-in: `services/demo-api/src/services/auth.ts` (`otpMode: 'any'`, `codeMatches`) and
+  `packages/ui/src/features/auth.tsx` (no delivery, no notification permission prompt); tested by
+  `services/demo-api/test/scenarios.test.ts` (« OTP in mock mode … », « OTP with NAYA_DEV=0 … »),
+  `services/demo-api/test/embedded.test.ts`, `packages/ui/src/__tests__/auth.test.tsx` and
+  `e2e/tests/passenger-flows.spec.ts` (S01).
 - On-device reviewer: `services/demo-api/src/embedded.ts` (`REVIEW_PICKUP_MS`, `reviewDelayMs`); tested by
   `services/demo-api/test/embedded.test.ts`.
 - Timed provider answers: `services/demo-api/src/services/finance.ts` (`createRecharge`, `deliverDueProviderJobs`),

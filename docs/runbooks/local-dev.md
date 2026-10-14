@@ -55,7 +55,7 @@ line to where its process reads it:
 | `NEXT_PUBLIC_MAP_TILE_URL`, `NEXT_PUBLIC_MAP_ATTRIBUTION` | website, baked into the build | `apps/web/.env.local` |
 
 Today, the flags are opt-out (P9): a missing `EXPO_PUBLIC_DEMO` or `EXPO_PUBLIC_STANDALONE` means "demo, standalone",
-and the API runs in dev mode (fixed OTP 123456, `/dev/*` routes) unless `NAYA_DEV=0`. Setting `NAYA_DEV=0` in a root
+and the API runs in dev mode (any 6-digit OTP, `/dev/*` routes) unless `NAYA_DEV=0`. Setting `NAYA_DEV=0` in a root
 `.env` has no effect.
 
 ## Runtime modes in one table

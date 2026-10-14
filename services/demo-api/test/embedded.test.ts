@@ -20,10 +20,11 @@ function setup(role: 'passenger' | 'driver') {
     transport: (url, init) => runtime.fetch(url, init), uploadUrl: (id) => runtime.uploadUrl(id, token) });
   return { client, clock, network,
     restart: () => { runtime = createEmbeddedDemo({ dataDir: folder, role, clock }); },
-    login: async (phone = role === 'passenger' ? '+212612345678' : '+212661234567') => {
+    /** No code is handed to the app: any 6-digit code signs in on the device (ADR-0058). */
+    login: async (phone = role === 'passenger' ? '+212612345678' : '+212661234567', code = '482913') => {
       const otp = await client.auth.requestOtp(phone, role);
-      expect(otp.demoCode).toBe('123456');
-      const login = await client.auth.verifyOtp(phone, role, otp.demoCode!); token = login.token; return login;
+      expect(otp).not.toHaveProperty('demoCode');
+      const login = await client.auth.verifyOtp(phone, role, code); token = login.token; return login;
     },
   };
 }
@@ -86,6 +87,23 @@ describe('standalone demo with all network calls blocked', () => {
     expect((await h.client.me.get()).user.firstName).toBe('Naya');
     expect(existsSync(h.client.uploadUrl(upload.id))).toBe(true);
     expect(h.network).not.toHaveBeenCalled();
+  });
+
+  it('signs in with any 6-digit code on the device, for seeded and new accounts, and refuses other shapes', async () => {
+    const pax = setup('passenger');
+    expect((await pax.login('+212612345678', '000000')).user.firstName).toBe('Salma');
+    expect((await pax.login('+212677000321', '999999')).isNew).toBe(true);
+    await pax.client.auth.requestOtp('+212677000322', 'passenger');
+    for (const code of ['12a456', '12345']) {
+      await expect(pax.client.auth.verifyOtp('+212677000322', 'passenger', code)).rejects.toMatchObject({
+        code: 'VALIDATION', status: 422, details: { fields: { code: 'Le code contient 6 chiffres' } },
+      });
+    }
+    expect((await pax.client.auth.verifyOtp('+212677000322', 'passenger', '730146')).isNew).toBe(true);
+    const drv = setup('driver');
+    expect((await drv.login('+212661234567', '271828')).user.firstName).toBe('Amina');
+    expect(pax.network).not.toHaveBeenCalled();
+    expect(drv.network).not.toHaveBeenCalled();
   });
 
   it('runs a passenger trip to completion using a local simulated driver', async () => {

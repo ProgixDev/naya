@@ -18,7 +18,8 @@ export async function resetScenario(scenario = 'default') {
 export async function tokenFor(phone: string, role: 'passenger' | 'driver') {
   const ctx = await api();
   await ctx.post('/auth/otp/request', { data: { phone, role } });
-  const r = await ctx.post('/auth/otp/verify', { data: { phone, role, code: '123456' } });
+  // The API runs in dev mode (mock): any 6-digit code signs in.
+  const r = await ctx.post('/auth/otp/verify', { data: { phone, role, code: '730146' } });
   const body = await r.json();
   await ctx.dispose();
   return { token: body.token as string, accountId: body.user.id as string };

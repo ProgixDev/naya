@@ -26,7 +26,7 @@ const ctx: Ctx = {
   clock,
   config: {
     devMode,
-    otpMode: devMode ? 'fixed' : 'random',
+    otpMode: devMode ? 'any' : 'random',
     providerSecret,
     dataDir,
     providerDelaySeconds: { payment: 3, withdrawalConfirm: 8, withdrawalFail: 5 },

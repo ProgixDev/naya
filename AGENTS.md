@@ -58,7 +58,7 @@ Driver money: services/demo-api/src/services/finance.ts + packages/domain/src/wa
 - Production: the EAS production profile sets EXPO_PUBLIC_DEMO=0 and a placeholder URL
   (https://api.naya.example). Nothing answers there.
 - Today: flags are opt-out. A missing variable means demo + standalone, and API dev mode
-  (OTP 123456, /dev routes) is on unless NAYA_DEV=0 (P9, ADR-0044).
+  (any 6-digit sign-in code, /dev routes) is on unless NAYA_DEV=0 (P9, ADR-0044).
 - Env files are per process: apps/<app>/.env*; release bundles read
   apps/<app>/.env.production.local; admin reads apps/admin/.env*; the API reads only its
   process environment. Today: the root .env is read by nothing (QA-09).
@@ -78,9 +78,9 @@ Driver money: services/demo-api/src/services/finance.ts + packages/domain/src/wa
 - Business dates via packages/domain/src/time.ts (Africa/Casablanca); store UTC ISO.
   Morocco is on UTC+0 during Ramadan: never hard-code +1.
 - No demo wording in the apps or the admin (ADR-0058, 14 Oct 2026; replaces « Label every simulation »):
-  no « Démo », « simulé », « Simuler », test-card hints or visible dev tools. Mock outcomes (sign-in code, provider
-  answers, on-device review, bots) happen on their own and exist only in mock builds (the demo API; the code and
-  /dev also need dev mode). Copy stays true for the mode it runs in: never claim what did not happen (standalone
+  no « Démo », « simulé », « Simuler », test-card hints or visible dev tools. Mock outcomes (provider answers,
+  on-device review, bots) happen on their own and exist only in mock builds (the demo API). In dev mode any 6-digit
+  sign-in code works and nothing shows or prefills one; that and /dev need dev mode. Copy stays true for the mode it runs in: never claim what did not happen (standalone
   SOS reaches no desk); the 19 call is real. Mock records live in services/demo-api/src/seed.ts,
   services/demo-api/fixtures and packages/assets/mock, never in screens. Internal identifiers (DEMO_MODE,
   NAYA_DEV, demo-api, /dev, demo-* ids) keep their names.

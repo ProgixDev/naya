@@ -165,7 +165,7 @@ verification document.
 | Démo (badge or banner) | retired on 14 Oct 2026: the apps and the admin show no demo label; mock outcomes happen on their own and copy stays true per mode ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)). Docs call the seeded records « mock data » | `DEMO_MODE` (`packages/ui/src/core/apiBase.ts`); `DemoBadge` was removed |
 | standalone | native demo build with the demo API in-process | `STANDALONE_DEMO`, `EXPO_PUBLIC_STANDALONE` |
 | connected | apps call the demo API on :4010 | `EXPO_PUBLIC_API_URL` |
-| dev mode | fixed OTP `123456`, `/dev` routes, self-confirm routes | `NAYA_DEV`, `ctx.config.devMode` |
+| dev mode | any 6-digit OTP signs in, `/dev` routes, self-confirm routes | `NAYA_DEV`, `ctx.config.devMode` |
 | prototype (in code) | the Oct 6 feedback features: categories, Famille, passenger wallet, SOS, dispute reasons, demo payment options | `packages/domain/src/prototype.ts`, `services/demo-api/src/services/prototype.ts`, `/prototype/*` routes |
 | en ligne / hors ligne | driver presence | `DriverPresence.online` (`services/demo-api/src/state.ts`) |
 | journal d’audit | append-only, hash-chained audit log | `AuditEvent` (`entities.ts`), `services/demo-api/src/audit.ts` |

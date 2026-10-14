@@ -29,7 +29,7 @@ export function createEmbeddedDemo(options: { dataDir: string; role: MobileRole;
   const clock = options.clock ?? new Clock();
   const store = Store.load(join(options.dataDir, 'demo-v1.json'), () => buildSeed(options.dataDir, 'default', clock.now()));
   const ctx: Ctx = { store, clock, config: {
-    devMode: true, otpMode: 'fixed', dataDir: options.dataDir,
+    devMode: true, otpMode: 'any', dataDir: options.dataDir,
     providerSecret: 'on-device-fictional-demo',
     providerDelaySeconds: { payment: 3, withdrawalConfirm: 8, withdrawalFail: 5 },
   } };

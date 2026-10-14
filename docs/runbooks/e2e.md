@@ -44,7 +44,7 @@ reuses any you already started:
 - **Your own `pnpm api` gets wiped.** If an API already answers on :4010, Playwright reuses it, and every spec calls
   `POST /dev/reset` on it (`e2e/tests/helpers.ts`). Stop your API first if you care about its data. The API that
   Playwright starts itself writes to `.data/e2e`, so your `.data/db.json` is left alone.
-- The API must run in dev mode (`/dev/reset` and the fixed OTP only exist then).
+- The API must run in dev mode (`/dev/reset` and the any-code sign-in only exist then).
 - Expo web bundles on the first request, so the first test of a cold run is slow; the config allows 300 s per Expo server
   to start. The bundle itself is built inside the first test's 90 s, so on CI (`CI` set) each test is retried once and a
   cold-bundle timeout shows as flaky in the report. Locally there are no retries.
@@ -77,8 +77,8 @@ without giving each worker its own API.
 - Reset the scenario at the start of each test that changes data.
 - The apps show no demo shortcuts since 14 Oct 2026 ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)),
   so specs drive the real flows:
-  - Sign-in code: nothing is prefilled. On the web the message card `sms-code` appears about 1.6 s after
-    « Recevoir le code »; clicking it fills and verifies the code. Typing `123456` into `otp-input` also verifies.
+  - Sign-in code: nothing is prefilled or shown. Fill any 6 digits into `otp-input` (S01 uses `482913`); the 6th digit
+    verifies. `tokenFor()` signs in through the API with another arbitrary code.
   - Documents: import a fixture (`import-photo`, then the file chooser, then `use-photo`); there is no skip.
   - Payments, recharges and top-ups: the mock provider answers on its own (3 s for a card, 8 s for an agency) by server
     time; call `POST /dev/clock/advance` or wait. A card recharge shows `recharge-processing` until then. Force a

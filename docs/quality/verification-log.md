@@ -118,3 +118,8 @@ here instead of copying numbers. What each layer covers: [testing-strategy.md](t
 | 2026-10-14 | 1aaf679 (fix/demo-blockers-portable) | `pnpm --filter @naya/admin build` | pass (vite 8.3.1, 2,100 modules) | Claude (demo-blockers) |
 | 2026-10-14 | 1aaf679 (fix/demo-blockers-portable) | `node scripts/docs/gen-api-reference.mjs --check` | pass: up to date, 156 routes | Claude (demo-blockers) |
 | 2026-10-14 | 1aaf679 (fix/demo-blockers-portable) | `pnpm e2e` | not run: ports in use by the simulator review (4010, 8081, 8082) | Claude (demo-blockers) |
+| 2026-10-14 | edc5cd3 + local changes (any 6-digit sign-in code) | `pnpm typecheck` | pass: 11 packages | Claude (any-code sign-in) |
+| 2026-10-14 | edc5cd3 + local changes (any 6-digit sign-in code) | `pnpm --filter @naya/demo-api test` | pass: 104/104 (8 files; includes another session's uncommitted `devOnlyMoney.test.ts`) | Claude (any-code sign-in) |
+| 2026-10-14 | edc5cd3 + local changes (any 6-digit sign-in code) | `CI=1 pnpm --filter @naya/passenger test` | pass: 25/25 (3 suites) | Claude (any-code sign-in) |
+| 2026-10-14 | edc5cd3 + local changes (any 6-digit sign-in code) | `pnpm lint` | pass: 0 errors; passenger 3 warnings (2 unused imports, 1 React Compiler skip in `(verify)/identity.tsx`), driver 0; none in changed files | Claude (any-code sign-in) |
+| 2026-10-14 | edc5cd3 + local changes (any 6-digit sign-in code) | `pnpm e2e` | not run: ports 4010, 8081, 8082 in use by the simulator review; e2e typechecks | Claude (any-code sign-in) |

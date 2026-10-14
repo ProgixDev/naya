@@ -49,8 +49,8 @@ Not covered: `prototype.ts` (catalog, `FAMILY_NEXT`, SOS transitions), `time.ts`
 ### API scenarios (vitest)
 
 `services/demo-api/test/harness.ts` builds the real app per test on a seeded in-memory store, with a `ManualClock`
-that starts at 2026-10-01 08:00 UTC, the fixed OTP and dev mode on. `call()` adds an `Idempotency-Key` to every POST
-unless you pass `key: false`. `advance(seconds)` moves the clock and runs the timers. Temp data directories are removed
+that starts at 2026-10-01 08:00 UTC, dev mode on and any 6-digit OTP accepted (`setup(s, { devMode: false })` runs
+the NAYA_DEV=0 code check). `call()` adds an `Idempotency-Key` to every POST unless you pass `key: false`. `advance(seconds)` moves the clock and runs the timers. Temp data directories are removed
 after each file.
 
 | File | Covers |

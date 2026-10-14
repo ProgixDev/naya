@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { mad, PLACES } from '@naya/domain';
 import { verifyAuditChain } from '../src/audit';
+import { verifyOtp } from '../src/services/auth';
 import { AGDAL_TRIP, JPEG_B64, PHONES, setup } from './harness';
 
 type H = ReturnType<typeof setup>;
@@ -658,13 +659,71 @@ describe('platform guarantees', () => {
     expect((await h.call('POST', '/admin/finance/corrections', { token: agent, body: { driverId: 'DR-001', amount: 100, reason: 'Tentative sans permission.' } })).status).toBe(403);
   });
 
-  it('OTP: wrong code, rate limit and expiry', async () => {
+  it('OTP in mock mode: any 6-digit code signs in any number; other shapes, resend timer and expiry are enforced', async () => {
     const h = setup();
-    await h.ok('POST', '/auth/otp/request', { body: { phone: PHONES.salma, role: 'passenger' } });
-    expect((await h.call('POST', '/auth/otp/request', { body: { phone: PHONES.salma, role: 'passenger' } })).body.error.code).toBe('OTP_RATE_LIMITED');
-    expect((await h.call('POST', '/auth/otp/verify', { body: { phone: PHONES.salma, role: 'passenger', code: '000000' } })).body.error.code).toBe('OTP_INVALID');
+    const salma = { phone: PHONES.salma, role: 'passenger' };
+    const sent = await h.ok('POST', '/auth/otp/request', { body: salma });
+    expect(sent.delivery).toBe('demo');
+    expect(sent).not.toHaveProperty('demoCode');
+    expect((await h.call('POST', '/auth/otp/request', { body: salma })).body.error.code).toBe('OTP_RATE_LIMITED');
+    for (const code of ['12a456', '12345', '1234567', '']) {
+      const r = await h.call('POST', '/auth/otp/verify', { body: { ...salma, code } });
+      expect(r.status).toBe(422);
+      expect(r.body.error).toMatchObject({ code: 'VALIDATION', details: { fields: { code: 'Le code contient 6 chiffres' } } });
+    }
+    // The service refuses a malformed code too, whatever the caller validated.
+    expect(() => verifyOtp(h.ctx, PHONES.salma, 'passenger', '12a456')).toThrow(expect.objectContaining({ code: 'OTP_INVALID' }));
+    const existing = await h.ok('POST', '/auth/otp/verify', { body: { ...salma, code: '000000' } });
+    expect(existing).toMatchObject({ isNew: false, user: { firstName: 'Salma' } });
+    // A code signs in once: a second sign-in starts with a new request.
+    expect((await h.call('POST', '/auth/otp/verify', { body: { ...salma, code: '000000' } })).body.error.code).toBe('OTP_EXPIRED');
+    const fresh = { phone: '+212677000555', role: 'driver' };
+    await h.ok('POST', '/auth/otp/request', { body: fresh });
+    const created = await h.ok('POST', '/auth/otp/verify', { body: { ...fresh, code: '999999' } });
+    expect(created).toMatchObject({ isNew: true, user: { role: 'driver', phone: fresh.phone } });
+    // Codes still expire after 5 minutes.
+    await h.ok('POST', '/auth/otp/request', { body: { phone: PHONES.amina, role: 'driver' } });
     h.advance(301);
-    expect((await h.call('POST', '/auth/otp/verify', { body: { phone: PHONES.salma, role: 'passenger', code: '123456' } })).body.error.code).toBe('OTP_EXPIRED');
+    expect((await h.call('POST', '/auth/otp/verify', { body: { phone: PHONES.amina, role: 'driver', code: '482913' } })).body.error.code).toBe('OTP_EXPIRED');
+  });
+
+  it('OTP with NAYA_DEV=0: only the code that was sent, lockout after 5 wrong codes, expiry', async () => {
+    const log = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    try {
+      const h = setup('default', { devMode: false });
+      const lastCode = () => /→ (\d{6})$/.exec(String(log.mock.calls.at(-1)?.[0]))![1]!;
+      const other = (code: string, n = 1) => String((Number(code) + n) % 1_000_000).padStart(6, '0');
+      const salma = { phone: PHONES.salma, role: 'passenger' };
+      const sent = await h.ok('POST', '/auth/otp/request', { body: salma });
+      expect(sent).toMatchObject({ delivery: 'console' });
+      expect(sent).not.toHaveProperty('demoCode');
+      const code = lastCode();
+      expect((await h.call('POST', '/auth/otp/request', { body: salma })).body.error.code).toBe('OTP_RATE_LIMITED');
+      expect((await h.call('POST', '/auth/otp/verify', { body: { ...salma, code: other(code) } })).body.error).toMatchObject({
+        code: 'OTP_INVALID', message: 'Code incorrect. Vérifiez le SMS et réessayez.',
+      });
+      expect((await h.call('POST', '/auth/otp/verify', { body: { ...salma, code: '12a456' } })).status).toBe(422);
+      expect((await h.ok('POST', '/auth/otp/verify', { body: { ...salma, code } })).isNew).toBe(false);
+
+      const amina = { phone: PHONES.amina, role: 'driver' };
+      await h.ok('POST', '/auth/otp/request', { body: amina });
+      const aminaCode = lastCode();
+      for (let i = 1; i <= 4; i++) {
+        expect((await h.call('POST', '/auth/otp/verify', { body: { ...amina, code: other(aminaCode, i) } })).body.error.code).toBe('OTP_INVALID');
+      }
+      expect((await h.call('POST', '/auth/otp/verify', { body: { ...amina, code: other(aminaCode, 5) } })).body.error).toMatchObject({
+        code: 'OTP_RATE_LIMITED', message: 'Trop de tentatives. Demandez un nouveau code.',
+      });
+      expect((await h.call('POST', '/auth/otp/verify', { body: { ...amina, code: aminaCode } })).body.error.code).toBe('OTP_RATE_LIMITED');
+
+      const nour = { phone: PHONES.nour, role: 'passenger' };
+      await h.ok('POST', '/auth/otp/request', { body: nour });
+      const nourCode = lastCode();
+      h.advance(301);
+      expect((await h.call('POST', '/auth/otp/verify', { body: { ...nour, code: nourCode } })).body.error.code).toBe('OTP_EXPIRED');
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('corrections require permission, a reason, and are audited with before/after', async () => {

@@ -21,7 +21,7 @@ Why native demo builds embed the API: [ADR-0012](../adr/0012-native-demo-builds-
 Two more ways the same `createApp()` runs, for completeness:
 
 - **vitest**: `services/demo-api/test/harness.ts` calls `app.request()` in-process with a `ManualClock`, dev mode on,
-  a fixed OTP and an in-memory store (no file), and adds an `Idempotency-Key` to every POST unless a test opts out.
+  any 6-digit OTP accepted (`setup(s, { devMode: false })` checks the real code) and an in-memory store (no file), and adds an `Idempotency-Key` to every POST unless a test opts out.
 - **Playwright e2e**: the `api` entry of `webServer` in `e2e/playwright.config.ts` starts the Node API with
   `NAYA_DEV=1` and `NAYA_DATA_DIR=services/demo-api/.data/e2e`, so the specs' resets never touch your own demo data.
   It reuses a server already running on the URL, and then resets *that* one.
@@ -87,7 +87,7 @@ In code:
 
 Since 14 Oct 2026 neither flag shows any demo wording ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)):
 « Utiliser un compte démo », the welcome « Démo » badge, the Compte « Lanceur de scénarios » row and « Passer · exemple
-de démonstration » are gone. The sign-in code is delivered on the device whenever the API returns it (dev mode), and
+de démonstration » are gone. In dev mode any 6-digit sign-in code works and the device shows none, and
 mock outcomes (provider answers, on-device review) come from the API, not from a flag in the app. The embedded backend is
 still bundled into every native build, production included, because `Providers.tsx:18` imports `./localDemo`
 unconditionally (backlog P9, UI-04, [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md)).
@@ -100,7 +100,7 @@ A missing variable turns the demo **on**:
 |---|---|
 | `EXPO_PUBLIC_DEMO` | demo UI shown (`DEMO_MODE` true) |
 | `EXPO_PUBLIC_STANDALONE` | native builds run standalone |
-| `NAYA_DEV` | API dev mode (`services/demo-api/src/main.ts:13`): fixed OTP 123456 (returned as `demoCode`, which prefills the code screen), `/dev/*` routes registered with no authentication, an admin may resolve any provider reference through `/provider-sandbox` (`app.ts:609-610`), and the Famille demo paths open up: `POST /prototype/family/example`, a passenger advancing her own family trip, the `demo-arrival-photo` proof (`services/prototype.ts`) |
+| `NAYA_DEV` | API dev mode (`services/demo-api/src/main.ts:13`): any 6-digit OTP signs in (`otpMode: 'any'`; no code is returned or shown), `/dev/*` routes registered with no authentication, `POST /provider-sandbox/:kind/:ref/:outcome` and `POST /prototype/wallet/:id/resolve` registered (a payer may settle her own pending payment, recharge or top-up, an admin any provider reference; with `NAYA_DEV=0` they answer 404, API-03), and the Famille demo paths open up: `POST /prototype/family/example`, a passenger advancing her own family trip, the `demo-arrival-photo` proof (`services/prototype.ts`) |
 | `NAYA_PROVIDER_SECRET` | `demo-provider-secret-change-me`; accepted only in dev mode — with `NAYA_DEV=0` the server exits (`main.ts:15-20`) |
 
 The Node server also listens on `0.0.0.0` (`main.ts:45`), so anyone on the same network can reach a dev-mode API
@@ -118,7 +118,7 @@ The Node server also listens on `0.0.0.0` (`main.ts:45`), so anyone on the same 
 | `EXPO_PUBLIC_MAP_TILE_URL`, `EXPO_PUBLIC_MAP_ATTRIBUTION` | `packages/ui/src/map/TileMap.tsx:23-24` | OpenStreetMap tiles | raster tiles for web and key-less Android |
 | `GOOGLE_MAPS_ANDROID_KEY` | `apps/*/app.config.ts:3` | Android uses the tile fallback | written into the native project at prebuild |
 | `PORT` | `services/demo-api/src/main.ts:14` | 4010 | Node API port |
-| `NAYA_DEV` | `main.ts:13` | dev mode on | `'0'` turns off the fixed OTP and `/dev/*` |
+| `NAYA_DEV` | `main.ts:13` | dev mode on | `'0'` turns off the any-code sign-in (random code in the log) and `/dev/*` |
 | `NAYA_PROVIDER_SECRET` | `main.ts:15` | `demo-provider-secret-change-me` | HMAC secret for `POST /providers/:provider/callback` |
 | `NAYA_DATA_DIR` | `main.ts:12`, `services/demo-api/src/cli.ts:8` | `services/demo-api/.data` | where `db.json` and uploads live |
 | `NAYA_APPLE_AUTH_CONFIGURED`, `NAYA_GOOGLE_AUTH_CONFIGURED` | `services/demo-api/src/app.ts:246-247` | off | `GET /auth/providers` advertises social sign-in (no verification exists) |
@@ -138,7 +138,7 @@ ones or the Playwright URLs), but **no process reads a root `.env`** (backlog QA
 | Process | Started by | Reads | When |
 |---|---|---|---|
 | Demo API (Node) | `pnpm api` → `tsx watch src/main.ts` | the shell environment only; no dotenv | at start |
-| Demo API (in-process) | the native app | nothing: config is hard-coded in `embedded.ts:18-22` (dev mode, fixed OTP, a fictional provider secret) | — |
+| Demo API (in-process) | the native app | nothing: config is hard-coded in `embedded.ts:18-22` (dev mode, any 6-digit OTP, a fictional provider secret) | — |
 | Expo, Metro dev server | `expo start` (`NODE_ENV=development`) | `apps/<app>/.env.development.local`, `.env.local`, `.env.development`, `.env`; the first file in this list that sets a variable wins, and the shell wins over every file (`@expo/env`) | bundle time |
 | Expo, Release bundle (Xcode Release, `expo export`) | `NODE_ENV=production` | `apps/<app>/.env.production.local`, `.env.local`, `.env.production`, `.env`. The shell's `EXPO_PUBLIC_*` do not reach an Xcode Release bundle ([ios-simulator.md](../runbooks/ios-simulator.md)) | bundle time |
 | EAS build | `eas build --profile <name>` | the profile's `env` in `apps/<app>/eas.json` | build time |
