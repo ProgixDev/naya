@@ -1,8 +1,8 @@
 # End-to-end tests (Playwright)
 
 How to run the Playwright suite in `e2e/` against the real apps. Owner: build owner.
-Last verified: 2026-10-13 against `e2e/playwright.config.ts` on branch `chore/docs-foundation-and-fixes`, with a full
-run that started all four servers through the `webServer` block. Check the file if this page and the config disagree.
+Last verified: 2026-10-14 against `e2e/playwright.config.ts` on branch `integration/trial-2026-10-14`, with a full
+run that started all four servers on alternate ports (4510/8581/8582/5673) through the `webServer` block. Check the file if this page and the config disagree.
 Results go in
 [docs/quality/verification-log.md](../quality/verification-log.md), never here.
 
@@ -53,7 +53,15 @@ reuses any you already started:
 - Without the `webServer` block (checkouts older than this branch), start the four commands above by hand before
   `pnpm e2e`.
 - Other URLs: set `API_URL`, `PASSENGER_URL`, `DRIVER_URL`, `ADMIN_URL`. A custom Chromium:
-  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. `E2E_DATA_DIR` sets where an API that Playwright starts keeps its data
+  (default `services/demo-api/.data/e2e`).
+- Beside a running stack (for example a simulator review on :4010, :8081 and :8082), move all four so nothing is
+  reused or reset:
+
+  ```bash
+  API_URL=http://localhost:4510 PASSENGER_URL=http://localhost:8581 DRIVER_URL=http://localhost:8582 \
+  ADMIN_URL=http://localhost:5673 E2E_DATA_DIR=/tmp/naya-e2e pnpm e2e
+  ```
 
 ## Why runs are serial
 
@@ -67,6 +75,18 @@ without giving each worker its own API.
   it writes the session to sessionStorage) and the admin with `adminLogin()` (`admin-helpers.ts`); call the API with
   `tokenFor()` / `adminToken()`. Type the OTP flow only in a test about sign-in.
 - Reset the scenario at the start of each test that changes data.
+- The apps show no demo shortcuts since 14 Oct 2026 ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)),
+  so specs drive the real flows:
+  - Sign-in code: nothing is prefilled. On the web the message card `sms-code` appears about 1.6 s after
+    « Recevoir le code »; clicking it fills and verifies the code. Typing `123456` into `otp-input` also verifies.
+  - Documents: import a fixture (`import-photo`, then the file chooser, then `use-photo`); there is no skip.
+  - Payments, recharges and top-ups: the mock provider answers on its own (3 s for a card, 8 s for an agency) by server
+    time; call `POST /dev/clock/advance` or wait. A card recharge shows `recharge-processing` until then. Force a
+    refusal with `POST /dev/providers/<kind>/<ref>/fail` (refs from `GET /dev/provider-jobs`).
+  - Naya Famille: Salma's family is seeded in every scenario. On the web, `famille-pickup-camera` and
+    `famille-dropoff-camera` attach the stand-in photo at once.
+  - SOS in connected mode: the sheet says the alert reached the « équipe sécurité » (`sos-recorded`); the admin shows
+    « Alerte déclenchée · position enregistrée ».
 - Admin dialogs: type with `page.keyboard.type`. `fill()` sets the value directly and hides focus bugs such as P3.
 - One behaviour per test. `scenarios-feedback.spec.ts` is one 240 s test, so a failure hides every later check (a
   low-severity finding in the [audit findings](../audits/2026-10-13-full-audit-findings.md); the Oct 6 coverage gaps are QA-05).

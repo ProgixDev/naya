@@ -48,6 +48,7 @@ If the wallet is brought back later (option b), it must follow this model:
 
 - At launch, passengers pay cash or card. The payment wording (P14) only has two cases to get right.
 - The client's wallet request is deferred, not refused. Demo builds keep showing it, labelled « Démo ».
+  *Replaced on 14 Oct 2026 by [ADR-0058](0058-present-the-mock-backed-apps-as-a-real-product.md): no label; the mock provider answers top-ups on its own.*
 - A mobile wallet run by an operator or PSP can still be a payment method through the PSP. It is not a Naya-held balance.
 - The loophole that turns self-created money into withdrawable driver credit closes.
 - The wallet code stays in demo builds, and moves into its own module if it is kept ([ADR-0039](0039-future-of-the-prototype-module.md)).

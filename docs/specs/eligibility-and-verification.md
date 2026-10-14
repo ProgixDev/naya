@@ -3,7 +3,7 @@ title: "Eligibility and verification"
 status: Current
 owner: Achraf
 last_verified: 2026-10-13 @ c38429d
-related: [ADR-0015, ADR-0018, ADR-0019, ADR-0029, ADR-0034, ADR-0036, ADR-0043, ADR-0055, P6, P17, PRD-34, DOC-06, DOM-06, DOM-07, ADM-07, ADM-19, API-12, API-14, API-16, specs/family.md, docs/tasks/2026-10-13.md]
+related: [ADR-0058, ADR-0015, ADR-0018, ADR-0019, ADR-0029, ADR-0034, ADR-0036, ADR-0043, ADR-0055, P6, P17, PRD-34, DOC-06, DOM-06, DOM-07, ADM-07, ADM-19, API-12, API-14, API-16, specs/family.md, docs/tasks/2026-10-13.md]
 ---
 
 # Eligibility and verification
@@ -18,7 +18,7 @@ Who may use Naya and how that is established: the identity review of passagères
 
 Naya is sold as a women-only service (`README.md:3`). **The code does not define or check that rule anywhere** (R6). It is backlog P6, decision [D1](../status/open-questions.md#d1-women-only-eligibility), and [ADR-0034](../adr/0034-women-only-eligibility-and-verification-policy.md) (Proposed).
 
-Out of scope: sign-in and OTP (planned `specs/accounts-and-auth.md`), which service categories a vehicle may serve ([ADR-0043](../adr/0043-category-vehicle-eligibility-and-scooter-scope.md)), Naya Famille children and recipients ([family.md](family.md)), document storage and retention (planned `specs/privacy-and-data.md`).
+Out of scope: sign-in and OTP (planned `specs/accounts-and-auth.md`; until it exists, [ADR-0021](../adr/0021-demo-authentication.md) and [ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md): any valid number signs in or opens an account, and in mock builds the code arrives on the device like a text message, with no « compte démo » shortcut), which service categories a vehicle may serve ([ADR-0043](../adr/0043-category-vehicle-eligibility-and-scooter-scope.md)), Naya Famille children and recipients ([family.md](family.md)), document storage and retention (planned `specs/privacy-and-data.md`).
 
 ## Actors
 
@@ -28,7 +28,7 @@ Out of scope: sign-in and OTP (planned `specs/accounts-and-auth.md`), which serv
 | Chauffeuse | driver app, `(onboard)` group and `docs/` routes | Fills two independent dossiers: herself (identity and licence) and her vehicle. |
 | Reviewer | apps/admin `/verifications` | `people.read` lists and opens cases. `verification.decide` takes a case, decides, and opens the document files. |
 | Demo API | services/demo-api | Stores cases, runs the state machine, enforces every gate below. |
-| Simulated reviewer | standalone native builds | Approves a case submitted on the device after 3 s (`services/demo-api/src/embedded.ts:39-48`). |
+| On-device reviewer (mock) | standalone native builds | Takes a case submitted on the device up after 6 s and approves it 20–40 s after submission; never requests a correction or refuses (`REVIEW_PICKUP_MS`, `reviewDelayMs` in `services/demo-api/src/embedded.ts`; changed 14 Oct 2026, [ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)). |
 
 ## Rules
 
@@ -224,8 +224,8 @@ Before building these:
 
 | Aspect | Demo today | Live needs |
 |---|---|---|
-| Documents | Fictitious fixtures in the seed (`services/demo-api/src/seed.ts:116-122`, `:139-178`). With the demo flag on, each capture step offers « Passer · exemple de démonstration », which attaches a fictional specimen (`packages/ui/src/features/capture.tsx:82-90`, `:160-161`). The admin says « Documents et selfies fictifs · aucune identité réelle. » (`apps/admin/src/pages/CaseReview.tsx:105`). | Encrypted KYC storage with a retention policy and a CNDP declaration ([status/integrations.md](../status/integrations.md#sign-in-and-identity); [ADR-0045](../adr/0045-production-backend-and-live-integrations.md)). |
-| Review | Manual in apps/admin when the app talks to the demo API. Standalone native builds approve a locally submitted case after 3 s with « Validation simulée pour cette démonstration sur votre appareil. » (`services/demo-api/src/embedded.ts:39-48`; tested by `services/demo-api/test/embedded.test.ts:47`). | Staffed reviewers. The apps promise « moins de 24 h » (`apps/passenger/src/app/(verify)/verification-status.tsx:100`) and « moins de 24 h ouvrées » (`apps/driver/src/app/docs/status.tsx:14`). |
+| Documents | Fictitious fixtures in the seed (`services/demo-api/src/seed.ts`). Since 14 Oct 2026 there is no « Passer » shortcut: every piece is taken with the camera or imported (`packages/ui/src/features/capture.tsx`), and the admin describes the pieces as « Pièces transmises avec la demande. » (`apps/admin/src/pages/CaseReview.tsx`) with no « fictifs » wording ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)). Before that date: with the demo flag on, each capture step offered « Passer · exemple de démonstration », which attached a fictional specimen (`packages/ui/src/features/capture.tsx:82-90`, `:160-161` at `c38429d`), and the admin said « Documents et selfies fictifs · aucune identité réelle. » | Encrypted KYC storage with a retention policy and a CNDP declaration ([status/integrations.md](../status/integrations.md#sign-in-and-identity); [ADR-0045](../adr/0045-production-backend-and-live-integrations.md)). |
+| Review | Manual in apps/admin when the app talks to the demo API. Standalone native builds have an on-device reviewer: « Vérification en cours » after 6 s, approval 20–40 s after submission, with no « simulée » message (`services/demo-api/src/embedded.ts`; tested by `services/demo-api/test/embedded.test.ts:47`). Before 14 Oct 2026 it approved after 3 s with « Validation simulée pour cette démonstration sur votre appareil. » | Staffed reviewers. The apps promise « moins de 24 h » (`apps/passenger/src/app/(verify)/verification-status.tsx:100`) and « moins de 24 h ouvrées » (`apps/driver/src/app/docs/status.tsx:14`). |
 | Authenticity | No check that a document is genuine, no liveness, no face match. | A KYC vendor or a written manual procedure (audit section 8.3). |
 | Women-only rule | Not checked (R6). | The ADR-0034 policy, with a legal opinion for Morocco. |
 

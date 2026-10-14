@@ -162,7 +162,7 @@ verification document.
 
 | Term | Meaning | Code |
 |---|---|---|
-| Démo (badge or banner) | marks anything simulated; never present a simulation as live | `DemoBadge`, `DEMO_MODE` (`packages/ui/src/core/apiBase.ts`) |
+| Démo (badge or banner) | retired on 14 Oct 2026: the apps and the admin show no demo label; mock outcomes happen on their own and copy stays true per mode ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)). Docs call the seeded records « mock data » | `DEMO_MODE` (`packages/ui/src/core/apiBase.ts`); `DemoBadge` was removed |
 | standalone | native demo build with the demo API in-process | `STANDALONE_DEMO`, `EXPO_PUBLIC_STANDALONE` |
 | connected | apps call the demo API on :4010 | `EXPO_PUBLIC_API_URL` |
 | dev mode | fixed OTP `123456`, `/dev` routes, self-confirm routes | `NAYA_DEV`, `ctx.config.devMode` |

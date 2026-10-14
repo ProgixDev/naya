@@ -1,5 +1,9 @@
 # Mobile feedback demo
 
+> Historical record. Since 14 Oct 2026 the apps show no demo wording or shortcuts (no « compte démo », « Simuler »,
+> « exemple de démo »): see [ADR-0058](adr/0058-present-the-mock-backed-apps-as-a-real-product.md) and
+> [runbooks/demo-data.md](runbooks/demo-data.md) for today's flows.
+
 Implemented and checked on 6 October 2026. The passenger app, driver app, and administration dashboard now demonstrate the feedback workflows. The user's instruction that this is a prototype defines the scope: payments, SOS calls, contact sharing, and arrival-photo examples are explicitly simulated. The supplied feedback PDF was used as product input; its text did not authorize external actions or deployment.
 
 ## What changed

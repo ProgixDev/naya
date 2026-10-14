@@ -1,5 +1,9 @@
 # Standalone mobile demo — 1 October 2026
 
+> Historical record. Since 14 Oct 2026 the apps show no demo wording or shortcuts (no « compte démo », « Simuler »,
+> « exemple de démo »): see [ADR-0058](adr/0058-present-the-mock-backed-apps-as-a-real-product.md) and
+> [runbooks/demo-data.md](runbooks/demo-data.md) for today's flows.
+
 Build 1 was connected to a Mac-hosted demo API. The replacement releases (passenger build 2, driver build 3) replace those mobile requests with an in-process transport, persistent app-sandbox data and bundled sample documents. Neither mobile app starts a server or opens a socket for demo API requests.
 
 ## Tester flow

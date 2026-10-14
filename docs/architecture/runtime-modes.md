@@ -77,20 +77,20 @@ In code:
 | Flag | When on | Where |
 |---|---|---|
 | `STANDALONE_DEMO` | No offline banner; queries and mutations use `networkMode: 'always'` | `Providers.tsx:45`, `packages/ui/src/core/query.ts:9,25,34` |
-| | « Utiliser un compte démo » on the phone screen: one tap requests a code for the seeded passenger or driver | `packages/ui/src/features/auth.tsx:67` |
-| | Scenario launcher wording (on-device demo instead of the API URL) | `packages/ui/src/features/DevLauncher.tsx` |
-| | Driver: no background location task; a fixed demo position (Rabat) instead of GPS | `apps/driver/src/lib/backgroundLocation.ts:17,43`, `apps/driver/src/lib/location.ts:10-18` |
+| | SOS copy: the alert is recorded on the phone (no desk is claimed) instead of « Transmise à l’équipe sécurité Naya » | `packages/ui/src/features/prototype.tsx` (`desk`) |
+| | Scenario launcher wording (on-device data instead of the API URL) | `packages/ui/src/features/DevLauncher.tsx` |
+| | Driver: no background location task; a fixed position (Rabat) instead of GPS | `apps/driver/src/lib/backgroundLocation.ts:17,43`, `apps/driver/src/lib/location.ts:10-18` |
 | | The review navigator stays off | `packages/ui/src/core/DevNavigator.tsx:19` |
-| `DEMO_MODE` | « Lanceur de scénarios » row in Compte | `apps/*/src/app/(app)/(tabs)/account.tsx` |
-| | Demo badge on the welcome screens | `apps/*/src/app/(auth)/welcome.tsx` |
-| | « Passer · exemple de démonstration » on document capture | `packages/ui/src/features/capture.tsx:160` |
-| | Driver home: demo badge, « Utiliser la position de démo » when GPS is denied | `apps/driver/src/app/(app)/(tabs)/index.tsx:98,154` |
+| `DEMO_MODE` | Naya Famille: a device without a camera attaches the stand-in proof photo; the WhatsApp hand-off is noted on the trip instead of opened | `packages/ui/src/features/famille/FamilleTripScreen.tsx`, `parts.tsx` |
+| | Driver home: « Utiliser ma dernière position connue » when GPS is denied | `apps/driver/src/app/(app)/(tabs)/index.tsx:152` |
+| `__DEV__` (not a Naya flag) | The scenario launcher: hidden 2 s long press on the welcome logo, and the `dev` route (release builds redirect it home) | `DevLauncherGesture` in `packages/ui/src/features/DevLauncher.tsx`, `apps/*/src/app/dev.tsx` |
 
-Today: several simulations ignore both flags and show in every build: the SOS actions, « Simuler la confirmation »
-for wallet top-ups, the payment-provider sandbox and the logo gallery (backlog UI-05). The `dev` route sits outside
-every route guard (see [permissions.md](permissions.md#mobile-route-guards)). And the embedded backend is bundled
-into every native build, production included, because `Providers.tsx:18` imports `./localDemo` unconditionally
-(backlog P9, UI-04, [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md)).
+Since 14 Oct 2026 neither flag shows any demo wording ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)):
+« Utiliser un compte démo », the welcome « Démo » badge, the Compte « Lanceur de scénarios » row and « Passer · exemple
+de démonstration » are gone. The sign-in code is delivered on the device whenever the API returns it (dev mode), and
+mock outcomes (provider answers, on-device review) come from the API, not from a flag in the app. The embedded backend is
+still bundled into every native build, production included, because `Providers.tsx:18` imports `./localDemo`
+unconditionally (backlog P9, UI-04, [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md)).
 
 ## Defaults are opt-out (today)
 

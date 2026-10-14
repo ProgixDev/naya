@@ -2,7 +2,8 @@
 
 Naya is a women-only ride-hailing (VTC) service launching in Rabat, Morocco. This repo is a
 demo-grade product: passenger app, driver app, operations admin, marketing website and a demo
-API. Every external service (SMS, payments, identity review, telephony, push) is simulated.
+API. Every external service (SMS, payments, identity review, telephony, push) is simulated (mock data and
+mock providers), but the apps and the admin present themselves as a real product, with no demo wording (ADR-0058).
 There is no production backend. Docs index: [docs/README.md](docs/README.md).
 
 ## Repo map
@@ -41,7 +42,8 @@ Driver money: services/demo-api/src/services/finance.ts + packages/domain/src/wa
 - pnpm test                                every package's tests except @naya/e2e
 - pnpm e2e    Playwright on API :4010, passenger web :8081, driver web :8082, admin :5173, serially.
               Starts the servers that are not already running (webServer block; an API it starts keeps its
-              data in services/demo-api/.data/e2e). Specs reset the API they hit. See docs/runbooks/e2e.md.
+              data in services/demo-api/.data/e2e, or E2E_DATA_DIR). Specs reset the API they hit. Beside a
+              running stack, move all four with API_URL, PASSENGER_URL, DRIVER_URL, ADMIN_URL. See docs/runbooks/e2e.md.
 - Do not put `--` before flags: pnpm 12 forwards it to the tool literally.
 - Native deps: pnpm --filter @naya/<app> exec expo install <pkg>
 - Runbooks: docs/runbooks/ (local-dev, demo-data, ios-simulator, testflight-eas, e2e, troubleshooting).
@@ -75,7 +77,13 @@ Driver money: services/demo-api/src/services/finance.ts + packages/domain/src/wa
 - Customer copy in French, "vous", "passagère" / "chauffeuse". Currency MAD.
 - Business dates via packages/domain/src/time.ts (Africa/Casablanca); store UTC ISO.
   Morocco is on UTC+0 during Ramadan: never hard-code +1.
-- Label every simulation ("Démo"); never present one as live.
+- No demo wording in the apps or the admin (ADR-0058, 14 Oct 2026; replaces « Label every simulation »):
+  no « Démo », « simulé », « Simuler », test-card hints or visible dev tools. Mock outcomes (sign-in code, provider
+  answers, on-device review, bots) happen on their own and exist only in mock builds (the demo API; the code and
+  /dev also need dev mode). Copy stays true for the mode it runs in: never claim what did not happen (standalone
+  SOS reaches no desk); the 19 call is real. Mock records live in services/demo-api/src/seed.ts,
+  services/demo-api/fixtures and packages/assets/mock, never in screens. Internal identifiers (DEMO_MODE,
+  NAYA_DEV, demo-api, /dev, demo-* ids) keep their names.
 - Session tokens only in SecureStore (sessionStorage on Expo web). Query keys only via qk:
   ['naya', accountId, ...].
 - Admin permissions are enforced on the server; client route gates are cosmetic.
@@ -114,6 +122,11 @@ fix lands.
 - .gitignore ignores native projects only at /apps/*/ios/ and /apps/*/android/. A folder named ios
   elsewhere (docs/screens/ios) is not ignored: decide before committing captures (ADR-0052).
 - _handoff/ (original spec) and work/ (Xcode caches, archives) are local-only and git-ignored.
+- The scenario launcher (`dev` route) has no visible entry: long-press the welcome logo for 2 s, or open naya://dev /
+  naya-chauffeuse://dev, in __DEV__ builds only. Release builds (TestFlight) redirect the deep link home.
+- Stores seeded before 14 Oct 2026 keep old demo labels in their data (plates « DÉMO-00x », past rides paid with
+  « Carte de démonstration », no family for Salma) until POST /dev/reset or pnpm demo:reset. Phones keep theirs:
+  a schemaVersion bump would wipe testers' data.
 
 ## Where to look
 - docs/README.md — index, reading order, owners, last-verified dates.

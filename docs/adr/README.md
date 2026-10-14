@@ -4,7 +4,7 @@ One decision per file. Template: [0000-template.md](0000-template.md). An Accept
 
 Proposed ADRs are open decisions. Each maps to a question in [status/open-questions.md](../status/open-questions.md); accepting one means changing its status, filling in the decision and date, and updating the specs it touches.
 
-## Accepted (29)
+## Accepted (30)
 
 | ADR | Title | Status |
 |---|---|---|
@@ -37,6 +37,7 @@ Proposed ADRs are open decisions. Each maps to a question in [status/open-questi
 | [0030](0030-location-policy.md) | Location policy | Accepted |
 | [0031](0031-number-masking-is-the-only-planned-passenger.md) | Number masking is the only planned passenger–driver contact channel; no in-app chat | Accepted |
 | [0032](0032-apps-web-stack.md) | apps/web stack | Accepted |
+| [0058](0058-present-the-mock-backed-apps-as-a-real-product.md) | Present the mock-backed apps as a real product | Accepted |
 
 ## Proposed — waiting on a decision (28)
 

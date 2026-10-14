@@ -98,7 +98,7 @@ top. At each milestone (TestFlight upload, feature pass) walk this table and re-
 | Doc | Answers | Last verified | State |
 |---|---|---|---|
 | [runbooks/local-dev.md](runbooks/local-dev.md) | Install, ports, env files per process, runtime modes, demo reset | 2026-10-13 | New |
-| [runbooks/demo-data.md](runbooks/demo-data.md) | Demo accounts, OTP, test cards, scenarios | 2026-10-13 | New |
+| [runbooks/demo-data.md](runbooks/demo-data.md) | Mock data: accounts, sign-in code, cards and provider outcomes, scenarios, how to add mock records | 2026-10-14 | Rewritten for ADR-0058 |
 | [runbooks/ios-simulator.md](runbooks/ios-simulator.md) | Development and review builds on the Simulator, native captures | 2026-10-13 | New; commands checked, no build run |
 | [runbooks/testflight-eas.md](runbooks/testflight-eas.md) | Local archives, EAS profiles, build numbers, build log | 2026-10-13 | New |
 | [runbooks/e2e.md](runbooks/e2e.md) | Playwright: the four servers, ports, serial runs | 2026-10-13 | New |

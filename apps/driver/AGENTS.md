@@ -22,14 +22,15 @@ App-only code: `src/lib` (session, queries, prefs, location, backgroundLocation,
 | D10 | `(app)/ride-end/[id]` |
 | D11–D12 | `(app)/(tabs)/earnings`, `(app)/(tabs)/wallet` |
 | D13 | `(app)/ledger`, `(app)/ledger/[id]` |
-| D14 | `(app)/recharge`, `recharge/sandbox/[id]` (simulated PSP page), `recharge/[id]` |
+| D14 | `(app)/recharge`, `recharge/sandbox/[id]` (« Paiement en cours » modal while the mock provider answers; historical name), `recharge/[id]` |
 | D15 | `(app)/withdraw`, `withdraw/[id]` |
 | D16 | `(app)/rides`, `(app)/rides/[id]` |
 | D17 | `(app)/(tabs)/account`, `profile/vehicle`, `profile/preferences` (+ `ThemePicker` since Oct 6) |
 | D18 | `(app)/support`, `support/new`, `support/[id]` |
 
 Added on Oct 6 (89aae18), no Figma frame: `(app)/family` (`FamilyScreen role="driver"`), `(app)/brand`
-(6 logo concepts), and `dev` (`DevLauncher`; its account row shows only when DEMO_MODE).
+(6 logo concepts), and `dev` (`DevLauncher`; no visible entry since ADR-0058: 2 s long press on the welcome logo or
+naya-chauffeuse://dev, `__DEV__` builds only).
 
 ## Background location (src/lib/backgroundLocation.ts)
 - Only during an accepted ride (driver assigned → arrived → in progress), so the passenger sees the car on a locked

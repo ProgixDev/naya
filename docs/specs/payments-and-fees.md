@@ -3,7 +3,7 @@ title: "Payments and fees"
 status: Current
 owner: Achraf
 last_verified: 2026-10-13 @ c38429d
-related: [ADR-0003, ADR-0004, ADR-0009, ADR-0010, ADR-0018, ADR-0036, ADR-0040, ADR-0041, ADR-0042, ADR-0044, ADR-0045, ADR-0053, P7, P11, P14, P16, API-02, API-03, API-05, API-07, API-13, API-15, API-19, API-24, API-25, DOM-03, DOM-04, DOM-08, DOM-15, DRV-08, DRV-09, PRD-38, docs/FINANCE.md, specs/pricing-cities-categories.md]
+related: [ADR-0058, ADR-0003, ADR-0004, ADR-0009, ADR-0010, ADR-0018, ADR-0036, ADR-0040, ADR-0041, ADR-0042, ADR-0044, ADR-0045, ADR-0053, P7, P11, P14, P16, API-02, API-03, API-05, API-07, API-13, API-15, API-19, API-24, API-25, DOM-03, DOM-04, DOM-08, DOM-15, DRV-08, DRV-09, PRD-38, docs/FINANCE.md, specs/pricing-cities-categories.md]
 ---
 
 # Payments and fees
@@ -19,7 +19,9 @@ and how the passenger wallet works today. How the fare and the commission are co
 fixtures sections; this spec states the rules and links the tables. The passenger wallet is described as it exists, pending decision D5
 ([ADR-0040](../adr/0040-passenger-wallet-model.md)).
 
-Every provider is simulated. No real money moves anywhere in this repo.
+Every provider is simulated. No real money moves anywhere in this repo. Since 14 Oct 2026 the apps present the mock
+provider as a real one: it answers on its own after a short delay, and no screen shows « Simuler », a sandbox page or
+test-card numbers ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)).
 
 ## Actors
 
@@ -27,9 +29,9 @@ Every provider is simulated. No real money moves anywhere in this repo.
 |---|---|---|
 | Passagère | Passenger app: quote, payments, card form, receipt, cancel sheet, Portefeuille Naya | Chooses a method, adds a card, pays or retries, cancels, tops up her wallet |
 | Chauffeuse | Driver app: ride end, earnings, wallet, recharge, withdrawal | Confirms cash received, recharges to clear commission debt, withdraws |
-| Payment provider (simulated) | Signed callback `POST /providers/:provider/callback`, sandbox page `POST /provider-sandbox/...` | Confirms or refuses card payments, recharges and withdrawals |
+| Payment provider (mock) | Signed callback `POST /providers/:provider/callback`; timed jobs (`deliverDueProviderJobs`, `settleDueWalletTopups`); sandbox route `POST /provider-sandbox/...` (no screen calls it since 14 Oct 2026) | Confirms or refuses card payments, recharges, withdrawals and passenger top-ups |
 | Admin with `finance.read` / `finance.correct` | apps/admin `/finance` | Reads balances, pending and failed payments; posts exceptional corrections |
-| Admin with `config.edit` | apps/admin `/paiements`, `/services` | Switches providers per city; edits the demo payment options |
+| Admin with `config.edit` | apps/admin `/paiements`, `/services` | Switches providers per city; edits the payment options catalog |
 | Demo API | `services/demo-api/src/services/{rides,finance,prototype}.ts` | Creates payments, applies provider outcomes, posts the ledger |
 
 ## Rules
@@ -39,13 +41,15 @@ Line numbers are at commit `c38429d`.
 ### Payment methods
 
 **R1 · A passenger pays with one of four kinds: `cash`, `card`, `wallet` (Portefeuille Naya) or `mobile_wallet`
-(« Wallet marocain (démo) »). A card is stored as a provider token and its last 4 digits, never a card number.** ✅
+(« Wallet marocain »; « Wallet marocain (démo) » before 14 Oct 2026). A card is stored as a provider token and its last 4 digits, never a card number.** ✅
 
-The demo accepts only `tok_demo_NNNN` tokens and refuses the same token twice.
+The demo accepts only `tok_demo_NNNN` tokens and refuses the same token twice. The card form accepts any Luhn-valid
+number with a future expiry and shows no test numbers; a new card is labelled « Carte •••• NNNN » (`services/demo-api/src/app.ts`,
+`POST /payment-methods/card`).
 
 - Enforced at: `packages/domain/src/entities.ts:292-305`; `services/demo-api/src/app.ts:365-380` (add a card),
   `:608-614` (tokenize). [ADR-0018](../adr/0018-sensitive-data-minimisation.md).
-- Tested by: `e2e/tests/passenger-flows.spec.ts:280` (adds a sandbox card in the app and sees « Carte •••• 0077 »).
+- Tested by: `e2e/tests/passenger-flows.spec.ts:281` (adds a card in the app and sees « Carte •••• 0077 », « Expire 12/2029 »).
   The token format and duplicate checks are **not tested**.
 
 **R2 · Cash and card are offered only where the city has an enabled, configured ride provider of that kind.** ✅ ❓
@@ -237,7 +241,7 @@ régler avec votre prochaine course ».
 (`X-Naya-Signature`) and deduplicated by event id. Repeating the outcome that produced the current state is a no-op;
 a contradictory outcome is refused.** ✅
 
-Simulated outcomes (timed jobs, the sandbox page) use the same function.
+Mock outcomes (timed jobs, the dev tools, the sandbox route) use the same function.
 
 - Enforced at: `services/demo-api/src/app.ts:615-620`; `services/demo-api/src/services/finance.ts:73-82`, `:92-180`;
   `packages/domain/src/machines/transfer.ts:7-24`. [ADR-0010](../adr/0010-provider-outcomes-are-applied-through-one-code.md).
@@ -251,9 +255,10 @@ Simulated outcomes (timed jobs, the sandbox page) use the same function.
 **R22 · Only the provider confirms money. A payer can never confirm her own payment, recharge or top-up outside
 dev mode.** ⚠️ ❓
 
-Today the payer can approve her own card payment or recharge on the sandbox route in any mode, and the passenger
-confirms her own wallet top-up with no dev-mode check. Checked on 2026-10-13 with `devMode` off: a passenger created
-and confirmed a 100 000 MAD top-up herself.
+Today the payer can still approve her own card payment or recharge on the sandbox route in any mode, although no
+screen calls it since 14 Oct 2026. Checked on 2026-10-13 with `devMode` off: a passenger created and confirmed a
+100 000 MAD top-up herself. Since 14 Oct 2026 the top-up resolve route answers 404 outside dev mode, and the mock
+provider confirms every top-up on its own, so any top-up still becomes money (P7).
 
 - Enforced at: `services/demo-api/src/app.ts:593-607` (sandbox: the owner is always allowed);
   `services/demo-api/src/services/prototype.ts:494-517` (top-up resolve).
@@ -307,13 +312,16 @@ limit during a ride does not stop that ride.** ✅ ⚠️
 **R27 · Recharges: 10 to 5 000 MAD, one pending at a time, through an enabled recharge provider of her city. Only a
 confirmed outcome credits the wallet (`recharge:<id>`).** ✅ ⚠️
 
-The demo outcome is manual: the sandbox page stands in for the provider's checkout or agency counter.
+The mock outcome is timed: a card recharge is confirmed after 3 s (`providerDelaySeconds.payment`), any other after 8 s
+(`withdrawalConfirm`), while the app shows « Paiement en cours » or the agency reference (`createRecharge` in
+`services/demo-api/src/services/finance.ts`, since 14 Oct 2026; before that the sandbox page decided). A refusal
+can only be forced with `POST /dev/providers/recharge/<ref>/fail`.
 
 - Enforced at: `packages/domain/src/wallet.ts:70-74`; `services/demo-api/src/services/finance.ts:184-214`, `:102-115`;
   provider list at `services/demo-api/src/app.ts:563-568`.
 - Tested by: `services/demo-api/test/scenarios.test.ts:406` (S12), `:475` (S13). The amount limits are **not tested**.
 - Gap: every catalog save re-applies the demo options' enabled flags to the derived recharge providers (API-08,
-  PRD-19). The driver list showed « Carte bancaire (démo) » twice (PRD-20). On branch `chore/docs-foundation-and-fixes`
+  PRD-19). The driver list showed « Carte bancaire (démo) » twice (PRD-20; the « (démo) » suffix is gone since 14 Oct 2026). On branch `chore/docs-foundation-and-fixes`
   `prototypeProviders` keeps one card recharge provider per city and disables an existing copy (test:
   `services/demo-api/test/prototype.test.ts:418`); an admin who re-enables that copy on Paiements is overridden on the
   next `GET /payment-providers`. The mobile wallet is still a `cash_network` provider (PRD-20).
@@ -359,12 +367,14 @@ reserved = the pending debits. Both are stored on the record and recomputed on e
 - Tested by: `services/demo-api/test/prototype.test.ts:77`.
 - Gap: API-19; low-severity "Passenger wallet stores balance and reserved as fields" ([audit findings](../audits/2026-10-13-full-audit-findings.md#domain)).
 
-**R32 · A top-up of 10 to 100 000 MAD goes through a demo payment option enabled for the passenger's city
+**R32 · A top-up of 10 to 100 000 MAD goes through a payment option of the catalog enabled for the passenger's city
 (« Carte bancaire », « Wallet marocain / paiement mobile », « Cash Plus », « Wafacash »). It starts `pending`, and
-the passenger herself confirms or refuses it (« Simuler la confirmation », « Simuler le refus »).** ⚠️ ❓
+the mock provider confirms it on its own after 3 s (card, mobile wallet) or 8 s (agency). Until 14 Oct 2026 the
+passenger confirmed or refused it herself (« Simuler la confirmation », « Simuler le refus »).** ⚠️ ❓
 
-- Enforced at: `services/demo-api/src/services/prototype.ts:453-517`; `packages/ui/src/features/prototype.tsx:176`,
-  `:198-199`, `:267`, `:272`.
+- Enforced at: `services/demo-api/src/services/prototype.ts` (`POST /prototype/wallet/topup`, `settleDueWalletTopups`,
+  run by `deliverDueProviderJobs` on each tick); `packages/ui/src/features/prototype.tsx` (`PassengerWalletScreen`
+  polls while a top-up is pending).
 - Tested by: `services/demo-api/test/prototype.test.ts:77` (confirmed once; replay returns the same top-up).
 - Gap: P7 (API-03, PRD-12, UI-05). See R22.
 
@@ -438,7 +448,7 @@ The same terminal outcome again is a duplicate; the other one is refused.
 | Entry | From | Event | To |
 |---|---|---|---|
 | Top-up (+) | (none) | `POST /prototype/wallet/topup` | `pending` |
-| Top-up | `pending` | The passenger resolves it | `confirmed` or `failed` |
+| Top-up | `pending` | The mock provider answers (3 s or 8 s); dev tools can force either outcome | `confirmed` or `failed` |
 | Hold (−, `hold:<ref>`) | (none) | Booking, scheduling, method change or new search with the wallet | `pending` |
 | Hold | `pending` | Ride completed | `confirmed`, amount rewritten to the fare |
 | Hold | `pending` | Cancel, search timeout, scheduled cancel or expiry, method change | `failed` (released) |
@@ -446,11 +456,12 @@ The same terminal outcome again is a duplicate; the other one is refused.
 
 ## Demo vs live
 
-- **Card outcomes** depend on the test card's last 4 digits: confirmed after 3 s, refused, or pending until the
-  sandbox page resolves it ([runbooks/demo-data.md](../runbooks/demo-data.md#test-cards-salma);
+- **Card outcomes** depend on the card's last 4 digits, which no screen explains: confirmed after 3 s, refused (0002),
+  or pending until the dev tools resolve it (3155) ([runbooks/demo-data.md](../runbooks/demo-data.md#cards-and-payment-outcomes);
   `services/demo-api/src/services/rides.ts:520-526`).
-- **Recharges** wait for the sandbox page. **Withdrawals** confirm after 8 s, or fail after 5 s when the payout account
-  ends in 0000 (`services/demo-api/src/services/finance.ts:241-249`).
+- **Recharges** are confirmed after 3 s (card) or 8 s (agency). **Withdrawals** confirm after 8 s, or fail after 5 s
+  when the payout account ends in 0000 (`services/demo-api/src/services/finance.ts`). **Passenger top-ups** are
+  confirmed after 3 s or 8 s.
 - **Signed callbacks** use `NAYA_PROVIDER_SECRET`; the API refuses to start with the demo secret when `NAYA_DEV=0`
   (`services/demo-api/src/main.ts:15-20`). A « Prestataire carte (production) » ride provider is seeded disabled and
   unconfigured in each city (`services/demo-api/src/seed.ts:110`).
@@ -472,7 +483,7 @@ The same terminal outcome again is a duplicate; the other one is refused.
   [ADR-0041](../adr/0041-cash-and-fee-settlement.md).
 - **What do no-show, the arrival fee and an aborted ride cost?** (R13, R15)
   [ADR-0042](../adr/0042-ride-exception-paths.md).
-- **When does a demo payment route stay available?** Self-confirmation and the sandbox page (R22).
+- **When does a demo payment route stay available?** The sandbox route, which no screen calls any more (R22).
   [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md).
 - **When is an idempotency key rotated?** (R23) [ADR-0053](../adr/0053-idempotency-key-lifecycle.md).
 - **How is Naya Famille billed and its driver paid?** Subscriptions are never charged and family trips post nothing

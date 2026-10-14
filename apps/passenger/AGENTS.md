@@ -33,7 +33,7 @@ Added on Oct 6 (commit 89aae18), no Figma frame (listed at the end of the passen
 | `(app)/family` | `FamilyScreen role="passenger"` | Compte → « Naya Famille » |
 | `(app)/brand` | `BrandConceptsScreen` (6 logo concepts) | Compte → « Identité · 6 pistes » |
 | `(app)/preferences` | P13 plus `ThemePicker` (light / dark / system) | Compte → « Notifications » |
-| `dev` | `DevLauncher` (scenario launcher) | Compte → « Lanceur de scénarios » (row shown only when DEMO_MODE) |
+| `dev` | `DevLauncher` (scenario launcher) | No visible entry (ADR-0058): 2 s long press on the welcome logo, or naya://dev; `__DEV__` builds only |
 
 ## Expo rules (replaces the old AGENTS.expo.md)
 - Expo changes every SDK. Before touching an Expo or RN API, read https://docs.expo.dev/versions/v57.0.0/

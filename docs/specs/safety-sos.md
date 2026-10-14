@@ -3,7 +3,7 @@ title: "Safety and SOS"
 status: Current
 owner: Achraf
 last_verified: 2026-10-13 @ c38429d + branch chore/docs-foundation-and-fixes
-related: [ADR-0009, ADR-0017, ADR-0030, ADR-0035, ADR-0037, ADR-0039, ADR-0042, ADR-0044, ADR-0045, P2, P5, P9, ADM-03, API-04, DOM-05, DOM-11, PAX-03, PAX-11, PRD-06, PRD-23, PRD-24, UI-05, UI-17, DRV-13, VIS-01, VIS-02, VIS-23, VIS-24, specs/family.md]
+related: [ADR-0058, ADR-0009, ADR-0017, ADR-0030, ADR-0035, ADR-0037, ADR-0039, ADR-0042, ADR-0044, ADR-0045, P2, P5, P9, ADM-03, API-04, DOM-05, DOM-11, PAX-03, PAX-11, PRD-06, PRD-23, PRD-24, UI-05, UI-17, DRV-13, VIS-01, VIS-02, VIS-23, VIS-24, specs/family.md]
 ---
 
 # Safety and SOS
@@ -57,21 +57,21 @@ Out of scope: support tickets in the « Sécurité » category (planned `specs/s
 - Tested by: **not tested**.
 - Gap: P5, PAX-03.
 
-**R5 · The trusted contact is a free-text name, prefilled « Contact de confiance ». Nobody is contacted.** ⚠️ ❓
+**R5 · The trusted contact is an optional free-text name (« Aucun proche indiqué » when left empty, since 14 Oct 2026; « Contact de confiance » before). Naya contacts nobody: the reporter can share her position herself with « Prévenir un proche » (R6).** ⚠️ ❓
 
 - Enforced at: `packages/ui/src/features/prototype.tsx:62`, `:106-110`; `services/demo-api/src/services/prototype.ts:797`.
 - Tested by: **not tested**.
 - Gap: trusted contacts saved in the profile, with a phone number, are part of the live model to decide ([ADR-0035](../adr/0035-sos-production-model.md)).
 
-**R6 · After raising the alert, the reporter can log four actions on her own alert: « Appel urgence simulé », « Position partagée (simulation) », « Contact de confiance alerté (simulation) », « Support contacté (simulation) ». None of them calls, shares or sends anything.** ⚠️
+**R6 · Since 14 Oct 2026 the sheet offers two real actions, each logged on the alert once done: « Appeler le 19 (police) » opens `tel:19` (« Appel au 19 lancé »), and « Prévenir un proche » opens the phone's share sheet with a map link (« Position partagée avec un proche », logged only when shared). The copy is true for the mode it runs in ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)): connected builds say the alert is « Transmise à l’équipe sécurité Naya avec votre position »; standalone builds, which have no desk, say the alert and the position are recorded and never claim that a team was notified.** ✅ ⚠️
 
-The sheet is titled « SOS · démonstration », « Les appels et les envois sont simulés. » (`packages/ui/src/features/prototype.tsx:92-93`). It is shown in every build.
+The sheet is titled « SOS · sécurité » and shows no demo wording. Before 14 Oct 2026 it was titled « SOS · démonstration », « Les appels et les envois sont simulés. », and its four actions (« Appel urgence simulé », « Position partagée (simulation) », « Contact de confiance alerté (simulation) », « Support contacté (simulation) ») called and sent nothing; the server still accepts those names from older builds and records them under the new wording (`SOS_ACTION_LABELS`).
 
-- Enforced at: `services/demo-api/src/services/prototype.ts:853-876` (action list `:857-862`, own alert only `:869`); `packages/ui/src/features/prototype.tsx:125-138`.
-- Tested by: `services/demo-api/test/prototype.test.ts:226-229`; `e2e/tests/scenarios-feedback.spec.ts:55-60`.
+- Enforced at: `services/demo-api/src/services/prototype.ts` (`SOS_ACTION_LABELS`, `POST /prototype/sos/:id/action`, own alert only); `packages/ui/src/features/prototype.tsx` (`SafetyButton`: `callPolice`, `sharePosition`, `desk`).
+- Tested by: `services/demo-api/test/prototype.test.ts`; `e2e/tests/scenarios-feedback.spec.ts` (connected copy « équipe sécurité », `sos-call-police`; the admin sees « Alerte déclenchée · position enregistrée »).
 - Gap: not gated by demo mode (P9, UI-05, DRV-13; [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md)). The API uses the French labels as enum values ([ADR-0039](../adr/0039-future-of-the-prototype-module.md)).
 
-**R7 · The reporter keeps sight of her alert only while the sheet's screen stays mounted, and never sees the desk's response.** ⚠️
+**R7 · The reporter keeps sight of her alert only while the sheet's screen stays mounted. Since 14 Oct 2026, in connected mode, the open sheet polls the alert and shows the desk's status (« Prise en charge », « Résolue » with its note); standalone builds have no desk.** ⚠️
 
 The alert lives in component state (`packages/ui/src/features/prototype.tsx:61`). `GET /prototype/sos` returns her alerts with their current status (`services/demo-api/src/services/prototype.ts:847-852`; branch `:978-983`, which also carries the owner's name, `resolvedAt` and `resolutionNote`), but no screen calls it (`api.prototype.alerts`, `packages/api/src/client.ts`).
 
@@ -133,7 +133,7 @@ Hand-coded, no `makeMachine`. States: `new` (« Nouvelle »), `responding` (« P
 
 | From | Event | To | Who | Side effects |
 |---|---|---|---|---|
-| — | raise | `new` | reporter | First action « Alerte de démonstration créée · position enregistrée »; audit `sos.created` (`services/demo-api/src/services/prototype.ts:824-841`; branch `:921-977`). |
+| — | raise | `new` | reporter | First action « Alerte déclenchée · position enregistrée » (« Alerte de démonstration créée · position enregistrée » before 14 Oct 2026); audit `sos.created` (`services/demo-api/src/services/prototype.ts:824-841`; branch `:921-977`). |
 | any | reporter logs an action | unchanged | reporter | Action appended; audit `sos.action`. |
 | `new` | take charge | `responding` | `safety.respond`, or `config.edit` (R9) | Owner set; audit `sos.taken`. |
 | `new`, `responding` | close with a note | `resolved` | `safety.respond`, or `config.edit` (R9) | `resolvedAt`, `resolutionNote`; owner set if none; audit `sos.resolved`. |
@@ -147,12 +147,12 @@ The ride or trip status never changes (R8).
 
 | Aspect | Demo today | Live needs |
 |---|---|---|
-| Control and sheet | « SOS · démonstration » in every build, not gated (R2, R6). | The control and promise chosen in [ADR-0035](../adr/0035-sos-production-model.md). Audit default: one tap, danger style, a short cancel window. |
-| Emergency call | A log line, « Appel urgence simulé ». | A real call to confirmed numbers (R12). |
+| Control and sheet | « SOS · sécurité » in every build, with no demo wording since 14 Oct 2026 (R2, R6). | The control and promise chosen in [ADR-0035](../adr/0035-sos-production-model.md). Audit default: one tap, danger style, a short cancel window. |
+| Emergency call | A real `tel:19` call from the sheet, logged as « Appel au 19 lancé » (R6). | A real call to confirmed numbers (R12). |
 | Position | Driver position, pickup point, or the simulated trip position (R4). | The reporter's device GPS. The passenger app uses foreground location only ([ADR-0030](../adr/0030-location-policy.md)). |
-| Trusted contact | A name; nobody is contacted (R5). | Saved contacts with a phone number, and an SMS or a shared live-location link. |
-| Desk | Connected builds: the demo admin. Standalone builds keep the alert on the phone, although the sheet says « La position et les actions apparaîtront dans le back-office de démonstration. » (`packages/ui/src/features/prototype.tsx:96-100`; PRD-24). | A staffed desk with stated hours, an SLA, an escalation runbook, and a sound or push alert (audit section 8.5). |
-| Feedback to the reporter | None (R7). | Status polled or pushed into both apps ([ADR-0045](../adr/0045-production-backend-and-live-integrations.md) for remote push). |
+| Trusted contact | A name; Naya contacts nobody, the reporter shares her position herself through the share sheet (R5, R6). | Saved contacts with a phone number, and an SMS or a shared live-location link. |
+| Desk | Connected builds: the admin « Alertes SOS » page, and the sheet says so. Standalone builds keep the alert on the phone and the sheet says only that it is recorded (fixed 14 Oct 2026; PRD-24). | A staffed desk with stated hours, an SLA, an escalation runbook, and a sound or push alert (audit section 8.5). |
+| Feedback to the reporter | Connected builds: the desk's status while the sheet is open (R7). Nothing after it closes. | Status polled or pushed into both apps ([ADR-0045](../adr/0045-production-backend-and-live-integrations.md) for remote push). |
 | Effect on the ride | None (R8). | [ADR-0042](../adr/0042-ride-exception-paths.md). |
 | Retention | Alerts stay in the JSON store with no limit. | A retention rule for SOS records (planned `specs/privacy-and-data.md`). |
 

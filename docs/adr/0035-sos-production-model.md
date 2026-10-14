@@ -40,6 +40,7 @@ At `c38429d`, SOS looks finished but is a simulation in every build:
 5. Read the location from the device GPS while the alert is open. If there is no fix, fall back to the last ride position and label it.
 6. An alert never cancels the ride by itself. The desk can end a ride in progress through the abort path in [ADR-0042](0042-ride-exception-paths.md), with no charge to the passenger by default.
 7. Demo builds keep the simulation behind `DEMO_MODE`, with the « Démo » badge ([ADR-0044](0044-demo-gating-flag-defaults-and-the-production.md)). Standalone copy never mentions a back-office.
+   *Replaced on 14 Oct 2026 by [ADR-0058](0058-present-the-mock-backed-apps-as-a-real-product.md): no badge; the copy stays true per mode (desk in connected mode, « Alerte enregistrée » and the 19 call in standalone builds).*
 
 ## Consequences
 

@@ -3,7 +3,7 @@ title: "Naya Famille"
 status: Current
 owner: Achraf
 last_verified: 2026-10-13 @ c38429d + branch chore/docs-foundation-and-fixes
-related: [ADR-0007, ADR-0013, ADR-0018, ADR-0020, ADR-0030, ADR-0031, ADR-0034, ADR-0036, ADR-0037, ADR-0039, ADR-0044, ADR-0045, P1, P16, DOM-02, DOM-16, DOM-17, API-01, API-17, API-18, API-26, ADM-09, ADM-10, DOC-06, PRD-01, PRD-02, PRD-03, PRD-09, PRD-29, PRD-31, PRD-39, VIS-04, VIS-09, VIS-19, specs/eligibility-and-verification.md, specs/safety-sos.md, docs/tasks/2026-10-13.md]
+related: [ADR-0058, ADR-0007, ADR-0013, ADR-0018, ADR-0020, ADR-0030, ADR-0031, ADR-0034, ADR-0036, ADR-0037, ADR-0039, ADR-0044, ADR-0045, P1, P16, DOM-02, DOM-16, DOM-17, API-01, API-17, API-18, API-26, ADM-09, ADM-10, DOC-06, PRD-01, PRD-02, PRD-03, PRD-09, PRD-29, PRD-31, PRD-39, VIS-04, VIS-09, VIS-19, specs/eligibility-and-verification.md, specs/safety-sos.md, docs/tasks/2026-10-13.md]
 ---
 
 # Naya Famille
@@ -11,6 +11,16 @@ related: [ADR-0007, ADR-0013, ADR-0018, ADR-0020, ADR-0030, ADR-0031, ADR-0034, 
 **Status marks:** ✅ matches intent · ⚠️ known defect (backlog ID) · ❓ open (Proposed ADR). See [_template.md](_template.md).
 
 Line numbers refer to commit `c38429d`, except where a line says **(branch)**: those refer to branch `chore/docs-foundation-and-fixes` as checked on 2026-10-13, which changed the handover rules (R7, R13, R15) and moved lines in `services/demo-api/src/services/prototype.ts` and `packages/ui/src/features/prototype.tsx`.
+
+> **14 Oct 2026 ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)).** The apps present Naya
+> Famille as a real service: Salma's family (Lina, plan Famille Essentiel, Amina, a weekday school trip, codes 1234 and
+> 5678) is seeded in every scenario (`MOCK_FAMILIES` in `services/demo-api/src/seed.ts`); there is no « Charger
+> l’exemple de démo » button; proof buttons read « Prendre une photo » (a device without a camera attaches a stand-in,
+> shown to the parent as a photo from `packages/assets/mock/`); bot steps and timeline lines carry no « simulation » or
+> « (démo) » marker (old lines are shown without it, `timelineLabel` in `packages/ui/src/features/famille/parts.tsx`).
+> The rules below were written at `c38429d`, before the Famille module moved to `services/demo-api/src/services/famille.ts`
+> and `packages/ui/src/features/famille/` (parent approval, live position, drop-off photo); re-check them against
+> that code before relying on a line number.
 
 ## Purpose
 
@@ -104,7 +114,7 @@ She gets each recipient's id, name and relationship only; the parent keeps her c
 
 **R11 · Only the trip's chauffeuse moves it forward, one step at a time, from the status she last saw. In dev mode the parent can play her steps.** ✅
 
-- Enforced at: `services/demo-api/src/services/prototype.ts:650-667` (her trip; parent only in dev mode `:659-660`; stale status refused `:661-665`). The parent's card says « Simuler les étapes de la chauffeuse » (`packages/ui/src/features/prototype.tsx:659-663`).
+- Enforced at: `services/demo-api/src/services/prototype.ts:650-667` (her trip; parent only in dev mode `:659-660`; stale status refused `:661-665`). At `c38429d` the parent's card said « Simuler les étapes de la chauffeuse » (`packages/ui/src/features/prototype.tsx:659-663`); no screen offers it since 14 Oct 2026, and only the dev launcher plays a mock chauffeuse or parent.
 - Tested by: `services/demo-api/test/prototype.test.ts:142` "requires arrival proof, child identity and authorized handover, then recurs".
 - Gap: no check against the planned pickup time (API-26).
 
@@ -112,7 +122,7 @@ She gets each recipient's id, name and relationship only; the parent keeps her c
 
 What the photo must show is not specified. It is taken before the child is collected.
 
-- Enforced at: `services/demo-api/src/services/prototype.ts:669-687` (« Ajoutez la confirmation photo. »; simulated proof only in dev mode `:675-676`). Buttons « Photo d’arrivée (simulation) » and « Prendre une photo d’arrivée » (`packages/ui/src/features/prototype.tsx:671-694`).
+- Enforced at: `services/demo-api/src/services/prototype.ts:669-687` (« Ajoutez la confirmation photo. »; simulated proof only in dev mode `:675-676`). At `c38429d`: buttons « Photo d’arrivée (simulation) » and « Prendre une photo d’arrivée » (`packages/ui/src/features/prototype.tsx:671-694`). Since 14 Oct 2026 there is one camera button per proof; with the mock backend a device without a camera attaches the stand-in (`takePhoto` in `packages/ui/src/features/famille/FamilleTripScreen.tsx`).
 - Tested by: `services/demo-api/test/prototype.test.ts:158-166`.
 - Gap: the photo is stored as a support attachment (`packages/ui/src/features/prototype.tsx:685`; checked at `services/demo-api/src/services/prototype.ts:683`), so any admin with `support.resolve` or `config.edit` can open it, as can any admin with `verification.decide`, who can open every upload (`services/demo-api/src/services/uploads.ts:60-64`; PRD-29).
 
@@ -192,7 +202,7 @@ stateDiagram-v2
 | State (label) | Button | Next | Check | Side effects |
 |---|---|---|---|---|
 | `scheduled` (« Planifié ») | « Partir vers l’enfant » | `en_route` | status still current | Every step: timeline line, notification, audit `family.<next>`. |
-| `en_route` (« Chauffeuse en route ») | « Prendre une photo d’arrivée », or « Photo d’arrivée (simulation) » in dev mode | `arrived` | photo (R12) | `arrivalProof` stored. |
+| `en_route` (« Chauffeuse en route ») | « Prendre une photo d’arrivée » (a stand-in photo in dev mode on a device without a camera; « Photo d’arrivée (simulation) » before 14 Oct 2026) | `arrived` | photo (R12) | `arrivalProof` stored. |
 | `arrived` (« Chauffeuse arrivée ») | « Confirmer la prise en charge » | `picked_up` | first name matches (R13) | `pickupVerified` set. |
 | `picked_up` (« Enfant récupéré ») | « Démarrer le trajet » | `in_progress` | none (R14) | Position moves to the midpoint. |
 | `in_progress` (« Trajet en cours ») | « Confirmer la remise » | `completed` | recipient and code (R15) | `recipientId` stored; position moves to the destination; next recurring trip created (R10). |
@@ -206,9 +216,9 @@ Subscriptions are `active` from creation. The type also allows `paused` (`packag
 
 | Aspect | Demo today | Live needs |
 |---|---|---|
-| Data | No seed. « Charger l’exemple de démo » creates a child, a subscription and a trip, in dev mode only (`services/demo-api/src/services/prototype.ts:561-629`, refused at `:562` otherwise). | Real onboarding, with consent. |
-| Payment | « Activer en démo »; nothing is charged, the chauffeuse is not paid (R2, R19). | Billing and driver pay through the ledger ([ADR-0036](../adr/0036-naya-famille-operating-model.md)). |
-| Steps and proofs | The parent can play the chauffeuse; a simulated photo is accepted (R11, R12); dev mode only on the server. Dev mode is on unless `NAYA_DEV=0` (`services/demo-api/src/main.ts:13`) and always on in standalone builds (`services/demo-api/src/embedded.ts:19`). The buttons show in every build. | Gate the simulation ([ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md)). |
+| Data | Seeded: `MOCK_FAMILIES` in `services/demo-api/src/seed.ts` gives Salma a family in every scenario. The dev-only `POST /prototype/family/example` remains for tests; no button calls it (14 Oct 2026). | Real onboarding, with consent. |
+| Payment | Subscribing charges nothing and the chauffeuse is not paid (R2, R19); no « démo » wording since 14 Oct 2026. | Billing and driver pay through the ledger ([ADR-0036](../adr/0036-naya-famille-operating-model.md)). |
+| Steps and proofs | A mock bot can play the chauffeuse or the parent on trips started from the dev launcher; its steps read like real ones. A stand-in photo is accepted in dev mode only. Dev mode is on unless `NAYA_DEV=0` (`services/demo-api/src/main.ts:13`) and always on in standalone builds. No button or label shows any of this since 14 Oct 2026. | Real devices and real proofs; production builds without mock outcomes ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md), [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md)). |
 | Positions | Three fixed points on a Hay Riad → Agdal route (R9, R16). | Live GPS ([requested](#requested-founder-brief-13-oct), item 1). |
 | Updates | The screen polls every 4 s (`packages/ui/src/features/prototype.tsx:304`); notifications are written, never shown. | Push ([ADR-0045](../adr/0045-production-backend-and-live-integrations.md)) and a real-time model ([ADR-0013](../adr/0013-real-time-by-polling-with-local-notifications.md)). |
 | Admin | `config.edit` only, in the « Familles » tab. | A family permission ([ADR-0037](../adr/0037-admin-permission-model-for-the-new-features.md)). |

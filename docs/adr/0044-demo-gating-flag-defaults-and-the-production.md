@@ -44,6 +44,7 @@ At `c38429d` every switch fails open:
 3. **Keep the demo backend out of production bundles.** Load the embedded backend and its fixtures through a module that resolves to a stub unless the build is a demo build (a Metro resolver alias). Add a bundle check that fails if the demo API is in a production bundle.
 4. **Admin.** Show the demo-account panel only when `VITE_DEMO=1`. Turn off production sourcemaps.
 5. **Labels.** Mark any simulated surface with the « Démo » badge. Do not put "démo" wording inside buttons or data labels.
+   *Replaced on 14 Oct 2026 by [ADR-0058](0058-present-the-mock-backed-apps-as-a-real-product.md): no demo labels in the apps or the admin.*
 6. **Hosted demo.** It turns dev mode on explicitly, uses a CORS allow-list, and has no public link ([ADR-0038](0038-canonical-backoffice.md)).
 
 ## Consequences

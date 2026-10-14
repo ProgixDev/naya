@@ -178,30 +178,30 @@ The generator follows each handler into every function it calls inside `services
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| GET | `/prototype/family` | user (any role) | — | — | — |  | [services/famille.ts:551](../../services/demo-api/src/services/famille.ts#L551) |
-| POST | `/prototype/family/children` | passenger | — | — | inline zod |  | [services/famille.ts:555](../../services/demo-api/src/services/famille.ts#L555) |
-| POST | `/prototype/family/subscribe` | passenger | — | required | inline zod |  | [services/famille.ts:575](../../services/demo-api/src/services/famille.ts#L575) |
-| POST | `/prototype/family/trips` | passenger | — | required | inline zod |  | [services/famille.ts:580](../../services/demo-api/src/services/famille.ts#L580) |
-| POST | `/prototype/family/example` | user (any role) | — | — | — | 403 unless dev mode | [services/famille.ts:586](../../services/demo-api/src/services/famille.ts#L586) |
-| GET | `/prototype/family/trips/:id` | user (any role) | — | — | — |  | [services/famille.ts:600](../../services/demo-api/src/services/famille.ts#L600) |
-| GET | `/prototype/family/trips/:id/live` | user (any role) | — | — | — |  | [services/famille.ts:605](../../services/demo-api/src/services/famille.ts#L605) |
-| POST | `/prototype/family/trips/:id/position` | driver | — | — | `familyPositionSchema` |  | [services/famille.ts:609](../../services/demo-api/src/services/famille.ts#L609) |
-| POST | `/prototype/family/trips/:id/advance` | user (any role) | — | — | `familyAdvanceSchema` | dev-mode branch | [services/famille.ts:623](../../services/demo-api/src/services/famille.ts#L623) |
-| POST | `/prototype/family/trips/:id/approval` | passenger | — | required | `familyApprovalSchema` |  | [services/famille.ts:649](../../services/demo-api/src/services/famille.ts#L649) |
-| POST | `/prototype/family/trips/:id/cancel` | user (any role) | — | — | `familyCancelSchema` |  | [services/famille.ts:663](../../services/demo-api/src/services/famille.ts#L663) |
-| POST | `/prototype/family/trips/:id/calls` | user (any role) | — | — | `familyCallSchema` | dev-mode branch | [services/famille.ts:674](../../services/demo-api/src/services/famille.ts#L674) |
-| POST | `/prototype/family/trips/:id/call-request` | driver | — | — | — |  | [services/famille.ts:698](../../services/demo-api/src/services/famille.ts#L698) |
-| POST | `/prototype/family/trips/:id/incident` | user (any role) | — | — | inline zod |  | [services/famille.ts:710](../../services/demo-api/src/services/famille.ts#L710) |
-| POST | `/prototype/family/guardians` | passenger | — | required | `familyGuardianSchema` |  | [services/famille.ts:727](../../services/demo-api/src/services/famille.ts#L727) |
-| POST | `/prototype/family/guardians/:id/:action` | passenger | — | — | — |  | [services/famille.ts:746](../../services/demo-api/src/services/famille.ts#L746) |
-| GET | `/prototype/family/follow/:token` | public | — | — | — |  | [services/famille.ts:769](../../services/demo-api/src/services/famille.ts#L769) |
-| GET | `/prototype/catalog` | user (any role) | — | — | — |  | [services/prototype.ts:318](../../services/demo-api/src/services/prototype.ts#L318) |
-| GET | `/prototype/wallet` | passenger | — | — | — |  | [services/prototype.ts:322](../../services/demo-api/src/services/prototype.ts#L322) |
-| POST | `/prototype/wallet/topup` | passenger | — | required | inline zod |  | [services/prototype.ts:325](../../services/demo-api/src/services/prototype.ts#L325) |
-| POST | `/prototype/wallet/:id/resolve` | passenger | — | — | inline zod |  | [services/prototype.ts:366](../../services/demo-api/src/services/prototype.ts#L366) |
-| POST | `/prototype/sos` | user (any role) | — | required | inline zod |  | [services/prototype.ts:390](../../services/demo-api/src/services/prototype.ts#L390) |
-| GET | `/prototype/sos` | user (any role) | — | — | — |  | [services/prototype.ts:447](../../services/demo-api/src/services/prototype.ts#L447) |
-| POST | `/prototype/sos/:id/action` | user (any role) | — | — | inline zod |  | [services/prototype.ts:453](../../services/demo-api/src/services/prototype.ts#L453) |
+| GET | `/prototype/family` | user (any role) | — | — | — |  | [services/famille.ts:571](../../services/demo-api/src/services/famille.ts#L571) |
+| POST | `/prototype/family/children` | passenger | — | — | inline zod |  | [services/famille.ts:575](../../services/demo-api/src/services/famille.ts#L575) |
+| POST | `/prototype/family/subscribe` | passenger | — | required | inline zod |  | [services/famille.ts:595](../../services/demo-api/src/services/famille.ts#L595) |
+| POST | `/prototype/family/trips` | passenger | — | required | inline zod |  | [services/famille.ts:600](../../services/demo-api/src/services/famille.ts#L600) |
+| POST | `/prototype/family/example` | user (any role) | — | — | — | 403 unless dev mode | [services/famille.ts:606](../../services/demo-api/src/services/famille.ts#L606) |
+| GET | `/prototype/family/trips/:id` | user (any role) | — | — | — |  | [services/famille.ts:620](../../services/demo-api/src/services/famille.ts#L620) |
+| GET | `/prototype/family/trips/:id/live` | user (any role) | — | — | — |  | [services/famille.ts:625](../../services/demo-api/src/services/famille.ts#L625) |
+| POST | `/prototype/family/trips/:id/position` | driver | — | — | `familyPositionSchema` |  | [services/famille.ts:629](../../services/demo-api/src/services/famille.ts#L629) |
+| POST | `/prototype/family/trips/:id/advance` | user (any role) | — | — | `familyAdvanceSchema` | dev-mode branch | [services/famille.ts:643](../../services/demo-api/src/services/famille.ts#L643) |
+| POST | `/prototype/family/trips/:id/approval` | passenger | — | required | `familyApprovalSchema` |  | [services/famille.ts:669](../../services/demo-api/src/services/famille.ts#L669) |
+| POST | `/prototype/family/trips/:id/cancel` | user (any role) | — | — | `familyCancelSchema` |  | [services/famille.ts:683](../../services/demo-api/src/services/famille.ts#L683) |
+| POST | `/prototype/family/trips/:id/calls` | user (any role) | — | — | `familyCallSchema` |  | [services/famille.ts:694](../../services/demo-api/src/services/famille.ts#L694) |
+| POST | `/prototype/family/trips/:id/call-request` | driver | — | — | — |  | [services/famille.ts:718](../../services/demo-api/src/services/famille.ts#L718) |
+| POST | `/prototype/family/trips/:id/incident` | user (any role) | — | — | inline zod |  | [services/famille.ts:730](../../services/demo-api/src/services/famille.ts#L730) |
+| POST | `/prototype/family/guardians` | passenger | — | required | `familyGuardianSchema` |  | [services/famille.ts:747](../../services/demo-api/src/services/famille.ts#L747) |
+| POST | `/prototype/family/guardians/:id/:action` | passenger | — | — | — |  | [services/famille.ts:766](../../services/demo-api/src/services/famille.ts#L766) |
+| GET | `/prototype/family/follow/:token` | public | — | — | — |  | [services/famille.ts:789](../../services/demo-api/src/services/famille.ts#L789) |
+| GET | `/prototype/catalog` | user (any role) | — | — | — |  | [services/prototype.ts:423](../../services/demo-api/src/services/prototype.ts#L423) |
+| GET | `/prototype/wallet` | passenger | — | — | — |  | [services/prototype.ts:427](../../services/demo-api/src/services/prototype.ts#L427) |
+| POST | `/prototype/wallet/topup` | passenger | — | required | inline zod |  | [services/prototype.ts:430](../../services/demo-api/src/services/prototype.ts#L430) |
+| POST | `/prototype/wallet/:id/resolve` | passenger | — | — | inline zod | dev-mode branch | [services/prototype.ts:476](../../services/demo-api/src/services/prototype.ts#L476) |
+| POST | `/prototype/sos` | user (any role) | — | required | inline zod |  | [services/prototype.ts:496](../../services/demo-api/src/services/prototype.ts#L496) |
+| GET | `/prototype/sos` | user (any role) | — | — | — |  | [services/prototype.ts:553](../../services/demo-api/src/services/prototype.ts#L553) |
+| POST | `/prototype/sos/:id/action` | user (any role) | — | — | inline zod |  | [services/prototype.ts:559](../../services/demo-api/src/services/prototype.ts#L559) |
 
 ## Admin sign-in
 
@@ -214,12 +214,12 @@ The generator follows each handler into every function it calls inside `services
 
 | Method | Path | Caller | Permission | Idempotency-Key | Input | Notes | Source |
 |---|---|---|---|---|---|---|---|
-| GET | `/admin/prototype` | admin | `config.edit` | — | — |  | [services/prototype.ts:477](../../services/demo-api/src/services/prototype.ts#L477) |
-| PUT | `/admin/prototype/catalog/:kind` | admin | `config.edit` | — | schema picked at runtime |  | [services/prototype.ts:493](../../services/demo-api/src/services/prototype.ts#L493) |
-| GET | `/admin/prototype/alerts` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | — |  | [services/prototype.ts:529](../../services/demo-api/src/services/prototype.ts#L529) |
-| POST | `/admin/prototype/alerts/:id` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | inline zod |  | [services/prototype.ts:546](../../services/demo-api/src/services/prototype.ts#L546) |
-| POST | `/admin/prototype/assignment/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:602](../../services/demo-api/src/services/prototype.ts#L602) |
-| POST | `/admin/prototype/driver-categories/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:652](../../services/demo-api/src/services/prototype.ts#L652) |
+| GET | `/admin/prototype` | admin | `config.edit` | — | — |  | [services/prototype.ts:577](../../services/demo-api/src/services/prototype.ts#L577) |
+| PUT | `/admin/prototype/catalog/:kind` | admin | `config.edit` | — | schema picked at runtime |  | [services/prototype.ts:593](../../services/demo-api/src/services/prototype.ts#L593) |
+| GET | `/admin/prototype/alerts` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | — |  | [services/prototype.ts:629](../../services/demo-api/src/services/prototype.ts#L629) |
+| POST | `/admin/prototype/alerts/:id` | admin | `safety.respond` or `config.edit` (`canRespondToSafety`) | — | inline zod |  | [services/prototype.ts:646](../../services/demo-api/src/services/prototype.ts#L646) |
+| POST | `/admin/prototype/assignment/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:702](../../services/demo-api/src/services/prototype.ts#L702) |
+| POST | `/admin/prototype/driver-categories/:id` | admin | `config.edit` | — | inline zod |  | [services/prototype.ts:752](../../services/demo-api/src/services/prototype.ts#L752) |
 
 ## Admin
 
@@ -270,8 +270,8 @@ The generator follows each handler into every function it calls inside `services
 | GET | `/dev/navigate` | public | — | — | query `app` | dev mode only | [app.ts:1020](../../services/demo-api/src/app.ts#L1020) |
 | POST | `/dev/verification/:id/simulate` | user (any role) | `verification.decide` | — | `verificationItemKeySchema`; raw JSON (not validated) | dev mode only | [app.ts:1044](../../services/demo-api/src/app.ts#L1044) |
 | POST | `/dev/sample-upload` | user (any role) | — | — | raw JSON (not validated) | dev mode only | [app.ts:1050](../../services/demo-api/src/app.ts#L1050) |
-| POST | `/dev/family/play` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:785](../../services/demo-api/src/services/famille.ts#L785) |
-| POST | `/dev/family/trips/:id/demo` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:797](../../services/demo-api/src/services/famille.ts#L797) |
+| POST | `/dev/family/play` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:805](../../services/demo-api/src/services/famille.ts#L805) |
+| POST | `/dev/family/trips/:id/demo` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:817](../../services/demo-api/src/services/famille.ts#L817) |
 
 ## Other
 

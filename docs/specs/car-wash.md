@@ -3,7 +3,7 @@ title: "Lavage à domicile (mobile car wash)"
 status: Draft
 owner: Achraf
 last_verified: 2026-10-13 @ feat/car-wash
-related: [ADR-0003, ADR-0005, ADR-0007, ADR-0009, ADR-0013, ADR-0029, ADR-0040, docs/tasks/2026-10-13.md (task 5)]
+related: [ADR-0058, ADR-0003, ADR-0005, ADR-0007, ADR-0009, ADR-0013, ADR-0029, ADR-0040, docs/tasks/2026-10-13.md (task 5)]
 ---
 
 # Lavage à domicile (mobile car wash)
@@ -44,23 +44,27 @@ a chauffeuse for her Naya car. There is no washer app: the demo API plays the te
   « Planifier » accepts only an offered slot (`assertWashStartAllowed`).
 - **R6 ✅ Who may order.** Passengers need an approved identity (`VERIFICATION_REQUIRED`); suspended accounts are refused;
   the city must be bookable for the account; at most 3 open orders per customer.
-- **R7 ✅ Payment uses the existing methods.** Passengers: cash, card, Portefeuille Naya, wallet marocain (demo), each
+- **R7 ✅ Payment uses the existing methods.** Passengers: cash, card, Portefeuille Naya, « Wallet marocain », each
   available under the same city rules as rides. Drivers: Portefeuille chauffeuse or cash.
-  - Card: a payment is created at completion and confirmed by the simulated provider (same signed path as rides).
+  - Card: a payment is created at completion and confirmed by the mock provider (same signed path as rides).
   - Portefeuille Naya: the price is held at booking, settled at completion, released on cancellation.
   - Portefeuille chauffeuse: debited at booking (ledger `car_wash`, key `wash:<id>:charge`, needs the available balance),
     refunded minus the fee on cancellation (`car_wash_refund`, key `wash:<id>:refund`).
-  - Cash and wallet marocain: confirmed at completion (simulation).
+  - Cash and wallet marocain: confirmed at completion (mock, no provider).
   - No driver ledger is credited: washers are not Naya drivers.
 - **R8 ✅ Cancellation** (`washCancellationPreview`, frozen policy): free before assignment; after assignment free for 5 min
   or until 2 h before the slot, whichever is later; then 20 MAD; 30 MAD once the team is en route; never above the price.
   The customer must acknowledge the fee shown (`acknowledgedFee`); a changed fee answers `CONFLICT`.
 - **R9 ✅ Tracking.** The order screen polls every 2 s while the order is open (ADR-0013) and shows the five-step timeline,
-  the team's simulated position and ETA while en route, before photos when washing starts, after photos and the receipt
+  the team's position (moved by the mock backend) and ETA while en route, before photos when washing starts, after photos and the receipt
   at completion, then a 1–5 rating (once).
-- **R10 ✅ Demo labelling.** Teams, positions and photos are simulated and say so (« Démo », « Position simulée »,
-  « Photos simulées »). Demo timing: assignment 15 s after booking, departure 10 s later (or 60 s before a scheduled
-  slot), 60 s of travel, washing 20× faster than its real duration.
+- **R10 ✅ Mock team, shown as a real one** (changed 14 Oct 2026, [ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md);
+  until then « Démo », « Position simulée », « Photos simulées » labelled it). The washing team, its position and its
+  photos come from the mock backend and carry no label. Before/after photos are the mock photos of
+  `packages/assets/mock/` (`car-wash-before.jpg`, `car-wash-after.jpg`, exported as `mockPhotos` from `@naya/assets`);
+  swap them by replacing the files (expected sizes and prompts: `packages/assets/mock/README.md`). Mock timing:
+  assignment 15 s after booking, departure 10 s later (or 60 s before a scheduled slot), 60 s of travel, washing 20×
+  faster than its real duration.
 - **R11 ❓ Who the washers are.** The copy says « l’équipe de lavage » and team names, with no gender, until the founder
   says whether washers are women-only like drivers.
 - **R12 ⚠️ Not done yet:** admin cannot edit the configuration (it is a code constant, versioned by hand); no support

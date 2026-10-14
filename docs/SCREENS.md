@@ -34,7 +34,7 @@ Added later with no Figma frame (Oct 6, 89aae18; a few captures in `docs/screens
 | `(app)/wallet` | Portefeuille Naya (passenger wallet) | E2E scenarios-feedback |
 | `(app)/family`, `(app)/family/plans`, `(app)/family/[id]`, `suivi/[token]` | Naya Famille, parent side (see « Naya Famille » below) | E2E scenarios-feedback |
 | `(app)/brand` | Identité · 6 pistes (logo concepts) | E2E scenarios-feedback |
-| `dev` | Lanceur de scénarios (demo builds) | — |
+| `dev` | Lanceur de scénarios (`__DEV__` builds only; no visible entry: 2 s long press on the welcome logo or the deep link, ADR-0058) | — |
 
 ## Driver (apps/driver)
 
@@ -53,7 +53,7 @@ Added later with no Figma frame (Oct 6, 89aae18; a few captures in `docs/screens
 | D11 `9:711` | D11-filter, -empty | `(app)/(tabs)/earnings` | capture, cross-role S03+S04 |
 | D12 `9:784` | D12-negative, -zero, -near, -after, -recharged, -after-recharged | `(app)/(tabs)/wallet` | capture, E2E S12/S13 |
 | D13 `9:849` | D13-detail, -cash, -filter, -withdrawal, -withdrawal-recharged | `(app)/ledger`, `(app)/ledger/[id]` | capture, E2E |
-| D14 `9:882` | D14-debt, -provider, -pending, -failed, -success, -normal variants | `(app)/recharge`, `recharge/sandbox/[id]`, `recharge/[id]` | capture, E2E S12/S16 |
+| D14 `9:882` | D14-debt, -provider, -pending, -failed, -success, -normal variants | `(app)/recharge`, `recharge/sandbox/[id]` (« Paiement en cours » since 14 Oct 2026; no sandbox choice), `recharge/[id]` | capture, E2E S12/S16 |
 | D15 `9:923` | D15-pending, -success, -failed, -insufficient, -recharged variants | `(app)/withdraw`, `withdraw/[id]` | capture, E2E S13/S16 |
 | D16 `9:983` | D16-empty | `(app)/rides`, `(app)/rides/[id]` | capture |
 | D17 `9:1030` | D17-settings | `(app)/(tabs)/account`, `profile/vehicle`, `profile/preferences` | capture |
@@ -65,7 +65,7 @@ Added later with no Figma frame (Oct 6, 89aae18):
 |---|---|---|
 | `(app)/family`, `(app)/family/[id]` | Naya Famille, chauffeuse side (see « Naya Famille » below) | E2E scenarios-feedback |
 | `(app)/brand` | Identité · 6 pistes (logo concepts) | — |
-| `dev` | Lanceur de scénarios (demo builds) | — |
+| `dev` | Lanceur de scénarios (`__DEV__` builds only; no visible entry: 2 s long press on the welcome logo or the deep link, ADR-0058) | — |
 
 ## Naya Famille (both apps, 13 Oct · founder brief task 4)
 
