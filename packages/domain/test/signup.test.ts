@@ -8,12 +8,14 @@ import {
   familleEligibilityFor,
   familleEligibilityOf,
   familleProblems,
+  firstInvalidSignupStep,
   fullYearsBetween,
   interviewDays,
   isCalendarDate,
   licenceProblems,
   nextStepAfter,
   promoteSignupDraft,
+  QUESTION_STEP_LABELS,
   REQUIRED_ITEMS,
   sectionProgress,
   validateSignupStep,
@@ -122,6 +124,11 @@ describe('sign-up steps', () => {
     expect(validateSignupStep('famille_interview', { ...famille, interviewDay: '2026-10-18' }, ctx).interviewDay).toMatch(/lundi au samedi/);
     expect(validateSignupStep('famille_training', { trainingAcknowledged: false }, ctx).trainingAcknowledged).toBeDefined();
   });
+  it('refuses impossible licence and interview dates, as promotion does', () => {
+    expect(validateSignupStep('licence_dates', { ...person, licenceIssueDate: '2015-02-30' }, ctx).licenceIssueDate).toMatch(/n’existe pas/);
+    expect(validateSignupStep('licence_dates', { ...person, licenceExpiryDate: '2030-02-29' }, ctx).licenceExpiryDate).toMatch(/n’existe pas/);
+    expect(validateSignupStep('famille_interview', { ...famille, interviewDay: '2026-10-32' }, ctx).interviewDay).toBe('Choisissez un jour');
+  });
   it('offers interview days without Sundays', () => {
     const days = interviewDays('2026-10-16', 3);
     expect(days).toEqual(['2026-10-17', '2026-10-19', '2026-10-20']);
@@ -195,6 +202,18 @@ describe('progress and submission', () => {
     const complete = kase({ items, identity: { ...identity, address: '12 rue Oued Ziz', city: 'Rabat' }, licence });
     expect(() => assertSubmittable(complete)).not.toThrow();
     expect(() => assertSubmittable(complete, '2026-10-13')).toThrow(/expiré/);
+  });
+  it('names the first step whose answers fail today, read from what the driver sees (DS-2)', () => {
+    const identity = { firstName: 'Yasmine', lastName: 'Berrada', birthDate: '1994-03-02', documentType: 'cin' as const, documentNumber: 'AB123456', address: '12 rue Oued Ziz, Agdal', city: 'Rabat' };
+    const licence = { number: '12/345678', category: 'B' as const, issueDate: '2015-06-01', expiryDate: '2030-06-01', experienceYears: 9 };
+    expect(firstInvalidSignupStep(kase({ identity, licence }), ctx)).toBeNull();
+    // A newer draft answer wins over the promoted details.
+    expect(firstInvalidSignupStep(kase({ identity, licence, draft: { birthDate: '2015-01-01' } }), ctx)).toMatchObject({ step: 'birth', errors: { birthDate: expect.stringMatching(/18 ans/) } });
+    // Each group valid on its own, but the licence would have been issued at 14.
+    expect(firstInvalidSignupStep(kase({ identity: { ...identity, birthDate: '2000-01-01' }, licence: { ...licence, issueDate: '2014-09-01' } }), ctx)?.step).toBe('licence_dates');
+    expect(firstInvalidSignupStep(kase({ subject: 'driver_famille', famille: promoteSignupDraft('driver_famille', famille, ctx).famille }), { ...ctx, today: '2026-10-20' })?.step).toBe('famille_interview');
+    expect(firstInvalidSignupStep(kase({ subject: 'passenger_identity', identity }), ctx)).toBeNull();
+    expect(QUESTION_STEP_LABELS.licence_dates).toBe('Validité du permis');
   });
   it('requires the criminal-record extract for the Famille dossier only', () => {
     expect(REQUIRED_ITEMS.driver_famille).toEqual(['criminal_record']);

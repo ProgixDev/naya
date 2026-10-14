@@ -51,8 +51,20 @@ The founder brief asks for more data and documents; see [Proposed additions](#pr
 
 **R3 · Applicants are 18 or older on the day they save their details. Vehicles are from 2012 or later.** ✅
 
+A chauffeuse's answers are checked again on the day she submits (R21).
+
 - Enforced at: `packages/domain/src/schemas.ts:48-54` (`isAdult`), `:59`, `:69`.
 - Tested by: **not tested** directly.
+
+**R21 · A chauffeuse's dossier is sent only when every question of its section passes its rules on the day she submits, read from the answers she sees. The details reviewers read are refreshed from those answers first.** ✅
+
+The driver app saves answers one step at a time as a draft, and a complete, valid group becomes the typed details reviewers read (`identity`, `licence`, `vehicle`, `famille`). An answer changed later and failing its rule stayed in the draft only, so submission used to send the older details: a birth date changed to 2015 was sent with the 1993 one, and a valid new birth date was sent with a licence then issued at 14 (DS-2 in the [14 October verification](../audits/2026-10-14-verification.md)). The app blocked this; a stale client or a direct API call did not.
+
+Submission now refreshes the typed details from the draft view, then runs `validateSignupStep` on every question step of the section. The first failing step is refused with 422 `VALIDATION`, `details.step`, `details.fields`, and a message naming the step as the review screen labels it, for example « Corrigez l’étape « Validité du permis » avant d’envoyer votre dossier. Le permis B est délivré à partir de 18 ans : vérifiez la date. » The refusal changes nothing. Missing pieces or details are still reported first, as `VERIFICATION_INCOMPLETE` (R2). A Famille interview day that has passed must be chosen again before a resubmission. Licence and interview dates must be real calendar dates at their step, as promotion already required. A passagère's case has no question steps and is not affected.
+
+- Enforced at: `services/demo-api/src/services/verification.ts` (`submitCase`, `storePromoted`); `packages/domain/src/signup.ts` (`firstInvalidSignupStep`, `QUESTION_STEP_LABELS`, `FIELD_RULES`).
+- Tested by: `services/demo-api/test/signup.test.ts` "re-checks every step at submission, so a later answer cannot contradict the details sent (DS-2)"; `packages/domain/test/signup.test.ts` "names the first step whose answers fail today, read from what the driver sees (DS-2)" and "refuses impossible licence and interview dates, as promotion does".
+- Gap: the driver app shows the message in a toast but does not open the step named in `details.step`. The birth date is still not checked as a calendar date (30/02 rolls over to 2 March), and `isAdult` reads the device clock rather than the Casablanca business date (`packages/domain/src/schemas.ts`, DS-5).
 
 **R4 · A file is accepted only when its bytes match the declared type (JPEG, PNG, WebP or PDF; SVG refused) and it is at most 10 MB. Only the uploader can attach it, and only to her own case.** ✅
 
@@ -275,3 +287,4 @@ Tracked as [D1](../status/open-questions.md#d1-women-only-eligibility). Today's 
 - Run on 2026-10-13 on branch `chore/docs-foundation-and-fixes` (fact-check pass): `vitest run test/scenarios.test.ts` in `services/demo-api` and `vitest run test/machines.test.ts` in `packages/domain`, both passing. Not run: `embedded.test.ts`, jest-expo and the Playwright specs; those are cited by file, line and name only.
 - 2026-10-14, branch `fix/demo-blockers-portable` (DS-1 of the [14 October verification](../audits/2026-10-14-verification.md)): R20 added and R8 amended against that branch. R20 cites files and functions, not line numbers. Run: `pnpm --filter @naya/demo-api test`.
 - Branch `chore/docs-foundation-and-fixes` changes no verification rule. Its related edits: the empty or incomplete birth-date message in `identityDetailsSchema` now reads « Saisissez votre date de naissance (JJ / MM / AAAA). » instead of « Format AAAA-MM-JJ » (`packages/domain/src/schemas.ts:59`); the driver's `DateField` keeps typed digits and flags impossible dates (P13, `packages/ui/src/Form.tsx`); and dark-mode styling only in `verification-status.tsx`, `DocumentPicker.tsx` and the capture guide frame (`packages/ui/src/features/capture.tsx`). Re-checked against the branch on 2026-10-13 (docs reconciliation).
+- 2026-10-14, branch `fix/demo-blockers-portable` (DS-2 of the [14 October verification](../audits/2026-10-14-verification.md)): R21 added and R3 amended against that branch, citing files and functions only. Run: `pnpm --filter @naya/domain test`, `pnpm --filter @naya/demo-api test`.

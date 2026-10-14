@@ -17,6 +17,7 @@ import {
   familleApplicationSchemaFor,
   familleProblems,
   identityDetailsSchema,
+  isCalendarDate,
   licenceDetailsSchemaFor,
   licenceNumberSchema,
   licenceProblems,
@@ -198,6 +199,10 @@ export function draftView(kase: Pick<VerificationCase, 'identity' | 'licence' | 
 }
 
 const required = 'Réponse requise';
+/**
+ * Per-field rules. They are at least as strict as the schemas `promoteSignupDraft` applies, so a
+ * draft whose steps all pass always promotes in full (submission relies on it).
+ */
 const FIELD_RULES: { [K in keyof SignupDraft]-?: z.ZodType } = {
   firstName: identityDetailsSchema.shape.firstName,
   lastName: identityDetailsSchema.shape.lastName,
@@ -208,8 +213,8 @@ const FIELD_RULES: { [K in keyof SignupDraft]-?: z.ZodType } = {
   city: z.string({ error: required }).trim().min(2, 'Indiquez votre ville').max(60),
   licenceNumber: licenceNumberSchema,
   licenceCategory: z.string({ error: 'Choisissez la catégorie de votre permis' }),
-  licenceIssueDate: z.string({ error: required }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Date au format JJ/MM/AAAA'),
-  licenceExpiryDate: z.string({ error: required }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Date au format JJ/MM/AAAA'),
+  licenceIssueDate: z.string({ error: required }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Date au format JJ/MM/AAAA').refine(isCalendarDate, 'Cette date n’existe pas'),
+  licenceExpiryDate: z.string({ error: required }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Date au format JJ/MM/AAAA').refine(isCalendarDate, 'Cette date n’existe pas'),
   experienceYears: experienceYearsSchema,
   make: vehicleDetailsSchema.shape.make,
   model: vehicleDetailsSchema.shape.model,
@@ -223,7 +228,7 @@ const FIELD_RULES: { [K in keyof SignupDraft]-?: z.ZodType } = {
   childExperienceYears: experienceYearsSchema,
   childExperienceSummary: z.string({ error: required }).trim().min(20, 'Décrivez votre expérience en quelques phrases (20 caractères minimum)').max(500, '500 caractères maximum'),
   trainingAcknowledged: z.literal(true, { error: 'Confirmez votre engagement à suivre la formation' }),
-  interviewDay: z.string({ error: 'Choisissez un jour' }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Choisissez un jour'),
+  interviewDay: z.string({ error: 'Choisissez un jour' }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Choisissez un jour').refine(isCalendarDate, 'Choisissez un jour'),
   interviewWindow: z.enum(['morning', 'afternoon'], { error: 'Choisissez un créneau' }),
 };
 
@@ -309,6 +314,47 @@ export function validateSignupStep(stepId: QuestionStepId, answers: SignupDraft,
   return errors;
 }
 
+const questionsOf = (section: SignupSection) => sectionSteps(section).filter((s): s is Extract<SignupStep, { kind: 'question' }> => s.kind === 'question');
+
+/** Short names of the question steps, as the review screen labels them. */
+export const QUESTION_STEP_LABELS: Record<QuestionStepId, string> = {
+  name: 'Nom',
+  birth: 'Date de naissance',
+  address: 'Adresse',
+  id_document: 'Pièce d’identité',
+  licence_number: 'Permis',
+  licence_dates: 'Validité du permis',
+  experience: 'Expérience de conduite',
+  vehicle_model: 'Véhicule',
+  vehicle_plate: 'Immatriculation et couleur',
+  famille_references: 'Références',
+  famille_experience: 'Expérience avec les enfants',
+  famille_training: 'Formation',
+  famille_interview: 'Entretien souhaité',
+};
+
+const SUBJECT_SECTION = Object.fromEntries(Object.entries(SECTION_SUBJECT).map(([section, subject]) => [subject, section])) as Partial<Record<VerificationSubject, SignupSection>>;
+
+/**
+ * The first question step of a driver dossier whose answers fail their rules today, read from
+ * the answers the driver sees (`draftView`). Null when every step passes, and for passenger
+ * cases (no sign-up steps). Submission re-runs this so a later edit, a stale client or a
+ * direct API call cannot send details the wizard would refuse.
+ */
+export function firstInvalidSignupStep(
+  kase: Pick<VerificationCase, 'subject' | 'identity' | 'licence' | 'vehicle' | 'famille' | 'draft'>,
+  ctx: SignupContext,
+): { step: QuestionStepId; errors: StepErrors } | null {
+  const section = SUBJECT_SECTION[kase.subject];
+  if (!section) return null;
+  const answers = draftView(kase);
+  for (const step of questionsOf(section)) {
+    const errors = validateSignupStep(step.id, answers, ctx);
+    if (Object.keys(errors).length > 0) return { step: step.id, errors };
+  }
+  return null;
+}
+
 export interface PromotedDetails {
   identity?: IdentityDetails;
   licence?: LicenceDetails;
@@ -316,7 +362,6 @@ export interface PromotedDetails {
   famille?: FamilleApplication;
 }
 
-const questionsOf = (section: SignupSection) => sectionSteps(section).filter((s): s is Extract<SignupStep, { kind: 'question' }> => s.kind === 'question');
 const groupValid = (ids: QuestionStepId[], answers: SignupDraft, ctx: SignupContext) => ids.every((id) => Object.keys(validateSignupStep(id, answers, ctx)).length === 0);
 
 /**

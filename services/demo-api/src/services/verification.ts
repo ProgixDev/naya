@@ -6,9 +6,11 @@ import {
   draftView,
   familleApplicationSchemaFor,
   familleEligibilityFor,
+  firstInvalidSignupStep,
   ITEM_LABELS,
   licenceDetailsSchemaFor,
   promoteSignupDraft,
+  QUESTION_STEP_LABELS,
   verificationMachine,
   type AdminUser,
   type AuditActor,
@@ -116,25 +118,30 @@ export function saveDraft(ctx: Ctx, user: User, caseId: string, patch: SignupDra
     if (c.subject === 'passenger_identity') throw new DomainError('FORBIDDEN');
     if (!editable(c)) throw new DomainError('INVALID_TRANSITION', LOCKED);
     c.draft = { ...(c.draft ?? {}), ...patch };
-    const promoted = promoteSignupDraft(c.subject, draftView(c), { today: today(ctx), ownPhone: user.phone });
-    if (promoted.identity) {
-      c.identity = promoted.identity;
-      const u = mustFind(s.users, (x) => x.id === user.id);
-      u.firstName = promoted.identity.firstName;
-      u.lastName = promoted.identity.lastName;
-    }
-    if (promoted.licence) c.licence = promoted.licence;
-    if (promoted.famille) c.famille = promoted.famille;
-    if (promoted.vehicle) {
-      c.vehicle = promoted.vehicle;
-      const existing = s.vehicles.find((v) => v.id === c.vehicleId);
-      if (existing) Object.assign(existing, promoted.vehicle);
-      else s.vehicles.push({ id: c.vehicleId!, driverId: user.id, caseId: c.id, ...promoted.vehicle });
-    }
+    storePromoted(ctx, s, user, c);
     c.updatedAt = ctx.clock.iso();
     c.version += 1;
     return c;
   });
+}
+
+/** Copies the complete, valid groups of the driver's answers into the typed details reviewers read. Call inside `tx`. */
+function storePromoted(ctx: Ctx, s: State, user: User, c: VerificationCase) {
+  const promoted = promoteSignupDraft(c.subject, draftView(c), { today: today(ctx), ownPhone: user.phone });
+  if (promoted.identity) {
+    c.identity = promoted.identity;
+    const u = mustFind(s.users, (x) => x.id === user.id);
+    u.firstName = promoted.identity.firstName;
+    u.lastName = promoted.identity.lastName;
+  }
+  if (promoted.licence) c.licence = promoted.licence;
+  if (promoted.famille) c.famille = promoted.famille;
+  if (promoted.vehicle) {
+    c.vehicle = promoted.vehicle;
+    const existing = s.vehicles.find((v) => v.id === c.vehicleId);
+    if (existing) Object.assign(existing, promoted.vehicle);
+    else s.vehicles.push({ id: c.vehicleId!, driverId: user.id, caseId: c.id, ...promoted.vehicle });
+  }
 }
 
 export function ensureVehicleCase(ctx: Ctx, user: User) {
@@ -218,12 +225,29 @@ export function setItem(ctx: Ctx, user: User, caseId: string, key: VerificationI
   });
 }
 
+/**
+ * Submission. A driver dossier is re-checked first: the details reviewers read are refreshed
+ * from the answers she sees, then every question step must pass its rules today. A later edit
+ * (a birth date that no longer fits the licence), a stale client or a direct API call is refused
+ * with the first step to fix, in `details.step` and in the message. The refusal rolls back.
+ */
 export function submitCase(ctx: Ctx, user: User, caseId: string) {
   return ctx.store.tx((s) => {
     const c = ownedCase(s, user, caseId);
     const event = c.status === 'more_info_requested' ? 'RESUBMIT' : 'SUBMIT';
     const next = verificationMachine.next(c.status, event);
+    if (c.subject !== 'passenger_identity') storePromoted(ctx, s, user, c);
     assertSubmittable(c, today(ctx));
+    const invalid = firstInvalidSignupStep(c, { today: today(ctx), ownPhone: user.phone });
+    if (invalid) {
+      const first = Object.values(invalid.errors)[0] ?? '';
+      const reason = first && !/[.!?]$/.test(first) ? `${first}.` : first;
+      const what = c.subject === 'driver_famille' ? 'votre candidature' : 'votre dossier';
+      throw new DomainError('VALIDATION', `Corrigez l’étape « ${QUESTION_STEP_LABELS[invalid.step]} » avant d’envoyer ${what}. ${reason}`.trim(), {
+        step: invalid.step,
+        fields: invalid.errors,
+      });
+    }
     const now = ctx.clock.iso();
     c.status = next;
     syncFamille(s, c);

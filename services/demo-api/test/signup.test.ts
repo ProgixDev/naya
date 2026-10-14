@@ -98,6 +98,42 @@ describe('Driver sign-up · one question per step, saved as a draft', () => {
     const own = (await h.ok('GET', '/me', { token: salma })).cases[0];
     expect((await h.call('PUT', `/verification/${own.id}/draft`, { token: salma, body: { firstName: 'X' } })).status).toBe(403);
   });
+
+  it('re-checks every step at submission, so a later answer cannot contradict the details sent (DS-2)', async () => {
+    const h = setup();
+    const t = await h.login('+212677000105', 'driver');
+    const person = (await h.ok('GET', '/me', { token: t })).cases.find((c: any) => c.subject === 'driver_identity');
+    const caseOf = async () => (await h.ok('GET', '/me', { token: t })).cases.find((c: any) => c.id === person.id);
+    await h.ok('PUT', `/verification/${person.id}/draft`, { token: t, body: PERSON });
+    await attach(h, t, person.id, REQUIRED_ITEMS.driver_identity);
+
+    // Probe 1: a birth date in 2015 is kept as a draft answer while the typed details keep 1993.
+    const child = await h.ok('PUT', `/verification/${person.id}/draft`, { token: t, body: { birthDate: '2015-03-01' } });
+    expect(child.identity.birthDate).toBe('1993-05-14');
+    const refusedChild = await h.call('POST', `/verification/${person.id}/submit`, { token: t });
+    expect(refusedChild.status).toBe(422);
+    expect(refusedChild.body.error).toMatchObject({ code: 'VALIDATION', message: expect.stringMatching(/^Corrigez l’étape « Date de naissance » .*18 ans/) });
+    expect(refusedChild.body.error.details).toMatchObject({ step: 'birth', fields: { birthDate: expect.stringMatching(/18 ans/) } });
+    expect((await caseOf()).status).toBe('draft');
+
+    // Probe 2: a valid new birth date is promoted, but the stored licence would then be issued at 14.
+    const adult = await h.ok('PUT', `/verification/${person.id}/draft`, { token: t, body: { birthDate: '2000-01-01' } });
+    expect(adult.identity.birthDate).toBe('2000-01-01');
+    expect(adult.licence.issueDate).toBe('2014-09-01');
+    const refusedLicence = await h.call('POST', `/verification/${person.id}/submit`, { token: t });
+    expect(refusedLicence.status).toBe(422);
+    expect(refusedLicence.body.error.message).toMatch(/^Corrigez l’étape « Validité du permis » avant d’envoyer votre dossier\. Le permis B est délivré à partir de 18 ans/);
+    expect(refusedLicence.body.error.details).toMatchObject({ step: 'licence_dates', fields: { licenceIssueDate: expect.stringMatching(/18 ans/) } });
+    const audit = h.ctx.store.state.audit.filter((e) => e.entityId === person.id && e.action === 'verification.submitted');
+    expect(audit).toHaveLength(0);
+
+    // Correcting the answer sends the dossier; the reviewer reads what the driver sees.
+    await h.ok('PUT', `/verification/${person.id}/draft`, { token: t, body: { birthDate: PERSON.birthDate } });
+    const sent = await h.ok('POST', `/verification/${person.id}/submit`, { token: t });
+    expect(sent.status).toBe('submitted');
+    expect(sent.identity.birthDate).toBe(PERSON.birthDate);
+    expect(sent.licence.issueDate).toBe(PERSON.licenceIssueDate);
+  });
 });
 
 describe('Naya Famille vetting · opt-in, criminal-record extract, familleEligibility', () => {
