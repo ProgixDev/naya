@@ -7,6 +7,7 @@ import {
   familleApplicationSchemaFor,
   familleEligibilityFor,
   firstInvalidSignupStep,
+  isDomainError,
   ITEM_LABELS,
   licenceDetailsSchemaFor,
   promoteSignupDraft,
@@ -237,8 +238,16 @@ export function submitCase(ctx: Ctx, user: User, caseId: string) {
     const event = c.status === 'more_info_requested' ? 'RESUBMIT' : 'SUBMIT';
     const next = verificationMachine.next(c.status, event);
     if (c.subject !== 'passenger_identity') storePromoted(ctx, s, user, c);
-    assertSubmittable(c, today(ctx));
     const invalid = firstInvalidSignupStep(c, { today: today(ctx), ownPhone: user.phone });
+    try {
+      assertSubmittable(c, today(ctx));
+    } catch (e) {
+      // Missing pieces are reported first. With every piece there, details are missing only
+      // because an answer fails its step (a section whose steps all pass promotes in full), so
+      // the step is named instead of « Ajoutez toutes les pièces demandées ».
+      const missing = isDomainError(e) && e.code === 'VERIFICATION_INCOMPLETE' ? ((e.details?.missing as unknown[] | undefined) ?? []) : null;
+      if (!invalid || !missing || missing.length > 0) throw e;
+    }
     if (invalid) {
       const first = Object.values(invalid.errors)[0] ?? '';
       const reason = first && !/[.!?]$/.test(first) ? `${first}.` : first;

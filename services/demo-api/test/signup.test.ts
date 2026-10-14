@@ -134,6 +134,36 @@ describe('Driver sign-up · one question per step, saved as a draft', () => {
     expect(sent.identity.birthDate).toBe(PERSON.birthDate);
     expect(sent.licence.issueDate).toBe(PERSON.licenceIssueDate);
   });
+
+  it('names the failing step, not missing pieces, once every piece is there (DS-2)', async () => {
+    const h = setup();
+    // An address made invalid after a complete dossier: the identity loses it, but no piece is missing.
+    const t = await h.login('+212677000106', 'driver');
+    const person = (await h.ok('GET', '/me', { token: t })).cases.find((c: any) => c.subject === 'driver_identity');
+    await h.ok('PUT', `/verification/${person.id}/draft`, { token: t, body: PERSON });
+    const cleared = await h.ok('PUT', `/verification/${person.id}/draft`, { token: t, body: { address: 'abc' } });
+    expect(cleared.identity.address).toBeUndefined();
+    // Missing pieces are still reported first.
+    const early = await h.call('POST', `/verification/${person.id}/submit`, { token: t });
+    expect(early.body.error.code).toBe('VERIFICATION_INCOMPLETE');
+    expect(early.body.error.details.missing.length).toBeGreaterThan(0);
+    await attach(h, t, person.id, REQUIRED_ITEMS.driver_identity);
+    const address = await h.call('POST', `/verification/${person.id}/submit`, { token: t });
+    expect(address.status).toBe(422);
+    expect(address.body.error).toMatchObject({ code: 'VALIDATION', message: expect.stringMatching(/^Corrigez l’étape « Adresse » avant d’envoyer votre dossier\. Indiquez votre adresse complète\.$/) });
+    expect(address.body.error.details).toMatchObject({ step: 'address', fields: { address: expect.any(String) } });
+
+    // A birth date that was never valid: no identity was ever promoted.
+    const t2 = await h.login('+212677000107', 'driver');
+    const other = (await h.ok('GET', '/me', { token: t2 })).cases.find((c: any) => c.subject === 'driver_identity');
+    await h.ok('PUT', `/verification/${other.id}/draft`, { token: t2, body: { ...PERSON, birthDate: '2015-03-01' } });
+    await attach(h, t2, other.id, REQUIRED_ITEMS.driver_identity);
+    const birth = await h.call('POST', `/verification/${other.id}/submit`, { token: t2 });
+    expect(birth.status).toBe(422);
+    expect(birth.body.error.details).toMatchObject({ step: 'birth' });
+    expect(birth.body.error.message).toMatch(/^Corrigez l’étape « Date de naissance »/);
+    expect((await h.ok('GET', '/me', { token: t2 })).cases.find((c: any) => c.id === other.id).status).toBe('draft');
+  });
 });
 
 describe('Naya Famille vetting · opt-in, criminal-record extract, familleEligibility', () => {
