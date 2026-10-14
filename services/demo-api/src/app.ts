@@ -1040,12 +1040,17 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
       vehicle_photo_interior: 'vehicle-interior.jpg',
       criminal_record: 'criminal-record.jpg',
     };
-    /** Scenario reviewer: decides the caller's own submitted dossier at once (labelled « Démo »). */
+    /**
+     * Scenario reviewer: decides the calling driver's own submitted dossier at once, as the system
+     * actor « Réviseuse de démonstration » (audited as verification.simulated_*), with the wording a
+     * reviewer would write. Passengers are refused: their identity is always reviewed in the admin.
+     */
     app.post('/dev/verification/:id/simulate', async (c) => {
+      const user = userOf(c, 'driver');
       const { outcome, itemKey } = (await c.req.json()) as { outcome: 'approved' | 'more_info_requested' | 'rejected'; itemKey?: string };
       if (!['approved', 'more_info_requested', 'rejected'].includes(outcome)) throw new DomainError('VALIDATION', 'Résultat inconnu.');
       const key = itemKey ? verificationItemKeySchema.parse(itemKey) : undefined;
-      return c.json(simulateReview(ctx, userOf(c), c.req.param('id'), outcome, key));
+      return c.json(simulateReview(ctx, user, c.req.param('id'), outcome, key));
     });
     app.post('/dev/sample-upload', async (c) => {
       const p = c.get('principal');

@@ -166,7 +166,9 @@ describe('Demo engine · simulated review outcomes and resumable seed', () => {
     expect(more.status).toBe('more_info_requested');
     expect(more.items.find((i: any) => i.key === 'selfie')).toMatchObject({ status: 'needs_correction', note: expect.stringMatching(/^Photo floue/) });
     // The wording is what a reviewer would write: nothing tells the user it was simulated.
-    expect(JSON.stringify([more.decision, more.items])).not.toMatch(/d[ée]mo|simul/i);
+    // The reviewer's identity (decidedBy, decidedByName) is the system actor, checked below (DS-1).
+    const { decidedBy: _by, decidedByName: _name, ...decision } = more.decision;
+    expect(JSON.stringify([decision, more.items])).not.toMatch(/d[ée]mo|simul/i);
     await attach(h, t, person.id, ['selfie']);
     await h.ok('POST', `/verification/${person.id}/submit`, { token: t });
     const refused = await h.ok('POST', `/dev/verification/${person.id}/simulate`, { token: t, body: { outcome: 'rejected' } });
@@ -175,6 +177,41 @@ describe('Demo engine · simulated review outcomes and resumable seed', () => {
     // Another user's dossier cannot be decided.
     const other = await h.login(PHONES.samira, 'driver');
     expect((await h.call('POST', `/dev/verification/${person.id}/simulate`, { token: other, body: { outcome: 'approved' } })).status).toBe(403);
+  });
+
+  it('decides as a labelled system reviewer, never in an admin’s name, and refuses passengers (DS-1)', async () => {
+    const h = setup();
+    const admin = await h.adminLogin();
+    const admins = h.ctx.store.state.admins;
+    const isAdmin = (actor: { id: string; name: string }) => admins.some((a) => a.id === actor.id || a.name === actor.name);
+    const t = await h.login('+212677000104', 'driver');
+    const person = (await h.ok('GET', '/me', { token: t })).cases.find((c: any) => c.subject === 'driver_identity');
+    await h.ok('PUT', `/verification/${person.id}/draft`, { token: t, body: PERSON });
+    await attach(h, t, person.id, REQUIRED_ITEMS.driver_identity);
+    await h.ok('POST', `/verification/${person.id}/submit`, { token: t });
+
+    const approved = await h.ok('POST', `/dev/verification/${person.id}/simulate`, { token: t, body: { outcome: 'approved' } });
+    expect(approved.status).toBe('approved');
+    expect(approved.decision).toMatchObject({ decidedBy: 'system:demo-review', decidedByName: 'Réviseuse de démonstration', message: 'Votre dossier a été validé.' });
+    expect(isAdmin({ id: approved.decision.decidedBy, name: approved.decision.decidedByName })).toBe(false);
+    expect(approved.history.some((x: any) => admins.some((a) => a.id === x.by))).toBe(false);
+
+    // The hash-chained audit entry names the system actor and an action marked as simulated.
+    const simulated = await h.ok('GET', '/admin/audit?action=verification.simulated_approved', { token: admin });
+    const event = simulated.items.find((e: any) => e.entityId === person.id);
+    expect(event.actor).toEqual({ type: 'system', id: 'system:demo-review', name: 'Réviseuse de démonstration' });
+    expect(isAdmin(event.actor)).toBe(false);
+    expect(event.summary).toMatch(/^Démo · examen simulé/);
+    expect(simulated.integrity.valid).toBe(true);
+    const real = await h.ok('GET', '/admin/audit?action=verification.approved', { token: admin });
+    expect(real.items.some((e: any) => e.entityId === person.id)).toBe(false);
+
+    // A passenger cannot approve her own identity, even in dev mode.
+    const nour = await h.login(PHONES.nour, 'passenger');
+    const own = (await h.ok('GET', '/me', { token: nour })).cases[0];
+    expect(own.status).toBe('submitted');
+    expect((await h.call('POST', `/dev/verification/${own.id}/simulate`, { token: nour, body: { outcome: 'approved' } })).status).toBe(403);
+    expect((await h.ok('GET', '/me', { token: nour })).cases[0].status).toBe('submitted');
   });
 
   it('Yasmine resumes after her name; the audit trail records the Famille opt-in', async () => {

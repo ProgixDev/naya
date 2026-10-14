@@ -19,9 +19,9 @@ which are local to `services/prototype.ts`. Who may call what, and why: [permiss
 |---|---|
 | All | 156 (GET 62, POST 82, PATCH 2, DELETE 2, PUT 8) |
 | Caller: public | 22 |
-| Caller: user (any role) | 39 |
+| Caller: user (any role) | 38 |
 | Caller: passenger | 29 |
-| Caller: driver | 28 |
+| Caller: driver | 29 |
 | Caller: admin | 34 |
 | Caller: signed in (user or admin) | 3 |
 | Caller: provider (HMAC) | 1 |
@@ -268,8 +268,8 @@ The generator follows each handler into every function it calls inside `services
 | GET | `/dev/provider-jobs` | public | — | — | — | dev mode only | [app.ts:1007](../../services/demo-api/src/app.ts#L1007) |
 | POST | `/dev/navigate` | public | — | — | raw JSON (not validated) | dev mode only | [app.ts:1014](../../services/demo-api/src/app.ts#L1014) |
 | GET | `/dev/navigate` | public | — | — | query `app` | dev mode only | [app.ts:1020](../../services/demo-api/src/app.ts#L1020) |
-| POST | `/dev/verification/:id/simulate` | user (any role) | `verification.decide` | — | `verificationItemKeySchema`; raw JSON (not validated) | dev mode only | [app.ts:1044](../../services/demo-api/src/app.ts#L1044) |
-| POST | `/dev/sample-upload` | user (any role) | — | — | raw JSON (not validated) | dev mode only | [app.ts:1050](../../services/demo-api/src/app.ts#L1050) |
+| POST | `/dev/verification/:id/simulate` | driver | — | — | `verificationItemKeySchema`; raw JSON (not validated) | dev mode only | [app.ts:1048](../../services/demo-api/src/app.ts#L1048) |
+| POST | `/dev/sample-upload` | user (any role) | — | — | raw JSON (not validated) | dev mode only | [app.ts:1055](../../services/demo-api/src/app.ts#L1055) |
 | POST | `/dev/family/play` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:805](../../services/demo-api/src/services/famille.ts#L805) |
 | POST | `/dev/family/trips/:id/demo` | user (any role) | — | — | `familyDemoSchema` | dev mode only | [services/famille.ts:817](../../services/demo-api/src/services/famille.ts#L817) |
 
@@ -293,7 +293,7 @@ Permissions are the `AdminPermission` union in [packages/domain/src/entities.ts]
 
 | Permission | Required by | Read inline by |
 |---|---|---|
-| `verification.decide` | POST `/admin/verifications/:id/start-review`<br>POST `/admin/verifications/:id/decision`<br>POST `/dev/verification/:id/simulate` | GET `/uploads/:id/preview`<br>GET `/uploads/:id`<br>GET `/admin/verifications/:id` |
+| `verification.decide` | POST `/admin/verifications/:id/start-review`<br>POST `/admin/verifications/:id/decision` | GET `/uploads/:id/preview`<br>GET `/uploads/:id`<br>GET `/admin/verifications/:id` |
 | `finance.read` | GET `/admin/finance/summary`<br>GET `/admin/finance/ledger` | GET `/admin/people/:id`<br>GET `/admin/rides/:id` |
 | `finance.correct` | POST `/admin/finance/corrections` | — |
 | `config.edit` | GET `/admin/prototype`<br>PUT `/admin/prototype/catalog/:kind`<br>GET `/admin/prototype/alerts` (instead of `safety.respond`)<br>POST `/admin/prototype/alerts/:id` (instead of `safety.respond`)<br>POST `/admin/prototype/assignment/:id`<br>POST `/admin/prototype/driver-categories/:id`<br>POST `/admin/cities`<br>PUT `/admin/cities/:id/rules`<br>POST `/admin/cities/:id/status`<br>POST `/admin/cities/:id/zones`<br>POST `/admin/zones/:id/active`<br>POST `/admin/providers/:id` | GET `/uploads/:id/preview`<br>GET `/uploads/:id` |

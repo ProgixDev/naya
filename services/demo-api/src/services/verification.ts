@@ -11,6 +11,7 @@ import {
   promoteSignupDraft,
   verificationMachine,
   type AdminUser,
+  type AuditActor,
   type DecisionInput,
   type FamilleApplicationInput,
   type IdentityDetailsInput,
@@ -259,21 +260,71 @@ export function reopenCase(ctx: Ctx, user: User, caseId: string) {
   });
 }
 
+/** Moves a submitted dossier to `in_review` (no effect in any other state). Call inside `tx`. */
+function takeForReview(c: VerificationCase, at: string, reviewer: AuditActor) {
+  if (c.status !== 'submitted') return;
+  c.status = verificationMachine.next(c.status, 'START_REVIEW');
+  c.updatedAt = at;
+  c.version += 1;
+  c.history.push({ at, status: 'in_review', by: reviewer.id, note: `Examen pris en charge par ${reviewer.name}` });
+}
+
 export function startReview(ctx: Ctx, admin: AdminUser, caseId: string) {
   requirePermission(admin, 'verification.decide');
   return ctx.store.tx((s) => {
     const c = mustFind(s.cases, (x) => x.id === caseId, 'dossier');
-    if (c.status !== 'submitted') return c;
-    const now = ctx.clock.iso();
-    c.status = verificationMachine.next(c.status, 'START_REVIEW');
-    c.updatedAt = now;
-    c.version += 1;
-    c.history.push({ at: now, status: 'in_review', by: admin.id, note: `Examen pris en charge par ${admin.name}` });
+    takeForReview(c, ctx.clock.iso(), { type: 'admin', id: admin.id, name: admin.name });
     return c;
   });
 }
 
 const OUTCOME_EVENT = { approved: 'APPROVE', more_info_requested: 'REQUEST_MORE', rejected: 'REJECT' } as const;
+
+/**
+ * Applies a decision to a dossier and writes its audit event. Call inside `tx`. A simulated
+ * decision (dev-mode scenario reviewer) is audited as `verification.simulated_<outcome>` and
+ * labelled « Démo », so it can never be read as an administrator's review.
+ */
+function applyDecision(s: State, c: VerificationCase, at: string, reviewer: AuditActor, input: Omit<DecisionInput, 'expectedVersion'>, simulated = false) {
+  const before = { status: c.status };
+  c.status = verificationMachine.next(c.status, OUTCOME_EVENT[input.outcome]);
+  const corrections = new Map((input.corrections ?? []).map((x) => [x.key, x.note]));
+  c.items = c.items.map((i) => {
+    if (input.outcome === 'more_info_requested' && corrections.has(i.key)) return { ...i, status: 'needs_correction', note: corrections.get(i.key)! };
+    if (input.outcome === 'rejected') return i;
+    return { ...i, status: 'accepted', note: null };
+  });
+  for (const [key, note] of corrections) {
+    if (!c.items.some((i) => i.key === key)) c.items.push({ key, uploadIds: [], status: 'needs_correction', note });
+  }
+  const message =
+    input.message ||
+    (input.outcome === 'approved' ? 'Votre dossier a été validé.' : '');
+  c.decision = { outcome: input.outcome, reasonCode: input.reasonCode ?? null, message, decidedBy: reviewer.id, decidedByName: reviewer.name, decidedAt: at };
+  c.updatedAt = at;
+  c.version += 1;
+  c.history.push({ at, status: c.status, by: reviewer.id, note: message });
+  syncFamille(s, c);
+  const subject = mustFind(s.users, (u) => u.id === c.userId);
+  const labels = [...corrections.keys()].map((k) => ITEM_LABELS[k]).join(', ');
+  const summary =
+    input.outcome === 'approved'
+      ? `Dossier ${c.id} approuvé`
+      : input.outcome === 'rejected'
+        ? `Dossier ${c.id} refusé`
+        : `Complément demandé sur ${c.id} : ${labels}`;
+  appendAudit(s, at, {
+    actor: reviewer,
+    action: simulated ? `verification.simulated_${input.outcome}` : `verification.${input.outcome}`,
+    entityType: 'verification_case',
+    entityId: c.id,
+    cityId: subject.cityId,
+    reason: input.outcome === 'approved' ? (input.message || null) : message,
+    summary: simulated ? `Démo · examen simulé · ${summary}` : summary,
+    before,
+    after: { status: c.status },
+  });
+}
 
 export function decideCase(ctx: Ctx, admin: AdminUser, caseId: string, input: DecisionInput) {
   requirePermission(admin, 'verification.decide');
@@ -282,44 +333,7 @@ export function decideCase(ctx: Ctx, admin: AdminUser, caseId: string, input: De
     if (c.version !== input.expectedVersion) {
       throw new DomainError('CONFLICT', 'Le dossier a changé depuis son ouverture. Rechargez avant de décider.');
     }
-    const before = { status: c.status };
-    c.status = verificationMachine.next(c.status, OUTCOME_EVENT[input.outcome]);
-    const now = ctx.clock.iso();
-    const corrections = new Map((input.corrections ?? []).map((x) => [x.key, x.note]));
-    c.items = c.items.map((i) => {
-      if (input.outcome === 'more_info_requested' && corrections.has(i.key)) return { ...i, status: 'needs_correction', note: corrections.get(i.key)! };
-      if (input.outcome === 'rejected') return i;
-      return { ...i, status: 'accepted', note: null };
-    });
-    for (const [key, note] of corrections) {
-      if (!c.items.some((i) => i.key === key)) c.items.push({ key, uploadIds: [], status: 'needs_correction', note });
-    }
-    const message =
-      input.message ||
-      (input.outcome === 'approved' ? 'Votre dossier a été validé.' : '');
-    c.decision = { outcome: input.outcome, reasonCode: input.reasonCode ?? null, message, decidedBy: admin.id, decidedByName: admin.name, decidedAt: now };
-    c.updatedAt = now;
-    c.version += 1;
-    c.history.push({ at: now, status: c.status, by: admin.id, note: message });
-    syncFamille(s, c);
-    const subject = mustFind(s.users, (u) => u.id === c.userId);
-    const labels = [...corrections.keys()].map((k) => ITEM_LABELS[k]).join(', ');
-    appendAudit(s, now, {
-      actor: { type: 'admin', id: admin.id, name: admin.name },
-      action: `verification.${input.outcome}`,
-      entityType: 'verification_case',
-      entityId: c.id,
-      cityId: subject.cityId,
-      reason: input.outcome === 'approved' ? (input.message || null) : message,
-      summary:
-        input.outcome === 'approved'
-          ? `Dossier ${c.id} approuvé`
-          : input.outcome === 'rejected'
-            ? `Dossier ${c.id} refusé`
-            : `Complément demandé sur ${c.id} : ${labels}`,
-      before,
-      after: { status: c.status },
-    });
+    applyDecision(s, c, ctx.clock.iso(), { type: 'admin', id: admin.id, name: admin.name }, input);
     return c;
   });
 }
@@ -327,33 +341,42 @@ export function decideCase(ctx: Ctx, admin: AdminUser, caseId: string, input: De
 export type SimulatedOutcome = 'approved' | 'more_info_requested' | 'rejected';
 
 /**
- * Dev mode only (POST /dev/verification/:id/simulate, used by tests): a reviewer decides the
- * caller's own submitted dossier at once, with the wording a reviewer would write, so every
- * review outcome is reachable without the admin console. The apps never call it, and it is not
- * registered when NAYA_DEV=0.
+ * The dev-mode scenario reviewer. A system actor, never an administrator: the decision, the
+ * case history and the audit trail name it, not a real member of the Naya team.
+ */
+export const DEMO_REVIEWER: AuditActor = { type: 'system', id: 'system:demo-review', name: 'Réviseuse de démonstration' };
+
+/**
+ * Dev mode only (POST /dev/verification/:id/simulate, used by tests): the scenario reviewer
+ * decides the calling driver's own submitted dossier at once, with the wording a reviewer would
+ * write, so every review outcome is reachable without the admin console. The apps never call it.
+ * Drivers only: a passagère's identity is always reviewed by a person. Not registered when
+ * NAYA_DEV=0.
  */
 export function simulateReview(ctx: Ctx, user: User, caseId: string, outcome: SimulatedOutcome, itemKey?: VerificationItemKey) {
-  const kase = ctx.store.read((s) => ownedCase(s, user, caseId));
-  if (kase.status !== 'submitted' && kase.status !== 'in_review') {
-    throw new DomainError('INVALID_TRANSITION', 'Ce dossier n’est pas en attente d’examen. Envoyez-le d’abord.');
-  }
-  const reviewer = ctx.store.read((s) => s.admins.find((a) => a.permissions.includes('verification.decide')));
-  if (!reviewer) throw new DomainError('NOT_FOUND');
-  startReview(ctx, reviewer, caseId);
-  const current = ctx.store.read((s) => mustFind(s.cases, (c) => c.id === caseId));
-  const key = itemKey && current.items.some((i) => i.key === itemKey) ? itemKey : (current.items[0]?.key ?? null);
-  if (outcome === 'approved') {
-    return decideCase(ctx, reviewer, caseId, { outcome, reasonCode: null, message: '', corrections: [], expectedVersion: current.version });
-  }
-  if (outcome === 'more_info_requested') {
-    if (!key) throw new DomainError('VALIDATION');
-    return decideCase(ctx, reviewer, caseId, {
-      outcome,
-      reasonCode: 'correction',
-      message: 'Une pièce doit être reprise avant la validation.',
-      corrections: [{ key, note: 'Photo floue : reprenez-la à plat, en pleine lumière, sans reflet.' }],
-      expectedVersion: current.version,
-    });
-  }
-  return decideCase(ctx, reviewer, caseId, { outcome, reasonCode: 'document_expired', message: 'Pièce expirée : recommencez avec une pièce en cours de validité.', corrections: [], expectedVersion: current.version });
+  if (user.role !== 'driver') throw new DomainError('FORBIDDEN');
+  return ctx.store.tx((s) => {
+    const c = ownedCase(s, user, caseId);
+    if (c.subject === 'passenger_identity') throw new DomainError('FORBIDDEN');
+    if (c.status !== 'submitted' && c.status !== 'in_review') {
+      throw new DomainError('INVALID_TRANSITION', 'Ce dossier n’est pas en attente d’examen. Envoyez-le d’abord.');
+    }
+    const at = ctx.clock.iso();
+    takeForReview(c, at, DEMO_REVIEWER);
+    const key = itemKey && c.items.some((i) => i.key === itemKey) ? itemKey : (c.items[0]?.key ?? null);
+    if (outcome === 'approved') {
+      applyDecision(s, c, at, DEMO_REVIEWER, { outcome, reasonCode: null, message: '', corrections: [] }, true);
+    } else if (outcome === 'more_info_requested') {
+      if (!key) throw new DomainError('VALIDATION');
+      applyDecision(s, c, at, DEMO_REVIEWER, {
+        outcome,
+        reasonCode: 'correction',
+        message: 'Une pièce doit être reprise avant la validation.',
+        corrections: [{ key, note: 'Photo floue : reprenez-la à plat, en pleine lumière, sans reflet.' }],
+      }, true);
+    } else {
+      applyDecision(s, c, at, DEMO_REVIEWER, { outcome, reasonCode: 'document_expired', message: 'Pièce expirée : recommencez avec une pièce en cours de validité.', corrections: [] }, true);
+    }
+    return c;
+  });
 }
