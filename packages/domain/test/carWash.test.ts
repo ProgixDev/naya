@@ -124,9 +124,25 @@ describe('wash cancellation rules', () => {
     expect(washCancellationPreview({ status: 'washer_assigned', assignedAt, startAt: soon, terms }, NOW + 60_000)).toMatchObject({ fee: 0, reason: 'within_grace' });
     expect(washCancellationPreview({ status: 'washer_assigned', assignedAt, startAt: soon, terms }, NOW + 6 * 60_000).fee).toBe(mad(20));
   });
-  it('costs the en-route fee once the team has left, never more than the price', () => {
-    expect(washCancellationPreview({ status: 'en_route', assignedAt: null, startAt, terms }, NOW).fee).toBe(mad(30));
-    expect(washCancellationPreview({ status: 'en_route', assignedAt: null, startAt, terms: { ...terms, price: mad(25) } }, NOW).fee).toBe(mad(25));
+  it('keeps the 5 free minutes when the « Maintenant » team has already left (CW-01)', () => {
+    const soon = new Date(NOW + 40 * 60_000).toISOString();
+    const assignedAt = new Date(NOW).toISOString();
+    // The demo team leaves 10 s after assignment: still inside the free window the sheet announces.
+    const enRoute = washCancellationPreview({ status: 'en_route', assignedAt, startAt: soon, terms }, NOW + 10_000);
+    expect(enRoute).toMatchObject({ fee: 0, reason: 'within_grace', freeUntil: new Date(NOW + 5 * 60_000).toISOString() });
+    expect(enRoute.explanation).toMatch(/en route, mais l’annulation reste gratuite pendant 5 minutes/);
+    expect(washCancellationPreview({ status: 'en_route', assignedAt, startAt: soon, terms }, NOW + 5 * 60_000 - 1).fee).toBe(0);
+    expect(washCancellationPreview({ status: 'en_route', assignedAt, startAt: soon, terms }, NOW + 5 * 60_000)).toMatchObject({ fee: mad(30), reason: 'en_route', freeUntil: null });
+  });
+  it('applies the same slot rule en route: free until 2 h before the slot', () => {
+    const assignedAt = new Date(NOW - 3_600_000).toISOString();
+    expect(washCancellationPreview({ status: 'en_route', assignedAt, startAt, terms }, NOW)).toMatchObject({ fee: 0, reason: 'before_cutoff' });
+  });
+  it('costs the en-route fee once the team has left after the free window, never more than the price', () => {
+    const assignedAt = new Date(NOW - 3_600_000).toISOString();
+    const leaving = Date.parse(startAt) - 60_000;
+    expect(washCancellationPreview({ status: 'en_route', assignedAt, startAt, terms }, leaving)).toMatchObject({ fee: mad(30), reason: 'en_route' });
+    expect(washCancellationPreview({ status: 'en_route', assignedAt, startAt, terms: { ...terms, price: mad(25) } }, leaving).fee).toBe(mad(25));
   });
   it('cannot be cancelled once washing', () => {
     expect(washCancellationPreview({ status: 'washing', assignedAt: null, startAt, terms }, NOW).reason).toBe('not_cancellable');

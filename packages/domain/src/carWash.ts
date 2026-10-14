@@ -29,13 +29,13 @@ export interface WashPackage {
 }
 
 export interface WashCancellationPolicy {
-  /** Free cancellation during this many seconds after a team is assigned. */
+  /** Free cancellation during this many seconds after a team is assigned, even once it is on its way. */
   graceSeconds: number;
   /** Free cancellation while the planned start is at least this far away. */
   freeUntilMinutesBefore: number;
   /** Fee once a team is assigned and both free windows are over. */
   lateFee: Centimes;
-  /** Fee once the team is on its way. */
+  /** Fee once the team is on its way and both free windows are over. */
   enRouteFee: Centimes;
 }
 
@@ -374,7 +374,12 @@ export interface WashCancellationPreview {
   explanation: string;
 }
 
-/** Fee the customer would pay if she cancelled now, from the order's frozen policy. Never above the price. */
+/**
+ * Fee the customer would pay if she cancelled now, from the order's frozen policy. Never above the price.
+ * Once a team is assigned, cancelling stays free during the grace period or until the cutoff before the
+ * slot, whichever ends later, even if the team has already left (a « Maintenant » team leaves within
+ * seconds of assignment). After that: the late fee while the team is assigned, the en-route fee once it has left.
+ */
 export function washCancellationPreview(
   order: Pick<WashOrder, 'status' | 'assignedAt' | 'startAt'> & { terms: Pick<WashTerms, 'cancellation' | 'price'> },
   nowMs: number,
@@ -384,25 +389,30 @@ export function washCancellationPreview(
   switch (order.status) {
     case 'booked':
       return { fee: 0, reason: 'before_assignment', freeUntil: null, explanation: 'Aucune équipe n’est encore assignée : l’annulation est gratuite.' };
-    case 'washer_assigned': {
+    case 'washer_assigned':
+    case 'en_route': {
+      const enRoute = order.status === 'en_route';
       const graceEnd = Date.parse(order.assignedAt ?? new Date(nowMs).toISOString()) + policy.graceSeconds * 1000;
       const cutoff = Date.parse(order.startAt) - policy.freeUntilMinutesBefore * 60_000;
       const freeUntilMs = Math.max(graceEnd, cutoff);
       if (nowMs < freeUntilMs) {
         const beforeCutoff = nowMs < cutoff;
+        const graceMinutes = Math.round(policy.graceSeconds / 60);
         return {
           fee: 0,
           reason: beforeCutoff ? 'before_cutoff' : 'within_grace',
           freeUntil: new Date(freeUntilMs).toISOString(),
           explanation: beforeCutoff
             ? `Annulation gratuite jusqu’à ${Math.round(policy.freeUntilMinutesBefore / 60)} h avant le créneau.`
-            : `Annulation gratuite pendant ${Math.round(policy.graceSeconds / 60)} minutes après l’attribution de l’équipe.`,
+            : enRoute
+              ? `L’équipe de lavage est en route, mais l’annulation reste gratuite pendant ${graceMinutes} minutes après son attribution.`
+              : `Annulation gratuite pendant ${graceMinutes} minutes après l’attribution de l’équipe.`,
         };
       }
-      return { fee: cap(policy.lateFee), reason: 'late', freeUntil: null, explanation: 'L’équipe de lavage s’organise déjà pour votre créneau.' };
+      return enRoute
+        ? { fee: cap(policy.enRouteFee), reason: 'en_route', freeUntil: null, explanation: 'L’équipe de lavage est déjà en route vers votre voiture.' }
+        : { fee: cap(policy.lateFee), reason: 'late', freeUntil: null, explanation: 'L’équipe de lavage s’organise déjà pour votre créneau.' };
     }
-    case 'en_route':
-      return { fee: cap(policy.enRouteFee), reason: 'en_route', freeUntil: null, explanation: 'L’équipe de lavage est déjà en route vers votre voiture.' };
     default:
       return { fee: 0, reason: 'not_cancellable', freeUntil: null, explanation: 'Ce lavage ne peut plus être annulé.' };
   }

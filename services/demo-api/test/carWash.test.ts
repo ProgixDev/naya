@@ -146,6 +146,29 @@ describe('car wash (« Lavage à domicile »)', () => {
     expect((await h.ok('GET', `/car-wash/orders/${booked.id}`, { token: salma })).order.status).toBe('cancelled');
   });
 
+  it('« Maintenant »: cancelling while the team is en route inside the 5 free minutes costs nothing (CW-01)', async () => {
+    const h = setup('first-ride');
+    const salma = await h.login(PHONES.salma, 'passenger');
+    const card = (await optionsOf(h, salma)).find((o) => o.label.includes('4242'));
+    const booked = await h.ok('POST', '/car-wash/orders', { token: salma, body: order({ paymentMethodId: card.id }) });
+    expect((await h.ok('GET', `/car-wash/orders/${booked.id}/cancellation-preview`, { token: salma })).reason).toBe('before_assignment');
+    h.advance(15);
+    let o = (await h.ok('GET', `/car-wash/orders/${booked.id}`, { token: salma })).order;
+    expect(o.status).toBe('washer_assigned');
+    const freeUntil = new Date(Date.parse(o.assignedAt) + 5 * 60_000).toISOString();
+    // The demo team leaves 10 s after assignment: the window the sheet announces is still open.
+    h.advance(10);
+    o = (await h.ok('GET', `/car-wash/orders/${booked.id}`, { token: salma })).order;
+    expect(o.status).toBe('en_route');
+    const preview = await h.ok('GET', `/car-wash/orders/${booked.id}/cancellation-preview`, { token: salma });
+    expect(preview).toMatchObject({ fee: 0, reason: 'within_grace', freeUntil });
+    // The sheet sends the fee it showed; the server charges exactly that.
+    const cancelled = await h.ok('POST', `/car-wash/orders/${booked.id}/cancel`, { token: salma, body: { reasonCode: 'wait_too_long', acknowledgedFee: preview.fee } });
+    expect(cancelled).toMatchObject({ status: 'cancelled', cancellation: { by: 'customer', fee: 0 } });
+    expect(cancelled.timeline.at(-1).label).toBe('Annulé · sans frais');
+    expect((await h.ok('GET', `/car-wash/orders/${booked.id}`, { token: salma })).payments).toEqual([]);
+  });
+
   it('passenger wallet: holds the price at booking and releases it on a free cancellation', async () => {
     const h = setup('first-ride');
     const salma = await h.login(PHONES.salma, 'passenger');
@@ -172,13 +195,17 @@ describe('car wash (« Lavage à domicile »)', () => {
     // 70 MAD available: the complete package (180 MAD) is refused, the exterior one (60 MAD) goes through.
     const tooMuch = await h.call('POST', '/car-wash/orders', { token: amina, body: order({ paymentMethodId: walletOpt.id, packageId: 'complete', expectedPrice: mad(180), vehicleId: me.vehicle.id, car: { make: me.vehicle.make, model: me.vehicle.model, color: me.vehicle.color, plate: me.vehicle.plate } }) });
     expect(tooMuch.body.error.code).toBe('INSUFFICIENT_AVAILABLE');
-    const booked = await h.ok('POST', '/car-wash/orders', { token: amina, body: order({ paymentMethodId: walletOpt.id, packageId: 'exterior', expectedPrice: mad(60), vehicleId: me.vehicle.id, car: { make: me.vehicle.make, model: me.vehicle.model, color: me.vehicle.color, plate: me.vehicle.plate } }) });
+    // A slot tomorrow: the team leaves 60 s before it, long after the free window (CW-01).
+    const startAt = casablancaLocalToUtc(TOMORROW, '10:00');
+    const booked = await h.ok('POST', '/car-wash/orders', { token: amina, body: order({ paymentMethodId: walletOpt.id, packageId: 'exterior', expectedPrice: mad(60), timing: 'scheduled', startAt, vehicleId: me.vehicle.id, car: { make: me.vehicle.make, model: me.vehicle.model, color: me.vehicle.color, plate: me.vehicle.plate } }) });
     expect(booked).toMatchObject({ customerRole: 'driver', vehicleId: me.vehicle.id, paymentMethod: { kind: 'driver_wallet' } });
     let wallet = (await h.ok('GET', '/driver/wallet', { token: amina })).wallet;
     expect(wallet.balance).toBe(mad(10));
-    // En route: 30 MAD fee, 30 MAD refunded.
+    // En route after the free window: 30 MAD fee, 30 MAD refunded.
     h.advance(15);
-    h.advance(10);
+    h.clock.advance((Date.parse(startAt) - h.clock.now()) / 1000 - 30);
+    h.advance(0);
+    expect((await h.ok('GET', `/car-wash/orders/${booked.id}`, { token: amina })).order.status).toBe('en_route');
     const preview = await h.ok('GET', `/car-wash/orders/${booked.id}/cancellation-preview`, { token: amina });
     expect(preview).toMatchObject({ reason: 'en_route', fee: mad(30) });
     await h.ok('POST', `/car-wash/orders/${booked.id}/cancel`, { token: amina, body: { reasonCode: 'car_moved', acknowledgedFee: mad(30) } });

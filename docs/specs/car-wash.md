@@ -53,8 +53,11 @@ a chauffeuse for her Naya car. There is no washer app: the demo API plays the te
   - Cash and wallet marocain: confirmed at completion (mock, no provider).
   - No driver ledger is credited: washers are not Naya drivers.
 - **R8 ✅ Cancellation** (`washCancellationPreview`, frozen policy): free before assignment; after assignment free for 5 min
-  or until 2 h before the slot, whichever is later; then 20 MAD; 30 MAD once the team is en route; never above the price.
-  The customer must acknowledge the fee shown (`acknowledgedFee`); a changed fee answers `CONFLICT`.
+  or until 2 h before the slot, whichever is later, **even once the team is en route** (a « Maintenant » team leaves
+  10 s after assignment, so the « Annulation gratuite jusqu’à HH:MM » the sheet shows must hold; CW-01). After that window:
+  20 MAD while the team is assigned, 30 MAD once it is en route; never above the price. The preview and the cancel use
+  the same function at the same instant: the customer must acknowledge the fee shown (`acknowledgedFee`); a changed fee
+  answers `CONFLICT`.
 - **R9 ✅ Tracking.** The order screen polls every 2 s while the order is open (ADR-0013) and shows the five-step timeline,
   the team's position (moved by the mock backend) and ETA while en route, before photos when washing starts, after photos and the receipt
   at completion, then a 1–5 rating (once).
