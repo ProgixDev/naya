@@ -43,7 +43,7 @@ export default function Phone() {
       title="Votre numéro"
       subtitle="Il sert à vous connecter à votre compte Naya."
       onBack={router.canGoBack() ? () => router.back() : undefined}
-      onCodeSent={(p, demoCode) => router.push({ pathname: '/(auth)/otp', params: { phone: p, demoCode: demoCode ?? '' } })}
+      onCodeSent={(p) => router.push({ pathname: '/(auth)/otp', params: { phone: p } })}
       providers={<ProviderButtons />}
       legal={
         <Text variant="micro" tone="muted" align="center">

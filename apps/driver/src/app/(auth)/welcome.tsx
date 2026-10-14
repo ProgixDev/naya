@@ -1,6 +1,6 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { illustrations, photos } from '@naya/assets';
-import { DEMO_MODE, DemoBadge, PressableScale, WelcomeJourney } from '@naya/ui';
+import { DevLauncherGesture, WelcomeJourney } from '@naya/ui';
 import { usePrefs } from '@/lib/prefs';
 
 const SLIDES = [
@@ -14,5 +14,5 @@ export default function Welcome() {
   const seen = usePrefs((s) => s.onboardingDone);
   const done = usePrefs((s) => s.setOnboardingDone);
   if (seen && !reviewPreview) return <Redirect href="/(auth)/phone" />;
-  return <WelcomeJourney slides={SLIDES} driver onFinish={() => { done(); router.push('/(auth)/phone'); }} badge={DEMO_MODE ? <PressableScale onPress={() => router.push('/dev')} accessibilityRole="button" accessibilityLabel="Ouvrir le lanceur de scénarios de démonstration" hitSlop={12}><DemoBadge /></PressableScale> : undefined} />;
+  return <WelcomeJourney slides={SLIDES} driver onFinish={() => { done(); router.push('/(auth)/phone'); }} badge={<DevLauncherGesture onOpen={() => router.push('/dev')} />} />;
 }

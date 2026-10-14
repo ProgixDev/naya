@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
+import { brandAspect } from '@naya/assets';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@naya/api/react';
 import { errorMessage, qk } from '@naya/api';
@@ -13,11 +14,36 @@ import { toast } from '../Toast';
 import { mapEngine } from '../map';
 import { resolveApiBase, STANDALONE_DEMO } from '../core/apiBase';
 import { useGlassKind } from '../Glass';
+import { haptic } from '../haptics';
+
+/**
+ * The only in-app way into the scenario launcher: a 2 s long press on the Naya logo of the
+ * welcome screen, in development builds (__DEV__) only. It draws nothing and is hidden from
+ * screen readers. Pass it as WelcomeJourney's `badge`: it is laid over the lockup beside it.
+ * The launcher also opens from its deep link (naya://dev, naya-chauffeuse://dev).
+ */
+export function DevLauncherGesture({ onOpen, logoHeight = 30 }: { onOpen: () => void; logoHeight?: number }) {
+  if (!__DEV__) return null;
+  return (
+    <Pressable
+      onLongPress={() => {
+        haptic.success();
+        onOpen();
+      }}
+      delayLongPress={2000}
+      accessible={false}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ position: 'absolute', left: 0, top: 0, height: logoHeight, width: logoHeight * brandAspect.lockup }}
+      testID="dev-launcher-gesture"
+    />
+  );
+}
 
 /**
  * Development-only scenario launcher. Resets the shared demo API to a named scenario,
  * shows demo accounts and simulates external events (provider outcomes, a second driver,
- * frozen GPS). It is not reachable in production builds.
+ * frozen GPS). No visible control leads here: see DevLauncherGesture and the deep link.
  */
 export function DevLauncher({ onBack, onSignInAs, role }: { onBack: () => void; onSignInAs: (phone: string) => void; role: 'passenger' | 'driver' }) {
   const api = useApi();

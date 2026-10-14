@@ -47,7 +47,7 @@ export function requestOtp(ctx: Ctx, phone: string, role: MobileRole) {
     return {
       expiresAt: challenge.expiresAt,
       resendAvailableAt: challenge.resendAvailableAt,
-      /** Present only in demo mode so testers can sign in without SMS delivery. */
+      /** Dev mode only (there is no SMS provider): the apps deliver it on the device like a text message (packages/ui/src/features/auth.tsx). */
       demoCode: ctx.config.otpMode === 'fixed' ? code : null,
       delivery: ctx.config.otpMode === 'fixed' ? ('demo' as const) : ('console' as const),
     };

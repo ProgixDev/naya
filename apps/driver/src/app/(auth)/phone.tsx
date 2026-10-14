@@ -10,7 +10,7 @@ export default function Phone() {
       title="Votre numéro"
       subtitle="Il sert à vous connecter à votre espace chauffeuse."
       onBack={router.canGoBack() ? () => router.back() : undefined}
-      onCodeSent={(p, demoCode) => router.push({ pathname: '/(auth)/otp', params: { phone: p, demoCode: demoCode ?? '' } })}
+      onCodeSent={(p) => router.push({ pathname: '/(auth)/otp', params: { phone: p } })}
       legal={
         <Text variant="micro" tone="muted" align="center">
           En continuant, vous acceptez les conditions chauffeuse et la politique de confidentialité de Naya.

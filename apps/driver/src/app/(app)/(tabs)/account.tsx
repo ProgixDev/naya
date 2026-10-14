@@ -1,9 +1,9 @@
-import { useTheme , ProfileHero, Avatar, avatarFor, ConfirmDialog, DEMO_MODE, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, Text, TextButton, toast } from '@naya/ui';
+import { useTheme , ProfileHero, avatarFor, ConfirmDialog, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, TextButton, toast } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Baby, Bell, Car, FileText, FlaskConical, History, LifeBuoy, UserRound } from 'lucide-react-native';
+import { Baby, Bell, Car, FileText, History, LifeBuoy, UserRound } from 'lucide-react-native';
 import { isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { FAMILLE_ELIGIBILITY_LABELS, STATUS_LABELS, familleEligibilityOf } from '@naya/domain';
@@ -54,7 +54,6 @@ export default function Account() {
           <ListRow title="Historique des courses" leading={<IconDisc size={36}><History size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/rides')} testID="account-rides" />
           <ListRow title="Préférences" subtitle="Notifications" leading={<IconDisc size={36}><Bell size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/profile/preferences')} testID="account-preferences" />
           <ListRow title="Aide et demandes" subtitle="Courses, paiements ou documents" leading={<IconDisc size={36}><LifeBuoy size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/support')} testID="account-support" />
-          {DEMO_MODE ? <ListRow title="Lanceur de scénarios" subtitle="Démonstration · non livré en production" leading={<IconDisc size={36} tone="warning"><FlaskConical size={17} color={colors.warning} /></IconDisc>} onPress={() => router.push('/dev')} /> : null}
         </ListGroup>
         <TextButton label="Se déconnecter" tone="danger" onPress={() => setConfirm(true)} testID="sign-out" />
       </View>
