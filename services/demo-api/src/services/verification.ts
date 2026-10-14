@@ -299,7 +299,8 @@ function takeForReview(c: VerificationCase, at: string, reviewer: AuditActor) {
   c.status = verificationMachine.next(c.status, 'START_REVIEW');
   c.updatedAt = at;
   c.version += 1;
-  c.history.push({ at, status: 'in_review', by: reviewer.id, note: `Examen pris en charge par ${reviewer.name}` });
+  const note = reviewer.type === 'system' ? `Examen pris en charge · ${reviewer.name}` : `Examen pris en charge par ${reviewer.name}`;
+  c.history.push({ at, status: 'in_review', by: reviewer.id, note });
 }
 
 export function startReview(ctx: Ctx, admin: AdminUser, caseId: string) {
@@ -315,8 +316,9 @@ const OUTCOME_EVENT = { approved: 'APPROVE', more_info_requested: 'REQUEST_MORE'
 
 /**
  * Applies a decision to a dossier and writes its audit event. Call inside `tx`. A simulated
- * decision (dev-mode scenario reviewer) is audited as `verification.simulated_<outcome>` and
- * labelled « Démo », so it can never be read as an administrator's review.
+ * decision (dev-mode scenario reviewer) is audited as `verification.simulated_<outcome>` with a
+ * summary that starts « Vérification automatique », so it can never be read as an
+ * administrator's review. No user or operator sees demo wording (ADR-0058).
  */
 function applyDecision(s: State, c: VerificationCase, at: string, reviewer: AuditActor, input: Omit<DecisionInput, 'expectedVersion'>, simulated = false) {
   const before = { status: c.status };
@@ -353,7 +355,7 @@ function applyDecision(s: State, c: VerificationCase, at: string, reviewer: Audi
     entityId: c.id,
     cityId: subject.cityId,
     reason: input.outcome === 'approved' ? (input.message || null) : message,
-    summary: simulated ? `Démo · examen simulé · ${summary}` : summary,
+    summary: simulated ? `${reviewer.name} · ${summary}` : summary,
     before,
     after: { status: c.status },
   });
@@ -375,9 +377,10 @@ export type SimulatedOutcome = 'approved' | 'more_info_requested' | 'rejected';
 
 /**
  * The dev-mode scenario reviewer. A system actor, never an administrator: the decision, the
- * case history and the audit trail name it, not a real member of the Naya team.
+ * case history and the audit trail name it « Vérification automatique », not a real member of
+ * the Naya team. The id keeps its internal name (ADR-0058: internal identifiers stay).
  */
-export const DEMO_REVIEWER: AuditActor = { type: 'system', id: 'system:demo-review', name: 'Réviseuse de démonstration' };
+export const DEMO_REVIEWER: AuditActor = { type: 'system', id: 'system:demo-review', name: 'Vérification automatique' };
 
 /**
  * Dev mode only (POST /dev/verification/:id/simulate, used by tests): the scenario reviewer

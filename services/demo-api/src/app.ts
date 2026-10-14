@@ -1042,7 +1042,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     };
     /**
      * Scenario reviewer: decides the calling driver's own submitted dossier at once, as the system
-     * actor « Réviseuse de démonstration » (audited as verification.simulated_*), with the wording a
+     * actor « Vérification automatique » (audited as verification.simulated_*), with the wording a
      * reviewer would write. Passengers are refused: their identity is always reviewed in the admin.
      */
     app.post('/dev/verification/:id/simulate', async (c) => {

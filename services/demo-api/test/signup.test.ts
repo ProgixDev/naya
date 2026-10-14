@@ -232,8 +232,8 @@ describe('Demo engine · simulated review outcomes and resumable seed', () => {
     expect(more.status).toBe('more_info_requested');
     expect(more.items.find((i: any) => i.key === 'selfie')).toMatchObject({ status: 'needs_correction', note: expect.stringMatching(/^Photo floue/) });
     // The wording is what a reviewer would write: nothing tells the user it was simulated.
-    // The reviewer's identity (decidedBy, decidedByName) is the system actor, checked below (DS-1).
-    const { decidedBy: _by, decidedByName: _name, ...decision } = more.decision;
+    // decidedBy is the internal id of the system actor (system:demo-review), checked below (DS-1).
+    const { decidedBy: _by, ...decision } = more.decision;
     expect(JSON.stringify([decision, more.items])).not.toMatch(/d[ée]mo|simul/i);
     await attach(h, t, person.id, ['selfie']);
     await h.ok('POST', `/verification/${person.id}/submit`, { token: t });
@@ -258,16 +258,18 @@ describe('Demo engine · simulated review outcomes and resumable seed', () => {
 
     const approved = await h.ok('POST', `/dev/verification/${person.id}/simulate`, { token: t, body: { outcome: 'approved' } });
     expect(approved.status).toBe('approved');
-    expect(approved.decision).toMatchObject({ decidedBy: 'system:demo-review', decidedByName: 'Réviseuse de démonstration', message: 'Votre dossier a été validé.' });
+    expect(approved.decision).toMatchObject({ decidedBy: 'system:demo-review', decidedByName: 'Vérification automatique', message: 'Votre dossier a été validé.' });
     expect(isAdmin({ id: approved.decision.decidedBy, name: approved.decision.decidedByName })).toBe(false);
     expect(approved.history.some((x: any) => admins.some((a) => a.id === x.by))).toBe(false);
 
     // The hash-chained audit entry names the system actor and an action marked as simulated.
     const simulated = await h.ok('GET', '/admin/audit?action=verification.simulated_approved', { token: admin });
     const event = simulated.items.find((e: any) => e.entityId === person.id);
-    expect(event.actor).toEqual({ type: 'system', id: 'system:demo-review', name: 'Réviseuse de démonstration' });
+    expect(event.actor).toEqual({ type: 'system', id: 'system:demo-review', name: 'Vérification automatique' });
     expect(isAdmin(event.actor)).toBe(false);
-    expect(event.summary).toMatch(/^Démo · examen simulé/);
+    expect(event.summary).toBe(`Vérification automatique · Dossier ${person.id} approuvé`);
+    // Nothing a user or an operator reads names a demo or a simulation (ADR-0058).
+    expect(JSON.stringify([approved.decision.decidedByName, approved.decision.message, approved.history.map((x: any) => x.note), event.actor.name, event.summary, event.reason])).not.toMatch(/d[ée]mo|simul/i);
     expect(simulated.integrity.valid).toBe(true);
     const real = await h.ok('GET', '/admin/audit?action=verification.approved', { token: admin });
     expect(real.items.some((e: any) => e.entityId === person.id)).toBe(false);
