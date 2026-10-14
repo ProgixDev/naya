@@ -163,7 +163,7 @@ function AddCityDialog({ onClose, onCreated }: { onClose: () => void; onCreated:
         <Field label="Identifiant">{(f) => <Input id={f} value={id} onChange={(e) => setId(e.target.value)} data-testid="city-id" />}</Field>
         <Field label="Nom">{(f) => <Input id={f} value={name} onChange={(e) => setName(e.target.value)} data-testid="city-name" />}</Field>
         <Field label="Statut initial">{(f) => <Select id={f} value={status} onChange={(e) => setStatus(e.target.value as 'test')}><option value="test">En test (comptes testeurs)</option><option value="inactive">Inactive</option></Select>}</Field>
-        <Field label="Modèle de règles">{(f) => <Select id={f} value={template} onChange={(e) => applyTemplate(e.target.value as 'rabat')}><option value="casablanca">Casablanca (démo)</option><option value="rabat">Copier Rabat</option></Select>}</Field>
+        <Field label="Modèle de règles">{(f) => <Select id={f} value={template} onChange={(e) => applyTemplate(e.target.value as 'rabat')}><option value="casablanca">Grille Casablanca</option><option value="rabat">Copier Rabat</option></Select>}</Field>
         <Field label="Latitude du centre">{(f) => <Input id={f} value={lat} onChange={(e) => setLat(e.target.value)} />}</Field>
         <Field label="Longitude du centre">{(f) => <Input id={f} value={lng} onChange={(e) => setLng(e.target.value)} />}</Field>
         <Field label="Prise en charge (MAD)">{(f) => <Input id={f} value={base} onChange={(e) => setBase(e.target.value)} data-testid="city-base" />}</Field>

@@ -7,7 +7,7 @@ import type { LedgerEntry, Payment, Recharge, User, Wallet, Withdrawal } from '@
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useWorkspace } from '../lib/context';
-import { fmtDateTime, money, signed, toCentimes } from '../lib/format';
+import { fmtDateTime, money, providerName, signed, toCentimes } from '../lib/format';
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, Kpi, PageHeader, Pagination, Segmented, Select, Skeleton, TableSkeleton, Textarea, toast } from '../components/ui';
 import { LEDGER_LABELS, METHOD_LABELS, PAYMENT_PURPOSE_LABELS, PaymentBadge, TransferBadge } from '../components/status';
 
@@ -80,7 +80,7 @@ export function FinancePage() {
 }
 
 function Transfers({ recharges, withdrawals }: { recharges: Recharge[]; withdrawals: Withdrawal[] }) {
-  const rows = [...recharges.map((r) => ({ kind: 'Recharge' as const, id: r.id, driverId: r.driverId, amount: r.amount, via: r.providerName, status: r.status, at: r.createdAt, reason: r.failureReason })), ...withdrawals.map((w) => ({ kind: 'Retrait' as const, id: w.id, driverId: w.driverId, amount: w.amount, via: w.destinationLabel, status: w.status, at: w.createdAt, reason: w.failureReason }))].sort((a, b) => b.at.localeCompare(a.at));
+  const rows = [...recharges.map((r) => ({ kind: 'Recharge' as const, id: r.id, driverId: r.driverId, amount: r.amount, via: providerName(r.providerName), status: r.status, at: r.createdAt, reason: r.failureReason })), ...withdrawals.map((w) => ({ kind: 'Retrait' as const, id: w.id, driverId: w.driverId, amount: w.amount, via: w.destinationLabel, status: w.status, at: w.createdAt, reason: w.failureReason }))].sort((a, b) => b.at.localeCompare(a.at));
   return (
     <div className="pt-2">
       <p className="px-5 py-3 text-[13px] text-muted">Les retraits ne nécessitent pas d’approbation : le prestataire confirme ou refuse. Un retrait en cours réserve les fonds ; un échec libère la réservation sans crédit artificiel.</p>

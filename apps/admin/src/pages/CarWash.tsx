@@ -5,7 +5,7 @@ import type { AdminWashOrderRow } from '@naya/api';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/context';
 import { fmtDateTime, money } from '../lib/format';
-import { Badge, Banner, Card, DataTable, EmptyState, ErrorState, PageHeader, Select, TableSkeleton } from '../components/ui';
+import { Badge, Card, DataTable, EmptyState, ErrorState, PageHeader, Select, TableSkeleton } from '../components/ui';
 import { PaymentBadge } from '../components/status';
 
 const TONE: Record<WashOrderStatus, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
@@ -25,9 +25,8 @@ export function CarWashPage() {
   const rows = (q.data ?? []).filter((r) => !status || (status === 'open' ? !['completed', 'cancelled'].includes(r.order.status) : r.order.status === status));
   return (
     <>
-      <PageHeader title="Lavages à domicile" subtitle="Commandes des passagères et des chauffeuses. Lecture seule : les équipes de lavage, leurs trajets et leurs photos sont simulés." />
-      <Banner tone="info" title="Service en démonstration">Prix, durées et règles d’annulation sont provisoires (configuration de démo, à fixer par le client).</Banner>
-      <Card padded={false} className="mt-4">
+      <PageHeader title="Lavages à domicile" subtitle="Commandes des passagères et des chauffeuses : créneau, lieu, équipe, paiement et statut. Lecture seule." />
+      <Card padded={false}>
         <div className="flex flex-wrap items-center gap-2 px-5 pt-5">
           <Select aria-label="Statut" value={status} onChange={(e) => setStatus(e.target.value)} className="w-56" data-testid="car-wash-status">
             <option value="">Tous les statuts</option>

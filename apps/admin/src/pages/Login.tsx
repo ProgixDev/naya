@@ -8,18 +8,13 @@ import { useAuth } from '../lib/auth';
 import { BrandMark } from '../components/Brand';
 import { Banner, Button, Field, Input } from '../components/ui';
 
-const DEMO = [
-  { email: 'meryem@naya.demo', password: 'Naya-Admin-2026', label: 'Meryem · administratrice' },
-  { email: 'youssra@naya.demo', password: 'Naya-Support-2026', label: 'Youssra · agente support' },
-];
-
 /** A00-session: separate administrator sign-in (never exposed in the mobile apps). */
 export function LoginPage() {
   const { login, expired } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: string } };
   const [serverError, setServerError] = useState<string | null>(null);
-  const { register, handleSubmit, formState, setValue } = useForm<AdminLogin>({ resolver: zodResolver(adminLoginSchema), defaultValues: { email: '', password: '' } });
+  const { register, handleSubmit, formState } = useForm<AdminLogin>({ resolver: zodResolver(adminLoginSchema), defaultValues: { email: '', password: '' } });
   const onSubmit = handleSubmit(async (v) => {
     setServerError(null);
     try {
@@ -38,7 +33,7 @@ export function LoginPage() {
         </div>
         <div className="card p-8">
           <h1 className="text-[26px] font-semibold leading-8 tracking-[-0.3px]">Connexion</h1>
-          <p className="mt-1 text-[14px] text-muted">Accès réservé à l’équipe Naya. Chaque action est inscrite au journal d’audit.</p>
+          <p className="mt-1 text-[14px] text-muted">Accès réservé à l’équipe Naya. Les décisions et les changements de configuration sont inscrits au journal d’audit.</p>
           <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-4">
             {expired ? <Banner tone="warning" title="Session expirée">Reconnectez-vous pour continuer.</Banner> : null}
             {serverError ? <Banner tone="danger" title={serverError} /> : null}
@@ -52,25 +47,6 @@ export function LoginPage() {
               Se connecter
             </Button>
           </form>
-        </div>
-        <div className="mt-6 rounded-2xl border border-dashed border-line p-4">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">Comptes de démonstration</div>
-          <div className="mt-2 flex flex-col gap-1">
-            {DEMO.map((d) => (
-              <button
-                key={d.email}
-                type="button"
-                className="flex items-center justify-between rounded-xl px-2 py-2 text-left text-[13px] hover:bg-surface"
-                onClick={() => {
-                  setValue('email', d.email);
-                  setValue('password', d.password);
-                }}
-              >
-                <span className="font-medium">{d.label}</span>
-                <span className="text-muted">{d.email}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>

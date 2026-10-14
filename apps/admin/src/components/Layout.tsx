@@ -163,7 +163,7 @@ export function Layout() {
         <Outlet />
       </main>
       <footer className="mx-auto flex max-w-[1320px] flex-wrap justify-between gap-2 px-5 pb-8 text-[12px] text-muted lg:px-8">
-        <span>Environnement de démonstration · données fictives</span>
+        <span>Naya · console des opérations</span>
         <span>© OpenStreetMap contributors</span>
       </footer>
     </div>

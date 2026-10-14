@@ -94,7 +94,7 @@ export function OverviewPage() {
                   center={cityRow.city.center}
                   zoom={12}
                   polygons={cityRow.zones.filter((z) => z.active).map((z) => z.polygon)}
-                  markers={(d?.onlineDrivers ?? []).filter((o) => o.location).map((o) => ({ id: o.driverId, at: o.location!, label: `${o.name}${o.bot ? ' (simulée)' : ''}`, kind: 'driver' as const }))}
+                  markers={(d?.onlineDrivers ?? []).filter((o) => o.location).map((o) => ({ id: o.driverId, at: o.location!, label: o.name, kind: 'driver' as const }))}
                   height={280}
                 />
               ) : (

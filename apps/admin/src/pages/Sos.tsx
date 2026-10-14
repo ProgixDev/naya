@@ -30,8 +30,8 @@ export function SosPage() {
         subtitle={q.data ? `${open} alerte(s) ouverte(s) · nouvelles en premier, par ordre d’arrivée` : 'File de sécurité'}
         actions={<Segmented<'open' | 'all'> label="Alertes affichées" value={filter} onChange={setFilter} options={[{ value: 'open', label: 'Ouvertes' }, { value: 'all', label: 'Toutes' }]} />}
       />
-      <Banner tone="info" title="Démonstration">
-        Les appels, positions et contacts de confiance sont simulés. Chaque prise en charge et chaque résolution sont conservées dans le journal d’audit.
+      <Banner tone="info" title="Traitement des alertes">
+        Appelez d’abord la personne. En cas de danger immédiat, contactez la police (19). Chaque prise en charge et chaque résolution sont conservées dans le journal d’audit.
       </Banner>
       <div className="mt-5 flex flex-col gap-5">
         {q.isLoading ? <Skeleton className="h-[320px] w-full" /> : null}
@@ -112,7 +112,7 @@ function AlertCard({ alert: a, city }: { alert: AdminSafetyAlert; city: string }
         <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <MiniMap label={`Position de l’alerte ${a.id}`} center={a.location} zoom={15} markers={[{ id: a.id, at: a.location, label: 'Position de l’alerte', kind: 'pickup' }]} height={240} />
-            <p className="mt-2 text-[12px] text-muted">Position enregistrée à l’envoi de l’alerte (simulée en démonstration).</p>
+            <p className="mt-2 text-[12px] text-muted">Position enregistrée à l’envoi de l’alerte.</p>
           </div>
           <DefinitionList
             items={[

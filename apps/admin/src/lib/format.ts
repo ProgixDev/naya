@@ -23,3 +23,6 @@ export function toCentimes(v: string): number | null {
   return neg ? -c : c;
 }
 export const fromCentimes = (c: number) => (c / 100).toFixed(2).replace('.', ',').replace(',00', '');
+
+/** Provider names as shown to operators. Stores seeded before 14 Oct 2026 keep a « (démo) » suffix: drop it. */
+export const providerName = (name: string) => name.replace(/\s*\((?:démo|demo)\)\s*$/i, '');

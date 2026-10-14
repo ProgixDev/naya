@@ -31,7 +31,7 @@ const LABELS: Record<Kind, string> = {
   categories: 'Catégories',
   plans: 'Abonnements',
   reasons: 'Motifs de litige',
-  payments: 'Paiements démo',
+  payments: 'Moyens de paiement',
 };
 const fields: Record<string, string> = {
   id: 'Identifiant',
@@ -182,7 +182,7 @@ export function PrototypePage() {
     try {
       await action();
       await qc.invalidateQueries({ queryKey: ['admin'] });
-      toast('Démonstration mise à jour', 'success');
+      toast('Modifications enregistrées', 'success');
     } catch (e) {
       toast(errorMessage(e), 'danger');
     } finally {
@@ -194,11 +194,11 @@ export function PrototypePage() {
     <>
       <PageHeader
         title="Services et familles"
-        subtitle="Configuration et opérations du prototype · les apps lisent ces catalogues."
+        subtitle="Catalogues et opérations des services · les applications lisent ces catalogues."
       />
-      <Banner tone="info" title="Démonstration">
-        Paiements, notifications et appels sont simulés. Les alertes, décisions
-        et changements sont conservés dans le journal.
+      <Banner tone="info" title="Journal d’audit">
+        Les alertes, décisions et changements de catalogue sont conservés dans
+        le journal.
       </Banner>
       <nav aria-label="Services" className="my-5 flex flex-wrap gap-2">
         {(
@@ -273,7 +273,8 @@ export function PrototypePage() {
                 }
               >
                 <p className="text-muted">
-                  {row.enabled ? 'Activé' : 'Désactivé'} · {row.id}
+                  {row.enabled ? 'Activé' : 'Désactivé'}
+                  {tab === 'payments' ? null : ` · ${row.id}`}
                 </p>
                 {'description' in row ? (
                   <p className="mt-2">
@@ -347,7 +348,8 @@ export function PrototypePage() {
         <div className="flex flex-col gap-4">
           {!p.alerts.length ? (
             <Card>
-              Aucune alerte. Testez SOS depuis une course ou un trajet familial.
+              Aucune alerte. Les alertes SOS envoyées pendant une course ou un
+              trajet familial apparaissent ici.
             </Card>
           ) : null}
           {p.alerts
@@ -376,7 +378,7 @@ export function PrototypePage() {
                             api.adminPrototype.alert(
                               a.id,
                               'responding',
-                              'Prise en charge par le support de démonstration',
+                              'Prise en charge par le support',
                             ),
                           )
                         }
@@ -392,7 +394,7 @@ export function PrototypePage() {
                           api.adminPrototype.alert(
                             a.id,
                             'resolved',
-                            'Alerte de démonstration résolue',
+                            'Alerte résolue par le support',
                           ),
                         )
                       }
@@ -413,7 +415,7 @@ export function PrototypePage() {
       {p && tab === 'families' ? (
         <div className="flex flex-col gap-4">
           {!p.subscriptions.length ? (
-            <Card>Chargez l’exemple famille depuis l’une des apps.</Card>
+            <Card>Aucun abonnement Naya Famille pour l’instant.</Card>
           ) : null}
           {p.subscriptions.map((s) => (
             <Card
@@ -484,7 +486,7 @@ export function PrototypePage() {
                           proof ? (
                             proof.simulated ? (
                               <p key={label} className="text-sm text-accent">
-                                {label} simulée
+                                {label} reçue
                               </p>
                             ) : (
                               <div key={label} className="max-w-xs">
@@ -500,7 +502,7 @@ export function PrototypePage() {
                       </div>
                       {t.arrivalProof === 'demo-arrival-photo' ? (
                         <p className="mt-2 text-sm text-accent">
-                          Photo d’arrivée simulée
+                          Photo d’arrivée reçue
                         </p>
                       ) : t.arrivalProof ? (
                         <div className="mt-2 max-w-xs">

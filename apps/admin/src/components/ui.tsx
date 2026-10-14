@@ -161,7 +161,7 @@ export function ErrorState({ message, onRetry }: { message?: string; onRetry?: (
         <AlertTriangle className="h-6 w-6" aria-hidden />
       </div>
       <div className="text-[16px] font-semibold">Impossible de charger ces données</div>
-      <p className="max-w-sm text-[14px] text-muted">{message ?? 'Vérifiez que l’API de démonstration est lancée, puis réessayez.'}</p>
+      <p className="max-w-sm text-[14px] text-muted">{message ?? 'Vérifiez votre connexion, puis réessayez.'}</p>
       {onRetry ? (
         <Button variant="secondary" size="sm" onClick={onRetry} className="mt-2">
           Réessayer

@@ -5,7 +5,8 @@ import type { PaymentProviderConfig } from '@naya/domain';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useWorkspace } from '../lib/context';
-import { Badge, Banner, Button, Card, Dialog, EmptyState, ErrorState, Field, PageHeader, Skeleton, Textarea, toast } from '../components/ui';
+import { providerName } from '../lib/format';
+import { Badge, Button, Card, Dialog, EmptyState, ErrorState, Field, PageHeader, Skeleton, Textarea, toast } from '../components/ui';
 
 const PURPOSES: { key: PaymentProviderConfig['purpose']; title: string; subtitle: string }[] = [
   { key: 'ride', title: 'Paiement des courses', subtitle: 'Moyens proposés aux passagères au moment du devis.' },
@@ -24,9 +25,6 @@ export function ProvidersPage() {
   return (
     <>
       <PageHeader title="Prestataires de paiement" subtitle="Par ville et par usage. Les applications n’affichent que les moyens activés et configurés." />
-      <div className="mb-5">
-        <Banner tone="info" title="Environnement de démonstration">Les prestataires « démo » sont simulés par l’API de démonstration. Aucun prestataire réel n’est configuré : il faut des identifiants et des rappels signés côté serveur.</Banner>
-      </div>
       {q.isLoading ? <Skeleton className="h-[360px] w-full" /> : null}
       {q.isError ? <Card><ErrorState onRetry={() => q.refetch()} /></Card> : null}
       <div className="flex flex-col gap-5">
@@ -42,10 +40,9 @@ export function ProvidersPage() {
                       {list.map((x) => (
                         <li key={x.id} className="flex flex-wrap items-center gap-4 px-6 py-4" data-testid={`provider-${x.id}`}>
                           <div className="min-w-[220px] flex-1">
-                            <div className="text-[15px] font-semibold">{x.name}</div>
-                            <div className="text-[13px] text-muted">{KIND[x.kind]} · {x.id}</div>
+                            <div className="text-[15px] font-semibold">{providerName(x.name)}</div>
+                            <div className="text-[13px] text-muted" title={x.id}>{KIND[x.kind]}</div>
                           </div>
-                          <Badge tone={x.mode === 'live' ? 'info' : 'accent'} dot={false}>{x.mode === 'live' ? 'Production' : 'Démo'}</Badge>
                           {x.configured ? <Badge tone="success">Configuré</Badge> : <Badge tone="warning">Identifiants manquants</Badge>}
                           <Badge tone={x.enabled ? 'success' : 'neutral'}>{x.enabled ? 'Activé' : 'Désactivé'}</Badge>
                           {editable ? (
@@ -81,7 +78,7 @@ function ToggleDialog({ provider, onClose }: { provider: PaymentProviderConfig; 
       open
       onClose={onClose}
       busy={m.isPending}
-      title={`${enable ? 'Activer' : 'Désactiver'} ${provider.name} ?`}
+      title={`${enable ? 'Activer' : 'Désactiver'} ${providerName(provider.name)} ?`}
       description={enable ? 'Le moyen apparaîtra dans les applications de la ville.' : 'Le moyen disparaîtra des nouveaux devis et opérations. Les opérations en cours se poursuivent.'}
       footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button variant={enable ? 'primary' : 'danger'} disabled={reason.trim().length < 10} loading={m.isPending} onClick={() => m.mutate()} data-testid="confirm-provider">Confirmer</Button></>}
     >

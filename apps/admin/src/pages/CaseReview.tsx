@@ -125,7 +125,7 @@ export function CaseReviewPage() {
         ) : null}
         <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
           <div className="flex flex-col gap-5">
-            <Card title="Pièces du dossier" subtitle="Documents et selfies fictifs · aucune identité réelle. Aucun jugement n’est fait sur l’apparence.">
+            <Card title="Pièces du dossier" subtitle="Pièces transmises avec la demande. Aucun jugement n’est fait sur l’apparence.">
               <div className="grid gap-4 sm:grid-cols-2">
                 {keys.map((key) => {
                   const item = c.items.find((i) => i.key === key);

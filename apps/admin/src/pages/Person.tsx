@@ -107,7 +107,7 @@ export function PersonPage() {
                 { term: 'Villes de test', value: u.testerCities.length ? u.testerCities.map(cityName).join(', ') : '—' },
                 { term: 'Note moyenne', value: u.ratingAverage ? `${u.ratingAverage.toString().replace('.', ',')} (${u.ratingCount})` : '—' },
                 ...(d.vehicle ? [{ term: 'Véhicule', value: `${d.vehicle.make} ${d.vehicle.model} · ${d.vehicle.color} · ${d.vehicle.plate}` }] : []),
-                ...(d.presence ? [{ term: 'Présence', value: d.presence.online ? `En ligne${d.presence.bot ? ' (simulée)' : ''}` : 'Hors ligne' }] : []),
+                ...(d.presence ? [{ term: 'Présence', value: d.presence.online ? 'En ligne' : 'Hors ligne' }] : []),
               ]}
             />
           </Card>
