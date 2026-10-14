@@ -10,7 +10,7 @@ async function advance(seconds: number) {
 }
 
 test.describe('passenger · Lavage à domicile', () => {
-  test('booking in five steps, simulated team to completion, before/after photos and rating', async ({ page }) => {
+  test('booking in five steps, the team to completion, before/after photos and rating', async ({ page }) => {
     await resetScenario('default');
     await signInMobile(page, URLS.passenger, 'passenger', PHONES.salma);
     await tid(page, 'car-wash-entry').click();
@@ -52,7 +52,7 @@ test.describe('passenger · Lavage à domicile', () => {
     await expect(tid(page, 'car-wash-confirm')).toContainText(/60(,00)?\s?MAD/);
     await tid(page, 'car-wash-confirm').click();
 
-    // Tracking: booked, then the demo engine plays the team (assigned → en route → washing → completed).
+    // Tracking: booked, then the mock engine plays the team (assigned → en route → washing → completed).
     await expect(tid(page, 'car-wash-order')).toBeVisible();
     await expect(tid(page, 'car-wash-timeline')).toBeVisible();
     await expect(tid(page, 'car-wash-cancel')).toBeVisible();

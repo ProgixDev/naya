@@ -36,14 +36,15 @@ test.describe('passenger', () => {
     await page.goto(URLS.passenger + '/phone');
     await tid(page, 'phone-input').fill('677123456');
     await tid(page, 'send-code').click();
-    await expect(tid(page, 'otp-input')).toHaveValue('123456'); // demo: pre-filled, no SMS
-    await tid(page, 'verify-code').click();
+    // The code arrives like an SMS (an in-app message on the web); tapping it fills and verifies the code.
+    await expect(tid(page, 'otp-input')).toHaveValue('');
+    await tid(page, 'sms-code').click();
     await tid(page, 'first-name').fill('Yasmine');
     await tid(page, 'last-name').fill('Kabbaj');
     await tid(page, 'birth-date').fill('01051998');
     await tid(page, 'doc-number').fill('aa112233');
     await tid(page, 'identity-continue').click();
-    await tid(page, 'skip-capture').click(); // demo bypass: fictional specimen selfie
+    await uploadStep(page); // selfie
     await expect(page.getByRole('heading', { name: 'Pièce · recto' })).toBeVisible();
     for (let i = 0; i < 2; i++) await uploadStep(page);
     await expect(tid(page, 'review-selfie')).toContainText('Ajoutée');
@@ -90,7 +91,7 @@ test.describe('passenger', () => {
     await amina.post(`/driver/offers/${status.offer.id}/accept`, { headers: { 'Idempotency-Key': 'e2e-accept' } });
     await expect(tid(page, 'ride-driver_assigned')).toBeVisible();
     await expect(tid(page, 'driver-card')).toContainText('Amina');
-    await expect(tid(page, 'driver-card')).toContainText('DÉMO-001');
+    await expect(tid(page, 'driver-card')).toContainText('48213-A-1');
     await amina.post(`/driver/rides/${rideId}/arrive`);
     await expect(tid(page, 'ride-title')).toContainText('est arrivée');
     await amina.post(`/driver/rides/${rideId}/start`);
@@ -277,7 +278,7 @@ test.describe('passenger', () => {
     await expect(tid(page, 'payment-state')).toContainText('Carte · paiement confirmé', { timeout: 20_000 });
   });
 
-  test('P13/P14 · add a sandbox card and a saved address', async ({ page }) => {
+  test('P13/P14 · add a card (any Luhn-valid number) and a saved address', async ({ page }) => {
     await resetScenario('default');
     await signInMobile(page, URLS.passenger, 'passenger', PHONES.salma);
     await tid(page, 'tab-account').click();
@@ -288,7 +289,7 @@ test.describe('passenger', () => {
     await tid(page, 'card-cvc').fill('123');
     await tid(page, 'save-card').click();
     await expect(page.getByText('Carte •••• 0077')).toBeVisible();
-    await expect(page.getByText(/Carte de démonstration · Expire/).last()).toBeVisible();
+    await expect(tid(page, 'method-0077')).toContainText('Expire 12/2029');
     await page.goto(URLS.passenger + '/places');
     await tid(page, 'add-place').click();
     await page.getByText('Autre', { exact: true }).click();

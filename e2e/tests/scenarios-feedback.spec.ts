@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { api, PHONES, resetScenario, signInMobile, URLS } from './helpers';
 
 const phone = { viewport: { width: 390, height: 844 }, hasTouch: true };
-test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery', async ({
+test('feedback features: shared family journey, SOS, wallet, themes and logo gallery', async ({
   browser,
 }) => {
   test.setTimeout(240000);
@@ -15,8 +15,8 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     a = await ac.newPage();
   try {
     await signInMobile(p, URLS.passenger, 'passenger', PHONES.salma);
+    // Salma's family is seeded in every scenario: no example to load.
     await p.goto(URLS.passenger + '/family');
-    await p.getByTestId('family-example').click();
     await expect(
       p.getByText('Famille Essentiel', { exact: true }),
     ).toBeVisible();
@@ -27,7 +27,7 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     // Chauffeuse: depart, arrive, photograph the child, confirm, then « Démarrer ».
     await d.getByTestId('famille-depart').click();
     await d.getByTestId('famille-arrive').click();
-    await d.getByTestId('famille-pickup-demo-photo').click();
+    await d.getByTestId('famille-pickup-camera').click();
     await d.getByLabel('Prénom confirmé par la chauffeuse', { exact: true }).fill('Lina');
     await d.getByTestId('famille-pickup').click();
     await d.getByTestId('famille-request-start').click();
@@ -41,12 +41,9 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await d.getByTestId('sos').click();
     await d.getByTestId('confirm-sos').click();
     await expect(d.getByText(/Alerte SOS-.* enregistrée/)).toBeVisible();
-    await d
-      .getByRole('button', {
-        name: 'Position partagée (simulation)',
-        exact: true,
-      })
-      .click();
+    // Connected mode: the sheet says the alert reached the SOS desk, and offers the real 19 call.
+    await expect(d.getByTestId('sos-recorded')).toContainText('équipe sécurité');
+    await expect(d.getByTestId('sos-call-police')).toBeVisible();
     await a.goto(URLS.admin + '/connexion');
     await a.getByTestId('email').fill('meryem@naya.demo');
     await a.getByTestId('password').fill('Naya-Admin-2026');
@@ -57,17 +54,17 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await a.goto(URLS.admin + '/services');
     await a.getByRole('button', { name: 'SOS', exact: true }).click();
     await expect(
-      a.getByText('Position partagée (simulation)', { exact: false }),
+      a.getByText('Alerte déclenchée · position enregistrée', { exact: false }).first(),
     ).toBeVisible();
     await a
       .getByRole('button', { name: 'Prendre en charge', exact: true })
       .click();
     await a.getByRole('button', { name: 'Résoudre', exact: true }).click();
     await expect(a.getByText(/Résolue/)).toBeVisible();
-    // Reach the school (simulated route ×20), then the drop-off photo and code close the trip.
+    // Reach the school (the mock route moves on with the clock), then the drop-off photo and code close the trip.
     await (await api()).post('/dev/clock/advance', { data: { seconds: 60 } });
     await d.reload();
-    await d.getByTestId('famille-dropoff-demo-photo').click();
+    await d.getByTestId('famille-dropoff-camera').click();
     // The chauffeuse names the authorised adult (the first one is preselected only when the family loaded before the trip).
     await d.getByRole('button', { name: 'Salma · Mère', exact: true }).click();
     await d.getByLabel('Code de remise', { exact: true }).fill('1234');
@@ -75,10 +72,10 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await expect(p.getByTestId('famille-trip-completed').getByTestId('famille-trip-title')).toContainText('Déposé · photo et remise confirmées', { timeout: 15000 });
     await p.goto(URLS.passenger + '/wallet');
     await p.getByTestId('wallet-topup').click();
-    await p
-      .getByRole('button', { name: 'Simuler la confirmation', exact: true })
-      .click();
-    await expect(p.getByText(/^100(?:,00)?\sMAD$/).first()).toBeVisible();
+    // The top-up waits for the provider, which confirms it on its own a few seconds later.
+    await expect(p.getByText(/^Recharge · /).first()).toBeVisible();
+    await (await api()).post('/dev/clock/advance', { data: { seconds: 3 } });
+    await expect(p.getByTestId('wallet-balance')).toContainText(/100(?:,00)?\sMAD/);
     await p.goto(URLS.passenger + '/preferences');
     await p.getByTestId('theme-dark').click();
     await expect(p.getByTestId('preferences')).toHaveCSS(

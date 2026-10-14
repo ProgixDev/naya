@@ -18,7 +18,7 @@ async function twoPhones(browser: Browser) {
   return { pc, dc, p: await pc.newPage(), d: await dc.newPage() };
 }
 
-/** The demo family of Salma (Lina; Salma « Mère » holds code 1234), with one trip driven by Amina. */
+/** Salma's seeded family (Lina; Salma « Mère » holds code 1234), with one trip driven by Amina. */
 async function exampleTrip() {
   const parent = await authed((await tokenFor(PHONES.salma, 'passenger')).token);
   const overview = await (await parent.post('/prototype/family/example')).json();
@@ -47,7 +47,7 @@ test.describe('Naya Famille', () => {
       await d.goto(`${URLS.driver}/family/${tripId}`);
       await tripScreen(d, 'scheduled').getByTestId('famille-depart').click();
       await tripScreen(d, 'en_route').getByTestId('famille-arrive').click();
-      await tripScreen(d, 'arrived').getByTestId('famille-pickup-demo-photo').click();
+      await tripScreen(d, 'arrived').getByTestId('famille-pickup-camera').click();
       await tripScreen(d, 'arrived').getByTestId('famille-child-name').fill('Lina');
       await tripScreen(d, 'arrived').getByTestId('famille-pickup').click();
       await tripScreen(d, 'picked_up').getByTestId('famille-request-start').click();
@@ -66,11 +66,11 @@ test.describe('Naya Famille', () => {
       await expect(tripScreen(p, 'in_progress').getByTestId('famille-live-map')).toBeVisible();
       await expect(tripScreen(d, 'in_progress').getByTestId('famille-driver-steps')).toBeVisible({ timeout: 15_000 });
 
-      // At the school (simulated route): photo, authorised adult, then a wrong code is refused and counted.
+      // At the school (the mock route): photo, authorised adult, then a wrong code is refused and counted.
       await advanceClock(60);
       await d.reload();
       const steps = tripScreen(d, 'in_progress').getByTestId('famille-driver-steps');
-      await steps.getByTestId('famille-dropoff-demo-photo').click();
+      await steps.getByTestId('famille-dropoff-camera').click();
       await steps.getByRole('button', { name: 'Salma · Mère', exact: true }).click();
       await steps.getByTestId('famille-code').fill('0000');
       await steps.getByTestId('famille-dropoff').click();
@@ -118,7 +118,7 @@ test.describe('Naya Famille', () => {
       await signInMobile(d, URLS.driver, 'driver', PHONES.amina);
       await d.goto(`${URLS.driver}/family/${tripId}`);
       const steps = tripScreen(d, 'in_progress').getByTestId('famille-driver-steps');
-      await steps.getByTestId('famille-dropoff-demo-photo').click();
+      await steps.getByTestId('famille-dropoff-camera').click();
       await steps.getByRole('button', { name: 'Salma · Mère', exact: true }).click();
       const expected = ['4 essais restants', '3 essais restants', '2 essais restants', 'dernier essai'];
       for (const left of expected) {

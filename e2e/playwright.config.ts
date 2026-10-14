@@ -6,7 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
  * - passenger and driver: Expo web builds (react-native-web) at phone size
  * - admin: Vite build in a desktop viewport
  * `pnpm e2e` starts whichever of the four servers is not already running (webServer below) and
- * reuses the ones you started yourself. Override the URLs with env vars to test elsewhere.
+ * reuses the ones you started yourself. Override the URLs with env vars to test elsewhere, e.g. beside a running
+ * review stack: API_URL=http://localhost:4510 PASSENGER_URL=http://localhost:8581 DRIVER_URL=http://localhost:8582
+ * ADMIN_URL=http://localhost:5673 E2E_DATA_DIR=/tmp/naya-e2e pnpm e2e (E2E_DATA_DIR: where an API started here keeps
+ * its data; default services/demo-api/.data/e2e).
  */
 export const URLS = {
   api: process.env.API_URL ?? 'http://localhost:4010',
@@ -38,7 +41,7 @@ export default defineConfig({
   // all four together. Expo web answers at once but bundles on the first visit, inside the first test's 90 s, so
   // these timeouts only cover start-up; on CI a first test that times out on a cold bundle is retried once.
   webServer: [
-    { name: 'api', command: 'pnpm --filter @naya/demo-api start', url: `${URLS.api}/health`, env: { NAYA_DEV: '1', PORT: port(URLS.api), NAYA_DATA_DIR: join(__dirname, '..', 'services', 'demo-api', '.data', 'e2e') }, reuseExistingServer: true, timeout: 120_000 },
+    { name: 'api', command: 'pnpm --filter @naya/demo-api start', url: `${URLS.api}/health`, env: { NAYA_DEV: '1', PORT: port(URLS.api), NAYA_DATA_DIR: process.env.E2E_DATA_DIR ?? join(__dirname, '..', 'services', 'demo-api', '.data', 'e2e') }, reuseExistingServer: true, timeout: 120_000 },
     { name: 'passenger', command: `pnpm --filter @naya/passenger exec expo start --web --port ${port(URLS.passenger)}`, url: URLS.passenger, env: { EXPO_PUBLIC_API_URL: URLS.api }, reuseExistingServer: true, timeout: 300_000 },
     { name: 'driver', command: `pnpm --filter @naya/driver exec expo start --web --port ${port(URLS.driver)}`, url: URLS.driver, env: { EXPO_PUBLIC_API_URL: URLS.api }, reuseExistingServer: true, timeout: 300_000 },
     { name: 'admin', command: `pnpm --filter @naya/admin exec vite --port ${port(URLS.admin)} --strictPort`, url: URLS.admin, env: { VITE_API_URL: URLS.api }, reuseExistingServer: true, timeout: 120_000 },

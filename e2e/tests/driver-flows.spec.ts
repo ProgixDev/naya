@@ -148,8 +148,9 @@ test.describe('driver app', () => {
     await expect(byTestId(page, 'recharge-debt')).toBeVisible();
     await byTestId(page, 'provider-card').click();
     await byTestId(page, 'recharge-continue').click();
-    await expect(byTestId(page, 'provider-sandbox')).toBeVisible();
-    await byTestId(page, 'sandbox-approve').click();
+    // The card provider answers on its own a few seconds later; the processing sheet then closes.
+    await expect(byTestId(page, 'recharge-processing')).toBeVisible();
+    await advance(3);
     await expect(byTestId(page, 'recharge-confirmed')).toBeVisible();
     await expect(byTestId(page, 'recharge-restored')).toBeVisible();
     await expect(byTestId(page, 'recharge-balance')).toContainText(MAD(-100));
@@ -198,13 +199,30 @@ test.describe('driver app', () => {
     await page.goto(`${URLS.driver}/recharge`);
     await byTestId(page, 'provider-card').click();
     await byTestId(page, 'recharge-continue').click();
-    await expect(byTestId(page, 'provider-sandbox')).toBeVisible();
-    await byTestId(page, 'sandbox-close').click();
-    await expect(byTestId(page, 'recharge-pending')).toBeVisible();
-    await expect(byTestId(page, 'recharge-balance')).toContainText(MAD(70));
-    await byTestId(page, 'open-sandbox').click();
-    await byTestId(page, 'sandbox-decline').click();
+    await expect(byTestId(page, 'recharge-processing')).toBeVisible();
+    // The app offers no way to refuse: the provider's refusal is forced through the dev API before its timed answer.
+    const ctx = await api();
+    const jobs = (await (await ctx.get('/dev/provider-jobs')).json()) as { kind: string; ref: string }[];
+    const job = jobs.find((j) => j.kind === 'recharge');
+    expect(job).toBeTruthy();
+    expect((await ctx.post(`/dev/providers/recharge/${job!.ref}/fail`)).ok()).toBeTruthy();
+    await ctx.dispose();
     await expect(byTestId(page, 'recharge-failed')).toBeVisible();
     await expect(byTestId(page, 'recharge-balance')).toContainText(MAD(70));
+  });
+
+  test('S16 · closing the payment sheet early: the recharge stays pending, then confirms on its own', async ({ page }) => {
+    await resetScenario('default');
+    await signInMobile(page, URLS.driver, 'driver', PHONES.amina);
+    // The provider answers 3 s (server time) after the request: the status screen may already show it.
+    await page.goto(`${URLS.driver}/recharge`);
+    await byTestId(page, 'provider-card').click();
+    await byTestId(page, 'recharge-continue').click();
+    await expect(byTestId(page, 'recharge-processing')).toBeVisible();
+    await byTestId(page, 'recharge-processing-close').click();
+    await expect(byTestId(page, 'recharge-pending').or(byTestId(page, 'recharge-confirmed'))).toBeVisible();
+    await advance(3);
+    await expect(byTestId(page, 'recharge-confirmed')).toBeVisible();
+    await expect(byTestId(page, 'recharge-balance')).toContainText(MAD(120));
   });
 });

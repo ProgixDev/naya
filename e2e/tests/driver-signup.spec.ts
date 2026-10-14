@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
+import { join } from 'node:path';
 import { adminToken, authed, byTestId, resetScenario, signInMobile, URLS } from './helpers';
+
+const FIXTURE = join(__dirname, '../../services/demo-api/fixtures/salma-selfie.jpg');
 
 const NEW_DRIVER = '+212677001122';
 
@@ -13,11 +16,14 @@ async function answer(page: Page, id: string, fill: (s: ReturnType<typeof step>)
   await s.getByTestId('step-continue').click();
 }
 
-/** Documents: the demo sample (« Passer · exemple de démonstration »), saved on the server, then the next step. */
+/** Documents: a photo imported from the device (the file chooser on the web), saved on the server, then the next step. */
 async function sampleDocument(page: Page, id: string) {
   const s = step(page, id);
   await expect(s).toBeVisible();
-  await s.getByTestId('skip-capture').click();
+  const chooser = page.waitForEvent('filechooser');
+  await s.getByTestId('import-photo').click();
+  await (await chooser).setFiles(FIXTURE);
+  await s.getByTestId('use-photo').click();
 }
 
 test.describe('driver sign-up (D04)', () => {

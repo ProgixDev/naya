@@ -81,7 +81,8 @@ await tid('onboarding-next').click();
 await tid('phone-input').fill('661234567');
 await shot('D02-phone');
 await tid('send-code').click();
-await page.waitForTimeout(1500);
+// The code arrives as an in-app message about 1.6 s after sending (web): wait for it to be in the shot.
+await page.waitForTimeout(2500);
 await shot('D03-otp');
 await tid('send-code').isVisible().catch(() => false);
 
@@ -171,15 +172,13 @@ await shot('D06-debt');
 await visit('/recharge', 'D14-debt');
 await tid('provider-card').click();
 await tid('recharge-continue').click();
-await page.waitForTimeout(2500);
+// « Paiement en cours »: the card provider answers on its own about 3 s later.
+await page.waitForTimeout(800);
 await shot('D14-provider');
-await tid('sandbox-close').click();
-await page.waitForTimeout(2000);
+await tid('recharge-processing-close').click();
+await page.waitForTimeout(300);
 await shot('D14-pending');
-await tid('open-sandbox').click();
-await page.waitForTimeout(1500);
-await tid('sandbox-approve').click();
-await page.waitForTimeout(3000);
+await page.waitForTimeout(4000);
 await shot('D14-success');
 await tid('recharge-done').click();
 await page.waitForTimeout(2500);
