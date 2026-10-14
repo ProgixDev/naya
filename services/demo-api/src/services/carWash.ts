@@ -136,9 +136,15 @@ export function createWashOrder(ctx: Ctx, user: User, input: CreateWashOrderInpu
     const now = new Date(nowMs).toISOString();
     const state = ensureCarWash(s);
     if (user.status !== 'active') throw new DomainError('FORBIDDEN', 'Votre compte est suspendu.');
-    if (user.role === 'passenger') {
-      const c = s.cases.find((x) => x.id === user.identityCaseId);
-      if (c?.status !== 'approved') throw new DomainError('VERIFICATION_REQUIRED', 'Votre identité doit être validée avant de commander un lavage.');
+    // Manual identity review is what the women-only rule rests on: both roles need it approved (CW-02).
+    // A driver's identity case is her person case (identity + licence).
+    const identity = s.cases.find((x) => x.id === user.identityCaseId);
+    if (identity?.status !== 'approved') {
+      throw new DomainError(
+        'VERIFICATION_REQUIRED',
+        user.role === 'driver' ? 'Votre dossier chauffeuse doit être validé avant de commander un lavage.' : 'Votre identité doit être validée avant de commander un lavage.',
+        { reason: 'identity_not_approved', status: identity?.status ?? 'draft' },
+      );
     }
     const city = bookableCity(s, user, input.cityId);
     const rules = rulesOrThrow(s, city.id);
@@ -166,7 +172,15 @@ export function createWashOrder(ctx: Ctx, user: User, input: CreateWashOrderInpu
     let vehicleId: string | null = null;
     if (input.vehicleId) {
       if (user.role !== 'driver') throw new DomainError('VALIDATION', 'Véhicule inconnu.');
-      vehicleId = mustFind(s.vehicles, (v) => v.id === input.vehicleId && v.driverId === user.id, 'véhicule').id;
+      const vehicle = mustFind(s.vehicles, (v) => v.id === input.vehicleId && v.driverId === user.id, 'véhicule');
+      const vehicleCase = s.cases.find((x) => x.id === vehicle.caseId);
+      if (vehicleCase?.status !== 'approved') {
+        throw new DomainError('VERIFICATION_REQUIRED', 'Votre véhicule n’est pas encore validé par l’équipe Naya. Vous pourrez commander son lavage une fois son dossier approuvé.', {
+          reason: 'vehicle_not_approved',
+          status: vehicleCase?.status ?? 'draft',
+        });
+      }
+      vehicleId = vehicle.id;
     }
     const paymentMethod = resolvePayment(s, user, input.paymentMethodId, city.id, price.price, now);
     const order: WashOrder = {

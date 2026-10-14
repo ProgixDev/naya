@@ -114,6 +114,45 @@ describe('car wash (« Lavage à domicile »)', () => {
     expect((await h.call('POST', '/car-wash/orders', { token: nour, body: order({ paymentMethodId: cash.id }) })).body.error.code).toBe('VERIFICATION_REQUIRED');
   });
 
+  it('refuses drivers whose dossier is not approved, and a vehicle that is not approved (CW-02)', async () => {
+    const h = setup('default');
+    const bookAs = async (token: string, overrides: Record<string, unknown> = {}) => {
+      const cash = (await optionsOf(h, token)).find((o) => o.kind === 'cash');
+      return h.call('POST', '/car-wash/orders', { token, body: order({ paymentMethodId: cash.id, ...overrides }) });
+    };
+    const carOf = (v: any) => ({ make: v.make, model: v.model, color: v.color, plate: v.plate });
+
+    // A new OTP driver: her dossier chauffeuse is still a draft.
+    const fresh = await h.login('+212677000201', 'driver');
+    const draft = await bookAs(fresh);
+    expect(draft.status).toBe(403);
+    expect(draft.body.error).toEqual({ code: 'VERIFICATION_REQUIRED', message: 'Votre dossier chauffeuse doit être validé avant de commander un lavage.', details: { reason: 'identity_not_approved', status: 'draft' } });
+    // Samira: her vehicle is approved, but her dossier waits for corrections.
+    const samira = await h.login(PHONES.samira, 'driver');
+    const samiraVehicle = (await h.ok('GET', '/me', { token: samira })).vehicle;
+    expect((await bookAs(samira, { vehicleId: samiraVehicle.id, car: carOf(samiraVehicle) })).body.error).toMatchObject({ code: 'VERIFICATION_REQUIRED', details: { reason: 'identity_not_approved', status: 'more_info_requested' } });
+
+    // Khadija: dossier approved, vehicle still under review. Her Naya vehicle is refused; a car typed by hand is not.
+    const khadija = await h.login(PHONES.khadija, 'driver');
+    const khadijaVehicle = (await h.ok('GET', '/me', { token: khadija })).vehicle;
+    const pending = await bookAs(khadija, { vehicleId: khadijaVehicle.id, car: carOf(khadijaVehicle) });
+    expect(pending.status).toBe(403);
+    expect(pending.body.error).toEqual({ code: 'VERIFICATION_REQUIRED', message: 'Votre véhicule n’est pas encore validé par l’équipe Naya. Vous pourrez commander son lavage une fois son dossier approuvé.', details: { reason: 'vehicle_not_approved', status: 'submitted' } });
+    const byHand = await bookAs(khadija);
+    expect(byHand.status).toBe(200);
+    expect(byHand.body).toMatchObject({ customerRole: 'driver', vehicleId: null });
+
+    // Amina: dossier and vehicle approved.
+    const amina = await h.login(PHONES.amina, 'driver');
+    const aminaVehicle = (await h.ok('GET', '/me', { token: amina })).vehicle;
+    const approved = await bookAs(amina, { vehicleId: aminaVehicle.id, car: carOf(aminaVehicle) });
+    expect(approved.status).toBe(200);
+    expect(approved.body).toMatchObject({ customerRole: 'driver', vehicleId: aminaVehicle.id, status: 'booked' });
+
+    // Refused bookings leave nothing behind.
+    expect(h.ctx.store.state.carWash!.orders.map((o) => o.id)).toEqual([byHand.body.id, approved.body.id]);
+  });
+
   it('scheduled: validates the slot, waits for it, and cancellation fees follow the frozen rules', async () => {
     const h = setup('first-ride');
     const salma = await h.login(PHONES.salma, 'passenger');

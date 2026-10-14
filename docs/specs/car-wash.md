@@ -42,8 +42,15 @@ a chauffeuse for her Naya car. There is no washer app: the demo API plays the te
   colour and plate; a driver's form is prefilled from her approved vehicle, and `vehicleId` must be her own.
 - **R5 ✅ When.** « Maintenant » estimates the start at now + `nowEtaMinutes` and is refused outside opening hours.
   « Planifier » accepts only an offered slot (`assertWashStartAllowed`).
-- **R6 ✅ Who may order.** Passengers need an approved identity (`VERIFICATION_REQUIRED`); suspended accounts are refused;
-  the city must be bookable for the account; at most 3 open orders per customer.
+- **R6 ✅ Who may order.** Manual identity review is what the women-only rule rests on, so both roles need it (CW-02):
+  - Passengers need an approved identity case.
+  - Drivers need an approved dossier chauffeuse (person case: identity and licence). A driver whose dossier is a draft,
+    submitted or waiting for corrections is refused.
+  - When the order names her Naya vehicle (`vehicleId`), its vehicle case must be approved too. A car typed by hand
+    (no `vehicleId`) needs only the approved dossier.
+  - Refusals answer `VERIFICATION_REQUIRED` (403) with French copy and `details.reason` `identity_not_approved` or
+    `vehicle_not_approved` plus the case `status`.
+  - Suspended accounts are refused; the city must be bookable for the account; at most 3 open orders per customer.
 - **R7 ✅ Payment uses the existing methods.** Passengers: cash, card, Portefeuille Naya, « Wallet marocain », each
   available under the same city rules as rides. Drivers: Portefeuille chauffeuse or cash.
   - Card: a payment is created at completion and confirmed by the mock provider (same signed path as rides).
