@@ -18,7 +18,7 @@ import { useTheme ,
   toast,
   useSingleFlight,
 } from '@naya/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,6 +40,13 @@ import { draftStops, useDraft } from '@/lib/draft';
 import { useAccountId, usePaymentMethods } from '@/lib/queries';
 import { usePrefs } from '@/lib/prefs';
 import { SchedulePicker, firstDay } from '@/features/schedule/SchedulePicker';
+
+/** Cards read « Visa •••• 4242 » (« Carte •••• 4242 » when the label names no brand); other methods keep their label. */
+const methodTitle = (m: { kind: string; label: string; last4: string | null }) => {
+  if (m.kind !== 'card' || !m.last4) return m.label;
+  const brand = m.label.replace(/\s*•••• \d{4}$/, '').trim();
+  return `${brand && !/^carte\b/i.test(brand) ? brand : 'Carte'} •••• ${m.last4}`;
+};
 
 export default function QuoteScreen() {
   useTheme();
@@ -157,7 +164,7 @@ export default function QuoteScreen() {
             <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={112} />
             <View style={{ flex: 1, gap: 5 }}>
               <Text variant="label" weight="semibold">{q?.service?.name ?? 'Naya Standard'}</Text>
-              <Text variant="caption" tone="accent">Arrivée estimée · {q?.service?.etaMinutes ?? 5} min (démo)</Text>
+              <Text variant="caption" tone="accent">Arrivée estimée · {q?.service?.etaMinutes ?? 5} min</Text>
               {q ? <Money amount={total} variant="title" style={{ fontSize: 28, lineHeight: 34 }} /> : <Skeleton width={100} height={32} />}
               <Text variant="caption" tone="muted" numeric>{q ? `${formatDistance(q.route.distanceMeters)} · ${formatDuration(q.route.durationSeconds)}` : 'Calcul du prix…'}</Text>
               <Text variant="micro" tone="accent">Voir le détail du prix ›</Text>
@@ -186,11 +193,11 @@ export default function QuoteScreen() {
           />
           {mode === 'schedule' ? <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} /> : null}
 
-          <PressableScale onPress={() => setShowPay(true)} accessibilityRole="button" accessibilityLabel={`Paiement : ${pm?.label ?? 'à choisir'}. Changer`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 52, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.background }} testID="payment-row" pressedScale={0.98}>
+          <PressableScale onPress={() => setShowPay(true)} accessibilityRole="button" accessibilityLabel={`Paiement : ${pm ? methodTitle(pm) : 'à choisir'}. Changer`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 52, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.background }} testID="payment-row" pressedScale={0.98}>
             {pm?.kind === 'card' ? <CreditCard size={20} color={colors.ink} /> : <Banknote size={20} color={colors.ink} />}
             <View style={{ flex: 1 }}>
-              <Text variant="label" weight="semibold" numberOfLines={1}>{pm?.label ?? 'Moyen de paiement'}</Text>
-              <Text variant="micro" tone="muted" numberOfLines={1}>{pm ? (pm.kind === 'cash' ? 'À régler à la fin du trajet' : 'Débitée à l’arrivée') : 'À choisir'}</Text>
+              <Text variant="label" weight="semibold" numberOfLines={1}>{pm ? methodTitle(pm) : 'Moyen de paiement'}</Text>
+              <Text variant="micro" tone="muted" numberOfLines={1}>{pm ? (pm.kind === 'cash' ? 'À régler à la fin du trajet' : pm.kind === 'wallet' ? 'Réservé sur votre solde, débité à l’arrivée' : 'Débité à l’arrivée') : 'À choisir'}</Text>
             </View>
             <ChevronRight size={18} color={colors.muted} />
           </PressableScale>
@@ -213,7 +220,7 @@ export default function QuoteScreen() {
               <ListRow
                 key={m.id}
                 testID={`pm-${m.last4 ?? m.kind}`}
-                title={m.label}
+                title={methodTitle(m)}
                 subtitle={!m.availableInCity ? 'Indisponible dans cette ville' : m.id === pmId ? 'Sélectionné' : undefined}
                 leading={m.kind === 'card' ? <CreditCard size={20} color={m.availableInCity ? colors.ink : colors.disabledText} /> : <Banknote size={20} color={colors.ink} />}
                 onPress={m.availableInCity ? () => { setPmId(m.id); setShowPay(false); haptic.select(); } : undefined}

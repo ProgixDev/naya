@@ -5,13 +5,17 @@ import {
   canRespondToSafety,
   defaultPrototypeCatalog,
   DomainError,
+  formatMoney,
   SAFETY_STATUS_LABELS,
   SAFETY_TRANSITIONS,
   type User,
   type AdminUser,
   type AdminSafetyAlert,
+  type AuditActor,
+  type DemoPaymentOption,
   type PrototypeState,
   type PassengerWallet,
+  type PassengerWalletEntry,
   type SafetyAlert,
 } from '@naya/domain';
 import type { Principal } from './auth';
@@ -65,6 +69,20 @@ const paymentSchema = z.object({
   enabled: z.boolean(),
   cityIds: z.array(text),
 });
+/**
+ * What the person did from the SOS sheet, as the alert and the safety desk read it. Builds from
+ * before 14 Oct 2026 sent the « (simulation) » wording: it is recorded under today's.
+ */
+const SOS_ACTION_LABELS = {
+  'Appel au 19 lancé': 'Appel au 19 lancé',
+  'Position partagée avec un proche': 'Position partagée avec un proche',
+  'Appel urgence simulé': 'Appel au 19 lancé',
+  'Position partagée (simulation)': 'Position partagée avec un proche',
+  'Contact de confiance alerté (simulation)': 'Contact de confiance prévenu',
+  'Support contacté (simulation)': 'Support Naya contacté',
+} as const;
+type SosAction = keyof typeof SOS_ACTION_LABELS;
+const SOS_ACTIONS = Object.keys(SOS_ACTION_LABELS) as [SosAction, ...SosAction[]];
 export function ensurePrototype(s: State): PrototypeState {
   return (s.prototype ??= {
     catalog: defaultPrototypeCatalog(),
@@ -89,6 +107,75 @@ export function passengerWallet(s: State, userId: string): PassengerWallet {
     .filter((e) => e.status === 'pending' && e.amount < 0)
     .reduce((n, e) => n + e.amount, 0);
   return w;
+}
+/** The mock wallet provider, as the audit trail and the admin read it. */
+const WALLET_PROVIDER: AuditActor = { type: 'provider', id: 'demo-provider', name: 'Prestataire de paiement' };
+/**
+ * Seconds the mock provider takes to answer a top-up: a card or mobile payment is authorised
+ * within seconds, an agency counter (Cash Plus, Wafacash) a little later.
+ */
+function topupDelaySeconds(ctx: Ctx, kind: DemoPaymentOption['kind'] | undefined) {
+  return kind === 'agency'
+    ? ctx.config.providerDelaySeconds.withdrawalConfirm
+    : ctx.config.providerDelaySeconds.payment;
+}
+function resolveTopup(
+  s: State,
+  entry: PassengerWalletEntry,
+  outcome: 'confirmed' | 'failed',
+  at: string,
+  actor: AuditActor,
+  cityId: string | null,
+) {
+  if (entry.status !== 'pending') return;
+  entry.status = outcome;
+  // Top-ups created before 14 Oct 2026 read « Recharge en attente de confirmation ».
+  const option = ensurePrototype(s).catalog.payments.find((x) => x.id === entry.providerId);
+  if (option) entry.label = `Recharge · ${option.name}`;
+  appendAudit(s, at, {
+    actor,
+    action: `wallet.topup_${outcome}`,
+    entityType: 'prototype',
+    entityId: entry.id,
+    cityId,
+    summary: `${entry.label} · ${formatMoney(entry.amount)} ${outcome === 'confirmed' ? 'confirmée' : 'refusée'}`,
+  });
+}
+/**
+ * Answers the wallet top-ups whose provider delay has passed, like a provider callback would.
+ * Called from tick() through deliverDueProviderJobs (finance.ts). Every top-up is accepted.
+ */
+export function settleDueWalletTopups(ctx: Ctx) {
+  const now = ctx.clock.now();
+  const due = (s: State) => {
+    const p = s.prototype;
+    if (!p) return [];
+    const kinds = new Map(p.catalog.payments.map((o) => [o.id, o.kind]));
+    return p.wallets.flatMap((w) =>
+      w.entries
+        .filter(
+          (e) =>
+            e.status === 'pending' &&
+            e.amount > 0 &&
+            !!e.providerId &&
+            Date.parse(e.at) +
+              topupDelaySeconds(ctx, kinds.get(e.providerId)) * 1000 <=
+              now,
+        )
+        .map((e) => ({ userId: w.userId, entry: e })),
+    );
+  };
+  if (due(ctx.store.state).length === 0) return 0;
+  return ctx.store.tx((s) => {
+    const at = new Date(now).toISOString();
+    const list = due(s);
+    for (const { userId, entry } of list) {
+      const cityId = s.users.find((u) => u.id === userId)?.cityId ?? null;
+      resolveTopup(s, entry, 'confirmed', at, WALLET_PROVIDER, cityId);
+      passengerWallet(s, userId);
+    }
+    return list.length;
+  });
 }
 export function reservePassengerWallet(
   s: State,
@@ -168,11 +255,14 @@ export function prototypeMethods(s: State, user: User) {
     {
       id: `mobile-${user.id}`,
       kind: 'mobile_wallet' as const,
-      label: 'Wallet marocain (démo)',
+      label: 'Wallet marocain',
     },
   ];
-  for (const m of methods)
-    if (!s.paymentMethods.some((x) => x.id === m.id))
+  for (const m of methods) {
+    const existing = s.paymentMethods.find((x) => x.id === m.id);
+    // Stores created before 14 Oct 2026 hold « Wallet marocain (démo) »: the label follows today's.
+    if (existing) existing.label = m.label;
+    else
       s.paymentMethods.push({
         ...m,
         userId: user.id,
@@ -182,15 +272,30 @@ export function prototypeMethods(s: State, user: User) {
         expYear: null,
         isDefault: false,
       });
+  }
+  // Rides, receipts and car wash copy the label of the card they use (rides.ts paymentRef), so
+  // it is cleaned here, before they read it.
+  for (const m of s.paymentMethods)
+    if (m.userId === user.id && m.kind === 'card') m.label = cardLabel(m.label);
   return p;
 }
+/**
+ * Card labels as people read them. Stores seeded before 14 Oct 2026 hold « Carte de démonstration
+ * •••• 4242 » or « Carte test refusée •••• 0002 », as do cards added through POST /payment-methods/card
+ * before that date: they read « Carte •••• 4242 », the label new cards get (app.ts).
+ */
+export const cardLabel = (label: string) =>
+  label.replace(/^Carte\s+(?:de\s+démonstration|test\b[^•]*?)\s*(•••• \d{4})$/i, 'Carte $1');
+/** Provider names as people read them. Stores seeded before 14 Oct 2026 carry a « (démo) » suffix. */
+export const providerName = (name: string) => name.replace(/\s*\(démo\)\s*$/i, '');
 export function prototypeProviders(s: State, force = false) {
   const p = ensurePrototype(s);
+  for (const provider of s.providers) provider.name = providerName(provider.name);
   for (const city of s.cities)
     for (const option of p.catalog.payments) {
       const id = `${city.id}-${option.id}-recharge`;
       let existing = s.providers.find((x) => x.id === id);
-      // The city already has its own card recharge (seed.ts): a second « Carte bancaire (démo) » would
+      // The city already has its own card recharge (seed.ts): a second « Carte bancaire » would
       // show twice in the driver's list. Stores that already got the copy keep it, disabled.
       if (
         option.kind === 'card' &&
@@ -213,13 +318,13 @@ export function prototypeProviders(s: State, force = false) {
             cityId: city.id,
             purpose: 'recharge',
             kind: option.kind === 'card' ? 'card' : 'cash_network',
-            name: `${option.name} (démo)`,
+            name: option.name,
             enabled: false,
             mode: 'demo',
             configured: true,
           }),
         );
-      existing.name = `${option.name} (démo)`;
+      existing.name = option.name;
       if (force || created)
         existing.enabled =
           option.enabled &&
@@ -331,7 +436,7 @@ export function mountPrototypeRoutes(
       await idempotent(ctx, c, u.id, input, () =>
         ctx.store.tx((s) => {
           const p = ensurePrototype(s);
-          mustFind(
+          const option = mustFind(
             p.catalog.payments,
             (x) =>
               x.id === input.providerId &&
@@ -340,10 +445,11 @@ export function mountPrototypeRoutes(
             'moyen de recharge',
           );
           const w = passengerWallet(s, u.id);
+          // Pending until the provider answers: settleDueWalletTopups, a few seconds later.
           const entry = {
             id: nextId(s, 'PW'),
             amount: input.amount,
-            label: 'Recharge en attente de confirmation',
+            label: `Recharge · ${option.name}`,
             status: 'pending' as const,
             at: ctx.clock.iso(),
             rideId: null,
@@ -356,15 +462,20 @@ export function mountPrototypeRoutes(
             u,
             'wallet.topup_created',
             entry.id,
-            'Recharge de démonstration créée',
+            `Recharge ${formatMoney(input.amount)} demandée via ${option.name}`,
           );
           return entry;
         }),
       ),
     );
   });
+  /**
+   * Dev mode only (scenario tests): gives the provider's answer before its delay. The apps never
+   * call it; top-ups are answered by settleDueWalletTopups.
+   */
   app.post('/prototype/wallet/:id/resolve', async (c) => {
     const u = userOf(c, 'passenger');
+    if (!ctx.config.devMode) throw new DomainError('NOT_FOUND');
     const { outcome } = z
       .object({ outcome: z.enum(['confirmed', 'failed']) })
       .parse(await c.req.json());
@@ -377,12 +488,7 @@ export function mountPrototypeRoutes(
           'recharge',
         );
         if (e.status !== 'pending') return w;
-        e.status = outcome;
-        const option = ensurePrototype(s).catalog.payments.find(
-          (x) => x.id === e.providerId,
-        );
-        e.label = `Recharge ${option?.name ?? ''} · ${outcome === 'confirmed' ? 'confirmée' : 'refusée'}`;
-        log(ctx, s, u, `wallet.topup_${outcome}`, e.id, e.label);
+        resolveTopup(s, e, outcome, ctx.clock.iso(), WALLET_PROVIDER, u.cityId);
         return passengerWallet(s, u.id);
       }),
     );
@@ -433,12 +539,12 @@ export function mountPrototypeRoutes(
               {
                 at: ctx.clock.iso(),
                 by: u.firstName,
-                label: 'Alerte de démonstration créée · position enregistrée',
+                label: 'Alerte déclenchée · position enregistrée',
               },
             ],
           };
           ensurePrototype(s).alerts.push(alert);
-          log(ctx, s, u, 'sos.created', alert.id, 'Alerte SOS simulée');
+          log(ctx, s, u, 'sos.created', alert.id, 'Alerte SOS déclenchée');
           return alert;
         }),
       ),
@@ -453,23 +559,17 @@ export function mountPrototypeRoutes(
   app.post('/prototype/sos/:id/action', async (c) => {
     const u = userOf(c);
     const { action } = z
-      .object({
-        action: z.enum([
-          'Appel urgence simulé',
-          'Position partagée (simulation)',
-          'Contact de confiance alerté (simulation)',
-          'Support contacté (simulation)',
-        ]),
-      })
+      .object({ action: z.enum(SOS_ACTIONS) })
       .parse(await c.req.json());
+    const label = SOS_ACTION_LABELS[action];
     return c.json(
       ctx.store.tx((s) => {
         const a = mustFind(
           ensurePrototype(s).alerts,
           (x) => x.id === c.req.param('id') && x.userId === u.id,
         );
-        a.actions.push({ at: ctx.clock.iso(), by: u.firstName, label: action });
-        log(ctx, s, u, 'sos.action', a.id, action);
+        a.actions.push({ at: ctx.clock.iso(), by: u.firstName, label });
+        log(ctx, s, u, 'sos.action', a.id, label);
         return a;
       }),
     );

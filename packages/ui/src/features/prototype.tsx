@@ -1,16 +1,22 @@
 import { useTheme } from './../core/theme';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Linking, Share, StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@naya/api/react';
 import { errorMessage } from '@naya/api';
 import {
   formatMoney,
   formatShort,
+  parseMoneyInput,
+  SAFETY_STATUS_LABELS,
+  type DemoPaymentOption,
   type LatLng,
+  type PassengerWalletEntry,
   type SafetyAlert,
 } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { colors, themedStyles } from '@naya/tokens';
+import { STANDALONE_DEMO } from '../core/apiBase';
+import { useSingleFlight } from '../core/useSingleFlight';
 import { Screen, Section } from '../Screen';
 import { Header } from '../Header';
 import { Text } from '../Text';
@@ -19,23 +25,38 @@ import { FormField, Pill } from '../Form';
 import { StatusBanner, ErrorState } from '../Feedback';
 import { Sheet } from '../BottomSheet';
 import { toast } from '../Toast';
+import { haptic } from '../haptics';
 
-const key = () => `demo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const panel = new Proxy(
-  { backgroundColor: colors.surface, borderRadius: 22, padding: 18, gap: 12 },
-  {
-    get: (_, key) =>
-      (
-        ({
-          backgroundColor: colors.surface,
-          borderRadius: 22,
-          padding: 18,
-          gap: 12,
-        }) as Record<string, unknown>
-      )[String(key)],
-  },
+const styles = themedStyles(() =>
+  StyleSheet.create({
+    panel: {
+      backgroundColor: colors.surface,
+      borderRadius: 22,
+      padding: 18,
+      gap: 12,
+    },
+    balance: {
+      backgroundColor: colors.selected,
+      borderRadius: 22,
+      padding: 18,
+      gap: 12,
+    },
+  }),
 );
-/** All emergency actions are simulated and remain inside the demo. */
+
+/** SOS actions, worded as the server records them (services/demo-api/src/services/prototype.ts). */
+const CALLED_POLICE = 'Appel au 19 lancé';
+const SHARED_POSITION = 'Position partagée avec un proche';
+const mapsLink = (l: LatLng) =>
+  `https://maps.google.com/?q=${l.lat.toFixed(5)},${l.lng.toFixed(5)}`;
+
+/**
+ * SOS from a ride or a Naya Famille trip. The alert and the position are saved on the server.
+ * Connected builds reach the admin SOS desk, and its answer shows here while the sheet is open.
+ * A standalone build has no desk on the other end: the copy says the alert is recorded and
+ * never claims a team was notified. The 19 is a real call; « Prévenir un proche » opens the
+ * phone's share sheet. Failures use Alert.alert: toasts render behind modal sheets (UI-07).
+ */
 export function SafetyButton({
   rideId = null,
   familyTripId = null,
@@ -48,24 +69,75 @@ export function SafetyButton({
   useTheme();
   const api = useApi();
   const [open, setOpen] = useState(false);
-  const [alert, setAlert] = useState<SafetyAlert | null>(null);
-  const [contact, setContact] = useState('Contact de confiance');
-  const [busy, setBusy] = useState(false);
-  const run = async (action?: string) => {
-    setBusy(true);
-    try {
-      setAlert(
-        action && alert
-          ? await api.prototype.safetyAction(alert.id, action)
-          : await api.prototype.sos(
-              { rideId, familyTripId, location, contactName: contact },
-              key(),
-            ),
+  const [sos, setSos] = useState<SafetyAlert | null>(null);
+  const [contact, setContact] = useState('');
+  const desk = !STANDALONE_DEMO;
+  const live = useQuery({
+    queryKey: ['naya', sos?.userId ?? '', 'sos'],
+    queryFn: api.prototype.alerts,
+    enabled: desk && open && !!sos,
+    refetchInterval: 5000,
+  });
+  const fresh = live.data?.find((a) => a.id === sos?.id);
+  const shown =
+    fresh && sos && fresh.actions.length >= sos.actions.length ? fresh : sos;
+  const raise = useSingleFlight(
+    (_: void, k) =>
+      api.prototype.sos(
+        {
+          rideId,
+          familyTripId,
+          location,
+          contactName: contact.trim() || 'Aucun proche indiqué',
+        },
+        k,
+      ),
+    {
+      onSuccess: (alert) => {
+        haptic.success();
+        setSos(alert);
+      },
+      onError: (e) => {
+        haptic.error();
+        raise.reset();
+        Alert.alert(
+          'Alerte non envoyée',
+          `${errorMessage(e)} En cas de danger, appelez le 19.`,
+        );
+      },
+    },
+  );
+  const record = (action: string) => {
+    if (!sos) return;
+    api.prototype
+      .safetyAction(sos.id, action)
+      .then((next) => {
+        setSos(next);
+        if (desk) live.refetch();
+      })
+      .catch(() => undefined);
+  };
+  const callPolice = () => {
+    Linking.openURL('tel:19')
+      .then(() => record(CALLED_POLICE))
+      .catch(() =>
+        Alert.alert(
+          'Appel impossible depuis cet appareil',
+          'Composez le 19 depuis un téléphone.',
+        ),
       );
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
+  };
+  const sharePosition = async () => {
+    try {
+      const r = await Share.share({
+        message: `SOS Naya : j’ai besoin d’aide. Ma position : ${mapsLink(location)}`,
+      });
+      if (r.action === Share.sharedAction) record(SHARED_POSITION);
+    } catch {
+      Alert.alert(
+        'Partage impossible',
+        'Envoyez votre position depuis Plans ou Messages.',
+      );
     }
   };
   return (
@@ -79,55 +151,87 @@ export function SafetyButton({
       <Sheet
         visible={open}
         onClose={() => setOpen(false)}
-        title="SOS · démonstration"
-        subtitle="Les appels et les envois sont simulés."
+        title="SOS · sécurité"
+        subtitle={
+          // Before the alert exists, say what the button will do; afterwards, what was done.
+          !shown
+            ? desk
+              ? 'Déclenchez l’alerte : elle est transmise avec votre position à l’équipe sécurité Naya.'
+              : 'Déclenchez l’alerte : elle est enregistrée avec votre position sur ce trajet.'
+            : desk
+              ? 'Votre alerte et votre position sont transmises à l’équipe sécurité Naya.'
+              : 'Votre alerte et votre position sont enregistrées sur ce trajet.'
+        }
+        testID="sos-sheet"
       >
         <View style={{ gap: 12 }}>
-          <StatusBanner
-            tone="warning"
-            title="Tester une alerte"
-            message="La position et les actions apparaîtront dans le back-office de démonstration."
-          />
-          <Text variant="caption" numeric>
-            {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+          <Text variant="caption" tone="muted" numeric>
+            Votre position · {location.lat.toFixed(5)},{' '}
+            {location.lng.toFixed(5)}
           </Text>
-          {!alert ? (
+          {!shown ? (
             <>
               <FormField
-                label="Contact de confiance"
+                label="Proche de confiance (facultatif)"
+                helper="Son nom est joint à l’alerte. Vous pourrez prévenir cette personne ensuite."
                 value={contact}
                 onChangeText={setContact}
+                autoCapitalize="words"
+                testID="sos-contact"
               />
               <Button
-                label="Confirmer l’alerte de démo"
-                loading={busy}
-                onPress={() => run()}
+                label="Déclencher l’alerte"
+                variant="danger"
+                loading={raise.isPending}
+                onPress={() => raise.run()}
                 testID="confirm-sos"
+              />
+              <Button
+                label="Appeler le 19 (police)"
+                variant="secondary"
+                onPress={callPolice}
+                testID="sos-call-police"
               />
             </>
           ) : (
             <>
               <StatusBanner
                 tone="success"
-                title={`Alerte ${alert.id} enregistrée`}
-                message="Position jointe · disponible dans le back-office."
+                title={`Alerte ${shown.id} enregistrée`}
+                message={
+                  desk
+                    ? 'Transmise à l’équipe sécurité Naya avec votre position.'
+                    : 'Votre position est jointe à l’alerte. En cas de danger, appelez le 19.'
+                }
+                testID="sos-recorded"
               />
-              {[
-                'Appel urgence simulé',
-                'Position partagée (simulation)',
-                'Contact de confiance alerté (simulation)',
-                'Support contacté (simulation)',
-              ].map((action) => (
-                <Button
-                  key={action}
-                  label={action}
-                  variant="secondary"
-                  loading={busy}
-                  onPress={() => run(action)}
+              {desk && shown.status !== 'new' ? (
+                <StatusBanner
+                  tone="info"
+                  title={SAFETY_STATUS_LABELS[shown.status]}
+                  message={
+                    shown.status === 'resolved'
+                      ? shown.resolutionNote ||
+                        'L’équipe sécurité a clôturé l’alerte.'
+                      : `${shown.ownerName ?? 'L’équipe sécurité'} suit votre alerte.`
+                  }
+                  testID="sos-desk-status"
                 />
-              ))}
-              {alert.actions.map((a, i) => (
-                <Text key={i} variant="caption">
+              ) : null}
+              <Button
+                label="Appeler le 19 (police)"
+                variant="danger"
+                onPress={callPolice}
+                testID="sos-call-police"
+              />
+              <Button
+                label="Prévenir un proche"
+                variant="secondary"
+                onPress={sharePosition}
+                testID="sos-share"
+              />
+              {shown.actions.map((a, i) => (
+                <Text key={i} variant="caption" tone="muted">
                   {formatShort(a.at)} · {a.label}
                 </Text>
               ))}
@@ -139,6 +243,27 @@ export function SafetyButton({
   );
 }
 
+const MIN_TOPUP = 1000;
+const MAX_TOPUP = 10_000_000;
+
+function entryStatus(
+  e: PassengerWalletEntry,
+  kind?: DemoPaymentOption['kind'],
+) {
+  if (e.amount < 0)
+    return e.status === 'confirmed'
+      ? 'Payé'
+      : e.status === 'pending'
+        ? 'Réservé pour votre course'
+        : 'Libéré';
+  if (e.status === 'confirmed') return 'Créditée';
+  if (e.status === 'failed') return 'Refusée';
+  return kind === 'agency'
+    ? 'En attente du paiement en agence'
+    : 'En cours de confirmation';
+}
+
+/** Passenger wallet: balance, top-ups answered by the payment provider, and history. */
 export function PassengerWalletScreen({
   accountId,
   cityId,
@@ -152,46 +277,92 @@ export function PassengerWalletScreen({
   const api = useApi();
   const qc = useQueryClient();
   const queryKey = ['naya', accountId, 'passenger-wallet'];
-  const wallet = useQuery({ queryKey, queryFn: api.prototype.wallet });
+  const wallet = useQuery({
+    queryKey,
+    queryFn: api.prototype.wallet,
+    // A pending top-up is answered by the provider within seconds: follow it.
+    refetchInterval: (q) =>
+      q.state.data?.entries.some((e) => e.amount > 0 && e.status === 'pending')
+        ? 2000
+        : false,
+  });
   const catalog = useQuery({
     queryKey: ['naya', accountId, 'catalog'],
     queryFn: api.prototype.catalog,
   });
+  const options = (catalog.data?.payments ?? []).filter(
+    (p) => p.enabled && (!p.cityIds.length || p.cityIds.includes(cityId)),
+  );
+  const kindOf = (providerId: string | null) =>
+    catalog.data?.payments.find((p) => p.id === providerId)?.kind;
   const [amount, setAmount] = useState('100');
-  const [provider, setProvider] = useState('demo-mobile');
-  const [busy, setBusy] = useState(false);
-  const run = async (id?: string, outcome?: 'confirmed' | 'failed') => {
-    setBusy(true);
-    try {
-      if (id && outcome) await api.prototype.resolveTopup(id, outcome);
-      else
-        await api.prototype.topup(
-          Math.round(Number(amount.replace(',', '.')) * 100),
-          provider,
-          key(),
+  const [provider, setProvider] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const chosen = options.find((p) => p.id === provider) ?? options[0];
+  const cents = parseMoneyInput(amount);
+  const topup = useSingleFlight(
+    (vars: { amount: number; providerId: string }, k) =>
+      api.prototype.topup(vars.amount, vars.providerId, k),
+    {
+      onSuccess: (entry) => {
+        haptic.success();
+        toast(
+          kindOf(entry.providerId) === 'agency'
+            ? `Recharge créée · référence ${entry.id} à présenter au guichet`
+            : 'Recharge envoyée au prestataire',
         );
-      await qc.invalidateQueries({ queryKey });
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
+        topup.reset();
+        qc.invalidateQueries({ queryKey });
+      },
+      onError: (e) => {
+        haptic.error();
+        setError(errorMessage(e));
+        topup.reset();
+      },
+    },
+  );
+  const submit = () => {
+    if (cents === null)
+      return setError('Saisissez un montant valide, par exemple 100.');
+    if (cents < MIN_TOPUP)
+      return setError(`Minimum ${formatMoney(MIN_TOPUP)} par recharge.`);
+    if (cents > MAX_TOPUP)
+      return setError(`Maximum ${formatMoney(MAX_TOPUP)} par recharge.`);
+    if (!chosen) return setError('Choisissez un moyen de recharge.');
+    setError(null);
+    topup.run({ amount: cents, providerId: chosen.id });
   };
+  // Announce the provider's answer once, when a top-up leaves « en cours ».
+  const seen = useRef(new Map<string, PassengerWalletEntry['status']>());
+  useEffect(() => {
+    for (const e of wallet.data?.entries ?? []) {
+      const before = seen.current.get(e.id);
+      if (before === 'pending' && e.amount > 0 && e.status !== 'pending') {
+        if (e.status === 'confirmed') {
+          haptic.success();
+          toast(
+            `${formatMoney(e.amount)} ajoutés à votre portefeuille`,
+            'success',
+          );
+        } else {
+          haptic.error();
+          toast('Recharge refusée par le prestataire', 'danger');
+        }
+      }
+      seen.current.set(e.id, e.status);
+    }
+  }, [wallet.data]);
+  const entries = wallet.data?.entries.slice().reverse() ?? [];
   return (
     <Screen
       keyboard
       header={<Header title="Portefeuille Naya" onBack={onBack} />}
     >
       <View style={{ gap: 16 }}>
-        <StatusBanner
-          tone="info"
-          title="Paiements de démonstration"
-          message="Aucun argent réel n’est débité. Confirmez ou refusez une recharge pour tester son résultat."
-        />
         {wallet.isError ? (
           <ErrorState onRetry={() => wallet.refetch()} />
         ) : null}
-        <View style={{ ...panel, backgroundColor: colors.selected }}>
+        <View style={styles.balance} testID="wallet-balance">
           <Text variant="caption" tone="accent">
             Solde disponible
           </Text>
@@ -209,65 +380,80 @@ export function PassengerWalletScreen({
             <FormField
               label="Montant (MAD)"
               value={amount}
-              onChangeText={setAmount}
+              onChangeText={(t) => {
+                setAmount(t);
+                setError(null);
+              }}
               keyboardType="decimal-pad"
+              error={error}
+              testID="wallet-amount"
             />
-            {(catalog.data?.payments ?? [])
-              .filter(
-                (p) =>
-                  p.enabled &&
-                  (!p.cityIds.length || p.cityIds.includes(cityId)),
-              )
-              .map((p) => (
+            <View
+              style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}
+              accessibilityRole="radiogroup"
+              accessibilityLabel="Moyen de recharge"
+            >
+              {options.map((p) => (
                 <Pill
                   key={p.id}
                   label={p.name}
-                  selected={provider === p.id}
-                  onPress={() => setProvider(p.id)}
+                  selected={chosen?.id === p.id}
+                  onPress={() => {
+                    setProvider(p.id);
+                    setError(null);
+                  }}
+                  testID={`wallet-provider-${p.id}`}
                 />
               ))}
+            </View>
+            {chosen ? (
+              <Text variant="caption" tone="muted">
+                {chosen.kind === 'agency'
+                  ? `Réglez en espèces au guichet ${chosen.name} avec la référence de la recharge. Le solde est crédité dès que l’agence confirme.`
+                  : 'Le solde est crédité dès la confirmation du prestataire, en quelques secondes.'}
+              </Text>
+            ) : null}
             <Button
-              label="Créer la recharge de démo"
-              loading={busy}
-              onPress={() => run()}
+              label={
+                cents !== null && cents >= MIN_TOPUP
+                  ? `Recharger ${formatMoney(cents)}`
+                  : 'Recharger'
+              }
+              loading={topup.isPending}
+              disabled={!chosen}
+              onPress={submit}
               testID="wallet-topup"
             />
           </View>
         </Section>
         <Section title="Opérations">
           <View style={{ gap: 12 }}>
-            {wallet.data?.entries
-              .slice()
-              .reverse()
-              .map((e) => (
-                <View key={`${e.id}-${e.status}`} style={panel}>
+            {wallet.data && entries.length === 0 ? (
+              <Text variant="caption" tone="muted">
+                Aucune opération pour le moment.
+              </Text>
+            ) : null}
+            {entries.map((e) => {
+              const kind = kindOf(e.providerId);
+              return (
+                <View
+                  key={`${e.id}-${e.status}`}
+                  style={styles.panel}
+                  testID={`wallet-entry-${e.id}`}
+                >
                   <Text variant="label">{e.label}</Text>
                   <Text variant="caption" tone="muted">
-                    {formatShort(e.at)} ·{' '}
-                    {e.status === 'confirmed'
-                      ? 'Confirmée'
-                      : e.status === 'pending'
-                        ? 'En attente'
-                        : 'Refusée / libérée'}
+                    {formatShort(e.at)} · {entryStatus(e, kind)}
                   </Text>
                   <Text variant="title">{formatMoney(e.amount)}</Text>
-                  {e.amount > 0 && e.status === 'pending' ? (
-                    <View style={{ gap: 8 }}>
-                      <Button
-                        label="Simuler la confirmation"
-                        loading={busy}
-                        onPress={() => run(e.id, 'confirmed')}
-                      />
-                      <Button
-                        label="Simuler le refus"
-                        variant="secondary"
-                        loading={busy}
-                        onPress={() => run(e.id, 'failed')}
-                      />
-                    </View>
+                  {e.amount > 0 && e.status === 'pending' && kind === 'agency' ? (
+                    <Text variant="caption" tone="accent">
+                      Référence {e.id} à présenter au guichet
+                    </Text>
                   ) : null}
                 </View>
-              ))}
+              );
+            })}
           </View>
         </Section>
       </View>

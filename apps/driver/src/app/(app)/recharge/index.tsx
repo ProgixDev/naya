@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, CreditCard } from 'lucide-react-native';
+import { Building2, CreditCard, Smartphone } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { assertRechargeAmount, formatMoney, parseMoneyInput } from '@naya/domain';
@@ -62,17 +62,21 @@ export default function Recharge() {
             <Text variant="caption" weight="semibold" tone="muted" style={{ marginLeft: 4 }}>
               Moyen de recharge
             </Text>
-            {providers.data.map((p) => (
-              <ChoiceRow
-                key={p.id}
-                title={p.name}
-                subtitle={p.kind === 'card' ? 'Page sécurisée du prestataire' : 'En agence avec une référence'}
-                leading={<IconDisc size={36}>{p.kind === 'card' ? <CreditCard size={17} color={colors.accent} /> : <Building2 size={17} color={colors.accent} />}</IconDisc>}
-                selected={chosen === p.id}
-                onPress={() => setProviderId(p.id)}
-                testID={`provider-${p.kind}`}
-              />
-            ))}
+            {providers.data.map((p) => {
+              // The mobile wallet is filed under cash_network with the agencies (prototype.ts): tell it by its id.
+              const mobile = p.kind !== 'card' && p.id.includes('mobile');
+              return (
+                <ChoiceRow
+                  key={p.id}
+                  title={p.name}
+                  subtitle={p.kind === 'card' ? 'Paiement sécurisé · confirmé en quelques secondes' : mobile ? 'Paiement mobile · confirmé en quelques secondes' : 'En espèces en agence, avec une référence'}
+                  leading={<IconDisc size={36}>{p.kind === 'card' ? <CreditCard size={17} color={colors.accent} /> : mobile ? <Smartphone size={17} color={colors.accent} /> : <Building2 size={17} color={colors.accent} />}</IconDisc>}
+                  selected={chosen === p.id}
+                  onPress={() => setProviderId(p.id)}
+                  testID={`provider-${p.kind}`}
+                />
+              );
+            })}
           </View>
         ) : null}
       </View>

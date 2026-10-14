@@ -23,6 +23,7 @@ import type { ProviderJob, State } from '../state';
 import { mustFind, nextId } from '../store';
 import { appendAudit, SYSTEM } from '../audit';
 import { requirePermission } from './permissions';
+import { providerName, settleDueWalletTopups } from './prototype';
 
 /* ───────────── Wallet projection ───────────── */
 
@@ -97,7 +98,7 @@ export function applyProviderEventIn(s: State, now: string, event: ProviderCallb
   if (s.processedProviderEvents.includes(event.eventId)) return { outcome: 'duplicate' };
   s.processedProviderEvents.push(event.eventId);
   const reason = event.reason ?? null;
-  const actor = { type: 'provider' as const, id: 'demo-provider', name: 'Prestataire de démonstration' };
+  const actor = { type: 'provider' as const, id: 'demo-provider', name: 'Prestataire de paiement' };
 
   if (event.kind === 'recharge') {
     const r = mustFind(s.recharges, (x) => x.providerRef === event.ref, 'recharge');
@@ -161,11 +162,15 @@ export function applyProviderEventIn(s: State, now: string, event: ProviderCallb
   return { outcome: 'applied' };
 }
 
-/** Delivers due simulated provider outcomes through the same code path as signed callbacks. */
+/**
+ * Delivers due mock provider outcomes through the same code path as signed callbacks, then
+ * answers due passenger wallet top-ups (prototype.ts).
+ */
 export function deliverDueProviderJobs(ctx: Ctx) {
   const now = ctx.clock.now();
+  const topups = settleDueWalletTopups(ctx);
   const due = ctx.store.state.providerJobs.filter((j) => !j.delivered && j.outcome !== 'manual' && j.dueAt && Date.parse(j.dueAt) <= now);
-  if (due.length === 0) return 0;
+  if (due.length === 0) return topups;
   ctx.store.tx((s) => {
     for (const j of s.providerJobs) {
       if (j.delivered || j.outcome === 'manual' || !j.dueAt || Date.parse(j.dueAt) > now) continue;
@@ -173,10 +178,13 @@ export function deliverDueProviderJobs(ctx: Ctx) {
       applyProviderEventIn(s, new Date(now).toISOString(), { eventId: `evt_${j.id}`, kind: j.kind, ref: j.ref, outcome: j.outcome, reason: j.reason });
     }
   });
-  return due.length;
+  return due.length + topups;
 }
 
-/** Sandbox action standing in for the provider's hosted page (3-D Secure, agency counter…). */
+/**
+ * Gives the provider's answer before its delay, or for a job that has none ('manual'). Used by
+ * the dev tools and the provider-sandbox route (tests); the apps wait for the timed outcome.
+ */
 export function resolveManually(ctx: Ctx, kind: ProviderJob['kind'], ref: string, outcome: 'confirmed' | 'failed', reason: string | null) {
   return ctx.store.tx((s) => {
     const job = s.providerJobs.find((j) => j.kind === kind && j.ref === ref && !j.delivered);
@@ -205,7 +213,7 @@ export function createRecharge(ctx: Ctx, driver: User, input: RechargeInput) {
       cityId: driver.cityId,
       amount: input.amount,
       providerId: provider.id,
-      providerName: provider.name,
+      providerName: providerName(provider.name),
       status: 'pending' as const,
       providerRef: `demo_rc_${id}`,
       failureReason: null,
@@ -213,8 +221,10 @@ export function createRecharge(ctx: Ctx, driver: User, input: RechargeInput) {
       updatedAt: now,
     };
     s.recharges.push(recharge);
-    queueProviderJob(s, { kind: 'recharge', ref: recharge.providerRef, outcome: 'manual', reason: null, dueAt: null });
-    appendAudit(s, now, { actor: { type: 'user', id: driver.id, name: `${driver.firstName} ${driver.lastName}` }, action: 'recharge.requested', entityType: 'recharge', entityId: id, cityId: driver.cityId, summary: `Recharge ${formatMoney(input.amount)} demandée via ${provider.name}` });
+    // The mock provider accepts every recharge: a card within seconds, an agency counter a little later.
+    const delay = provider.kind === 'card' ? ctx.config.providerDelaySeconds.payment : ctx.config.providerDelaySeconds.withdrawalConfirm;
+    queueProviderJob(s, { kind: 'recharge', ref: recharge.providerRef, outcome: 'confirmed', reason: null, dueAt: new Date(ctx.clock.now() + delay * 1000).toISOString() });
+    appendAudit(s, now, { actor: { type: 'user', id: driver.id, name: `${driver.firstName} ${driver.lastName}` }, action: 'recharge.requested', entityType: 'recharge', entityId: id, cityId: driver.cityId, summary: `Recharge ${formatMoney(input.amount)} demandée via ${recharge.providerName}` });
     return recharge;
   });
 }
@@ -250,7 +260,7 @@ export function createWithdrawal(ctx: Ctx, driver: User, input: WithdrawalInput)
       kind: 'withdrawal',
       ref: w.providerRef,
       outcome: fails ? 'failed' : 'confirmed',
-      reason: fails ? 'Compte bénéficiaire refusé par la banque (compte de test).' : null,
+      reason: fails ? 'Compte bénéficiaire refusé par la banque.' : null,
       dueAt: new Date(ctx.clock.now() + delay * 1000).toISOString(),
     });
     appendAudit(s, now, { actor: { type: 'user', id: driver.id, name: `${driver.firstName} ${driver.lastName}` }, action: 'withdrawal.requested', entityType: 'withdrawal', entityId: id, cityId: driver.cityId, summary: `Retrait ${formatMoney(input.amount)} demandé · ${formatMoney(input.amount)} réservés` });

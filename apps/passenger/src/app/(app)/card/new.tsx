@@ -22,10 +22,14 @@ const luhn = (digits: string) => {
   return sum % 10 === 0;
 };
 
+/** True when MM/AA is the current month or later (a card is valid until the end of its month). */
+const notExpired = (mm: number, yy: number, now = new Date()) => (2000 + yy) * 12 + mm >= now.getFullYear() * 12 + now.getMonth() + 1;
+
 /**
  * P14-card. This form stands in for the payment provider's hosted card fields (in
  * production an SDK component renders them). The number never leaves this screen: only
- * the last four digits go to the sandbox tokeniser, and Naya stores the returned token.
+ * the last four digits go to the provider's tokeniser (mocked by the API), and Naya stores
+ * the returned token. Any Luhn-valid number is accepted.
  */
 export default function NewCard() {
   useTheme();
@@ -54,7 +58,8 @@ export default function NewCard() {
   const submit = () => {
     const [mm, yy] = exp.split('/');
     if (digits.length < 13 || !luhn(digits)) return setError('Numéro de carte invalide.');
-    if (!mm || !yy || Number(mm) < 1 || Number(mm) > 12) return setError('Date d’expiration invalide (MM/AA).');
+    if (!/^\d{2}\/\d{2}$/.test(exp) || Number(mm) < 1 || Number(mm) > 12) return setError('Date d’expiration invalide (MM/AA).');
+    if (!notExpired(Number(mm), Number(yy))) return setError('Cette carte est expirée.');
     if (!/^\d{3,4}$/.test(cvc)) return setError('Code de sécurité invalide.');
     setError(null);
     save.mutate();
@@ -64,9 +69,9 @@ export default function NewCard() {
       <View style={{ gap: 12, marginTop: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
           <Lock size={14} color={colors.success} />
-          <Text variant="caption" tone="muted" style={{ flex: 1 }}>Champs sécurisés du prestataire · bac à sable</Text>
+          <Text variant="caption" tone="muted" style={{ flex: 1 }}>Paiement sécurisé · Naya ne conserve que les 4 derniers chiffres</Text>
         </View>
-        <FormField label="Numéro de carte" value={number} onChangeText={(v) => setNumber(v.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 '))} keyboardType="number-pad" autoComplete="cc-number" textContentType="creditCardNumber" placeholder="4242 4242 4242 4242" testID="card-number" />
+        <FormField label="Numéro de carte" value={number} onChangeText={(v) => setNumber(v.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 '))} keyboardType="number-pad" autoComplete="cc-number" textContentType="creditCardNumber" placeholder="1234 1234 1234 1234" testID="card-number" />
         <FieldRow>
           <FormField label="Expiration" value={exp} onChangeText={(v) => { const d = v.replace(/\D/g, '').slice(0, 4); setExp(d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d); }} keyboardType="number-pad" autoComplete="cc-exp" placeholder="MM/AA" testID="card-exp" />
           <FormField label="CVC" value={cvc} onChangeText={(v) => setCvc(v.replace(/\D/g, '').slice(0, 4))} keyboardType="number-pad" autoComplete="cc-csc" secureTextEntry placeholder="123" testID="card-cvc" />
@@ -75,7 +80,6 @@ export default function NewCard() {
         <ListGroup>
           <ListRow title="Moyen préféré" trailing={<Toggle value={makeDefault} onValueChange={setMakeDefault} accessibilityLabel="Définir comme moyen préféré" />} />
         </ListGroup>
-        <StatusBanner compact tone="warning" title="Démo" message="4242… acceptée · 0002 refusée · 3155 en attente" />
       </View>
     </Screen>
   );

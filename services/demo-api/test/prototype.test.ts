@@ -139,6 +139,59 @@ describe('feedback prototype workflows', () => {
       ).status,
     ).toBe(404);
   });
+  it('lets the provider answer top-ups on its own: mobile within seconds, agency a little later', async () => {
+    const h = setup('first-ride');
+    const p = await h.login(PHONES.salma, 'passenger');
+    const mobile = await h.ok('POST', '/prototype/wallet/topup', {
+      token: p,
+      body: { amount: 20000, providerId: 'demo-mobile' },
+    });
+    const agency = await h.ok('POST', '/prototype/wallet/topup', {
+      token: p,
+      body: { amount: 5000, providerId: 'demo-cashplus' },
+    });
+    expect(mobile.label).toBe('Recharge · Wallet marocain / paiement mobile');
+    h.advance(2);
+    expect((await h.ok('GET', '/prototype/wallet', { token: p })).balance).toBe(0);
+    h.advance(1);
+    let w = await h.ok('GET', '/prototype/wallet', { token: p });
+    expect(w.balance).toBe(20000);
+    expect(w.entries.find((e: any) => e.id === agency.id).status).toBe('pending');
+    h.advance(5);
+    w = await h.ok('GET', '/prototype/wallet', { token: p });
+    expect(w.balance).toBe(25000);
+    expect(w.entries.every((e: any) => e.status === 'confirmed')).toBe(true);
+    // Answered once: later ticks change nothing, and the provider is the actor of record.
+    h.advance(60);
+    expect((await h.ok('GET', '/prototype/wallet', { token: p })).balance).toBe(25000);
+    const confirmed = h.ctx.store.state.audit.filter((e) => e.action === 'wallet.topup_confirmed');
+    expect(confirmed).toHaveLength(2);
+    expect(confirmed.every((e) => e.actor.type === 'provider')).toBe(true);
+  });
+  it('names methods and providers without a « (démo) » suffix, including in older stores', async () => {
+    const h = setup();
+    const p = await h.login(PHONES.salma, 'passenger');
+    const d = await h.login(PHONES.amina, 'driver');
+    const mobileLabel = async () =>
+      (await h.ok('GET', '/payment-methods', { token: p })).find(
+        (m: any) => m.kind === 'mobile_wallet',
+      ).label;
+    expect(await mobileLabel()).toBe('Wallet marocain');
+    h.ctx.store.state.paymentMethods.find((m) => m.kind === 'mobile_wallet')!.label = 'Wallet marocain (démo)';
+    expect(await mobileLabel()).toBe('Wallet marocain');
+    h.ctx.store.state.providers[0]!.name = 'Carte bancaire (démo)';
+    const providers = await h.ok('GET', '/payment-providers?purpose=recharge', { token: d });
+    expect(providers.length).toBeGreaterThan(0);
+    expect(h.ctx.store.state.providers.some((x) => /démo/i.test(x.name))).toBe(false);
+    // Cards: an added card and an older store's test card read « Carte •••• 1234 » or their brand.
+    const { providerToken } = await h.ok('POST', '/provider-sandbox/tokenize', { token: p, body: { last4: '1111' } });
+    await h.ok('POST', '/payment-methods/card', { token: p, body: { providerToken, makeDefault: false } });
+    h.ctx.store.state.paymentMethods.find((m) => m.last4 === '0002')!.label = 'Carte test refusée •••• 0002';
+    const cards = (await h.ok('GET', '/payment-methods', { token: p })).filter((m: any) => m.kind === 'card');
+    expect(cards.find((m: any) => m.last4 === '1111').label).toMatch(/•••• 1111$/);
+    expect(cards.find((m: any) => m.last4 === '0002').label).toBe('Carte •••• 0002');
+    expect(cards.some((m: any) => /démo|test/i.test(m.label))).toBe(false);
+  });
   it('requires the pick-up photo, the parent’s approval and an authorized handover, then recurs', async () => {
     const h = setup();
     const p = await h.login(PHONES.salma, 'passenger');
@@ -215,7 +268,7 @@ describe('feedback prototype workflows', () => {
     expect(result.trips[0].timeline).toHaveLength(9);
     expect(result.trips[1].status).toBe('scheduled');
   });
-  it('records SOS simulation actions, enforces ownership and supports admin resolution', async () => {
+  it('records SOS actions, enforces ownership and supports admin resolution', async () => {
     const h = setup();
     const p = await h.login(PHONES.salma, 'passenger');
     const other = await h.login(PHONES.nour, 'passenger');
@@ -244,17 +297,35 @@ describe('feedback prototype workflows', () => {
         })
       ).id,
     ).toBe(alert.id);
+    expect(alert.actions[0].label).toBe('Alerte déclenchée · position enregistrée');
     await h.ok('POST', `/prototype/sos/${alert.id}/action`, {
+      token: p,
+      body: { action: 'Appel au 19 lancé' },
+    });
+    // Older builds send the « (simulation) » wording: it is recorded under today's.
+    const legacy = await h.ok('POST', `/prototype/sos/${alert.id}/action`, {
       token: p,
       body: { action: 'Position partagée (simulation)' },
     });
+    expect(legacy.actions.at(-1).label).toBe('Position partagée avec un proche');
+    expect(
+      (
+        await h.call('POST', `/prototype/sos/${alert.id}/action`, {
+          token: p,
+          body: { action: 'Autre chose' },
+        })
+      ).status,
+    ).toBe(422);
     await h.ok('POST', `/admin/prototype/alerts/${alert.id}`, {
       token: a,
       body: { status: 'resolved', note: 'Test traité par le support' },
     });
     const data = await h.ok('GET', '/admin/prototype', { token: a });
     expect(data.alerts[0].status).toBe('resolved');
-    expect(data.alerts[0].actions).toHaveLength(3);
+    expect(data.alerts[0].actions).toHaveLength(4);
+    expect(
+      data.alerts[0].actions.some((x: { label: string }) => /simul|démo/i.test(x.label)),
+    ).toBe(false);
   });
   /** Plays a Famille trip up to the school gate: pick-up photo, the parent's approval, the route. */
   async function toSchool(h: ReturnType<typeof setup>, p: string, d: string, tripId: string, seen?: unknown[]) {

@@ -425,6 +425,28 @@ describe('S12 · debt threshold and recharge recovery', () => {
     expect((await h.ok('POST', '/driver/online', { token: leila, body: { online: true } })).online).toBe(true);
   });
 
+  it('the provider confirms a recharge on its own: card after 3 s, agency after 8 s, credited once', async () => {
+    const h = setup();
+    const leila = await h.login(PHONES.leila, 'driver');
+    const providers = await h.ok('GET', '/payment-providers?purpose=recharge', { token: leila });
+    expect(providers.some((p: any) => /démo/i.test(p.name))).toBe(false);
+    const card = providers.find((p: any) => p.kind === 'card');
+    const r1 = await h.ok('POST', '/driver/recharges', { token: leila, body: { amount: mad(50), providerId: card.id } });
+    h.advance(2);
+    expect((await h.ok('GET', `/driver/recharges/${r1.id}`, { token: leila })).status).toBe('pending');
+    h.advance(1);
+    expect((await h.ok('GET', `/driver/recharges/${r1.id}`, { token: leila })).status).toBe('confirmed');
+    expect((await wallet(h, leila)).balance).toBe(-mad(100));
+    const agency = providers.find((p: any) => p.kind === 'cash_network');
+    const r2 = await h.ok('POST', '/driver/recharges', { token: leila, body: { amount: mad(20), providerId: agency.id } });
+    h.advance(3);
+    expect((await h.ok('GET', `/driver/recharges/${r2.id}`, { token: leila })).status).toBe('pending');
+    h.advance(5);
+    expect((await h.ok('GET', `/driver/recharges/${r2.id}`, { token: leila })).status).toBe('confirmed');
+    h.advance(60);
+    expect((await wallet(h, leila)).balance).toBe(-mad(80));
+  });
+
   it('−15 does not block; reaching the threshold during a ride does not interrupt it', async () => {
     const h = setup('after-cash');
     const amina = await h.login(PHONES.amina, 'driver');

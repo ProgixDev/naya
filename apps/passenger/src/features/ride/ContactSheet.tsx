@@ -1,4 +1,4 @@
-import { useTheme , IconDisc, ListGroup, ListRow, Sheet, StatusBanner } from '@naya/ui';
+import { useTheme , IconDisc, ListGroup, ListRow, Sheet } from '@naya/ui';
 import { Alert, Linking, View } from 'react-native';
 import { MessageSquare, Phone, ShieldAlert } from 'lucide-react-native';
 import { colors } from '@naya/tokens';
@@ -15,10 +15,9 @@ export function ContactSheet({ driver, visible, onClose }: { driver: DriverSumma
   return (
     <Sheet visible={visible} onClose={onClose} title={`Contacter ${driver.firstName}`} subtitle="L’appel et le message via Naya ne sont pas encore disponibles." testID="contact-sheet">
       <View style={{ gap: 12 }}>
-        <StatusBanner compact tone="warning" title="Démo" message="appels et messages : fournisseur non configuré" />
         <ListGroup>
-          <ListRow title="Appeler via Naya" subtitle="Indisponible · fournisseur non configuré" leading={<IconDisc><Phone size={18} color={colors.disabledText} /></IconDisc>} />
-          <ListRow title="Envoyer un message" subtitle="Indisponible · fournisseur non configuré" leading={<IconDisc><MessageSquare size={18} color={colors.disabledText} /></IconDisc>} />
+          <ListRow title="Appeler via Naya" subtitle="Bientôt disponible" leading={<IconDisc><Phone size={18} color={colors.disabledText} /></IconDisc>} />
+          <ListRow title="Envoyer un message" subtitle="Bientôt disponible" leading={<IconDisc><MessageSquare size={18} color={colors.disabledText} /></IconDisc>} />
           <ListRow title="Urgence · police (19)" subtitle="Appel direct depuis votre téléphone" leading={<IconDisc tone="danger"><ShieldAlert size={18} color={colors.danger} /></IconDisc>} onPress={() => Linking.openURL('tel:19').catch(() => Alert.alert('Appel impossible depuis cet appareil', 'Composez le 19 depuis un téléphone.'))} testID="call-police" />
         </ListGroup>
       </View>

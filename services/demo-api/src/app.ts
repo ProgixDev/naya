@@ -381,7 +381,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
         const last4 = input.providerToken.slice(-4);
         if (s.paymentMethods.some((p) => p.userId === user.id && p.providerToken === input.providerToken)) throw new DomainError('CONFLICT', 'Cette carte est déjà enregistrée.');
         if (input.makeDefault) for (const p of s.paymentMethods.filter((x) => x.userId === user.id)) p.isDefault = false;
-        const pm = { id: nextId(s, 'PM'), userId: user.id, kind: 'card' as const, label: `Carte de démonstration •••• ${last4}`, providerToken: input.providerToken, last4, expMonth: 12, expYear: 2029, isDefault: input.makeDefault };
+        const pm = { id: nextId(s, 'PM'), userId: user.id, kind: 'card' as const, label: `Carte •••• ${last4}`, providerToken: input.providerToken, last4, expMonth: 12, expYear: 2029, isDefault: input.makeDefault };
         s.paymentMethods.push(pm);
         const { providerToken: _t, ...safe } = pm;
         return safe;
@@ -971,7 +971,7 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
     });
     app.post('/dev/providers/:kind/:ref/:outcome', (c) => {
       const outcome = c.req.param('outcome') === 'confirm' ? 'confirmed' : 'failed';
-      return c.json(resolveManually(ctx, c.req.param('kind') as 'payment', c.req.param('ref'), outcome, outcome === 'failed' ? 'Échec simulé depuis le lanceur de scénarios.' : null));
+      return c.json(resolveManually(ctx, c.req.param('kind') as 'payment', c.req.param('ref'), outcome, outcome === 'failed' ? 'Refusé par le prestataire de paiement.' : null));
     });
     app.post('/dev/bot', async (c) => {
       const { online } = (await c.req.json()) as { online: boolean };

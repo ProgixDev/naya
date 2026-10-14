@@ -626,7 +626,7 @@ function settleRide(s: State, ctx: Ctx, ride: Ride, now: string) {
     if (ride.paymentMethod.kind === 'wallet') settlePassengerWallet(s, ride.passengerId, ride.id, split.gross, now);
     const p = s.payments.find(p => p.id === id)!; p.status = 'confirmed'; p.provider = ride.paymentMethod.kind === 'wallet' ? 'naya-wallet-demo' : 'mobile-wallet-demo';
     postLedger(s, now, { driverId: ride.driverId!, type: 'ride_net_credit', amount: split.net, description: `Revenu net ${ride.paymentMethod.label}`, rideId: ride.id, idempotencyKey: `ride:${ride.id}:net` });
-    tl(ride, now, 'payment.confirmed', 'provider', 'Paiement portefeuille confirmé (simulation)');
+    tl(ride, now, 'payment.confirmed', 'provider', 'Paiement portefeuille confirmé');
     return;
   }
   if (isCard) {

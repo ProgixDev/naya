@@ -9,7 +9,11 @@ import { Button, Card, ErrorState, Header, Screen, SkeletonList, StatusBanner, h
 import { FigureLine, OperationHero } from '@/components/Kit';
 import { useAccountId, useWallet } from '@/lib/queries';
 
-/** D14-pending · D14-failed · D14-success (+ -normal variants) */
+/**
+ * D14-pending · D14-failed · D14-success (+ -normal variants). The provider answers on its own
+ * after a short delay (card: seconds, agency: a little later); a card recharge opens the
+ * « Paiement en cours » screen (`recharge/sandbox/[id]`) once, right after it is created.
+ */
 export default function RechargeStatus() {
   const { id, open } = useLocalSearchParams<{ id: string; open?: string }>();
   const api = useApi();
@@ -18,13 +22,16 @@ export default function RechargeStatus() {
   const wallet = useWallet();
   const q = useQuery({ queryKey: qk.recharge(a, id), queryFn: () => api.driver.getRecharge(id), refetchInterval: (s) => (s.state.data?.status === 'pending' ? 2000 : false) });
   const r = q.data;
+  const card = !!r?.providerId.includes('card');
+  // Mobile wallet recharges are confirmed by the provider like a card, with no agency reference to present.
+  const mobile = !card && !!r?.providerId.includes('mobile');
   const opened = useRef(false);
   useEffect(() => {
-    if (r?.status === 'pending' && open === '1' && !opened.current && r.providerId.includes('card')) {
+    if (r?.status === 'pending' && open === '1' && !opened.current && card) {
       opened.current = true;
       router.push({ pathname: '/recharge/sandbox/[id]', params: { id } });
     }
-  }, [r?.status, open, id, r?.providerId]);
+  }, [r?.status, open, id, card]);
   const last = useRef(r?.status);
   useEffect(() => {
     if (r && last.current === 'pending' && r.status !== 'pending') {
@@ -40,10 +47,10 @@ export default function RechargeStatus() {
   const restored = r?.status === 'confirmed' && w && w.balance < 0 && !w.offersBlockedByDebt;
   return (
     <Screen
-      header={<Header title={r?.status === 'confirmed' ? 'Recharge confirmée' : r?.status === 'failed' ? 'Recharge échouée' : 'Recharge en attente'} onBack={() => router.dismissTo('/wallet')} />}
+      header={<Header title={r?.status === 'confirmed' ? 'Recharge confirmée' : r?.status === 'failed' ? 'Recharge échouée' : 'Recharge en cours'} onBack={() => router.dismissTo('/wallet')} />}
       footer={
-        r?.status === 'pending' && r.providerId.includes('card') ? (
-          <Button label="Ouvrir la page du prestataire" size="major" full onPress={() => router.push({ pathname: '/recharge/sandbox/[id]', params: { id } })} testID="open-sandbox" />
+        r?.status === 'pending' ? (
+          <Button label="Retour au portefeuille" variant="secondary" size="major" full onPress={() => router.dismissTo('/wallet')} testID="recharge-back" />
         ) : r?.status === 'failed' ? (
           <Button label="Réessayer" size="major" full onPress={() => router.replace('/recharge')} testID="recharge-retry" />
         ) : r?.status === 'confirmed' ? (
@@ -56,8 +63,10 @@ export default function RechargeStatus() {
       {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
       {r ? (
         <View style={{ gap: 14, marginTop: 4 }}>
-          <OperationHero state={r.status === 'confirmed' ? 'confirmed' : r.status === 'failed' ? 'failed' : 'pending'} amount={r.amount} kicker={r.status === 'confirmed' ? 'Recharge créditée' : r.status === 'failed' ? 'Aucun montant crédité' : 'En attente du prestataire'} caption={`${r.providerName} · ${r.id} · ${formatShort(r.createdAt)}`} />
-          {r.status === 'pending' ? <StatusBanner compact tone="info" title={r.providerId.includes('card') ? 'Finalisez sur la page du prestataire' : `Référence ${r.providerRef} à présenter en agence`} message="le solde ne change pas avant confirmation" testID="recharge-pending-banner" /> : null}
+          <OperationHero state={r.status === 'confirmed' ? 'confirmed' : r.status === 'failed' ? 'failed' : 'pending'} amount={r.amount} kicker={r.status === 'confirmed' ? 'Recharge créditée' : r.status === 'failed' ? 'Aucun montant crédité' : card || mobile ? 'Paiement en cours' : 'En attente du paiement en agence'} caption={`${r.providerName} · ${r.id} · ${formatShort(r.createdAt)}`} />
+          {r.status === 'pending' ? (
+            <StatusBanner compact tone="info" title={card ? 'Confirmation de votre banque en cours' : mobile ? 'Confirmation du paiement mobile en cours' : `Référence ${r.id} à présenter en agence`} message={card || mobile ? 'le solde change dès la confirmation' : 'le solde est crédité dès que l’agence confirme'} testID="recharge-pending-banner" />
+          ) : null}
           {r.status === 'failed' ? <StatusBanner compact tone="danger" title="Aucun montant n’a été crédité" message={r.failureReason ?? 'paiement refusé par le prestataire'} /> : null}
           {r.status === 'confirmed' && restored ? <StatusBanner compact tone="success" title="Accès aux courses rétabli" message="dette repassée sous le plafond" testID="recharge-restored" /> : null}
           {w ? (
