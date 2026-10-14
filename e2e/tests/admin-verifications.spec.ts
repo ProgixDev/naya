@@ -46,7 +46,7 @@ test('S10 · vehicle approval is independent from the person approval', async ({
   await page.goto('/personnes/DR-002');
   await expect(page.getByText('Ne peut pas recevoir de courses')).toBeVisible();
   await page.goto('/verifications/VV-002');
-  await expect(page.getByText('Véhicule déclaré')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Véhicule déclaré' })).toBeVisible();
   await page.getByTestId('approve').click();
   await page.getByTestId('confirm-decision').click();
   await expect(page.getByText(/Décision : approuvé/)).toBeVisible();

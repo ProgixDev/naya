@@ -32,9 +32,10 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await d.getByTestId('famille-pickup').click();
     await d.getByTestId('famille-request-start').click();
     await expect(d.getByTestId('famille-waiting-approval')).toBeVisible();
-    // Parent: the approval request opens the trip; she approves on site.
-    await expect(p.getByTestId('famille-approval')).toBeVisible({ timeout: 15000 });
-    await p.getByTestId('famille-approve-onsite').first().click();
+    // Parent: the approval request opens the trip (the list below it shows the same card); she approves on site.
+    const approval = p.getByTestId('famille-trip-awaiting_approval').getByTestId('famille-approval');
+    await expect(approval).toBeVisible({ timeout: 15000 });
+    await approval.getByTestId('famille-approve-onsite').click();
     await expect(p.getByText('Lina · Trajet en cours', { exact: true }).first()).toBeVisible();
     await expect(p.getByTestId('famille-live-map')).toBeVisible();
     await d.getByTestId('sos').click();
@@ -67,9 +68,11 @@ test('feedback demo: shared family journey, SOS, wallet, themes and logo gallery
     await (await api()).post('/dev/clock/advance', { data: { seconds: 60 } });
     await d.reload();
     await d.getByTestId('famille-dropoff-demo-photo').click();
+    // The chauffeuse names the authorised adult (the first one is preselected only when the family loaded before the trip).
+    await d.getByRole('button', { name: 'Salma · Mère', exact: true }).click();
     await d.getByLabel('Code de remise', { exact: true }).fill('1234');
     await d.getByTestId('famille-dropoff').click();
-    await expect(p.getByText(/Déposé · photo et remise confirmées/).first()).toBeVisible({ timeout: 15000 });
+    await expect(p.getByTestId('famille-trip-completed').getByTestId('famille-trip-title')).toContainText('Déposé · photo et remise confirmées', { timeout: 15000 });
     await p.goto(URLS.passenger + '/wallet');
     await p.getByTestId('wallet-topup').click();
     await p
