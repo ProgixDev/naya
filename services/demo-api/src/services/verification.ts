@@ -327,14 +327,15 @@ export function decideCase(ctx: Ctx, admin: AdminUser, caseId: string, input: De
 export type SimulatedOutcome = 'approved' | 'more_info_requested' | 'rejected';
 
 /**
- * Demo only (dev mode): the scenario reviewer decides the caller's own submitted dossier at
- * once, with a fixed, clearly labelled message. Lets testers reach every review outcome
- * without the admin console. Never available when NAYA_DEV=0.
+ * Dev mode only (POST /dev/verification/:id/simulate, used by tests): a reviewer decides the
+ * caller's own submitted dossier at once, with the wording a reviewer would write, so every
+ * review outcome is reachable without the admin console. The apps never call it, and it is not
+ * registered when NAYA_DEV=0.
  */
 export function simulateReview(ctx: Ctx, user: User, caseId: string, outcome: SimulatedOutcome, itemKey?: VerificationItemKey) {
   const kase = ctx.store.read((s) => ownedCase(s, user, caseId));
   if (kase.status !== 'submitted' && kase.status !== 'in_review') {
-    throw new DomainError('INVALID_TRANSITION', 'Envoyez d’abord le dossier pour simuler son examen.');
+    throw new DomainError('INVALID_TRANSITION', 'Ce dossier n’est pas en attente d’examen. Envoyez-le d’abord.');
   }
   const reviewer = ctx.store.read((s) => s.admins.find((a) => a.permissions.includes('verification.decide')));
   if (!reviewer) throw new DomainError('NOT_FOUND');
@@ -342,17 +343,17 @@ export function simulateReview(ctx: Ctx, user: User, caseId: string, outcome: Si
   const current = ctx.store.read((s) => mustFind(s.cases, (c) => c.id === caseId));
   const key = itemKey && current.items.some((i) => i.key === itemKey) ? itemKey : (current.items[0]?.key ?? null);
   if (outcome === 'approved') {
-    return decideCase(ctx, reviewer, caseId, { outcome, reasonCode: null, message: 'Démo · validation simulée de votre dossier.', corrections: [], expectedVersion: current.version });
+    return decideCase(ctx, reviewer, caseId, { outcome, reasonCode: null, message: '', corrections: [], expectedVersion: current.version });
   }
   if (outcome === 'more_info_requested') {
     if (!key) throw new DomainError('VALIDATION');
     return decideCase(ctx, reviewer, caseId, {
       outcome,
       reasonCode: 'correction',
-      message: 'Démo · une pièce doit être reprise avant la validation.',
-      corrections: [{ key, note: 'Démo · photo floue : reprenez-la à plat, en pleine lumière, sans reflet.' }],
+      message: 'Une pièce doit être reprise avant la validation.',
+      corrections: [{ key, note: 'Photo floue : reprenez-la à plat, en pleine lumière, sans reflet.' }],
       expectedVersion: current.version,
     });
   }
-  return decideCase(ctx, reviewer, caseId, { outcome, reasonCode: 'document_expired', message: 'Démo · pièce expirée : recommencez avec une pièce en cours de validité.', corrections: [], expectedVersion: current.version });
+  return decideCase(ctx, reviewer, caseId, { outcome, reasonCode: 'document_expired', message: 'Pièce expirée : recommencez avec une pièce en cours de validité.', corrections: [], expectedVersion: current.version });
 }

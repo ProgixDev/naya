@@ -11,6 +11,19 @@ import { decideCase, startReview } from './services/verification';
 import { tick } from './services/timers';
 import { readUpload, uploadDir } from './services/uploads';
 
+/** The on-device reviewer takes a newly submitted dossier up after this long, like a review queue. */
+export const REVIEW_PICKUP_MS = 6_000;
+
+/**
+ * Time from submission to the on-device reviewer's decision: 20–40 s, derived from the case and
+ * its submission time so it stays the same across app restarts.
+ */
+export function reviewDelayMs(c: { id: string; submittedAt: string | null }) {
+  let h = 0;
+  for (const ch of `${c.id}:${c.submittedAt ?? ''}`) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
+  return 20_000 + (h % 20_001);
+}
+
 /** The same demo rules, executed directly in the app. Never starts a HTTP server. */
 export function createEmbeddedDemo(options: { dataDir: string; role: MobileRole; clock?: Clock }) {
   const clock = options.clock ?? new Clock();
@@ -46,15 +59,24 @@ export function createEmbeddedDemo(options: { dataDir: string; role: MobileRole;
     tick(ctx);
     if (principal?.kind !== 'user') return;
     const user = principal.user;
-    // Locally submitted demo documents receive a simulated review. Seeded review states
-    // stay intact until the tester submits a new version of their dossier.
+    // Standalone builds have no admin console, so an on-device reviewer examines the dossiers
+    // submitted on this phone: it takes one up after REVIEW_PICKUP_MS (« en cours d’examen ») and
+    // approves it reviewDelayMs after submission, so the app first shows the normal pending state.
+    // Corrections and refusals only come from a person in the admin console (connected mode).
+    // A dossier submitted when its account was created (seeded Nour) stays pending; seeded
+    // dossiers sent later than that (Khadija's vehicle, Houda's Famille application) and every
+    // dossier sent on this phone are reviewed, and a decided dossier is never touched again.
+    // Without an admin allowed to decide, nothing is reviewed (a throw here would fail every request).
+    const reviewer = store.state.admins.find((a) => a.permissions.includes('verification.decide'));
     for (const c of [...store.state.cases]) {
-      if (c.userId !== user.id || c.status !== 'submitted' || !c.submittedAt ||
-          Date.parse(c.submittedAt) <= Date.parse(user.createdAt) || now - Date.parse(c.submittedAt) < 3000) continue;
-      const reviewer = store.state.admins[0]!;
-      startReview(ctx, reviewer, c.id);
+      if (!reviewer || c.userId !== user.id || (c.status !== 'submitted' && c.status !== 'in_review') || !c.submittedAt ||
+          Date.parse(c.submittedAt) <= Date.parse(user.createdAt)) continue;
+      const waited = now - Date.parse(c.submittedAt);
+      if (waited < REVIEW_PICKUP_MS) continue;
+      if (c.status === 'submitted') startReview(ctx, reviewer, c.id);
+      if (waited < reviewDelayMs(c)) continue;
       const current = store.state.cases.find((v) => v.id === c.id)!;
-      decideCase(ctx, reviewer, c.id, { outcome: 'approved', expectedVersion: current.version, reasonCode: null, message: 'Validation simulée pour cette démonstration sur votre appareil.' });
+      decideCase(ctx, reviewer, c.id, { outcome: 'approved', expectedVersion: current.version, reasonCode: null, message: '' });
     }
     if (options.role !== 'driver' || user.role !== 'driver') return;
     const online = store.state.presence.find((p) => p.driverId === user.id)?.online;

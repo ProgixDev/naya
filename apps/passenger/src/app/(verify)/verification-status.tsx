@@ -97,7 +97,11 @@ export default function Status() {
   return (
     <Screen testID="status-pending" header={<Header title="Dossier envoyé" />} footer={<><Button label="Consulter mon dossier" variant="secondary" full onPress={() => router.push('/(verify)/review')} />{signOut}</>}>
       <View style={{ gap: 14, marginTop: 14 }}>
-        <StatusHero tone="info" Icon={Clock3} title="En attente de vérification" message="Une personne de l’équipe Naya l’examine. Délai habituel : moins de 24 h." />
+        {c.status === 'in_review' ? (
+          <StatusHero tone="info" Icon={Clock3} title="Vérification en cours" message="Une personne de l’équipe Naya examine vos documents. Cette page se met à jour automatiquement." />
+        ) : (
+          <StatusHero tone="info" Icon={Clock3} title="En attente de vérification" message="Une personne de l’équipe Naya va examiner vos documents. Délai habituel : moins de 24 h." />
+        )}
         {received}
         <StatusBanner compact tone="neutral" title="Réservation disponible après approbation" />
       </View>

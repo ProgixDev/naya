@@ -164,11 +164,13 @@ describe('Demo engine · simulated review outcomes and resumable seed', () => {
     await h.ok('POST', `/verification/${person.id}/submit`, { token: t });
     const more = await h.ok('POST', `/dev/verification/${person.id}/simulate`, { token: t, body: { outcome: 'more_info_requested', itemKey: 'selfie' } });
     expect(more.status).toBe('more_info_requested');
-    expect(more.items.find((i: any) => i.key === 'selfie')).toMatchObject({ status: 'needs_correction', note: expect.stringMatching(/^Démo/) });
+    expect(more.items.find((i: any) => i.key === 'selfie')).toMatchObject({ status: 'needs_correction', note: expect.stringMatching(/^Photo floue/) });
+    // The wording is what a reviewer would write: nothing tells the user it was simulated.
+    expect(JSON.stringify([more.decision, more.items])).not.toMatch(/d[ée]mo|simul/i);
     await attach(h, t, person.id, ['selfie']);
     await h.ok('POST', `/verification/${person.id}/submit`, { token: t });
     const refused = await h.ok('POST', `/dev/verification/${person.id}/simulate`, { token: t, body: { outcome: 'rejected' } });
-    expect(refused.decision).toMatchObject({ reasonCode: 'document_expired', message: expect.stringMatching(/^Démo/) });
+    expect(refused.decision).toMatchObject({ reasonCode: 'document_expired', message: expect.stringMatching(/^Pièce expirée/) });
     await h.ok('POST', `/verification/${person.id}/reopen`, { token: t });
     // Another user's dossier cannot be decided.
     const other = await h.login(PHONES.samira, 'driver');

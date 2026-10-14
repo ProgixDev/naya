@@ -1,6 +1,5 @@
 import { themedStyles, colors } from '@naya/tokens';
-import { useTheme, Button, DEMO_MODE, ID_DOCUMENTS, SegmentedControl, StatusBanner, Text, TextButton, haptic, toast, type IdDocumentType } from '@naya/ui';
-import { useState } from 'react';
+import { useTheme, Button, ID_DOCUMENTS, StatusBanner, Text, TextButton, haptic, toast, type IdDocumentType } from '@naya/ui';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
@@ -10,14 +9,6 @@ import { draftView, sectionItems, sectionProgress, sectionSteps, type SignupSect
 import { DocumentRow } from '../Dossier';
 import { INTERVIEW_WINDOWS, formatFrDate, formatShortDay } from './copy';
 import { goToStep, useSignup } from './useSignup';
-
-type Outcome = 'team' | 'approved' | 'more_info_requested' | 'rejected';
-const OUTCOMES: { value: Outcome; label: string }[] = [
-  { value: 'team', label: 'Équipe' },
-  { value: 'approved', label: 'Validé' },
-  { value: 'more_info_requested', label: 'Reprise' },
-  { value: 'rejected', label: 'Refus' },
-];
 
 function Line({ label, value, onEdit, testID }: { label: string; value: string; onEdit?: () => void; testID?: string }) {
   useTheme();
@@ -71,23 +62,18 @@ function Answers({ section, kase }: { section: SignupSection; kase: Verification
 
 /**
  * Last step of a section: every answer and document with its status, then one action to
- * send it. In demo builds a « Démo » choice picks the simulated review outcome.
+ * send it for manual review. The decision always comes from the reviewer, never from here.
  */
 export function ReviewStep({ section }: { section: SignupSection }) {
   useTheme();
   const api = useApi();
   const { caseOf, ctx, store } = useSignup();
-  const [outcome, setOutcome] = useState<Outcome>('team');
   const kase = caseOf(section);
   const progress = sectionProgress(section, kase, ctx);
   const remaining = progress.total - progress.done;
   const resend = kase?.status === 'more_info_requested';
   const send = useMutation({
-    mutationFn: async () => {
-      let c = await api.verification.submit(kase!.id);
-      if (DEMO_MODE && outcome !== 'team') c = await api.dev.simulateReview(c.id, outcome, c.items.find((i) => i.key !== 'selfie')?.key);
-      return c;
-    },
+    mutationFn: () => api.verification.submit(kase!.id),
     onSuccess: (c) => {
       store(c);
       haptic.success();
@@ -120,14 +106,6 @@ export function ReviewStep({ section }: { section: SignupSection }) {
       </View>
       {remaining > 0 ? (
         <StatusBanner compact tone="warning" title={`${remaining} étape${remaining > 1 ? 's' : ''} à compléter`} message="Complétez-les pour pouvoir envoyer." action={firstOpen ? { label: 'Compléter', onPress: () => goToStep(firstOpen) } : undefined} />
-      ) : null}
-      {DEMO_MODE ? (
-        <View style={{ gap: 8 }}>
-          <Text variant="micro" tone="muted">
-            Démo · résultat simulé de l’examen
-          </Text>
-          <SegmentedControl options={OUTCOMES} value={outcome} onChange={setOutcome} testID="demo-outcome" />
-        </View>
       ) : null}
       <Button
         label={resend ? 'Renvoyer le complément' : section === 'famille' ? 'Envoyer ma candidature' : 'Envoyer mon dossier'}

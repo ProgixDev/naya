@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApiClient } from '../../../packages/api/src/client';
 import { PLACES, mad } from '@naya/domain';
-import { createEmbeddedDemo } from '../src/embedded';
+import { createEmbeddedDemo, REVIEW_PICKUP_MS, reviewDelayMs } from '../src/embedded';
 import { ManualClock } from '../src/clock';
 
 const folders: string[] = [];
@@ -44,21 +44,34 @@ describe('standalone demo with all network calls blocked', () => {
     expect(h.network).not.toHaveBeenCalled();
   });
 
-  it('simulates review of a newly submitted dossier while preserving seeded pending accounts', async () => {
+  it('reviews a newly submitted dossier after a realistic delay while preserving seeded pending accounts', async () => {
     const h = setup('passenger'); await h.login('+212623456789');
-    h.clock.advance(10);
+    h.clock.advance(60);
     expect((await h.client.verification.list()).cases[0]?.status).toBe('submitted');
     await h.login('+212677000099');
     const dossier = (await h.client.verification.list()).cases[0]!;
-    await h.client.verification.saveIdentity(dossier.id, { firstName: 'Yasmine', lastName: 'Démo', birthDate: '1998-05-01', documentType: 'cin', documentNumber: 'AA112233' });
+    await h.client.verification.saveIdentity(dossier.id, { firstName: 'Yasmine', lastName: 'Kabbaj', birthDate: '1998-05-01', documentType: 'cin', documentNumber: 'AA112233' });
     for (const key of ['selfie', 'id_front', 'id_back'] as const) {
       const upload = await h.client.dev.sampleUpload(key);
       await h.client.verification.setItem(dossier.id, key, [upload.id]);
     }
     h.clock.advance(1);
-    expect((await h.client.verification.submit(dossier.id)).status).toBe('submitted');
-    h.restart(); h.clock.advance(4);
-    expect((await h.client.verification.list()).cases[0]?.status).toBe('approved');
+    const submitted = await h.client.verification.submit(dossier.id);
+    expect(submitted.status).toBe('submitted');
+    const delay = reviewDelayMs(submitted);
+    expect(delay).toBeGreaterThanOrEqual(20_000);
+    expect(delay).toBeLessThanOrEqual(40_000);
+    // A few seconds later it is still waiting; then a reviewer takes it up (normal pending state).
+    h.clock.advance(4);
+    expect((await h.client.verification.list()).cases[0]?.status).toBe('submitted');
+    h.restart(); h.clock.advance(REVIEW_PICKUP_MS / 1000 - 4 + 1);
+    expect((await h.client.verification.list()).cases[0]?.status).toBe('in_review');
+    // Approved once the delay has passed, with the ordinary wording and no correction or refusal.
+    h.clock.advance(delay / 1000);
+    const approved = (await h.client.verification.list()).cases[0]!;
+    expect(approved.status).toBe('approved');
+    expect(approved.decision?.message).toBe('Votre dossier a été validé.');
+    expect(JSON.stringify(approved)).not.toMatch(/d[ée]mo|simul/i);
     expect(h.network).not.toHaveBeenCalled();
   });
 
