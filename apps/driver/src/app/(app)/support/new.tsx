@@ -7,5 +7,5 @@ import { useAccountId } from '@/lib/queries';
 export default function NewTicket() {
   const a = useAccountId();
   const { rideId, category } = useLocalSearchParams<{ rideId?: string; category?: SupportTicket['category'] }>();
-  return <TicketCreateScreen accountId={a} role="driver" rideId={rideId || null} defaultCategory={category ?? (rideId ? 'ride' : 'other')} onBack={() => router.back()} onCreated={(id) => router.replace({ pathname: '/support/[id]', params: { id } })} />;
+  return <TicketCreateScreen accountId={a} role="driver" rideId={rideId || null} defaultCategory={category || undefined} onBack={() => router.back()} onCreated={(id) => router.replace({ pathname: '/support/[id]', params: { id } })} />;
 }

@@ -4,5 +4,5 @@ import { useAccountId } from '@/lib/queries';
 
 export default function VerifyTicket() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <TicketThreadScreen accountId={useAccountId()} ticketId={id} onBack={() => router.back()} />;
+  return <TicketThreadScreen accountId={useAccountId()} ticketId={id} onBack={() => router.back()} onCreate={() => router.push('/(verify)/support/new')} />;
 }
