@@ -1,10 +1,11 @@
-import { useTheme , Button, EmptyState, Header, PressableScale, Screen, Text } from '@naya/ui';
+import { useTheme , Button, EmptyState, Header, IconDisc, ListGroup, ListRow, PressableScale, Screen, Text } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react-native';
 import { colors, radius } from '@naya/tokens';
 import { HELP_TOPICS } from '@/features/help/topics';
+import { dialEmergency, EMERGENCY_NUMBERS } from '@/features/help/emergency';
 
 /** Questions as one accordion card: the first answer is open, the others one tap away. */
 export default function HelpTopic() {
@@ -15,6 +16,22 @@ export default function HelpTopic() {
   if (!t) return <Screen header={<Header title="Aide" onBack={() => router.back()} />}><EmptyState title="Sujet introuvable" /></Screen>;
   return (
     <Screen header={<Header title={t.title} onBack={() => router.back()} />} footer={<Button label="Ce n’est pas résolu · créer une demande" full variant="secondary" onPress={() => router.push({ pathname: '/support/new', params: { category: t.category } })} />}>
+      {t.id === 'safety' ? (
+        // The numbers themselves, one tap from the dialler, before any reading.
+        <ListGroup label="Urgence · appel direct depuis votre téléphone" style={{ marginTop: 4, marginBottom: 12 }}>
+          {EMERGENCY_NUMBERS.map((e) => (
+            <ListRow
+              key={e.number}
+              title={`${e.name} · ${e.number}`}
+              subtitle={e.detail}
+              accessibilityHint={`Appelle le ${e.number} depuis votre téléphone`}
+              leading={<IconDisc tone="danger"><ShieldAlert size={18} color={colors.danger} /></IconDisc>}
+              onPress={() => dialEmergency(e.number)}
+              testID={`help-${e.testID}`}
+            />
+          ))}
+        </ListGroup>
+      ) : null}
       <View style={{ marginTop: 4, backgroundColor: colors.surface, borderRadius: radius.card, paddingHorizontal: 16 }}>
         {t.articles.map((a, i) => {
           const expanded = open === i;

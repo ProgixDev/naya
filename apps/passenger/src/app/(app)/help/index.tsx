@@ -1,11 +1,12 @@
 import { useTheme , Button, Header, IconDisc, ListGroup, ListRow, Screen, Text } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { FileText, MessageCircle, Route as RouteIcon, ShieldAlert, Wallet } from 'lucide-react-native';
+import { Baby, CreditCard, Droplets, FileText, MessageCircle, Route as RouteIcon, ShieldAlert, Wallet } from 'lucide-react-native';
 import { colors } from '@naya/tokens';
 import { HELP_TOPICS } from '@/features/help/topics';
+import { EMERGENCY_NUMBERS } from '@/features/help/emergency';
 
-const ICONS = { trip: RouteIcon, payment: Wallet, account: FileText, safety: ShieldAlert } as const;
+const ICONS = { trip: RouteIcon, payment: CreditCard, wallet: Wallet, family: Baby, account: FileText, safety: ShieldAlert, 'car-wash': Droplets } as const;
 
 export default function Help() {
   useTheme();
@@ -21,7 +22,9 @@ export default function Help() {
         <ListGroup>
           <ListRow testID="my-tickets" title="Mes demandes" subtitle="Consulter les réponses" leading={<IconDisc><MessageCircle size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/support')} />
         </ListGroup>
-        <Text variant="caption" tone="muted" style={{ paddingHorizontal: 4 }}>Les signalements de sécurité sont traités en priorité.</Text>
+        <Text variant="caption" tone="muted" style={{ paddingHorizontal: 4 }}>
+          Une demande n’est pas un appel d’urgence. En cas de danger, appelez la police ({EMERGENCY_NUMBERS[0].number}) ou la Protection civile ({EMERGENCY_NUMBERS[1].number}).
+        </Text>
       </View>
     </Screen>
   );

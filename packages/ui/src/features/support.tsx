@@ -146,7 +146,8 @@ export function TicketCreateScreen({ accountId, rideId, defaultCategory = 'ride'
           </View>
         </View>
         {errors.attachments ? <Text tone="danger">{errors.attachments}</Text> : null}
-        {category === 'safety' ? <StatusBanner compact tone="danger" title="Urgence : 19 (police) · 15 (SAMU)" message="signalements traités en priorité" /> : null}
+        {/* Moroccan numbers (PAX-11, PRD-23): 15 is the Protection civile, not the French SAMU. */}
+        {category === 'safety' ? <StatusBanner tone="danger" title="En cas de danger, appelez d’abord" message="Police 19 · Protection civile 15 (pompiers et ambulances) · Gendarmerie royale 177 hors agglomération · 112 depuis un mobile. Une demande n’est pas un appel d’urgence." testID="support-emergency-numbers" /> : null}
       </View>
     </Screen>
   );
