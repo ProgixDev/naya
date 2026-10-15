@@ -187,9 +187,28 @@ export function FareBreakdown({ fare, distanceMeters, durationSeconds, dynamicRe
 
 /* ───────────── People and vehicles ───────────── */
 
-export function VehicleImage({ color, width = 132 }: { color: string; width?: number }) {
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+/** Declared colours drawn in plum (« Prune »); every other colour shows the pearl car. */
+const isPlum = (color: string) => /prune|plum|aubergine/.test(fold(color));
+const isPearl = (color: string) => /perle|pearl|nacre/.test(fold(color));
+
+/**
+ * The Naya Signature render in the vehicle's colour family: plum or pearl. From 140 pt the full-size file
+ * (1080 px wide) keeps it sharp at 3x; below, the small one (420 px).
+ */
+export function VehicleImage({ color, model, width = 132 }: { color: string; model?: string; width?: number }) {
   useTheme();
-  return <Illustration source={cars.pearlSmall} width={width} aspect={aspect.carSmall} label={`Véhicule ${color}`} />;
+  const plum = isPlum(color);
+  const large = width >= 140;
+  const source = plum ? (large ? cars.plum : cars.plumSmall) : large ? cars.pearl : cars.pearlSmall;
+  const shade = color.trim().toLowerCase();
+  const name = model?.trim() ?? '';
+  // The label says what the picture shows. The render is a Naya Signature in plum or pearl: any other model
+  // or colour is described as a stand-in, with the declared vehicle in brackets.
+  const exact = (plum || isPearl(color)) && (!name || fold(name) === 'naya signature');
+  const declared = [name, shade].filter(Boolean).join(', ');
+  const label = exact ? `Voiture ${name ? `${name}, ` : ''}couleur ${shade}` : `Voiture couleur ${plum ? 'prune' : 'perle'}, à titre d’illustration${declared ? ` (${declared})` : ''}`;
+  return <Illustration source={source} width={width} aspect={large ? aspect.car : aspect.carSmall} label={label} />;
 }
 
 /** Portrait avatars exist only for the illustrated demo characters. */

@@ -15,7 +15,7 @@ export default function VehicleProfile() {
         {v ? (
           <>
             <Card style={{ alignItems: 'center', gap: 8, paddingTop: 8 }}>
-              <VehicleImage color={v.color} width={220} />
+              <VehicleImage color={v.color} model={`${v.make} ${v.model}`} width={220} />
               <Text variant="heading">
                 {v.make} {v.model}
               </Text>

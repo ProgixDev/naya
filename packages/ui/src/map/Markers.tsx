@@ -1,18 +1,22 @@
 import { useTheme } from './../core/theme';
-import { View } from 'react-native';
-import { SvgXml } from 'react-native-svg';
+import { Image, View } from 'react-native';
 import { MapPin } from 'lucide-react-native';
-import { aspect } from '@naya/assets';
+import { aspect, cars } from '@naya/assets';
 import { colors } from '@naya/tokens';
 import { Text } from '../Text';
 import type { MapMarker } from './types';
 
-export function MarkerView({ marker }: { marker: MapMarker }) {
+/**
+ * `onImageLoad` fires once the driver car's PNG has decoded, so a native map marker can stop tracking view
+ * changes only after the image is drawn. The car uses React Native's Image, the pattern react-native-maps
+ * documents for custom marker views.
+ */
+export function MarkerView({ marker, onImageLoad }: { marker: MapMarker; onImageLoad?: () => void }) {
   useTheme();
   if (marker.kind === 'driver') {
     return (
-      <View accessibilityLabel={marker.label ?? 'Voiture de la chauffeuse'} style={{ width: 30, height: 30 / aspect.carTop, transform: [{ rotate: `${marker.heading ?? 0}deg` }] }}>
-        <SvgXml xml={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 56"><rect x="3" y="2" width="24" height="52" rx="8" fill="${colors.surface}" stroke="${colors.accent}" stroke-width="3"/><path d="M7 16H23L21 25H9ZM9 35H21L23 44H7Z" fill="${colors.accent}"/></svg>`} width="100%" height="100%" />
+      <View accessibilityRole="image" accessibilityLabel={marker.label ?? 'Voiture de la chauffeuse'} style={{ width: 30, height: 30 / aspect.carTop, transform: [{ rotate: `${marker.heading ?? 0}deg` }] }}>
+        <Image source={cars.top} resizeMode="contain" fadeDuration={0} onLoad={onImageLoad} onError={onImageLoad} style={{ width: '100%', height: '100%' }} />
       </View>
     );
   }

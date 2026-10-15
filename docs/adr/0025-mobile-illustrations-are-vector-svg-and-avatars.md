@@ -22,10 +22,21 @@ What changed: item 4 of the client's feedback PDF asked for authentic media inst
 
 As implemented at `c38429d`: `Illustration` renders one of a few vector drawings from `@naya/assets` (`vehicleSvg` for any car, `journeySvg` in identity, wallet or journey variants), tinted with the current theme, and uses the image passed in only to pick the variant; avatars show the person's initial (`avatarFor` returns no image). The supplied "Rencontre" brand SVGs stay, recoloured for dark mode (`packages/ui/src/Brand.tsx:15`). The PNG illustrations, characters and cars remain in `@naya/assets` but are not displayed.
 
+## Decision update (15 Oct 2026): cars
+
+Achraf decided the car part on 15 Oct 2026 (D11/D14, cars only). He asked for car images and generated them himself, so the apps no longer draw cars as vector line art:
+
+- **Cars are raster.** The unbranded Naya Signature PNG renders in `packages/assets/cars/` (GPT Image, 15 Oct 2026), in plum and pearl, replace `vehicleSvg` on screen. `Illustration` renders any `cars.*` source as a PNG (expo-image, `contentFit="contain"`, sized by `aspect.car` / `aspect.carSmall`).
+- **Colour follows the vehicle.** `VehicleImage` shows the plum car when the declared colour is « Prune » (or plum, aubergine), and the pearl car otherwise; its label calls the picture an illustration when the declared model is not the Naya Signature or the colour is neither. From 140 pt it uses the full-size file.
+- **Map marker.** The driver car on the map is the top-view PNG (`cars.top`, plum only, left-hand drive), about 30 × 56 pt, rotated by heading.
+- **Unchanged.** Every other illustration stays vector line art (`journeySvg`), and avatars stay initials. Those parts still wait on Achraf's confirmation, so the status stays « Proposed — confirm intent ».
+
+This answers brief task 6 with PNG renders, not the vector "animated-illustration" redraw the brief described. See [ADR-0048](0048-cross-surface-media-and-brand.md#decision-update-15-oct-2026-cars-and-onboarding-images).
+
 ## Consequences
 
 - Art follows dark mode and costs no raster weight on screen.
-- One generic line drawing now stands in for every illustration, including consecutive onboarding slides, and the car art no longer shows the vehicle's real colour (backlog [VIS-05, VIS-26, VIS-27](../status/backlog.md)).
+- One generic line drawing now stands in for every illustration, including consecutive onboarding slides, and the car art no longer shows the vehicle's real colour (backlog [VIS-05, VIS-26, VIS-27](../status/backlog.md)). Cars: superseded by the 15 Oct 2026 update above.
 - About 6.8 MB of PNGs are still bundled but never rendered (DOM-14, VIS-20).
 - Docs still present the PNG art as the art in use (`docs/DESIGN.md:5`, `:53`; `packages/assets/README.md:6-7`, which also says the top-view car is the map marker, though markers no longer use it; backlog DOC-14).
 - Mobile (vector), website (photoreal generated people) and admin fixtures (generated portraits) follow different media policies (VIS-08, DOC-20); [ADR-0048](0048-cross-surface-media-and-brand.md) sets one policy.
@@ -46,5 +57,5 @@ Line numbers at commit `c38429d`.
 
 ## Revisit when
 
-- Achraf confirms or rejects this ADR. Questions to answer: vector art, generated images or photography for onboarding (brief task 1)? Car art as vector or raster, and in which style (brief task 6)? Initials or photos for driver avatars, given passengers check who picks them up (backlog PRD-33)?
+- Achraf confirms or rejects this ADR. Questions to answer: vector art, generated images or photography for onboarding (brief task 1)? Car art as vector or raster, and in which style (brief task 6)? (Answered 15 Oct 2026: raster PNG renders.) Initials or photos for driver avatars, given passengers check who picks them up (backlog PRD-33)?
 - [ADR-0048](0048-cross-surface-media-and-brand.md) is decided.

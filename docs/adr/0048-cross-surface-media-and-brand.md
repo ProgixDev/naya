@@ -49,10 +49,19 @@ Decision **D11** in the [audit](../audits/2026-10-13-full-audit.md#9-decisions-n
 2. **Logo.** Achraf sets a date for the client's logo choice. Until then the Rencontre identity stays. Move the six-concept gallery out of the passenger and driver apps now, into the admin or a web `/brand` page ([ADR-0044](0044-demo-gating-flag-defaults-and-the-production.md)).
 3. **Unused files.** Remove bundled PNGs that are never displayed once their replacements land. Remove the unused website images (backlog VIS-20).
 
+## Decision update (15 Oct 2026): cars and onboarding images
+
+Achraf decided two rows of the table above on 15 Oct 2026. The rest (logo, people in the product, website, admin fixtures, unused files) stays Proposed.
+
+- **Cars: real unbranded PNG renders, not vector.** This replaces the « Cars » row. Achraf asked for car images and generated them: the Naya Signature car in plum and pearl (`packages/assets/cars/naya-signature-{plum,pearl}{,-small}.png`) and a top view (`naya-signature-top.png`, plum, left-hand drive) for the map marker. They are transparent PNGs with no badge, plate or text. The apps show them instead of `vehicleSvg`: `Illustration` for car sources, `VehicleImage` (plum for « Prune », pearl otherwise; full-size file from 140 pt), the service options on the quote screen (pearl for every category, because colour does not imply a fare tier), and the driver car marker on every map engine (Apple Maps, Google Maps, tile fallback). The cars do not follow dark mode; the renders were checked on dark backgrounds with no halo.
+- **Moroccan-common silhouettes (brief task 6) are not done.** One Naya Signature model stands for every vehicle. A pearl top view does not exist yet, so a pearl car shows plum on the map.
+- **Other illustrations stay vector.** In-app states keep the token-drawn line art (`journeySvg`), as recommended above.
+- **Onboarding.** Achraf chose to use all the images generated that day, including passenger slide 3 (the school gate photo, « Une communauté vérifiée »), which follows the « Onboarding » row.
+
 ## Consequences
 
 - The onboarding images need generation, review and on-device checks in light and dark mode. The founder is collecting reference images.
-- "The same animated-illustration style as today" needs confirming. The cars shown today are the vector `vehicleSvg`; the PNG "Naya Signature" cars in `packages/assets/cars/` are bundled but not shown. This ADR assumes vector.
+- "The same animated-illustration style as today" needs confirming. The cars shown today are the vector `vehicleSvg`; the PNG "Naya Signature" cars in `packages/assets/cars/` are bundled but not shown. This ADR assumes vector. (Settled 15 Oct 2026: PNG renders; see the update above.)
 - Generated people meet the client's "authentic media" request only partly. Commissioned photography is the long-term target.
 - Bundle size falls once unused rasters go. `docs/DESIGN.md` must describe the current policy (backlog DOC-14).
 

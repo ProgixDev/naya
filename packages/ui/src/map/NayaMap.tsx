@@ -7,7 +7,7 @@ import MapView, { Marker, Polyline, type MapViewProps, type Region } from 'react
 import { useA11yPrefs } from '../a11y';
 import { MarkerView } from './Markers';
 import { TileMap } from './TileMap';
-import { DEFAULT_ZOOM, type NayaMapProps } from './types';
+import { DEFAULT_ZOOM, type MapMarker, type NayaMapProps } from './types';
 import { useAnimatedCoordinate } from './useAnimatedCoordinate';
 
 type MapStyleElement = NonNullable<MapViewProps['customMapStyle']>[number];
@@ -114,12 +114,30 @@ function NativeMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, on
               <MarkerView marker={m} />
             </Marker>
           ))}
-        {driver && driverPos ? (
-          <Marker coordinate={{ latitude: driverPos.lat, longitude: driverPos.lng }} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={false}>
-            <MarkerView marker={{ ...driver, coordinate: driverPos }} />
-          </Marker>
-        ) : null}
+        {driver && driverPos ? <DriverMarker marker={{ ...driver, coordinate: driverPos }} /> : null}
       </MapView>
     </View>
+  );
+}
+
+/**
+ * The driver car is a PNG. Google Maps (Android) draws a snapshot of a custom marker view, so the marker
+ * tracks view changes until the image has loaded, then stops (react-native-maps draws one last frame on that
+ * switch), and the heading turns the snapshot natively (`rotation`) instead of the view. Apple Maps ignores
+ * both props: its marker is a live view, rotated by MarkerView. Remounting the marker resets the flag.
+ */
+function DriverMarker({ marker }: { marker: MapMarker }) {
+  const [tracking, setTracking] = useState(true);
+  const android = Platform.OS === 'android';
+  return (
+    <Marker
+      coordinate={{ latitude: marker.coordinate.lat, longitude: marker.coordinate.lng }}
+      anchor={{ x: 0.5, y: 0.5 }}
+      flat
+      rotation={android ? (marker.heading ?? 0) : undefined}
+      tracksViewChanges={tracking}
+    >
+      <MarkerView marker={android ? { ...marker, heading: 0 } : marker} onImageLoad={() => setTracking(false)} />
+    </Marker>
   );
 }

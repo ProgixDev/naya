@@ -3,7 +3,7 @@ import { useTheme } from './core/theme';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { Image } from 'expo-image';
-import { journeySvg, vehicleSvg, illustrations, cars, brandAspect, brandSvg, type BrandMark as Mark } from '@naya/assets';
+import { journeySvg, illustrations, cars, brandAspect, brandSvg, type BrandMark as Mark } from '@naya/assets';
 import { colors } from '@naya/tokens';
 import { Text } from './Text';
 
@@ -17,12 +17,21 @@ export function BrandMark({ mark = 'lockup', height = 28, style }: { mark?: Mark
   );
 }
 
-/** Transparent raster art at its own aspect ratio; never stretched or cropped. */
+const carSources: readonly number[] = Object.values(cars);
+
+/**
+ * Art at its own aspect ratio; never stretched or cropped. Cars (`cars.*`) are the unbranded Naya Signature
+ * PNG renders (ADR-0048, 15 Oct 2026); every other source picks a vector line drawing tinted with the theme.
+ */
 export function Illustration({ source, aspect, width, maxHeight, label, style }: { source: number; aspect: number; width?: number | `${number}%`; maxHeight?: number; label?: string; style?: StyleProp<ViewStyle> }) {
   useTheme();
   return (
     <View style={[{ width: width ?? '100%', aspectRatio: aspect, maxHeight, alignSelf: 'center' }, style]} accessible={!!label} accessibilityRole={label ? 'image' : undefined} accessibilityLabel={label}>
-      <SvgXml xml={Object.values(cars).includes(source) ? vehicleSvg(colors.accent, colors.surface) : journeySvg(colors.accent, colors.surface, source === illustrations.passengerIdentity ? 'identity' : source === illustrations.driverWallet ? 'wallet' : 'journey')} width="100%" height="100%" />
+      {carSources.includes(source) ? (
+        <Image source={source} contentFit="contain" style={{ width: '100%', height: '100%' }} />
+      ) : (
+        <SvgXml xml={journeySvg(colors.accent, colors.surface, source === illustrations.passengerIdentity ? 'identity' : source === illustrations.driverWallet ? 'wallet' : 'journey')} width="100%" height="100%" />
+      )}
     </View>
   );
 }
