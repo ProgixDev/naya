@@ -11,6 +11,7 @@ import { motionTiming } from './motion';
 import { Text } from './Text';
 import { Button, IconButton, TextButton } from './Button';
 import { useA11yPrefs } from './a11y';
+import { ToastLayer } from './Toast';
 
 /* ───────────── Modal sheet for focused tasks (rises from the bottom, swipe down to close) ───────────── */
 
@@ -88,6 +89,8 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, dis
           {footer ? <View style={{ paddingHorizontal: gutter, paddingTop: 16, gap: 8 }}>{footer}</View> : null}
         </Animated.View>
       </KeyboardAvoidingView>
+      {/* The Modal covers the app's own toast host: errors raised in the sheet show here. */}
+      <ToastLayer active={visible} />
     </Modal>
   );
 }
@@ -201,6 +204,7 @@ export function ConfirmDialog({ visible, title, message, children, confirmLabel,
           </View>
         </View>
       </View>
+      <ToastLayer active={visible} />
     </Modal>
   );
 }

@@ -74,11 +74,12 @@ export function AppProviders({ session, children }: { session: SessionStore; chi
               <AccountBoundary session={session}>
                 {children}
                 <OfflineBanner />
-                <ToastHost />
               </AccountBoundary>
             </ApiProvider>
           </QueryClientProvider>
         </KeyboardProvider>
+        {/* Last child of the root: above every screen and overlay. Modals mount their own ToastLayer. */}
+        <ToastHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
