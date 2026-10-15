@@ -2,14 +2,15 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { FAMILY_LIVE_POLL_MS, FAMILY_STATUS_LABELS, formatShort, formatTime, isFamilyTripActive, type FamilyFollowView } from '@naya/domain';
+import { FAMILY_LIVE_POLL_MS, formatShort, isFamilyTripActive, type FamilyFollowView } from '@naya/domain';
 import { useTheme } from '../../core/theme';
 import { Screen } from '../../Screen';
 import { Header } from '../../Header';
 import { Text } from '../../Text';
-import { ErrorState, SkeletonList, StatusBanner, StatusPill } from '../../Feedback';
+import { ErrorState, SkeletonList, StatusBanner } from '../../Feedback';
+import { StatusIcon } from '../../StatusIcon';
 import { BrandMark } from '../../Brand';
-import { FamilleLiveMap, FamilleSection, familyLabel, LiveFacts, styles } from './parts';
+import { FamilleLiveMap, FamilleSection, FamilleTimeline, LiveFacts, styles } from './parts';
 
 /**
  * What an invited co-parent sees from the private link: status, live map, timeline.
@@ -38,14 +39,18 @@ export function FamilleFollowScreen({ token, onClose }: { token: string; onClose
         {q.isLoading ? <SkeletonList rows={3} /> : null}
         {data && !data.trips.length ? <StatusBanner tone="info" title="Aucun trajet aujourd’hui" message="Les trajets apparaîtront ici dès qu’ils seront planifiés." /> : null}
         {data?.trips.map((t) => (
-          <View key={t.id} style={styles.panel}>
-            <StatusPill tone={t.status === 'completed' ? 'success' : t.status === 'cancelled' ? 'danger' : t.status === 'awaiting_approval' ? 'warning' : 'info'} label={FAMILY_STATUS_LABELS[t.status]} />
-            <Text variant="heading">
-              {t.childName} · {formatShort(t.pickupAt)}
-            </Text>
-            <Text variant="caption" tone="muted">
-              {t.pickup.label} → {t.destination.label} · avec {t.driverFirstName}
-            </Text>
+          <View key={t.id} style={styles.panel} testID={`famille-follow-trip-${t.id}`}>
+            {/* First sight for the relative: the state's glyph with its word (R1), said once. The relative
+                is not the one who approves, so the approval reads in the third person (« Accord du parent attendu »). */}
+            <StatusIcon kind="familyTrip" state={t.status} viewer="driver" showLabel wording="full" announce testID={`famille-follow-status-${t.id}`} />
+            <View style={{ gap: 4 }}>
+              <Text variant="heading" numeric>
+                {t.childName} · {formatShort(t.pickupAt)}
+              </Text>
+              <Text variant="caption" tone="muted">
+                {t.pickup.label} → {t.destination.label} · avec {t.driverFirstName}
+              </Text>
+            </View>
             {t.live ? (
               <>
                 <FamilleLiveMap trip={{ ...t, location: t.live.location }} live={t.live} height={200} />
@@ -53,13 +58,7 @@ export function FamilleFollowScreen({ token, onClose }: { token: string; onClose
               </>
             ) : null}
             <FamilleSection title="Étapes">
-              <View style={{ gap: 6 }}>
-                {t.timeline.map((e, i) => (
-                  <Text key={i} variant="caption" numeric>
-                    {formatTime(e.at)} · {familyLabel(e.label)}
-                  </Text>
-                ))}
-              </View>
+              <FamilleTimeline trip={t} />
             </FamilleSection>
           </View>
         ))}

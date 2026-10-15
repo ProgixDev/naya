@@ -22,7 +22,8 @@ if (native) {
 
 /**
  * Parent side of Naya Famille: turns new trip notifications (approval request, call request,
- * police call, arrival) into a local notification and an in-app prompt. There is no remote
+ * police call, arrival) into a local notification and an in-app prompt (the approval banner is
+ * FamilleApprovalBanner, mounted in the app layout). Only a notification tap opens the trip. There is no remote
  * push (ADR-0013): this runs while the app is open, polling the family overview.
  */
 export function useFamilyAlerts(accountId: string, enabled: boolean) {
@@ -48,10 +49,8 @@ export function useFamilyAlerts(accountId: string, enabled: boolean) {
       if (seen.current.has(n.id!)) continue;
       seen.current.add(n.id!);
       announce(n, t);
-      if (n.kind === 'approval_request') {
-        haptic.warning();
-        openTrip(t.id, here.current);
-      }
+      // The approval interrupts with the pinned FamilleApprovalBanner, never a route change (P-62).
+      if (n.kind === 'approval_request') haptic.warning();
     }
   }, [family.data]);
 

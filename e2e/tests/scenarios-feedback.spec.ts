@@ -32,14 +32,17 @@ test('feedback features: shared family journey, SOS, wallet, themes and logo gal
     await d.getByTestId('famille-pickup').click();
     await d.getByTestId('famille-request-start').click();
     await expect(d.getByTestId('famille-waiting-approval')).toBeVisible();
-    // Parent: the approval request opens the trip (the list below it shows the same card); she approves on site.
-    const approval = p.getByTestId('famille-trip-awaiting_approval').getByTestId('famille-approval');
+    // Parent (P-62): on Naya Famille the approval card sits above the live trip (the pinned banner hides there);
+    // she approves on site, then opens the trip.
+    const approval = p.getByTestId('famille-home').getByTestId('famille-approval');
     await expect(approval).toBeVisible({ timeout: 15000 });
     await approval.getByTestId('famille-approve-onsite').click();
+    await p.getByTestId(/^famille-trip-card-/).first().click();
     await expect(p.getByText('Lina · Trajet en cours', { exact: true }).first()).toBeVisible();
     await expect(p.getByTestId('famille-live-map')).toBeVisible();
     await d.getByTestId('sos').click();
-    await d.getByTestId('confirm-sos').click();
+    // R10: the alert is sent by holding the red button 1.5 s.
+    await d.getByTestId('confirm-sos').click({ delay: 1700 });
     await expect(d.getByText(/Alerte SOS-.* enregistrée/)).toBeVisible();
     // Connected mode: the sheet says the alert reached the SOS desk, and offers the real 19 call.
     await expect(d.getByTestId('sos-recorded')).toContainText('équipe sécurité');
@@ -71,6 +74,8 @@ test('feedback features: shared family journey, SOS, wallet, themes and logo gal
     await d.getByTestId('famille-dropoff').click();
     await expect(p.getByTestId('famille-trip-completed').getByTestId('famille-trip-title')).toContainText('Déposé · photo et remise confirmées', { timeout: 15000 });
     await p.goto(URLS.passenger + '/wallet');
+    // P-40: one « Recharger » button opens the top-up sheet.
+    await p.getByTestId('wallet-recharge').click();
     await p.getByTestId('wallet-topup').click();
     // The top-up waits for the provider, which confirms it on its own a few seconds later.
     await expect(p.getByText(/^Recharge · /).first()).toBeVisible();

@@ -1,24 +1,24 @@
-import { themedStyles, colors } from '@naya/tokens';
-import { useTheme, Button, Header, IconDisc, Screen, StatusBanner, Text, haptic, toast } from '@naya/ui';
-import { StyleSheet, View } from 'react-native';
+import { useTheme, Button, Header, Icon, ListGroup, ListRow, Screen, StatusIcon, Text, haptic, toast } from '@naya/ui';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
-import { BookOpenCheck, CalendarCheck, FileBadge, HeartHandshake, Users } from 'lucide-react-native';
 import { errorMessage } from '@naya/api';
-import { FAMILLE_ELIGIBILITY_LABELS, familleEligibilityOf, sectionProgress } from '@naya/domain';
+import { documentStatus, familleEligibilityOf, findSignupStep, isSignupStepDone, sectionProgress, type SignupStepId } from '@naya/domain';
 import { goToStep, useSignup } from '@/components/signup/useSignup';
 
-const REQUIREMENTS = [
-  { icon: FileBadge, title: 'Extrait de casier judiciaire', detail: 'Demandé uniquement pour Naya Famille.' },
-  { icon: Users, title: 'Deux références', detail: 'Des personnes que l’équipe Naya peut appeler.' },
-  { icon: HeartHandshake, title: 'Votre expérience avec les enfants', detail: 'Quelques phrases suffisent.' },
-  { icon: BookOpenCheck, title: 'Une formation', detail: 'Sécurité de l’enfant et remise à un adulte autorisé.' },
-  { icon: CalendarCheck, title: 'Un entretien', detail: 'Vous choisissez le jour et le moment.' },
+const REQUIREMENTS: { step: SignupStepId; title: string; detail: string }[] = [
+  { step: 'criminal_record', title: 'Extrait de casier judiciaire', detail: 'Demandé uniquement pour Naya Famille.' },
+  { step: 'famille_references', title: 'Deux références', detail: 'Des personnes que l’équipe Naya peut appeler.' },
+  { step: 'famille_experience', title: 'Votre expérience avec les enfants', detail: 'Quelques phrases suffisent.' },
+  { step: 'famille_training', title: 'Une formation', detail: 'Sécurité de l’enfant et remise à un adulte autorisé.' },
+  { step: 'famille_interview', title: 'Un entretien', detail: 'Vous choisissez le jour et le moment.' },
 ];
 
 /**
  * Opt-in to Naya Famille: what the stricter vetting asks for, then the first question.
  * Regular rides never depend on it; only agreed drivers receive Famille trips.
+ * Each requirement's leading glyph is its state in the Famille dossier (A150): to do, or done
+ * (a document shows its own review state, C8).
  */
 export default function FamilleOptIn() {
   useTheme();
@@ -38,42 +38,38 @@ export default function FamilleOptIn() {
       header={<Header title="Conduire pour Naya Famille" subtitle="Facultatif · trajets d’enfants avec une chauffeuse dédiée." onBack={() => (router.canGoBack() ? router.back() : router.replace('/docs/start'))} />}
       footer={
         famille && !resume?.next ? (
-          <Button label="Voir le suivi" variant="secondary" size="major" full onPress={() => router.replace('/docs/status')} />
+          <Button label="Voir le suivi" variant="secondary" full onPress={() => router.replace('/docs/status')} testID="famille-status-open" />
         ) : (
           <Button label={famille ? 'Reprendre ma candidature' : 'Je me porte candidate'} size="major" full loading={start.isPending} onPress={() => (famille ? goToStep(resume!.next) : start.mutate())} testID="famille-start" />
         )
       }
       testID="famille-intro"
     >
-      <View style={{ gap: 14, marginTop: 4 }}>
-        {famille ? <StatusBanner compact tone={eligibility === 'approved' ? 'success' : eligibility === 'rejected' ? 'danger' : 'info'} title={`Agrément : ${FAMILLE_ELIGIBILITY_LABELS[eligibility]}`} /> : null}
+      <View style={{ gap: 24, marginTop: 4 }}>
+        {/* First sight of the agreement's state: the glyph with its sentence (C10, R1). */}
+        {famille && eligibility !== 'not_requested' ? <StatusIcon kind="familleEligibility" state={eligibility} showLabel wording="full" testID="famille-eligibility-status" /> : null}
         <Text variant="label" tone="muted">
-          Les parents confient leur enfant à une chauffeuse dédiée. L’agrément est plus exigeant que pour les courses habituelles et il est examiné à part : votre activité de chauffeuse n’en dépend pas.
+          Les parents confient leur enfant à une chauffeuse dédiée : l’agrément, plus exigeant, est examiné à part et votre activité habituelle n’en dépend pas.
         </Text>
-        <View style={styles.card}>
-          {REQUIREMENTS.map(({ icon: Icon, title, detail }) => (
-            <View key={title} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 }}>
-              <IconDisc size={36}>
-                <Icon size={17} color={colors.accent} />
-              </IconDisc>
-              <View style={{ flex: 1 }}>
-                <Text variant="label" weight="semibold">
-                  {title}
-                </Text>
-                <Text variant="micro" tone="muted">
-                  {detail}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
+        <ListGroup label="Ce que l’agrément demande">
+          {REQUIREMENTS.map(({ step: id, title, detail }) => {
+            const step = findSignupStep(id);
+            if (step?.kind === 'document') {
+              return <ListRow key={id} title={title} subtitle={detail} status={{ kind: 'document', state: documentStatus(famille, step.item).status }} statusPlacement="leading" testID={`famille-req-${id}`} />;
+            }
+            const done = !!step && isSignupStepDone(step, famille, ctx);
+            return (
+              <ListRow
+                key={id}
+                title={title}
+                subtitle={detail}
+                leading={<Icon name={done ? 'circle-check' : 'circle-dashed'} size={20} tone={done ? 'success' : 'neutral'} accessibilityLabel={done ? 'Complété' : 'À compléter'} />}
+                testID={`famille-req-${id}`}
+              />
+            );
+          })}
+        </ListGroup>
       </View>
     </Screen>
   );
 }
-
-const styles = themedStyles(() =>
-  StyleSheet.create({
-    card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: colors.hairline },
-  }),
-);

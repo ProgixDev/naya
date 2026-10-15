@@ -56,12 +56,17 @@ test.describe('Naya Famille', () => {
       const forced = await driver.post(`/prototype/family/trips/${tripId}/advance`, { data: { expectedStatus: 'awaiting_approval' } });
       expect(forced.status()).toBeGreaterThanOrEqual(400);
 
-      // Parent: the request opens the trip with the pickup photo and a 3-minute countdown; she approves remotely.
-      const approval = tripScreen(p, 'awaiting_approval').getByTestId('famille-approval');
-      await expect(approval).toBeVisible({ timeout: 15_000 });
+      // Parent (P-62): the request is a banner pinned over whatever she is doing, never a route change. It opens
+      // the pickup photo and a 3-minute countdown in a sheet; she approves remotely.
+      await expect(p.getByTestId('famille-approval-banner')).toBeVisible({ timeout: 15_000 });
+      await p.getByTestId('famille-approval-banner').click();
+      const approval = p.getByTestId('famille-approval-sheet').getByTestId('famille-approval');
+      await expect(approval).toBeVisible();
       await expect(approval).toContainText('Amina demande à démarrer');
       await expect(approval).toContainText(/Répondez dans [0-3] min/);
       await approval.getByTestId('famille-approve-remote').click();
+      await expect(p.getByTestId('famille-approval-banner')).toBeHidden({ timeout: 15_000 });
+      await p.goto(`${URLS.passenger}/family/${tripId}`);
       await expect(tripScreen(p, 'in_progress').getByTestId('famille-trip-title')).toContainText('Lina · Trajet en cours');
       await expect(tripScreen(p, 'in_progress').getByTestId('famille-live-map')).toBeVisible();
       await expect(tripScreen(d, 'in_progress').getByTestId('famille-driver-steps')).toBeVisible({ timeout: 15_000 });
