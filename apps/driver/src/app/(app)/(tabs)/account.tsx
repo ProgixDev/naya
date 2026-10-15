@@ -1,63 +1,69 @@
-import { useTheme , ProfileHero, avatarFor, ConfirmDialog, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, TextButton, toast } from '@naya/ui';
+import { useTheme, ProfileHero, avatarFor, ConfirmDialog, Header, ListGroup, ListRow, Screen, toast } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { Baby, Bell, Car, FileText, History, LifeBuoy, UserRound } from 'lucide-react-native';
-import { isApiError, qk } from '@naya/api';
-import { useApi } from '@naya/api/react';
-import { FAMILLE_ELIGIBILITY_LABELS, STATUS_LABELS, familleEligibilityOf } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { familleEligibilityOf } from '@naya/domain';
 import { useCases, useMe } from '@/lib/queries';
-import { useSession } from '@/lib/session';
-import { statusTone } from '@/components/Dossier';
-import { TAB_BAR_SPACE } from '@/components/TabBar';
+import { useDriverSignOut } from '@/components/useDriverSignOut';
 
-/** D17 · D17-settings */
+/**
+ * D17 · D17-settings. Text rows, no icon discs (A124–A128, D-30). Each dossier row carries its state
+ * once, as a trailing glyph whose word shows only for a problem (A122, A123, A125, D-29); the verified
+ * seal sits beside the name (A121). The logo board (/brand) is not a customer screen (X-01, R4).
+ * « Lavage à domicile » lives here, not on the dashboard, which is a work tool (R7).
+ */
 export default function Account() {
   useTheme();
-  const api = useApi();
-  const qc = useQueryClient();
   const me = useMe();
   const { person, vehicle } = useCases();
   const [confirm, setConfirm] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  const signOut = useDriverSignOut();
   const u = me.data?.user;
   const v = me.data?.vehicle;
-  const signOut = async () => {
-    setLeaving(true);
-    // Leave the dispatch pool first so no offer is sent to a signed-out device. The server refuses
-    // during an accepted ride: signing out would stop sharing the position with the passenger.
-    const onRide = await api.driver.setOnline(false, null).then(() => false, (e) => isApiError(e) && e.code === 'ACTIVE_RIDE_EXISTS');
-    if (onRide) {
-      setLeaving(false);
+  const leave = async () => {
+    const refusal = await signOut.run();
+    if (refusal) {
+      // DRV-10: the server's reason (« Terminez la course en cours… », no network), never swallowed.
       setConfirm(false);
-      return toast('Terminez la course en cours avant de vous déconnecter.', 'danger');
+      toast(refusal, 'danger');
     }
-    await api.auth.logout().catch(() => undefined);
-    qc.removeQueries({ queryKey: qk.root });
-    await useSession.getState().signOut();
   };
   return (
-    <Screen header={<Header title="Compte" />} contentStyle={{ paddingBottom: TAB_BAR_SPACE + 24 }} testID="account-screen">
-      <View style={{ gap: 14, marginTop: 4 }}>
-        {u ? <ProfileHero name={`${u.firstName} ${u.lastName}`} detail={`${u.phone}${u.ratingAverage ? ` · ${String(u.ratingAverage).replace('.', ',')} ★` : ''}`} source={avatarFor(u.firstName)} status={person ? <StatusPill tone={statusTone(person.status)} label={STATUS_LABELS[person.status]} /> : undefined} /> : null}
+    <Screen tabBar header={<Header title="Compte" />} testID="account-screen">
+      <View style={{ gap: 24, marginTop: 4 }}>
+        {u ? (
+          <ProfileHero
+            name={`${u.firstName} ${u.lastName}`}
+            detail={`${u.phone}${u.ratingAverage ? ` · ${String(u.ratingAverage).replace('.', ',')} ★` : ''}`}
+            source={avatarFor(u.firstName)}
+            verified={person?.status === 'approved'}
+          />
+        ) : null}
         <ListGroup label="Votre activité">
-          <ListRow title="Chauffeuse" subtitle="Identité et permis" leading={<IconDisc size={36}><UserRound size={17} color={colors.accent} /></IconDisc>} trailing={person ? <StatusPill tone={statusTone(person.status)} label={STATUS_LABELS[person.status]} /> : null} onPress={() => router.push('/docs/status')} testID="account-person" />
-          <ListRow title={v ? `${v.make} ${v.model}` : 'Véhicule'} subtitle={v ? `${v.plate} · ${v.color} · ${v.year}` : 'À déclarer'} leading={<IconDisc size={36}><Car size={17} color={colors.accent} /></IconDisc>} trailing={vehicle ? <StatusPill tone={statusTone(vehicle.status)} label={STATUS_LABELS[vehicle.status]} /> : null} onPress={() => router.push('/profile/vehicle')} testID="account-vehicle" />
-          <ListRow title="Documents et dossier" subtitle="Vérifier ou corriger les pièces" leading={<IconDisc size={36}><FileText size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/docs/start')} testID="account-documents" />
-          <ListRow title="Agrément Naya Famille" subtitle={u ? FAMILLE_ELIGIBILITY_LABELS[familleEligibilityOf(u)] : undefined} leading={<IconDisc size={36}><Baby size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/docs/famille')} testID="account-famille-eligibility" />
+          <ListRow title="Chauffeuse" subtitle="Identité et permis" status={person ? { kind: 'verification', state: person.status } : undefined} onPress={() => router.push('/docs/status')} testID="account-person" />
+          <ListRow
+            title={v ? `${v.make} ${v.model}` : 'Véhicule'}
+            subtitle={v ? `${v.plate} · ${v.color} · ${v.year}` : 'À déclarer'}
+            status={vehicle ? { kind: 'verification', state: vehicle.status } : undefined}
+            onPress={() => router.push('/profile/vehicle')}
+            testID="account-vehicle"
+          />
+          <ListRow title="Documents et dossier" subtitle="Vérifier ou corriger les pièces" onPress={() => router.push('/docs/start')} testID="account-documents" />
+          <ListRow title="Agrément Naya Famille" subtitle="Conduire des enfants" status={u ? { kind: 'familleEligibility', state: familleEligibilityOf(u) } : undefined} onPress={() => router.push('/docs/famille')} testID="account-famille-eligibility" />
         </ListGroup>
         <ListGroup label="Vos essentiels">
           <ListRow title="Naya Famille" subtitle="Abonnements et trajets enfants" onPress={() => router.push('/family')} testID="account-family" />
-          <ListRow title="Identité · 6 pistes" subtitle="Explorer les propositions de logo" onPress={() => router.push('/brand')} />
-          <ListRow title="Historique des courses" leading={<IconDisc size={36}><History size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/rides')} testID="account-rides" />
-          <ListRow title="Préférences" subtitle="Notifications" leading={<IconDisc size={36}><Bell size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/profile/preferences')} testID="account-preferences" />
-          <ListRow title="Aide et demandes" subtitle="Courses, paiements ou documents" leading={<IconDisc size={36}><LifeBuoy size={17} color={colors.accent} /></IconDisc>} onPress={() => router.push('/support')} testID="account-support" />
+          <ListRow title="Lavage à domicile" subtitle="Votre voiture lavée sur place" onPress={() => router.push('/car-wash')} testID="account-car-wash" />
+          <ListRow title="Historique des courses" onPress={() => router.push('/rides')} testID="account-rides" />
+          <ListRow title="Préférences" subtitle="Notifications, apparence, suppression du compte" onPress={() => router.push('/profile/preferences')} testID="account-preferences" />
+          <ListRow title="Aide et demandes" subtitle="Courses, paiements ou documents" onPress={() => router.push('/support')} testID="account-support" />
         </ListGroup>
-        <TextButton label="Se déconnecter" tone="danger" onPress={() => setConfirm(true)} testID="sign-out" />
+        {/* Sign-out is the last row, in danger text, in both apps (§5.9). */}
+        <ListGroup>
+          <ListRow title="Se déconnecter" destructive chevron={false} onPress={() => setConfirm(true)} testID="sign-out" />
+        </ListGroup>
       </View>
-      <ConfirmDialog visible={confirm} title="Se déconnecter ?" message="Vous ne recevrez plus de propositions sur cet appareil." confirmLabel="Se déconnecter" destructive loading={leaving} onConfirm={signOut} onCancel={() => setConfirm(false)} testID="sign-out-dialog" />
+      <ConfirmDialog visible={confirm} title="Se déconnecter ?" message="Vous ne recevrez plus de propositions sur cet appareil." confirmLabel="Se déconnecter" destructive loading={signOut.pending} onConfirm={leave} onCancel={() => setConfirm(false)} testID="sign-out-dialog" />
     </Screen>
   );
 }

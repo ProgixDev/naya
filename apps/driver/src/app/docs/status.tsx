@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
-import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { dossierOverview } from '@naya/domain';
-import { Button, Header, Screen, StatusBanner, Text } from '@naya/ui';
+import { colors } from '@naya/tokens';
+import { Button, Header, Screen, StatusBanner, StatusIcon, Text, useTheme } from '@naya/ui';
 import { CaseReview } from '@/components/Dossier';
 import { useSignup } from '@/components/signup/useSignup';
 
@@ -11,12 +12,15 @@ const POLL_MS = 5000;
 
 /**
  * D05: person, vehicle and (when requested) Naya Famille reviews, independent. Person and vehicle
- * approvals are needed to receive offers. While a dossier waits for review the screen polls, so the
- * decision shows up without pulling to refresh.
+ * approvals are needed to receive offers. While a dossier waits for review the screen polls, and it
+ * refreshes on focus and on pull (D-38: no « Actualiser » button). One status line per screen: the
+ * approved hero, or a one-line note that offers wait for both approvals; a complement request is the
+ * only warning (D-36). The progress figure shows only while something is left to fill in (D-37).
  */
 export default function DossierStatus() {
+  useTheme();
   const { person, vehicle, famille, data, refetch, ctx } = useSignup();
-  /** Only a tap on « Actualiser » shows the spinner; background polling stays silent. */
+  /** Only a pull shows the spinner; polling and focus refreshes stay silent. */
   const [refreshing, setRefreshing] = useState(false);
   const recoverable = data?.recoverableRejections ?? [];
   const waiting = [person, vehicle, famille].some((c) => c?.status === 'submitted' || c?.status === 'in_review');
@@ -25,23 +29,46 @@ export default function DossierStatus() {
     const timer = setInterval(() => void refetch(), POLL_MS);
     return () => clearInterval(timer);
   }, [waiting, refetch]);
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
   const both = person?.status === 'approved' && vehicle?.status === 'approved';
+  const filling = !person || !vehicle || [person, vehicle, famille].some((c) => c?.status === 'draft');
   const overview = dossierOverview({ person, vehicle, famille }, ctx);
   return (
     <Screen
-      header={<Header title="Suivi du dossier" subtitle="Délai habituel : moins de 24 h ouvrées." onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))} />}
-      footer={<Button label="Actualiser" variant="secondary" size="major" full loading={refreshing} onPress={() => { setRefreshing(true); void refetch().finally(() => setRefreshing(false)); }} testID="refresh-status" />}
+      header={<Header title="Suivi du dossier" subtitle={both ? undefined : 'Délai habituel : moins de 24 h ouvrées.'} onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          tintColor={colors.accent}
+          colors={[colors.accent]}
+          onRefresh={() => {
+            setRefreshing(true);
+            void refetch().finally(() => setRefreshing(false));
+          }}
+        />
+      }
       testID="dossier-status"
     >
-      <View style={{ gap: 10, marginTop: 4 }}>
+      <View style={{ gap: 12, marginTop: 4 }}>
         {both ? (
-          <StatusBanner compact tone="success" title="Vous pouvez recevoir des courses" message="passez en ligne depuis l’accueil" testID="eligible-banner" />
+          <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }} testID="eligible-banner">
+            <StatusIcon kind="verification" state="approved" size="lg" variant="disc" showLabel wording="full" />
+            <Text variant="caption" tone="muted" align="center">
+              Vous pouvez recevoir des courses : passez en ligne depuis l’accueil.
+            </Text>
+          </View>
         ) : (
-          <StatusBanner compact tone="warning" title="Réception des courses bloquée" message="votre dossier et celui du véhicule doivent être approuvés" testID="blocked-banner" />
+          <StatusBanner compact tone="neutral" title="Courses en attente des deux approbations" message="la vôtre et celle du véhicule" testID="blocked-banner" />
         )}
-        <Text variant="micro" tone="muted" numeric>
-          Dossier complété à {overview.percent} % · {overview.done} étapes sur {overview.total}
-        </Text>
+        {filling ? (
+          <Text variant="caption" tone="muted" numeric testID="dossier-progress">
+            Dossier complété à {overview.percent} %
+          </Text>
+        ) : null}
         <CaseReview kase={person} subject="driver_identity" recoverable={recoverable} ctx={ctx} />
         <CaseReview kase={vehicle} subject="vehicle" recoverable={recoverable} ctx={ctx} />
         {famille ? <CaseReview kase={famille} subject="driver_famille" recoverable={recoverable} ctx={ctx} /> : null}

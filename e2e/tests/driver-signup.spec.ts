@@ -39,7 +39,8 @@ test.describe('driver sign-up (D04)', () => {
     // Vous · questions. Errors only after the first « Continuer ».
     const name = step(page, 'name');
     await expect(name).toBeVisible();
-    await expect(name.getByTestId('step-kicker')).toContainText('ÉTAPE 1 SUR');
+    // D-40: the header's segmented bar shows the step; the heading's spoken label carries « étape 1 sur N ».
+    await expect(name.getByTestId('step-title')).toHaveAttribute('aria-label', /étape 1 sur \d+/);
     await name.getByTestId('step-continue').click();
     await expect(name.getByText('Prénom requis')).toBeVisible();
     await name.getByTestId('first-name').fill('Sara');

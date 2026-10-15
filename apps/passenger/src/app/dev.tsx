@@ -12,6 +12,7 @@ export default function Dev() {
     <DevLauncher
       role="passenger"
       onBack={() => router.back()}
+      onOpenBrand={() => router.push('/brand')}
       onSignInAs={async (phone) => {
         await useSession.getState().signOut();
         router.replace({ pathname: '/(auth)/phone', params: { phone } });

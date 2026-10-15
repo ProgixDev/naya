@@ -45,7 +45,7 @@ export function DevLauncherGesture({ onOpen, logoHeight = 30 }: { onOpen: () => 
  * shows demo accounts and simulates external events (provider outcomes, a second driver,
  * frozen GPS). No visible control leads here: see DevLauncherGesture and the deep link.
  */
-export function DevLauncher({ onBack, onSignInAs, role }: { onBack: () => void; onSignInAs: (phone: string) => void; role: 'passenger' | 'driver' }) {
+export function DevLauncher({ onBack, onSignInAs, onOpenBrand, role }: { onBack: () => void; onSignInAs: (phone: string) => void; /** The logo board (/brand), reachable only from here (R4). */ onOpenBrand?: () => void; role: 'passenger' | 'driver' }) {
   const api = useApi();
   const qc = useQueryClient();
   const glass = useGlassKind();
@@ -92,12 +92,17 @@ export function DevLauncher({ onBack, onSignInAs, role }: { onBack: () => void; 
             <ListRow title="Trajet avec chauffeuse simulée" subtitle="Amina part, photographie Lina, demande votre accord, roule (GPS chaque seconde) et la dépose à l’école" onPress={() => run('Trajet Famille lancé · ouvrez Naya Famille', () => api.dev.playFamily({ driver: true, parent: null }))} testID="dev-famille-play" />
           ) : (
             <>
-              <ListRow title="Parent simulé · approuve" subtitle="Salma approuve à distance 5 s après « Démarrer »" onPress={() => run('Trajet Famille lancé · ouvrez Mes familles', () => api.dev.playFamily({ driver: false, parent: 'approve' }))} testID="dev-famille-approve" />
+              <ListRow title="Parent simulé · approuve" subtitle="Salma approuve à distance 5 s après « Démarrer »" onPress={() => run('Trajet Famille lancé · ouvrez Naya Famille', () => api.dev.playFamily({ driver: false, parent: 'approve' }))} testID="dev-famille-approve" />
               <ListRow title="Parent simulé · refuse" subtitle="Le départ est refusé : la chauffeuse reste avec l’enfant" onPress={() => run('Trajet Famille lancé (refus)', () => api.dev.playFamily({ driver: false, parent: 'refuse' }))} testID="dev-famille-refuse" />
               <ListRow title="Parent simulé · ne répond pas" subtitle="La demande expire après 3 min (avancez l’horloge de 2 min, deux fois)" onPress={() => run('Trajet Famille lancé (sans réponse)', () => api.dev.playFamily({ driver: false, parent: 'timeout' }))} testID="dev-famille-timeout" />
             </>
           )}
         </ListGroup>
+        {onOpenBrand ? (
+          <ListGroup label="Marque">
+            <ListRow title="Identité · 6 pistes" subtitle="Planche des logos (session ouverte)" onPress={onOpenBrand} testID="dev-brand" />
+          </ListGroup>
+        ) : null}
         {(jobs.data ?? []).length ? (
           <ListGroup label="Opérations en attente chez le prestataire">
             {(jobs.data ?? []).map((j) => (

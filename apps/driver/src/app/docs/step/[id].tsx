@@ -13,7 +13,7 @@ import {
   type SignupDraft,
   type SignupStep,
 } from '@naya/domain';
-import { Button, CaptureStep, ErrorState, Header, Screen, StatusBanner, Text, haptic, toast, useTheme } from '@naya/ui';
+import { Button, CaptureStep, ErrorState, Header, Screen, Text, haptic, toast, useTheme } from '@naya/ui';
 import { QuestionFields } from '@/components/signup/Fields';
 import { ReviewStep } from '@/components/signup/ReviewStep';
 import { SECTION_COPY, STEP_COPY } from '@/components/signup/copy';
@@ -96,12 +96,11 @@ function StepBody({ step }: { step: SignupStep }) {
     />
   );
 
+  // The header's segmented bar says where she is (D-40): no « VOUS · ÉTAPE 1 SUR 13 » eyebrow repeating it.
+  // The section and step stay in the heading's spoken label.
   const intro = (
     <View style={{ gap: 8, marginTop: 6, marginBottom: 18 }}>
-      <Text variant="micro" weight="semibold" tone="accent" testID="step-kicker">
-        {SECTION_COPY[step.section].short.toUpperCase()} · ÉTAPE {index + 1} SUR {steps.length}
-      </Text>
-      <Text variant="screen" accessibilityRole="header">
+      <Text variant="screen" accessibilityRole="header" accessibilityLabel={`${copy.title} ${SECTION_COPY[step.section].short}, étape ${index + 1} sur ${steps.length}`} testID="step-title">
         {copy.title}
       </Text>
       {copy.help ? (
@@ -122,14 +121,9 @@ function StepBody({ step }: { step: SignupStep }) {
   }
 
   if (step.kind === 'document') {
-    if (!kase) {
-      return (
-        <Screen header={header} testID={`signup-step-${step.id}`}>
-          {intro}
-          <StatusBanner tone="info" title="Commencez par les informations du véhicule" action={{ label: 'Y aller', onPress: () => goToStep(steps[0]!, 'replace') }} />
-        </Screen>
-      );
-    }
+    // Locked until its dossier exists (D-43): the hub shows the lock and the reason, and a deep link lands
+    // on the section's first question instead of a « Commencez par… » banner.
+    if (!kase) return <Redirect href={{ pathname: '/docs/step/[id]', params: { id: steps[0]!.id } }} />;
     const item = kase.items.find((i) => i.key === step.item);
     return (
       <Screen header={header} testID={`signup-step-${step.id}`}>

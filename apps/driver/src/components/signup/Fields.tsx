@@ -1,7 +1,7 @@
 import { themedStyles, colors } from '@naya/tokens';
-import { useTheme, DateField, DocumentPicker, FieldRow, FormField, ID_DOCUMENTS, IconButton, Pill, PressableScale, Text, haptic, type IdDocumentType } from '@naya/ui';
+import { useTheme, DateField, DocumentPicker, FieldRow, FormField, ID_DOCUMENTS, Pill, PressableScale, Text, haptic, type IdDocumentType } from '@naya/ui';
 import { StyleSheet, View } from 'react-native';
-import { BookOpenCheck, Building2, Check, Hash, MapPin, Minus, Phone, Plus, ShieldCheck, UserRound } from 'lucide-react-native';
+import { BookOpenCheck, Check, ShieldCheck, UserRound } from 'lucide-react-native';
 import { COUNTRIES, formatNational, interviewDays, toE164, type QuestionStepId, type SignupContext, type SignupDraft } from '@naya/domain';
 import { ChoiceRow } from '../Kit';
 import { INTERVIEW_WINDOWS, formatShortDay } from './copy';
@@ -23,12 +23,11 @@ function MobileField({ label, value, onChange, error, testID }: { label: string;
   return (
     <FormField
       label={label}
-      icon={Phone}
       value={shown}
       onChangeText={(t) => onChange(toE164(MA, t) ?? t.replace(/[^\d ]/g, ''))}
       keyboardType="phone-pad"
       textContentType="telephoneNumber"
-      placeholder={MA.example}
+      example={`Ex. : ${MA.example}`}
       error={error}
       leading={
         <Text variant="label" weight="semibold" tone="muted">
@@ -40,35 +39,31 @@ function MobileField({ label, value, onChange, error, testID }: { label: string;
   );
 }
 
-/** Whole years with − / + discs (44 pt) and quick picks. */
-function YearsStepper({ value, onChange, error, label, testID }: { value?: number; onChange: (v: number) => void; error?: string; label: string; testID?: string }) {
+/** Whole years as chips only (D-44): one way to set the value. « 10 ans et + » covers longer experience. */
+const YEAR_CHOICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const yearLabel = (n: number) => (n === 0 ? 'Moins d’un an' : n === 10 ? '10 ans et +' : `${n} an${n > 1 ? 's' : ''}`);
+
+function YearsChoice({ value, onChange, error, label, testID }: { value?: number; onChange: (v: number) => void; error?: string; label: string; testID?: string }) {
   useTheme();
-  const v = value ?? 0;
-  const set = (n: number) => {
-    haptic.select();
-    onChange(Math.max(0, Math.min(60, n)));
-  };
+  const selected = value === undefined ? undefined : Math.min(value, 10);
   return (
-    <View style={{ gap: 14 }}>
-      <View style={[styles.stepper, error ? { borderColor: colors.danger, borderWidth: 1.5 } : null]} accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{ min: 0, max: 60, now: v, text: `${v} an${v > 1 ? 's' : ''}` }} accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]} onAccessibilityAction={(e) => set(e.nativeEvent.actionName === 'increment' ? v + 1 : v - 1)} testID={testID}>
-        <IconButton icon={<Minus size={20} color={colors.accent} />} variant="tonal" accessibilityLabel="Une année de moins" onPress={() => set(v - 1)} disabled={v <= 0} testID={testID ? `${testID}-minus` : undefined} />
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text variant="display" numeric>
-            {v}
-          </Text>
-          <Text variant="caption" tone="muted">
-            {v > 1 ? 'années' : 'année'}
-          </Text>
-        </View>
-        <IconButton icon={<Plus size={20} color={colors.accent} />} variant="tonal" accessibilityLabel="Une année de plus" onPress={() => set(v + 1)} disabled={v >= 60} testID={testID ? `${testID}-plus` : undefined} />
-      </View>
-      <View style={styles.pills}>
-        {[1, 2, 3, 5, 10].map((n) => (
-          <Pill key={n} label={n === 10 ? '10 ans et +' : `${n} an${n > 1 ? 's' : ''}`} selected={v === n} onPress={() => onChange(n)} testID={testID ? `${testID}-${n}` : undefined} />
+    <View style={{ gap: 10 }}>
+      <View style={styles.pills} accessibilityRole="radiogroup" accessibilityLabel={label} testID={testID}>
+        {YEAR_CHOICES.map((n) => (
+          <Pill
+            key={n}
+            label={yearLabel(n)}
+            selected={selected === n}
+            onPress={() => {
+              haptic.select();
+              onChange(n);
+            }}
+            testID={testID ? `${testID}-${n}` : undefined}
+          />
         ))}
       </View>
       {error ? (
-        <Text variant="caption" tone="danger" accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ marginLeft: 18 }}>
+        <Text variant="caption" tone="danger" accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ marginLeft: 4 }}>
           {error}
         </Text>
       ) : null}
@@ -110,7 +105,7 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
     case 'name':
       return (
         <FieldRow>
-          <FormField icon={UserRound} label="Prénom" value={a.firstName ?? ''} onChangeText={(t) => set('firstName', t)} error={errors.firstName} autoComplete="given-name" textContentType="givenName" autoFocus testID="first-name" />
+          <FormField label="Prénom" value={a.firstName ?? ''} onChangeText={(t) => set('firstName', t)} error={errors.firstName} autoComplete="given-name" textContentType="givenName" autoFocus testID="first-name" />
           <FormField label="Nom" value={a.lastName ?? ''} onChangeText={(t) => set('lastName', t)} error={errors.lastName} autoComplete="family-name" textContentType="familyName" testID="last-name" />
         </FieldRow>
       );
@@ -119,8 +114,8 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
     case 'address':
       return (
         <View style={{ gap: 12 }}>
-          <FormField icon={MapPin} label="Adresse" placeholder="N°, rue, quartier" value={a.address ?? ''} onChangeText={(t) => set('address', t)} error={errors.address} autoComplete="street-address" textContentType="fullStreetAddress" testID="address" />
-          <FormField icon={Building2} label="Ville" value={a.city ?? ''} onChangeText={(t) => set('city', t)} error={errors.city} autoComplete="postal-address-locality" textContentType="addressCity" testID="city" />
+          <FormField label="Adresse" example="Ex. : 12 rue Oued Ziz, Agdal" value={a.address ?? ''} onChangeText={(t) => set('address', t)} error={errors.address} autoComplete="street-address" textContentType="fullStreetAddress" testID="address" />
+          <FormField label="Ville" value={a.city ?? ''} onChangeText={(t) => set('city', t)} error={errors.city} autoComplete="postal-address-locality" textContentType="addressCity" testID="city" />
           <View style={styles.pills}>
             {CITIES.map((c) => (
               <Pill key={c} label={c} selected={a.city === c} onPress={() => set('city', c)} testID={`city-${c}`} />
@@ -133,14 +128,14 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
       return (
         <View style={{ gap: 12 }}>
           <DocumentPicker value={type} onChange={(v) => set('documentType', v)} testID="document-type" />
-          <FormField icon={Hash} label={ID_DOCUMENTS[type].numberLabel} placeholder={ID_DOCUMENTS[type].example} value={a.documentNumber ?? ''} onChangeText={(t) => set('documentNumber', t.toUpperCase().replace(/\s/g, ''))} error={errors.documentNumber} autoCapitalize="characters" autoCorrect={false} testID="document-number" />
+          <FormField label={ID_DOCUMENTS[type].numberLabel} example={ID_DOCUMENTS[type].example} value={a.documentNumber ?? ''} onChangeText={(t) => set('documentNumber', t.toUpperCase().replace(/\s/g, ''))} error={errors.documentNumber} autoCapitalize="characters" autoCorrect={false} testID="document-number" />
         </View>
       );
     }
     case 'licence_number':
       return (
         <View style={{ gap: 14 }}>
-          <FormField icon={Hash} label="Numéro du permis" placeholder="Ex. 12/345678" value={a.licenceNumber ?? ''} onChangeText={(t) => set('licenceNumber', t.toUpperCase().replace(/\s/g, ''))} error={errors.licenceNumber} autoCapitalize="characters" autoCorrect={false} testID="licence-number" />
+          <FormField label="Numéro du permis" example="Ex. : 12/345678" value={a.licenceNumber ?? ''} onChangeText={(t) => set('licenceNumber', t.toUpperCase().replace(/\s/g, ''))} error={errors.licenceNumber} autoCapitalize="characters" autoCorrect={false} testID="licence-number" />
           <View style={{ gap: 8 }}>
             <Text variant="caption" tone="muted" style={{ marginLeft: 4 }}>
               Catégorie
@@ -166,7 +161,7 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
         </View>
       );
     case 'experience':
-      return <YearsStepper label="Années de conduite" value={a.experienceYears} onChange={(v) => set('experienceYears', v)} error={errors.experienceYears} testID="experience" />;
+      return <YearsChoice label="Années de conduite" value={a.experienceYears} onChange={(v) => set('experienceYears', v)} error={errors.experienceYears} testID="experience" />;
     case 'vehicle_model':
       return (
         <View style={{ gap: 12 }}>
@@ -187,7 +182,7 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
         <View style={{ gap: 12 }}>
           <FormField
             label="Immatriculation"
-            placeholder="Ex. 12345-A-6"
+            example="Ex. : 12345-A-6"
             value={a.plate ?? ''}
             onChangeText={(t) => set('plate', t.toUpperCase())}
             error={errors.plate}
@@ -219,7 +214,7 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
               <Text variant="caption" weight="semibold" tone="muted" style={{ marginLeft: 4 }} accessibilityRole="header">
                 Référence {n}
               </Text>
-              <FormField icon={UserRound} label="Prénom et nom" value={a[`reference${n}Name`] ?? ''} onChangeText={(t) => set(`reference${n}Name`, t)} error={errors[`reference${n}Name`]} testID={`reference${n}-name`} />
+              <FormField label="Prénom et nom" value={a[`reference${n}Name`] ?? ''} onChangeText={(t) => set(`reference${n}Name`, t)} error={errors[`reference${n}Name`]} testID={`reference${n}-name`} />
               <MobileField label="Téléphone" value={a[`reference${n}Phone`]} onChange={(v) => set(`reference${n}Phone`, v)} error={errors[`reference${n}Phone`]} testID={`reference${n}-phone`} />
             </View>
           ))}
@@ -228,7 +223,7 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
     case 'famille_experience':
       return (
         <View style={{ gap: 18 }}>
-          <YearsStepper label="Années d’expérience avec des enfants" value={a.childExperienceYears} onChange={(v) => set('childExperienceYears', v)} error={errors.childExperienceYears} testID="child-years" />
+          <YearsChoice label="Années d’expérience avec des enfants" value={a.childExperienceYears} onChange={(v) => set('childExperienceYears', v)} error={errors.childExperienceYears} testID="child-years" />
           <FormField
             label="En quelques phrases"
             multiline
@@ -300,7 +295,6 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
 const styles = themedStyles(() =>
   StyleSheet.create({
     pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    stepper: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: colors.hairline },
     commit: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.surface, borderRadius: 22, padding: 16, minHeight: 64, borderWidth: 1, borderColor: colors.hairline },
     box: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: colors.outline, alignItems: 'center', justifyContent: 'center' },
     card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: colors.hairline },

@@ -7,6 +7,7 @@ import { appendAudit } from '../audit';
 import { applyFamilyEvent } from './famille';
 import { releasePassengerWallet } from './prototype';
 import { uploadDir } from './uploads';
+import { walletOf } from './finance';
 
 const OTP_TTL_S = 300;
 const OTP_RESEND_S = 30;
@@ -177,7 +178,7 @@ export function logout(ctx: Ctx, bearer: string | undefined) {
   });
 }
 
-/* ───────────── Account deletion (App Store guideline 5.1.1(v), PRD-35, PAX-12) ───────────── */
+/* ───────────── Account deletion (App Store guideline 5.1.1(v), PRD-35, PAX-12, ADR-0055) ───────────── */
 
 /** The name every kept record shows once its account is deleted (rides, tickets, alerts, the account itself). */
 export const DELETED_ACCOUNT_NAME = 'Compte supprimé';
@@ -190,7 +191,12 @@ export type DeletionBlocker =
   | 'wallet_balance'
   | 'family_trip_active'
   | 'safety_alert_open'
-  | 'wash_order_active';
+  | 'wash_order_active'
+  /** Chauffeuse only. */
+  | 'driver_online'
+  | 'transfer_pending'
+  | 'wallet_debt'
+  | 'famille_assignments';
 
 const ACTIVE_WASH: readonly WashOrderStatus[] = ['booked', 'washer_assigned', 'en_route', 'washing'];
 /** A Famille trip in one of these states has a chauffeuse on the way or the child on board. */
@@ -198,12 +204,18 @@ const FAMILY_TRIP_UNDER_WAY: readonly FamilyTripStatus[] = ['en_route', 'arrived
 /** Upload file extensions, as `uploads.ts` writes them. */
 const UPLOAD_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf', 'image/svg+xml': 'svg' };
 
+type Blocker = { code: DeletionBlocker; message: string };
+
 /**
- * What stops a passenger from deleting her account right now, first reason first. Each one is
- * something she can finish or settle herself; the message says how.
+ * What stops an account from being deleted right now, first reason first. Each one is something
+ * she can finish or settle herself, or take to the assistance; the message says how.
  */
-export function deletionBlockers(s: State, user: User): { code: DeletionBlocker; message: string }[] {
-  const out: { code: DeletionBlocker; message: string }[] = [];
+export function deletionBlockers(s: State, user: User, at: string): Blocker[] {
+  return user.role === 'driver' ? driverDeletionBlockers(s, user, at) : passengerDeletionBlockers(s, user);
+}
+
+function passengerDeletionBlockers(s: State, user: User): Blocker[] {
+  const out: Blocker[] = [];
   const rides = s.rides.filter((r) => r.passengerId === user.id);
   if (rides.some((r) => isRideActive(r.status))) {
     out.push({ code: 'ride_active', message: 'Une course est en cours. Vous pourrez supprimer votre compte une fois la course terminée ou annulée.' });
@@ -235,8 +247,60 @@ export function deletionBlockers(s: State, user: User): { code: DeletionBlocker;
 }
 
 /**
- * Deletes a passenger's account at her request. Refused while something is under way or money is
- * still moving (`deletionBlockers`). Otherwise, in one transaction:
+ * A chauffeuse: no ride or Famille trip under way, offline, no money moving, and a wallet at exactly
+ * zero. A balance is hers to withdraw and a debt is owed to Naya: both are settled first, by her or
+ * with the assistance, because deleting the account cannot pay either (ADR-0055 rules, driver side).
+ */
+function driverDeletionBlockers(s: State, user: User, at: string): Blocker[] {
+  const out: Blocker[] = [];
+  const driven = s.rides.filter((r) => r.driverId === user.id);
+  if (driven.some((r) => isRideActive(r.status))) {
+    out.push({ code: 'ride_active', message: 'Une course est en cours. Vous pourrez supprimer votre compte une fois la course terminée.' });
+  }
+  const p = s.prototype;
+  if (p?.trips.some((t) => t.driverId === user.id && FAMILY_TRIP_UNDER_WAY.includes(t.status))) {
+    out.push({ code: 'family_trip_active', message: 'Un trajet Naya Famille est en cours. Vous pourrez supprimer votre compte une fois le trajet terminé.' });
+  }
+  if (s.presence.some((x) => x.driverId === user.id && x.online)) {
+    out.push({ code: 'driver_online', message: 'Vous êtes en ligne. Passez hors ligne depuis l’accueil, puis revenez ici.' });
+  }
+  if (p?.alerts.some((a) => a.userId === user.id && a.status !== 'resolved')) {
+    out.push({ code: 'safety_alert_open', message: 'Une alerte de sécurité est en cours de traitement. Vous pourrez supprimer votre compte une fois l’alerte close.' });
+  }
+  if (s.carWash?.orders.some((o) => o.customerId === user.id && ACTIVE_WASH.includes(o.status))) {
+    out.push({ code: 'wash_order_active', message: 'Un lavage à domicile est réservé ou en cours. Annulez-le ou attendez sa fin, puis revenez ici.' });
+  }
+  const rideIds = new Set(driven.map((r) => r.id));
+  if (s.payments.some((x) => x.rideId && rideIds.has(x.rideId) && x.status === 'pending')) {
+    out.push({ code: 'payment_pending', message: 'Le paiement d’une course attend sa confirmation. Réessayez une fois qu’il sera confirmé.' });
+  }
+  if (s.recharges.some((r) => r.driverId === user.id && r.status === 'pending') || s.withdrawals.some((w) => w.driverId === user.id && w.status === 'pending')) {
+    out.push({ code: 'transfer_pending', message: 'Une recharge ou un retrait est en cours de traitement. Réessayez une fois l’opération terminée.' });
+  }
+  const wallet = walletOf(s, user.id, at);
+  if (wallet.balance > 0) {
+    out.push({
+      code: 'wallet_balance',
+      message: `Il reste ${formatMoney(wallet.balance)} sur votre portefeuille Naya. Retirez ce solde ou contactez l’assistance, puis revenez ici.`,
+    });
+  } else if (wallet.balance < 0) {
+    out.push({
+      code: 'wallet_debt',
+      message: `Votre portefeuille Naya doit encore ${formatMoney(-wallet.balance)} de commission. Rechargez-le ou contactez l’assistance pour régler ce montant, puis revenez ici.`,
+    });
+  }
+  if (p?.subscriptions.some((x) => x.driverId === user.id && x.status === 'active') || p?.trips.some((t) => t.driverId === user.id && t.status === 'scheduled')) {
+    out.push({
+      code: 'famille_assignments',
+      message: 'Des familles vous ont confié des trajets Naya Famille. Contactez l’assistance pour qu’une autre chauffeuse les reprenne, puis revenez ici.',
+    });
+  }
+  return out;
+}
+
+/**
+ * Deletes a passenger's or a chauffeuse's account at her request. Refused while something is under
+ * way or money is still moving (`deletionBlockers`). Otherwise, in one transaction:
  * - erased: name, phone, saved places, notification choices, tester cities, saved payment methods,
  *   identity details and identity photos, open sign-in codes, sessions, stored request replays,
  *   her Famille children's details and the relatives she invited (their follow links stop working);
@@ -244,6 +308,10 @@ export function deletionBlockers(s: State, user: User): { code: DeletionBlocker;
  *   (the chauffeuse is told) and her Famille subscription;
  * - kept under the pseudonym « Compte supprimé » (same account id): rides, payments, wallet entries,
  *   support tickets, SOS alerts and car-wash orders, which are financial, safety or legal records.
+ * A chauffeuse also loses her payout accounts, her presence and her vehicle's plate; the rides she
+ * drove, her ledger, recharges and withdrawals are kept, and those rides and Famille trips show
+ * « Compte supprimé » instead of her name (the ride snapshot keeps the car, for the passenger's receipt
+ * and any safety follow-up).
  * The account stays as a `suspended` row so every kept record still resolves; nobody can sign in to
  * it, and the same phone number signs up as a new account. The audit event carries no personal data.
  * Identity photo files are removed after the transaction commits.
@@ -253,7 +321,7 @@ export function deleteAccount(ctx: Ctx, user: User) {
   const files = ctx.store.tx((s) => {
     const u = s.users.find((x) => x.id === user.id);
     if (!u || u.status !== 'active') throw new DomainError('UNAUTHORIZED');
-    const blockers = deletionBlockers(s, u);
+    const blockers = deletionBlockers(s, u, at);
     const first = blockers[0];
     if (first) {
       throw new DomainError(first.code === 'ride_active' ? 'ACTIVE_RIDE_EXISTS' : 'PENDING_OPERATION', first.message, { blockers: blockers.map((b) => b.code) });
@@ -342,6 +410,28 @@ export function deleteAccount(ctx: Ctx, user: User) {
       c.version += 1;
     }
 
+    // Chauffeuse: what she drove stays, without her name; how she was paid goes.
+    let ridesDriven = 0;
+    if (u.role === 'driver') {
+      for (const r of s.rides) {
+        if (r.driverId !== u.id) continue;
+        ridesDriven += 1;
+        if (r.driver) Object.assign(r.driver, { firstName: DELETED_ACCOUNT_NAME, lastInitial: '' });
+      }
+      const name = u.firstName.trim();
+      const scrub = (text: string) => (name ? text.split(name).join('la chauffeuse') : text);
+      for (const t of p?.trips ?? []) {
+        if (t.driverId !== u.id) continue;
+        t.driverName = DELETED_ACCOUNT_NAME;
+        for (const e of t.timeline) e.label = scrub(e.label);
+        for (const n of t.notifications) Object.assign(n, { title: scrub(n.title), ...(n.body === undefined ? {} : { body: scrub(n.body) }) });
+      }
+      for (const sub of p?.subscriptions ?? []) if (sub.driverId === u.id) sub.driverName = DELETED_ACCOUNT_NAME;
+      for (const v of s.vehicles) if (v.driverId === u.id) v.plate = '';
+      s.payoutAccounts = s.payoutAccounts.filter((x) => x.driverId !== u.id);
+      s.presence = s.presence.filter((x) => x.driverId !== u.id);
+    }
+
     // The profile itself.
     Object.assign(u, {
       firstName: 'Compte',
@@ -363,9 +453,12 @@ export function deleteAccount(ctx: Ctx, user: User) {
       entityType: 'user',
       entityId: u.id,
       cityId: u.cityId,
-      summary: 'Compte passagère supprimé à sa demande · profil anonymisé, courses et paiements conservés sous pseudonyme',
+      summary:
+        u.role === 'driver'
+          ? 'Compte chauffeuse supprimé à sa demande · profil anonymisé, courses, portefeuille et opérations conservés sous pseudonyme'
+          : 'Compte passagère supprimé à sa demande · profil anonymisé, courses et paiements conservés sous pseudonyme',
       before: { status: 'active' },
-      after: { status: 'suspended', deleted: true, kept: { rides, tickets }, erased: { identityFiles: removed.length }, cancelled: { bookings: cancelledBookings, familyTrips: cancelledTrips } },
+      after: { status: 'suspended', deleted: true, kept: { rides: rides + ridesDriven, tickets }, erased: { identityFiles: removed.length }, cancelled: { bookings: cancelledBookings, familyTrips: cancelledTrips } },
     });
     return removed;
   });
