@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
-import { Image, Linking, Platform, Share, View } from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AccessibilityInfo, Image, Linking, Platform, Share, View } from 'react-native';
 import * as ExpoLinking from 'expo-linking';
-import { CheckCircle2, Clock, MapPin, MessageCircle, School, ShieldAlert, ShieldCheck, Signal, UserPlus, XCircle } from 'lucide-react-native';
+import { CheckCircle2, Clock, Eye, EyeOff, MapPin, MessageCircle, School, ShieldAlert, ShieldCheck, Signal, UserPlus, XCircle } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { errorMessage, newIdempotencyKey, qk } from '@naya/api';
+import { errorMessage, qk } from '@naya/api';
 import { useApi, useDeadline } from '@naya/api/react';
 import {
   formatDistance,
@@ -12,6 +12,7 @@ import {
   FAMILY_DEMO_PROOFS,
   MOROCCO_POLICE_NUMBER,
   type FamilyLive,
+  type FamilyNotification,
   type FamilyProof,
   type FamilyTimelineEntry,
   type FamilyTrip,
@@ -21,13 +22,15 @@ import { colors, radius, themedStyles } from '@naya/tokens';
 import { useTheme } from '../../core/theme';
 import { DEMO_MODE } from '../../core/apiBase';
 import { useA11yPrefs } from '../../a11y';
-import { Text } from '../../Text';
+import { SectionTitle, Text } from '../../Text';
 import { Button } from '../../Button';
 import { StatusBanner } from '../../Feedback';
 import { FormField } from '../../Form';
 import { IconDisc, ListGroup, ListRow } from '../../List';
 import { Sheet } from '../../BottomSheet';
+import { PressableScale } from '../../PressableScale';
 import { toast } from '../../Toast';
+import { useSingleFlight } from '../../core/useSingleFlight';
 import { NayaMap } from '../../map';
 import { useAnimatedCoordinate } from '../../map/useAnimatedCoordinate';
 import { Attachment } from '../Attachment';
@@ -36,7 +39,11 @@ export const styles = themedStyles(() => ({
   panel: { backgroundColor: colors.surface, borderRadius: radius.card, padding: 18, gap: 12 },
   soft: { backgroundColor: colors.selected, borderRadius: radius.card, padding: 18, gap: 10 },
   mapBox: { borderRadius: 22, overflow: 'hidden' as const, backgroundColor: colors.map },
-  chip: { position: 'absolute' as const, left: 10, bottom: 10, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: colors.surface },
+  // Stacked in the top-left corner, clear of the map attribution at the bottom (FS-14).
+  chips: { position: 'absolute' as const, left: 10, right: 10, top: 10, alignItems: 'flex-start' as const, gap: 6 },
+  chip: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, maxWidth: '100%' as const, paddingHorizontal: 10, paddingVertical: 5, minHeight: 28, borderRadius: 14, backgroundColor: colors.surface },
+  codeChip: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: colors.selected },
+  srOnly: { position: 'absolute' as const, width: 1, height: 1, overflow: 'hidden' as const, opacity: 0 },
   photo: { width: 132, height: 99, borderRadius: 14, backgroundColor: colors.mauveSoft },
   row: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
@@ -64,12 +71,22 @@ export function FamilleLiveMap({ trip, live, height = 240, testID }: { trip: Pic
     <View style={[styles.mapBox, { height }]} testID={testID}>
       <NayaMap center={target} route={live?.route ?? [trip.pickup.location, trip.destination.location]} fitTo={fit} markers={markers} />
       {moving && live ? (
-        <View style={styles.chip} accessibilityLiveRegion="polite">
-          {live.source === 'gps' ? <Signal size={14} color={live.stale ? colors.warning : colors.success} /> : <Clock size={14} color={colors.accent} />}
-          <Text variant="micro" weight="semibold" numeric testID="famille-live-age">
-            {live.source === 'gps' ? `GPS · il y a ${live.ageSeconds} s` : 'Position · chaque seconde'}
-            {live.etaSeconds != null ? ` · ${live.leg === 'to_pickup' ? 'arrivée' : 'école'} dans ${formatEta(live.etaSeconds)}` : ''}
-          </Text>
+        // No live region: the age changes every second (FS-14). The ETA is read from LiveFacts.
+        <View style={styles.chips} pointerEvents="none">
+          <View style={styles.chip}>
+            {live.source === 'gps' ? <Signal size={14} color={live.stale ? colors.warning : colors.success} /> : <Clock size={14} color={colors.accent} />}
+            <Text variant="micro" weight="semibold" numeric style={{ flexShrink: 1 }} testID="famille-live-age">
+              {live.source === 'gps' ? `GPS · il y a ${live.ageSeconds} s` : 'Position · chaque seconde'}
+            </Text>
+          </View>
+          {live.etaSeconds != null ? (
+            <View style={styles.chip} testID="famille-live-eta-chip">
+              {live.leg === 'to_pickup' ? <MapPin size={14} color={colors.accent} /> : <School size={14} color={colors.accent} />}
+              <Text variant="micro" weight="semibold" numeric style={{ flexShrink: 1 }}>
+                {live.leg === 'to_pickup' ? 'Prise en charge' : 'École'} dans {formatEta(live.etaSeconds)}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -121,13 +138,65 @@ const KIND_TONE: Partial<Record<NonNullable<FamilyTimelineEntry['kind']>, 'succe
   incident: 'warning',
 };
 
-/** Lines written before 14 Oct 2026 carry a « simulation » / « (démo) » marker: shown without it. */
-const timelineLabel = (label: string) =>
+/**
+ * Server lines shown as written, except: the « simulation » / « (démo) » markers of lines written
+ * before 14 Oct 2026, and the « invité·e » the server still writes for a co-parent (FS-15).
+ */
+export const familyLabel = (label: string) =>
   label
     .replace(/ · simulation$/, '')
     .replace(/ \((?:simulée|démo)\)/g, '')
     .replace(' · joué par le parent', ' · saisi depuis le compte parent')
-    .replace('un trajet de démonstration', 'un nouveau trajet');
+    .replace('un trajet de démonstration', 'un nouveau trajet')
+    .replace(/ invité·e à suivre les trajets/g, ' · invitation à suivre les trajets');
+
+/**
+ * What the parent's phone shows for a trip notification. The server still writes « X est prête »
+ * and « X est arrivée · Déposée à … » for every child: replaced by wording that fits any child (FS-15).
+ */
+export function familyNotificationCopy(n: Pick<FamilyNotification, 'kind' | 'title' | 'body'>, trip: Pick<FamilyTrip, 'childName' | 'destination'>): { title: string; body: string } {
+  if (n.kind === 'approval_request') return { title: `Départ de ${trip.childName} à approuver`, body: n.body ?? '' };
+  if (n.kind === 'status' && n.body?.startsWith('Déposée à ')) return { title: `Dépôt confirmé · ${trip.childName}`, body: `${trip.destination.label} · photo jointe.` };
+  return { title: familyLabel(n.title), body: familyLabel(n.body ?? '') };
+}
+
+/** A section with a level-2 heading: the screen header stays the only level-1 heading (FS-14). */
+export function FamilleSection({ title, children, testID }: { title: string; children: ReactNode; testID?: string }) {
+  useTheme();
+  return (
+    <View style={{ marginTop: 12, gap: 12 }} testID={testID}>
+      <SectionTitle variant="heading" aria-level={2}>
+        {title}
+      </SectionTitle>
+      {children}
+    </View>
+  );
+}
+
+const ANNOUNCE_DEDUPE_MS = 5_000;
+let lastAnnounced: { message: string; at: number } = { message: '', at: 0 };
+
+/**
+ * Says a phase change once to screen readers (VoiceOver, TalkBack, or a polite live region on
+ * the web), never each tick of a countdown (FS-14).
+ */
+export function PhaseAnnouncer({ message }: { message: string | null }) {
+  useTheme();
+  useEffect(() => {
+    if (!message || Platform.OS === 'web') return;
+    // The same card can be mounted twice (Famille home under the trip screen): say it once.
+    const now = Date.now();
+    if (lastAnnounced.message === message && now - lastAnnounced.at < ANNOUNCE_DEDUPE_MS) return;
+    lastAnnounced = { message, at: now };
+    AccessibilityInfo.announceForAccessibility(message);
+  }, [message]);
+  if (Platform.OS !== 'web') return null;
+  return (
+    <Text accessibilityLiveRegion="polite" style={styles.srOnly}>
+      {message ?? ''}
+    </Text>
+  );
+}
 
 /** Every step of the trip, timestamped (kept in the history once the trip closes). */
 export function FamilleTimeline({ trip, testID }: { trip: FamilyTrip; testID?: string }) {
@@ -141,7 +210,7 @@ export function FamilleTimeline({ trip, testID }: { trip: FamilyTrip; testID?: s
           <View key={`${e.at}-${i}`} style={{ flexDirection: 'row', gap: 10 }}>
             <View style={[styles.dot, { backgroundColor: tone ? tones[tone] : colors.line }]} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="label">{timelineLabel(e.label)}</Text>
+              <Text variant="label">{familyLabel(e.label)}</Text>
               <Text variant="caption" tone="muted" numeric>
                 {formatTime(e.at)} · {e.location.lat.toFixed(4)}, {e.location.lng.toFixed(4)}
                 {e.proof ? ' · photo jointe' : ''}
@@ -156,9 +225,12 @@ export function FamilleTimeline({ trip, testID }: { trip: FamilyTrip; testID?: s
 
 /* ───────────── Parent approval ───────────── */
 
+type ApprovalVars = { approvalId: string; decision: 'approve' | 'refuse'; mode: 'on_site' | 'remote'; reason?: string };
+
 /**
  * The start gate. The parent sees the pick-up photo and answers on site or remotely;
  * without an answer before the server deadline the request expires and nothing moves.
+ * This card is the only place to approve: the notification opens it (FS-13).
  */
 export function ApprovalCard({ trip, accountId, onDone }: { trip: FamilyTrip; accountId: string; onDone?: () => void }) {
   useTheme();
@@ -166,23 +238,22 @@ export function ApprovalCard({ trip, accountId, onDone }: { trip: FamilyTrip; ac
   const qc = useQueryClient();
   const approval = trip.approval;
   const { seconds, expired } = useDeadline(approval?.status === 'pending' ? approval.expiresAt : null, 500);
-  const [busy, setBusy] = useState<string | null>(null);
   const [refusing, setRefusing] = useState(false);
   const [reason, setReason] = useState('');
-  if (!approval || approval.status !== 'pending') return null;
-  const answer = async (decision: 'approve' | 'refuse', mode: 'on_site' | 'remote') => {
-    setBusy(`${decision}-${mode}`);
-    try {
-      await api.prototype.approveStart(trip.id, { decision, mode, approvalId: approval.id, reason: decision === 'refuse' ? reason.trim() || undefined : undefined }, newIdempotencyKey());
-      toast(decision === 'approve' ? 'Départ approuvé' : 'Départ refusé · la chauffeuse est prévenue', decision === 'approve' ? 'success' : undefined);
+  // One Idempotency-Key per answer: a double tap or a retry after a timeout replays it.
+  const answer = useSingleFlight(({ approvalId, decision, mode, reason: why }: ApprovalVars, key) => api.prototype.approveStart(trip.id, { decision, mode, approvalId, reason: why }, key), {
+    onSuccess: async (_t, v) => {
+      toast(v.decision === 'approve' ? 'Départ approuvé' : 'Départ refusé · la chauffeuse est prévenue', v.decision === 'approve' ? 'success' : undefined);
       await qc.invalidateQueries({ queryKey: qk.family(accountId) });
       onDone?.();
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(null);
-    }
-  };
+    },
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  });
+  const pending = !!approval && approval.status === 'pending';
+  const phase = !pending ? null : expired ? 'Demande de départ expirée. Le trajet ne démarre pas.' : seconds <= 30 ? 'Moins de 30 secondes pour répondre à la demande de départ.' : `${trip.driverName.split(' ')[0]} demande à démarrer. Vérifiez la photo puis répondez.`;
+  if (!approval || !pending) return null;
+  const busy = answer.isPending ? `${answer.variables?.decision}-${answer.variables?.mode}` : null;
+  const send = (decision: 'approve' | 'refuse', mode: 'on_site' | 'remote') => answer.run({ approvalId: approval.id, decision, mode, ...(decision === 'refuse' && reason.trim() ? { reason: reason.trim() } : {}) });
   return (
     <View style={[styles.panel, { borderWidth: 2, borderColor: colors.accent }]} testID="famille-approval">
       <View style={styles.row}>
@@ -190,28 +261,72 @@ export function ApprovalCard({ trip, accountId, onDone }: { trip: FamilyTrip; ac
           <ShieldCheck size={18} color={colors.accent} />
         </IconDisc>
         <View style={{ flex: 1 }}>
-          <Text variant="heading" accessibilityRole="header">
+          <Text variant="heading" accessibilityRole="header" aria-level={2}>
             {trip.driverName.split(' ')[0]} demande à démarrer
           </Text>
-          <Text variant="caption" tone={seconds <= 30 ? 'danger' : 'muted'} numeric accessibilityLiveRegion="polite">
+          <Text variant="caption" tone={seconds <= 30 ? 'danger' : 'muted'} numeric testID="famille-approval-countdown">
             {expired ? 'Demande expirée' : `Répondez dans ${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s`}
           </Text>
         </View>
       </View>
+      <PhaseAnnouncer message={phase} />
       <ProofPhoto proof={trip.pickupPhoto} accountId={accountId} label={`Photo de ${trip.childName} à la prise en charge`} />
       <Text variant="caption" tone="muted">
         Vérifiez la photo. Sans votre accord, le trajet ne démarre pas ({FAMILY_APPROVAL_TIMEOUT_SECONDS / 60} min pour répondre).
       </Text>
-      <Button label="Je suis sur place · j’approuve" size="major" full loading={busy === 'approve-on_site'} disabled={expired || !!busy} onPress={() => answer('approve', 'on_site')} testID="famille-approve-onsite" />
-      <Button label="Approuver à distance" variant="secondary" full loading={busy === 'approve-remote'} disabled={expired || !!busy} onPress={() => answer('approve', 'remote')} testID="famille-approve-remote" />
+      <Button label="Je suis sur place · j’approuve" size="major" full loading={busy === 'approve-on_site'} disabled={expired || !!busy} onPress={() => send('approve', 'on_site')} testID="famille-approve-onsite" />
+      <Button label="Approuver à distance" variant="secondary" full loading={busy === 'approve-remote'} disabled={expired || !!busy} onPress={() => send('approve', 'remote')} testID="famille-approve-remote" />
       {refusing ? (
         <View style={{ gap: 8 }}>
-          <FormField label="Motif (facultatif)" value={reason} onChangeText={setReason} placeholder="Je viens la chercher moi-même" />
-          <Button label="Confirmer le refus" variant="danger" full loading={busy === 'refuse-remote'} disabled={!!busy} onPress={() => answer('refuse', 'remote')} testID="famille-refuse-confirm" />
+          <FormField label="Motif (facultatif)" value={reason} onChangeText={setReason} placeholder="Je viens chercher mon enfant moi-même" />
+          <Button label="Confirmer le refus" variant="danger" full loading={busy === 'refuse-remote'} disabled={expired || !!busy} onPress={() => send('refuse', 'remote')} testID="famille-refuse-confirm" />
         </View>
       ) : (
         <Button label="Refuser le départ" variant="ghost" full disabled={expired || !!busy} onPress={() => setRefusing(true)} testID="famille-refuse" />
       )}
+    </View>
+  );
+}
+
+/* ───────────── Handover codes (parent only) ───────────── */
+
+const REVEAL_MS = 15_000;
+
+/**
+ * A handover code the parent set, masked until she taps it, then masked again after 15 s
+ * (FS-12). Only the parent's payload carries codes: the chauffeuse's never does.
+ */
+export function HandoverCode({ name, relationship, code, testID }: { name: string; relationship: string; code: string; testID?: string }) {
+  useTheme();
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!shown) return;
+    const id = setTimeout(() => setShown(false), REVEAL_MS);
+    return () => clearTimeout(id);
+  }, [shown]);
+  return (
+    <View style={[styles.row, { paddingHorizontal: 16, paddingVertical: 8 }]}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="label">
+          {name} · {relationship}
+        </Text>
+        <Text variant="caption" tone="muted">
+          Code de remise
+        </Text>
+      </View>
+      <PressableScale
+        onPress={() => setShown((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={shown ? `Code de remise de ${name} : ${code.split('').join(' ')}` : `Code de remise de ${name}, masqué`}
+        accessibilityHint={shown ? 'Masque le code' : 'Affiche le code pendant 15 secondes'}
+        style={styles.codeChip}
+        testID={testID}
+      >
+        <Text variant="label" weight="semibold" numeric testID={testID ? `${testID}-value` : undefined}>
+          {shown ? code : '••••'}
+        </Text>
+        {shown ? <EyeOff size={16} color={colors.accent} /> : <Eye size={16} color={colors.accent} />}
+      </PressableScale>
     </View>
   );
 }
@@ -224,47 +339,46 @@ export function FamilleContactBar({ trip, role, accountId }: { trip: FamilyTrip;
   const api = useApi();
   const qc = useQueryClient();
   const [sheet, setSheet] = useState<'whatsapp' | 'police' | 'invite' | null>(null);
-  const [busy, setBusy] = useState(false);
   const driverFirst = trip.driverName.split(' ')[0] ?? trip.driverName;
   const refresh = () => qc.invalidateQueries({ queryKey: qk.family(accountId) });
 
-  const callWhatsApp = async () => {
-    setBusy(true);
-    try {
+  // One request per confirmation. These routes take no Idempotency-Key in the API client yet.
+  const whatsapp = useSingleFlight(
+    async ({ tripId }: { tripId: string }) => {
       if (role === 'driver') {
-        await api.prototype.requestFamilyCall(trip.id);
+        await api.prototype.requestFamilyCall(tripId);
         toast('Demande envoyée · le parent confirme puis vous appelle');
-      } else {
-        const r = await api.prototype.familyCall(trip.id, 'whatsapp');
-        // Mock accounts carry made-up numbers: the call is noted on the trip, WhatsApp is not opened.
-        if (r.simulated || DEMO_MODE) toast(`Appel vers ${r.counterpartName} noté sur le trajet`);
-        else {
-          const app = r.appUrl && (await Linking.canOpenURL(r.appUrl).catch(() => false));
-          await Linking.openURL(app ? r.appUrl! : r.url);
-        }
+        return;
       }
-      setSheet(null);
-      await refresh();
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
-  const callPolice = async () => {
-    setBusy(true);
-    try {
+      const r = await api.prototype.familyCall(tripId, 'whatsapp');
+      // Mock accounts carry made-up numbers: the call is noted on the trip, WhatsApp is not opened.
+      if (r.simulated || DEMO_MODE) toast(`Appel vers ${r.counterpartName} noté sur le trajet`);
+      else {
+        const app = r.appUrl && (await Linking.canOpenURL(r.appUrl).catch(() => false));
+        await Linking.openURL(app ? r.appUrl! : r.url);
+      }
+    },
+    {
+      onSuccess: async () => {
+        setSheet(null);
+        await refresh();
+      },
+      onError: (e) => toast(errorMessage(e), 'danger'),
+    },
+  );
+  const police = useSingleFlight(
+    async ({ tripId }: { tripId: string }) => {
       // Always a real call: someone may really need it.
-      await api.prototype.familyCall(trip.id, 'police').catch(() => undefined);
+      await api.prototype.familyCall(tripId, 'police').catch(() => undefined);
       setSheet(null);
       await Linking.openURL(`tel:${MOROCCO_POLICE_NUMBER}`);
-      await refresh();
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    {
+      onSuccess: () => refresh(),
+      onError: (e) => toast(errorMessage(e), 'danger'),
+    },
+  );
+  const busy = whatsapp.isPending || police.isPending;
 
   return (
     <>
@@ -300,13 +414,13 @@ export function FamilleContactBar({ trip, role, accountId }: { trip: FamilyTrip;
       >
         <View style={{ gap: 12 }}>
           {role === 'driver' ? <StatusBanner compact tone="info" title="Sécurité" message="à l’arrêt uniquement, jamais en conduisant" /> : null}
-          <Button label={role === 'driver' ? 'Envoyer la demande' : DEMO_MODE ? 'Confirmer' : 'Confirmer et appeler'} size="major" full loading={busy} onPress={callWhatsApp} testID="famille-whatsapp-confirm" />
+          <Button label={role === 'driver' ? 'Envoyer la demande' : DEMO_MODE ? 'Confirmer' : 'Confirmer et appeler'} size="major" full loading={whatsapp.isPending} onPress={() => whatsapp.run({ tripId: trip.id })} testID="famille-whatsapp-confirm" />
         </View>
       </Sheet>
       <Sheet visible={sheet === 'police'} onClose={() => setSheet(null)} dismissible={!busy} title={`Appeler la police (${MOROCCO_POLICE_NUMBER}) ?`} subtitle="L’appel part de votre téléphone. Il est noté sur le trajet et l’autre partie est prévenue." testID="famille-police-sheet">
         <View style={{ gap: 12 }}>
           <StatusBanner compact tone="danger" title="Urgence" message={`police secours · ${MOROCCO_POLICE_NUMBER}`} />
-          <Button label={`Appeler le ${MOROCCO_POLICE_NUMBER}`} variant="danger" size="major" full loading={busy} onPress={callPolice} testID="famille-police-confirm" />
+          <Button label={`Appeler le ${MOROCCO_POLICE_NUMBER}`} variant="danger" size="major" full loading={police.isPending} onPress={() => police.run({ tripId: trip.id })} testID="famille-police-confirm" />
         </View>
       </Sheet>
       {role === 'passenger' ? <InviteSheet visible={sheet === 'invite'} onClose={() => setSheet(null)} accountId={accountId} /> : null}
@@ -324,7 +438,6 @@ export function InviteSheet({ visible, onClose, accountId }: { visible: boolean;
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState('');
   const [phone, setPhone] = useState('');
-  const [busy, setBusy] = useState(false);
   const [link, setLink] = useState<string | null>(null);
   const share = async (url: string) => {
     const message = `Suivez les trajets Naya Famille en direct : ${url}`;
@@ -334,22 +447,19 @@ export function InviteSheet({ visible, onClose, accountId }: { visible: boolean;
       toast('Partage indisponible · copiez le lien affiché');
     }
   };
-  const invite = async () => {
-    setBusy(true);
-    try {
-      const r = await api.prototype.inviteGuardian({ name: name.trim(), relationship: relationship.trim(), phone: phone.trim() ? phone.trim() : null }, newIdempotencyKey());
+  // One Idempotency-Key per invitation: a double tap or a retry never creates a second link.
+  const invite = useSingleFlight((input: { name: string; relationship: string; phone: string | null }, key) => api.prototype.inviteGuardian(input, key), {
+    onSuccess: async (r) => {
       const url = followLink(r.token);
       setLink(url);
       await qc.invalidateQueries({ queryKey: qk.family(accountId) });
       await share(url);
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  });
+  const busy = invite.isPending;
   return (
-    <Sheet visible={visible} onClose={() => { setLink(null); onClose(); }} dismissible={!busy} title="Inviter l’autre parent" subtitle="Il ou elle suit les trajets en direct (position, étapes) sans voir les photos, les codes ni votre numéro." testID="famille-invite-sheet">
+    <Sheet visible={visible} onClose={() => { setLink(null); onClose(); }} dismissible={!busy} title="Inviter l’autre parent" subtitle="Cette personne suit les trajets en direct (position, étapes) sans voir les photos, les codes ni votre numéro." testID="famille-invite-sheet">
       <View style={{ gap: 12 }}>
         {link ? (
           <>
@@ -364,7 +474,7 @@ export function InviteSheet({ visible, onClose, accountId }: { visible: boolean;
             <FormField label="Prénom" value={name} onChangeText={setName} autoCapitalize="words" testID="famille-invite-name" />
             <FormField label="Lien avec l’enfant" value={relationship} onChangeText={setRelationship} placeholder="Père, grand-mère, tante…" testID="famille-invite-relationship" />
             <FormField label="Téléphone (facultatif)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+212…" />
-            <Button label="Créer et partager le lien" size="major" full loading={busy} disabled={name.trim().length < 2 || relationship.trim().length < 2} onPress={invite} testID="famille-invite-confirm" />
+            <Button label="Créer et partager le lien" size="major" full loading={busy} disabled={name.trim().length < 2 || relationship.trim().length < 2} onPress={() => invite.run({ name: name.trim(), relationship: relationship.trim(), phone: phone.trim() ? phone.trim() : null })} testID="famille-invite-confirm" />
           </>
         )}
       </View>
@@ -376,16 +486,16 @@ export function GuardianList({ guardians, accountId }: { guardians: NonNullable<
   useTheme();
   const api = useApi();
   const qc = useQueryClient();
-  const act = async (id: string, action: 'revoke' | 'renew') => {
-    try {
-      const r = await api.prototype.guardianAction(id, action);
+  // One request at a time per list. This route takes no Idempotency-Key in the API client yet.
+  const act = useSingleFlight(({ id, action }: { id: string; action: 'revoke' | 'renew' }) => api.prototype.guardianAction(id, action), {
+    onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: qk.family(accountId) });
       if (r.token) await Share.share({ message: `Nouveau lien de suivi Naya Famille : ${followLink(r.token)}` }).catch(() => undefined);
       else toast('Accès au suivi retiré');
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    }
-  };
+    },
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  });
+  const busyOn = act.isPending ? act.variables : undefined;
   const visible = guardians.filter((g) => g.status !== 'revoked');
   if (!visible.length) return null;
   return (
@@ -394,8 +504,8 @@ export function GuardianList({ guardians, accountId }: { guardians: NonNullable<
         <View key={g.id}>
           <ListRow title={`${g.name} · ${g.relationship}`} subtitle={g.status === 'active' ? `Suivi ouvert${g.lastViewedAt ? ` · vu à ${formatTime(g.lastViewedAt)}` : ''}` : 'Invitation envoyée · lien pas encore ouvert'} leading={<IconDisc><UserPlus size={18} color={colors.accent} /></IconDisc>} />
           <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 12 }}>
-            <Button label="Nouveau lien" size="compact" variant="secondary" onPress={() => act(g.id, 'renew')} />
-            <Button label="Retirer l’accès" size="compact" variant="ghost" onPress={() => act(g.id, 'revoke')} />
+            <Button label="Nouveau lien" size="compact" variant="secondary" loading={busyOn?.id === g.id && busyOn.action === 'renew'} disabled={act.isPending} onPress={() => act.run({ id: g.id, action: 'renew' })} testID={`famille-guardian-renew-${g.id}`} />
+            <Button label="Retirer l’accès" size="compact" variant="ghost" loading={busyOn?.id === g.id && busyOn.action === 'revoke'} disabled={act.isPending} onPress={() => act.run({ id: g.id, action: 'revoke' })} testID={`famille-guardian-revoke-${g.id}`} />
           </View>
         </View>
       ))}

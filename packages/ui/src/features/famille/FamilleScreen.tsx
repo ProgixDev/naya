@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Baby, CalendarClock, ChevronRight, History, ShieldCheck } from 'lucide-react-native';
 import { errorMessage, newIdempotencyKey, qk } from '@naya/api';
+import type { FamilyChildView } from '@naya/domain';
 import { useApi } from '@naya/api/react';
 import {
   casablancaLocalToUtc,
@@ -19,7 +20,7 @@ import {
 } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useTheme } from '../../core/theme';
-import { Screen, Section } from '../../Screen';
+import { Screen } from '../../Screen';
 import { Header } from '../../Header';
 import { Text } from '../../Text';
 import { Button } from '../../Button';
@@ -28,8 +29,9 @@ import { ErrorState, StatusBanner, StatusPill } from '../../Feedback';
 import { IconDisc, ListGroup, ListRow } from '../../List';
 import { PressableScale } from '../../PressableScale';
 import { toast } from '../../Toast';
+import { useSingleFlight } from '../../core/useSingleFlight';
 import { activeFamilyTrip, useFamily } from './hooks';
-import { ApprovalCard, GuardianList, InviteSheet, styles, TripStatusLine } from './parts';
+import { ApprovalCard, FamilleSection, GuardianList, HandoverCode, InviteSheet, styles, TripStatusLine } from './parts';
 
 export interface FamilleNav {
   onBack: () => void;
@@ -42,22 +44,9 @@ export function FamilleScreen({ accountId, role, onBack, onOpenTrip, onOpenPlans
   useTheme();
   const qc = useQueryClient();
   const family = useFamily(accountId);
-  const [busy, setBusy] = useState<string | null>(null);
   const [invite, setInvite] = useState(false);
   const data = family.data;
-  const run = async (label: string, action: () => Promise<unknown>) => {
-    setBusy(label);
-    try {
-      const r = await action();
-      await qc.invalidateQueries({ queryKey: qk.family(accountId) });
-      return r;
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-      return null;
-    } finally {
-      setBusy(null);
-    }
-  };
+  const refresh = () => qc.invalidateQueries({ queryKey: qk.family(accountId) });
   const live = activeFamilyTrip(data);
   const upcoming = (data?.trips ?? []).filter((t) => t.status === 'scheduled');
   const history = (data?.trips ?? []).filter((t) => isFamilyTripClosed(t.status)).reverse();
@@ -80,7 +69,7 @@ export function FamilleScreen({ accountId, role, onBack, onOpenTrip, onOpenPlans
         ) : null}
 
         {role === 'passenger' ? <PassengerPlan data={data} onOpenPlans={onOpenPlans} /> : null}
-        {role === 'passenger' ? <ChildrenAndPlanning data={data} busy={busy} run={run} /> : null}
+        {role === 'passenger' ? <ChildrenAndPlanning data={data} onChanged={refresh} /> : null}
         {role === 'passenger' && data?.subscription ? (
           <View style={{ gap: 10 }}>
             <GuardianList guardians={data.guardians ?? []} accountId={accountId} />
@@ -89,14 +78,14 @@ export function FamilleScreen({ accountId, role, onBack, onOpenTrip, onOpenPlans
         ) : null}
 
         {eligible ? (
-          <Section title="Prochains trajets">
+          <FamilleSection title="Prochains trajets">
             <View style={{ gap: 10 }}>
               {upcoming.map((t) => (
                 <TripCard key={t.id} trip={t} role={role} onPress={() => onOpenTrip(t.id)} />
               ))}
               {!upcoming.length ? <Text tone="muted">{role === 'driver' ? 'Aucun trajet Famille planifié.' : 'Planifiez un trajet pour votre enfant.'}</Text> : null}
             </View>
-          </Section>
+          </FamilleSection>
         ) : null}
 
         {history.length ? (
@@ -179,7 +168,9 @@ function PassengerPlan({ data, onOpenPlans }: { data: FamilyOverview | undefined
   );
 }
 
-function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undefined; busy: string | null; run: (label: string, a: () => Promise<unknown>) => Promise<unknown> }) {
+type TripVars = { childId: string; pickup: string; destination: string; date: string; pickupTime: string; weekdays: number[] };
+
+function ChildrenAndPlanning({ data, onChanged }: { data: FamilyOverview | undefined; onChanged: () => Promise<unknown> }) {
   useTheme();
   const api = useApi();
   const [childForm, setChildForm] = useState(false);
@@ -196,6 +187,37 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
   const [date, setDate] = useState(() => toCasablancaParts(new Date(Date.now() + 86400000).toISOString()).date);
   const [pickupTime, setPickupTime] = useState('08:00');
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  // One request per intent; the trip carries an Idempotency-Key (a retry never books it twice).
+  const addChild = useSingleFlight((input: Omit<FamilyChildView, 'id' | 'passengerId' | 'recipients'> & { recipient: string; code: string }) =>
+    api.prototype.child({ firstName: input.firstName, age: input.age, school: input.school, notes: input.notes, recipients: [{ id: newIdempotencyKey(), name: input.recipient, relationship: 'Responsable', verificationCode: input.code }] }),
+    {
+      onSuccess: async () => {
+        setChildForm(false);
+        await onChanged();
+      },
+      onError: (e) => toast(errorMessage(e), 'danger'),
+    },
+  );
+  const planTrip = useSingleFlight(
+    (v: TripVars, key) =>
+      api.prototype.trip(
+        {
+          childId: v.childId,
+          pickup: { ...PLACES.hayRiad, label: v.pickup, address: v.pickup },
+          destination: { ...PLACES.agdal, label: v.destination, address: v.destination },
+          pickupAt: casablancaLocalToUtc(v.date, v.pickupTime),
+          weekdays: v.weekdays,
+        },
+        key,
+      ),
+    {
+      onSuccess: async () => {
+        setTripForm(false);
+        await onChanged();
+      },
+      onError: (e) => toast(errorMessage(e), 'danger'),
+    },
+  );
   const childReady = !!name.trim() && Number(age) >= 1 && Number(age) <= 17 && !!school.trim() && !!recipient.trim() && /^\d{4}$/.test(code);
   // The school is the usual destination: prefill it for the chosen child (still editable).
   const pickChild = (id: string) => {
@@ -207,7 +229,7 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
     <>
       <ListGroup label="Mes enfants">
         {(data?.children ?? []).map((c) => (
-          <ListRow key={c.id} title={`${c.firstName} · ${c.age} ans`} subtitle={`${c.school} · ${c.recipients.map((r) => r.name).join(', ')}`} leading={<IconDisc><Baby size={18} color={colors.accent} /></IconDisc>} />
+          <ChildRow key={c.id} child={c} />
         ))}
         {!data?.children.length ? <ListRow title="Aucun enfant enregistré" subtitle="Ajoutez son profil et les personnes autorisées" /> : null}
       </ListGroup>
@@ -224,13 +246,8 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
             label="Enregistrer l’enfant"
             disabled={!childReady}
             disabledReason={childReady ? undefined : 'Complétez le profil et le code à 4 chiffres'}
-            loading={busy === 'child'}
-            onPress={() =>
-              run('child', async () => {
-                await api.prototype.child({ firstName: name, age: Number(age), school, notes, recipients: [{ id: newIdempotencyKey(), name: recipient, relationship: 'Responsable', verificationCode: code }] });
-                setChildForm(false);
-              })
-            }
+            loading={addChild.isPending}
+            onPress={() => addChild.run({ firstName: name.trim(), age: Number(age), school: school.trim(), notes: notes.trim(), recipient: recipient.trim(), code })}
           />
         </View>
       ) : null}
@@ -268,26 +285,34 @@ function ChildrenAndPlanning({ data, busy, run }: { data: FamilyOverview | undef
             label="Enregistrer le trajet"
             disabled={!pickup.trim() || !destination.trim()}
             disabledReason={!pickup.trim() || !destination.trim() ? 'Indiquez le départ et la destination' : undefined}
-            loading={busy === 'trip'}
-            onPress={() =>
-              run('trip', async () => {
-                await api.prototype.trip(
-                  {
-                    childId,
-                    pickup: { ...PLACES.hayRiad, label: pickup.trim(), address: pickup.trim() },
-                    destination: { ...PLACES.agdal, label: destination.trim(), address: destination.trim() },
-                    pickupAt: casablancaLocalToUtc(date, pickupTime),
-                    weekdays: days,
-                  },
-                  newIdempotencyKey(),
-                );
-                setTripForm(false);
-              })
-            }
+            loading={planTrip.isPending}
+            onPress={() => planTrip.run({ childId, pickup: pickup.trim(), destination: destination.trim(), date, pickupTime, weekdays: [...days].sort((a, b) => a - b) })}
           />
         </View>
       ) : null}
     </>
+  );
+}
+
+/** A child, then each authorised adult with the handover code the parent set (masked, FS-12). */
+function ChildRow({ child: c }: { child: FamilyChildView }) {
+  useTheme();
+  return (
+    <View testID={`famille-child-${c.id}`}>
+      <ListRow title={`${c.firstName} · ${c.age} ans`} subtitle={c.school} leading={<IconDisc><Baby size={18} color={colors.accent} /></IconDisc>} />
+      {c.recipients.map((r) =>
+        r.verificationCode ? (
+          <HandoverCode key={r.id} name={r.name} relationship={r.relationship} code={r.verificationCode} testID={`famille-code-${c.id}-${r.id}`} />
+        ) : (
+          <View key={r.id} style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+            <Text variant="label">
+              {r.name} · {r.relationship}
+            </Text>
+          </View>
+        ),
+      )}
+      <View style={{ height: 8 }} />
+    </View>
   );
 }
 
@@ -298,22 +323,18 @@ export function FamillePlansScreen({ accountId, onBack, onSubscribed }: { accoun
   const qc = useQueryClient();
   const family = useFamily(accountId);
   const catalog = useQuery({ queryKey: ['naya', accountId, 'catalog'], queryFn: api.prototype.catalog });
-  const [busy, setBusy] = useState<string | null>(null);
   const sub = family.data?.subscription;
   const active = sub && sub.status === 'active' && Date.parse(sub.endsAt) > Date.now();
-  const subscribe = async (planId: string) => {
-    setBusy(planId);
-    try {
-      await api.prototype.subscribe(planId, newIdempotencyKey());
+  // One Idempotency-Key per plan chosen: a double tap or a retry never pays twice.
+  const subscribe = useSingleFlight(({ planId }: { planId: string }, key) => api.prototype.subscribe(planId, key), {
+    onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: qk.family(accountId) });
       toast('Formule activée', 'success');
       onSubscribed?.();
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(null);
-    }
-  };
+    },
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  });
+  const busy = subscribe.isPending ? subscribe.variables?.planId : null;
   return (
     <Screen header={<Header title="Formules Famille" subtitle="Chauffeuse dédiée, approuvée pour les trajets enfants" onBack={onBack} />} testID="famille-plans">
       <View style={{ gap: 16 }}>
@@ -341,7 +362,7 @@ export function FamillePlansScreen({ accountId, onBack, onSubscribed }: { accoun
                     • {f}
                   </Text>
                 ))}
-                {!active ? <Button label="Choisir cette formule" loading={busy === p.id} onPress={() => subscribe(p.id)} testID={`famille-subscribe-${p.id}`} /> : null}
+                {!active ? <Button label="Choisir cette formule" loading={busy === p.id} disabled={!!busy && busy !== p.id} onPress={() => subscribe.run({ planId: p.id })} testID={`famille-subscribe-${p.id}`} /> : null}
               </View>
             );
           })}

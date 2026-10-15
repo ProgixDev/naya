@@ -4,12 +4,12 @@ import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { FAMILY_LIVE_POLL_MS, FAMILY_STATUS_LABELS, formatShort, formatTime, isFamilyTripActive, type FamilyFollowView } from '@naya/domain';
 import { useTheme } from '../../core/theme';
-import { Screen, Section } from '../../Screen';
+import { Screen } from '../../Screen';
 import { Header } from '../../Header';
 import { Text } from '../../Text';
 import { ErrorState, SkeletonList, StatusBanner, StatusPill } from '../../Feedback';
 import { BrandMark } from '../../Brand';
-import { FamilleLiveMap, LiveFacts, styles } from './parts';
+import { FamilleLiveMap, FamilleSection, familyLabel, LiveFacts, styles } from './parts';
 
 /**
  * What an invited co-parent sees from the private link: status, live map, timeline.
@@ -52,15 +52,15 @@ export function FamilleFollowScreen({ token, onClose }: { token: string; onClose
                 <LiveFacts live={t.live} />
               </>
             ) : null}
-            <Section title="Étapes">
+            <FamilleSection title="Étapes">
               <View style={{ gap: 6 }}>
                 {t.timeline.map((e, i) => (
                   <Text key={i} variant="caption" numeric>
-                    {formatTime(e.at)} · {e.label}
+                    {formatTime(e.at)} · {familyLabel(e.label)}
                   </Text>
                 ))}
               </View>
-            </Section>
+            </FamilleSection>
           </View>
         ))}
       </View>

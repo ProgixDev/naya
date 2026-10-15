@@ -20,7 +20,7 @@ import {
 import { colors } from '@naya/tokens';
 import { useTheme } from '../../core/theme';
 import { DEMO_MODE } from '../../core/apiBase';
-import { Screen, Section } from '../../Screen';
+import { Screen } from '../../Screen';
 import { Header } from '../../Header';
 import { Text } from '../../Text';
 import { Button } from '../../Button';
@@ -29,10 +29,11 @@ import { FormField, Pill } from '../../Form';
 import { Sheet } from '../../BottomSheet';
 import { toast } from '../../Toast';
 import { haptic } from '../../haptics';
+import { useSingleFlight } from '../../core/useSingleFlight';
 import { pickFile, uploadFile } from '../uploads';
 import { SafetyButton } from '../prototype';
 import { useFamily, useFamilyLive, useFamilyTrip } from './hooks';
-import { ApprovalCard, FamilleContactBar, FamilleLiveMap, FamilleTimeline, LiveFacts, ProofPhoto, styles } from './parts';
+import { ApprovalCard, FamilleContactBar, FamilleLiveMap, FamilleSection, FamilleTimeline, LiveFacts, ProofPhoto, styles } from './parts';
 
 const statusTone = (t: FamilyTrip) =>
   t.status === 'completed' ? 'success' : t.status === 'cancelled' ? 'danger' : t.status === 'awaiting_approval' ? 'warning' : isFamilyTripActive(t.status) ? 'info' : 'neutral';
@@ -50,46 +51,51 @@ export function FamilleTripScreen({ id, accountId, role, onBack }: { id: string;
   const live = useFamilyLive(accountId, trip.data);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
   const t = trip.data;
   const child = family.data?.children.find((c) => c.id === t?.childId);
   const refresh = async () => {
     await Promise.all([qc.invalidateQueries({ queryKey: qk.familyTrip(accountId, id) }), qc.invalidateQueries({ queryKey: qk.family(accountId) }), qc.invalidateQueries({ queryKey: qk.familyLive(accountId, id) })]);
   };
+  // One request per confirmation. This route takes no Idempotency-Key in the API client yet.
+  const cancel = useSingleFlight(({ tripId, why }: { tripId: string; why: string }) => api.prototype.cancelFamilyTrip(tripId, why), {
+    onSuccess: async () => {
+      setCancelOpen(false);
+      toast('Trajet annulé');
+      await refresh();
+    },
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  });
+  const busy = cancel.isPending;
   if (trip.isError) return <Screen header={<Header title="Trajet Famille" onBack={onBack} />}><ErrorState onRetry={() => trip.refetch()} /></Screen>;
   if (!t) return <Screen header={<Header title="Trajet Famille" onBack={onBack} />}><SkeletonList rows={4} /></Screen>;
   const last = t.approval ?? null;
   const blocked = t.status === 'picked_up' && last && (last.status === 'refused' || last.status === 'expired');
   const cancellable = ['scheduled', 'en_route', 'arrived', 'picked_up'].includes(t.status);
-  const cancel = async () => {
-    setBusy(true);
-    try {
-      await api.prototype.cancelFamilyTrip(t.id, reason.trim());
-      setCancelOpen(false);
-      toast('Trajet annulé');
-      await refresh();
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
+  // The trip title is the screen's only level-1 heading: the bar above it carries the back button only (FS-14).
   return (
-    <Screen keyboard header={<Header title={`${t.childName} · ${role === 'driver' ? 'trajet Famille' : t.driverName.split(' ')[0]}`} subtitle={formatDateTime(t.pickupAt)} onBack={onBack} />} testID={`famille-trip-${t.status}`}>
+    <Screen keyboard header={<Header onBack={onBack} />} testID={`famille-trip-${t.status}`}>
       <View style={{ gap: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <StatusPill tone={statusTone(t)} label={FAMILY_STATUS_LABELS[t.status]} testID="famille-status" />
+        <View style={{ gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <StatusPill tone={statusTone(t)} label={FAMILY_STATUS_LABELS[t.status]} testID="famille-status" />
+          </View>
+          {/* Polite live region: it changes with the trip status only, never with a countdown. */}
+          <Text variant="title" accessibilityRole="header" accessibilityLiveRegion="polite" testID="famille-trip-title">
+            {t.childName} · {FAMILY_STATUS_LABELS[t.status]}
+          </Text>
+          <Text variant="label" tone="muted">
+            {role === 'driver' ? 'Trajet Famille' : `Avec ${t.driverName.split(' ')[0]}`} · {formatDateTime(t.pickupAt)}
+          </Text>
+          <Text tone="muted">
+            {t.pickup.label} → {t.destination.label}
+          </Text>
         </View>
-        <Text variant="title" accessibilityLiveRegion="polite" testID="famille-trip-title">
-          {t.childName} · {FAMILY_STATUS_LABELS[t.status]}
-        </Text>
-        <Text tone="muted">
-          {t.pickup.label} → {t.destination.label}
-        </Text>
+        {/* Opened from the approval notification: the photo and the answer come first (FS-13). */}
+        {role === 'passenger' ? <ApprovalCard trip={t} accountId={accountId} onDone={refresh} /> : null}
         <FamilleLiveMap trip={t} live={live.data} testID="famille-live-map" />
         <LiveFacts live={live.data} />
 
-        {role === 'passenger' ? <ApprovalCard trip={t} accountId={accountId} onDone={refresh} /> : <DriverWaiting trip={t} />}
+        {role === 'driver' ? <DriverWaiting trip={t} /> : null}
         {blocked ? (
           <StatusBanner
             tone={last!.status === 'refused' ? 'danger' : 'warning'}
@@ -122,27 +128,27 @@ export function FamilleTripScreen({ id, accountId, role, onBack }: { id: string;
         {isFamilyTripActive(t.status) ? <SafetyButton familyTripId={t.id} location={live.data?.location ?? t.location} /> : null}
 
         {t.pickupPhoto || t.dropoffPhoto ? (
-          <Section title="Photos">
+          <FamilleSection title="Photos">
             <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
               <ProofPhoto proof={t.pickupPhoto} accountId={accountId} label="Prise en charge" />
               <ProofPhoto proof={t.dropoffPhoto} accountId={accountId} label="Dépôt à l’école" />
             </View>
-          </Section>
+          </FamilleSection>
         ) : null}
 
         {t.status === 'cancelled' && t.cancellation ? <StatusBanner tone="danger" title="Trajet annulé" message={t.cancellation.reason} /> : null}
         {t.status === 'completed' ? <StatusBanner tone="success" title="Trajet terminé" message="Photo à l’école et remise confirmées. Le journal reste dans l’historique." /> : null}
 
-        <Section title="Journal du trajet">
+        <FamilleSection title="Journal du trajet">
           <FamilleTimeline trip={t} testID="famille-timeline" />
-        </Section>
+        </FamilleSection>
 
         {cancellable ? <Button label="Annuler ce trajet" variant="ghost" full onPress={() => setCancelOpen(true)} testID="famille-cancel" /> : null}
       </View>
       <Sheet visible={cancelOpen} onClose={() => setCancelOpen(false)} dismissible={!busy} title="Annuler ce trajet ?" subtitle={role === 'driver' ? 'Le parent est prévenu. Si l’enfant est avec vous, remettez-le à sa famille avant de partir.' : 'La chauffeuse est prévenue immédiatement.'}>
         <View style={{ gap: 12 }}>
           <FormField label="Motif" value={reason} onChangeText={setReason} placeholder={role === 'driver' ? 'Enfant remis à sa famille sur place' : `${t.childName} est malade aujourd’hui`} />
-          <Button label="Confirmer l’annulation" variant="danger" full loading={busy} disabled={!reason.trim()} onPress={cancel} testID="famille-cancel-confirm" />
+          <Button label="Confirmer l’annulation" variant="danger" full loading={busy} disabled={!reason.trim()} onPress={() => cancel.run({ tripId: t.id, why: reason.trim() })} testID="famille-cancel-confirm" />
         </View>
       </Sheet>
     </Screen>
@@ -154,13 +160,14 @@ function DriverWaiting({ trip }: { trip: FamilyTrip }) {
   const pending = trip.approval?.status === 'pending' ? trip.approval : null;
   const { seconds } = useDeadline(pending?.expiresAt ?? null, 500);
   if (!pending) return null;
+  // The banner is an alert: its text stays fixed, so screen readers do not read every tick (FS-14).
   return (
-    <StatusBanner
-      tone="info"
-      title="En attente de l’accord du parent"
-      message={`Ne démarrez pas avant l’accord · ${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s restantes`}
-      testID="famille-waiting-approval"
-    />
+    <View style={{ gap: 6 }}>
+      <StatusBanner tone="info" title="En attente de l’accord du parent" message="Ne démarrez pas avant l’accord." testID="famille-waiting-approval" />
+      <Text variant="caption" tone="muted" numeric testID="famille-waiting-countdown">
+        {Math.floor(seconds / 60)} min {String(seconds % 60).padStart(2, '0')} s restantes pour la réponse du parent
+      </Text>
+    </View>
   );
 }
 

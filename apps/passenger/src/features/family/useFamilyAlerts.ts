@@ -3,10 +3,9 @@ import { AppState, Platform } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useQueryClient } from '@tanstack/react-query';
-import { errorMessage, newIdempotencyKey, qk } from '@naya/api';
-import { useApi } from '@naya/api/react';
-import { haptic, toast, useFamily } from '@naya/ui';
-import type { FamilyNotification } from '@naya/domain';
+import { qk } from '@naya/api';
+import { familyNotificationCopy, haptic, toast, useFamily } from '@naya/ui';
+import type { FamilyNotification, FamilyTrip } from '@naya/domain';
 
 const CATEGORY = 'famille-start';
 const native = Platform.OS !== 'web';
@@ -15,11 +14,10 @@ if (native) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
   });
-  // Remote approval straight from the notification (« Approuver le départ »).
-  Notifications.setNotificationCategoryAsync(CATEGORY, [
-    { identifier: 'approve', buttonTitle: 'Approuver le départ', options: { opensAppToForeground: true } },
-    { identifier: 'open', buttonTitle: 'Voir la photo', options: { opensAppToForeground: true } },
-  ]).catch(() => undefined);
+  // No approval from the notification itself: the parent must see the pick-up photo first, so
+  // the only action opens the approval card in the app (FS-13). Registering the category again
+  // replaces the earlier « Approuver le départ » action.
+  Notifications.setNotificationCategoryAsync(CATEGORY, [{ identifier: 'open', buttonTitle: 'Voir la photo et répondre', options: { opensAppToForeground: true } }]).catch(() => undefined);
 }
 
 /**
@@ -28,11 +26,14 @@ if (native) {
  * push (ADR-0013): this runs while the app is open, polling the family overview.
  */
 export function useFamilyAlerts(accountId: string, enabled: boolean) {
-  const api = useApi();
   const qc = useQueryClient();
   const pathname = usePathname();
   const family = useFamily(accountId, enabled);
   const seen = useRef<Set<string> | null>(null);
+  const here = useRef(pathname);
+  useEffect(() => {
+    here.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     const trips = family.data?.trips;
@@ -46,42 +47,58 @@ export function useFamilyAlerts(accountId: string, enabled: boolean) {
     for (const { n, t } of all) {
       if (seen.current.has(n.id!)) continue;
       seen.current.add(n.id!);
-      announce(n, t.id);
+      announce(n, t);
       if (n.kind === 'approval_request') {
         haptic.warning();
-        if (!pathname.startsWith(`/family/${t.id}`)) router.push({ pathname: '/family/[id]', params: { id: t.id } });
+        openTrip(t.id, here.current);
       }
     }
-  }, [family.data, pathname]);
+  }, [family.data]);
 
   useEffect(() => {
     if (!native) return;
-    const sub = Notifications.addNotificationResponseReceivedListener(async (r) => {
-      const data = r.notification.request.content.data as { tripId?: string; approvalId?: string; kind?: string } | undefined;
+    // Every response (the banner itself, « Voir la photo et répondre », or the « approve » action
+    // of a notification shown before this version) only opens the trip: no blind approval.
+    const respond = (r: Notifications.NotificationResponse) => {
+      const once = `${r.notification.request.identifier}:${r.actionIdentifier}`;
+      if (handled.has(once)) return;
+      handled.add(once);
+      const data = r.notification.request.content.data as { tripId?: string } | undefined;
       if (!data?.tripId) return;
-      if (r.actionIdentifier === 'approve' && data.approvalId) {
-        try {
-          await api.prototype.approveStart(data.tripId, { decision: 'approve', mode: 'remote', approvalId: data.approvalId }, newIdempotencyKey());
-          toast('Départ approuvé à distance', 'success');
-          await qc.invalidateQueries({ queryKey: qk.family(accountId) });
-        } catch (e) {
-          toast(errorMessage(e), 'danger');
-        }
-      }
-      router.push({ pathname: '/family/[id]', params: { id: data.tripId } });
-    });
+      void qc.invalidateQueries({ queryKey: qk.family(accountId) });
+      void qc.invalidateQueries({ queryKey: qk.familyTrip(accountId, data.tripId) });
+      openTrip(data.tripId, here.current);
+    };
+    // A tap that launched the app arrived before this listener existed: handle it once, too.
+    const launch = Notifications.getLastNotificationResponse();
+    if (launch) {
+      respond(launch);
+      Notifications.clearLastNotificationResponse();
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(respond);
     return () => sub.remove();
-  }, [api, qc, accountId]);
+  }, [qc, accountId]);
 }
 
-function announce(n: FamilyNotification, tripId: string) {
-  if (AppState.currentState === 'active' && n.kind !== 'approval_request') toast(n.title);
+/** Notification responses already acted on (a launch tap can also reach the listener). */
+const handled = new Set<string>();
+
+/** Opens the trip (where the approval card sits first) unless it is already on screen. */
+function openTrip(tripId: string, pathname: string) {
+  // Exact segment: « /family/T1 » must not count as « /family/T10 » being on screen.
+  if (pathname === `/family/${tripId}` || pathname.startsWith(`/family/${tripId}/`)) return;
+  router.push({ pathname: '/family/[id]', params: { id: tripId } });
+}
+
+function announce(n: FamilyNotification, t: FamilyTrip) {
+  const copy = familyNotificationCopy(n, t);
+  if (AppState.currentState === 'active' && n.kind !== 'approval_request') toast(copy.title);
   if (!native) return;
   Notifications.scheduleNotificationAsync({
     content: {
-      title: n.title,
-      body: n.body ?? '',
-      data: { tripId, approvalId: n.approvalId, kind: n.kind },
+      title: copy.title,
+      body: copy.body,
+      data: { tripId: t.id, kind: n.kind },
       ...(n.kind === 'approval_request' ? { categoryIdentifier: CATEGORY } : {}),
     },
     trigger: null,
