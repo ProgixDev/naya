@@ -29,11 +29,10 @@ export default function WithdrawalStatus() {
     last.current = w?.status;
   }, [w?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   const bal = wallet.data?.wallet;
-  const title = w?.status === 'confirmed' ? 'Retrait effectué' : w?.status === 'failed' ? 'Retrait échoué' : 'Retrait en cours';
   return (
     <Screen
-      header={<Header title={title} onBack={() => router.dismissTo('/wallet')} />}
-      footer={w && w.status !== 'pending' ? <Button label={w.status === 'failed' ? 'Réessayer' : 'Voir les mouvements'} size="major" full onPress={() => router.replace(w.status === 'failed' ? '/withdraw' : '/ledger')} testID="withdraw-done" /> : <Button label="Retour au portefeuille" variant="secondary" size="major" full onPress={() => router.dismissTo('/wallet')} />}
+      header={<Header title="Retrait" onBack={() => (router.canGoBack() ? router.back() : router.replace('/wallet'))} />}
+      footer={w && w.status !== 'pending' ? <Button label={w.status === 'failed' ? 'Réessayer' : 'Voir les mouvements'} size="standard" full onPress={() => router.replace(w.status === 'failed' ? '/withdraw' : '/ledger')} testID="withdraw-done" /> : <Button label="Retour au portefeuille" variant="secondary" size="standard" full onPress={() => router.dismissTo('/wallet')} />}
       testID={`withdraw-${w?.status ?? 'loading'}`}
     >
       {q.isLoading ? <SkeletonList rows={2} /> : null}
@@ -41,7 +40,6 @@ export default function WithdrawalStatus() {
       {w ? (
         <View style={{ gap: 14, marginTop: 4 }}>
           <OperationHero state={w.status === 'confirmed' ? 'confirmed' : w.status === 'failed' ? 'failed' : 'pending'} amount={-w.amount} kicker={`${w.status === 'confirmed' ? 'Retrait confirmé' : w.status === 'failed' ? 'Refusé par la banque' : 'Transfert en cours'} · ${w.id}`} caption={`${formatDateTime(w.updatedAt)} · ${w.destinationLabel}`} />
-          {w.status === 'pending' ? <StatusBanner compact tone="info" title={`${formatMoney(w.amount)} réservés`} message="restent dans le solde jusqu’à confirmation" testID="withdraw-pending-banner" /> : null}
           {w.status === 'failed' ? <StatusBanner compact tone="danger" title="Réservation libérée" message={`${w.failureReason ?? 'Virement refusé.'} ${formatMoney(w.amount)} à nouveau disponibles, aucun crédit ajouté.`} testID="withdraw-failed-banner" /> : null}
           {bal ? (
             <View style={{ gap: 6 }}>

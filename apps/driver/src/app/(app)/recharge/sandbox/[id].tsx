@@ -1,12 +1,12 @@
-import { useTheme , Button, Card, Header, IconDisc, Money, Screen, Text } from '@naya/ui';
+import { useTheme, Button, DEMO_MODE, Header, Money, Screen, StatusIcon, Text } from '@naya/ui';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { Lock } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';
+import { formatMoney } from '@naya/domain';
 import { useAccountId } from '@/lib/queries';
 
 /**
@@ -14,11 +14,17 @@ import { useAccountId } from '@/lib/queries';
  * The provider answers on its own (server-side timer, services/demo-api/src/services/finance.ts):
  * this screen only waits for the outcome, then closes onto the status screen. Closing it early is
  * safe: the payment continues and the status screen follows it. (The route keeps its historical
- * name; `(app)/_layout.tsx` registers it as a modal.)
+ * name; `(app)/_layout.tsx` registers it as a modal.) It exists only with the mock provider
+ * (DEMO_MODE, DRV-13): any other build lands on the recharge status instead.
  */
-export default function RechargeProcessing() {
-  useTheme();
+export default function RechargeProcessingRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  if (!DEMO_MODE) return <Redirect href={{ pathname: '/recharge/[id]', params: { id } }} />;
+  return <RechargeProcessing id={id} />;
+}
+
+function RechargeProcessing({ id }: { id: string }) {
+  useTheme();
   const api = useApi();
   const a = useAccountId();
   const q = useQuery({ queryKey: qk.recharge(a, id), queryFn: () => api.driver.getRecharge(id), refetchInterval: (s) => (s.state.data && s.state.data.status !== 'pending' ? false : 1000) });
@@ -36,25 +42,23 @@ export default function RechargeProcessing() {
   return (
     <Screen
       header={<Header title="Paiement en cours" onClose={close} />}
-      footer={<Button label="Fermer" variant="secondary" size="major" full onPress={close} testID="recharge-processing-close" />}
+      footer={<Button label="Fermer" variant="secondary" size="standard" full onPress={close} testID="recharge-processing-close" />}
       testID="recharge-processing"
     >
       <View style={{ gap: 14, marginTop: 4 }}>
-        <Card style={{ alignItems: 'center', gap: 10, paddingVertical: 28 }}>
-          <IconDisc size={52}>
-            <Lock size={24} color={colors.accent} />
-          </IconDisc>
+        <View style={{ alignItems: 'center', gap: 10, paddingVertical: 20 }} accessible accessibilityRole="progressbar" accessibilityLabel={`Paiement en cours${r ? ` de ${formatMoney(r.amount).replace('−', 'moins ')}` : ''}, confirmation de votre banque`} testID="recharge-processing-hero">
+          <StatusIcon kind="transfer" state="pending" size="lg" variant="disc" accessible={false} testID="recharge-processing-status" />
           {r ? <Money amount={r.amount} variant="display" /> : null}
           <Text variant="label" align="center">
             Confirmation de votre banque…
           </Text>
-          <ActivityIndicator color={colors.accent} accessibilityLabel="Paiement en cours" />
+          <ActivityIndicator color={colors.accent} />
           {r ? (
             <Text variant="caption" tone="muted" align="center" numeric>
               {r.providerName} · {r.id}
             </Text>
           ) : null}
-        </Card>
+        </View>
         <Text variant="caption" tone="muted" align="center">
           Vous pouvez fermer cette fenêtre : le paiement continue et votre solde se met à jour dès la confirmation.
         </Text>

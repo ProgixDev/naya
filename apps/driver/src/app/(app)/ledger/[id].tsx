@@ -3,14 +3,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatDateTime, formatMoney, TRANSFER_STATUS_LABELS } from '@naya/domain';
+import { formatDateTime, formatMoney, paymentMethodPresentation } from '@naya/domain';
 import { Card, ErrorState, Header, ListGroup, ListRow, Money, Screen, SkeletonList, StatusBanner, Text, TextButton } from '@naya/ui';
 import { FigureLine } from '@/components/Kit';
 import { useAccountId } from '@/lib/queries';
 
 const TYPE: Record<string, string> = {
   ride_commission: 'Commission · course espèces',
-  ride_net_credit: 'Revenu net · course carte',
+  ride_net_credit: 'Revenu net · course hors espèces',
   cancellation_fee_credit: 'Frais d’annulation (net)',
   recharge: 'Recharge confirmée',
   withdrawal: 'Retrait confirmé',
@@ -27,7 +27,7 @@ export default function LedgerEntry() {
   const q = useQuery({ queryKey: qk.ledgerEntry(a, id), queryFn: () => api.driver.ledgerEntry(id) });
   const d = q.data;
   return (
-    <Screen header={<Header title="Mouvement" onBack={() => router.back()} />} testID="ledger-detail">
+    <Screen header={<Header title="Mouvement" onBack={() => (router.canGoBack() ? router.back() : router.replace('/ledger'))} />} testID="ledger-detail">
       {q.isLoading ? <SkeletonList rows={2} /> : null}
       {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
       {d ? (
@@ -47,9 +47,9 @@ export default function LedgerEntry() {
           </Card>
           {d.ride || d.recharge || d.withdrawal ? (
             <ListGroup>
-              {d.ride ? <ListRow title={`Course ${d.ride.id}`} subtitle={`${d.ride.route.stops.map((s) => s.label).join(' → ')} · ${d.ride.paymentMethod.kind === 'cash' ? 'Espèces' : 'Carte'} · ${formatMoney(d.ride.terms.breakdown.total)}`} onPress={() => router.push({ pathname: '/rides/[id]', params: { id: d.ride!.id } })} /> : null}
-              {d.recharge ? <ListRow title={`Recharge ${d.recharge.id}`} subtitle={`${d.recharge.providerName} · ${TRANSFER_STATUS_LABELS[d.recharge.status]}`} /> : null}
-              {d.withdrawal ? <ListRow title={`Retrait ${d.withdrawal.id}`} subtitle={`${d.withdrawal.destinationLabel} · ${TRANSFER_STATUS_LABELS[d.withdrawal.status]}`} /> : null}
+              {d.ride ? <ListRow title={`Course ${d.ride.id}`} subtitle={`${d.ride.route.stops.map((s) => s.label).join(' → ')} · ${paymentMethodPresentation(d.ride.paymentMethod).shortLabel} · ${formatMoney(d.ride.terms.breakdown.total)}`} onPress={() => router.push({ pathname: '/rides/[id]', params: { id: d.ride!.id } })} testID="ledger-ride" /> : null}
+              {d.recharge ? <ListRow title={`Recharge ${d.recharge.id}`} subtitle={d.recharge.providerName} status={{ kind: 'transfer', state: d.recharge.status }} onPress={() => router.push({ pathname: '/recharge/[id]', params: { id: d.recharge!.id } })} testID="ledger-recharge" /> : null}
+              {d.withdrawal ? <ListRow title={`Retrait ${d.withdrawal.id}`} subtitle={d.withdrawal.destinationLabel} status={{ kind: 'transfer', state: d.withdrawal.status }} onPress={() => router.push({ pathname: '/withdraw/[id]', params: { id: d.withdrawal!.id } })} testID="ledger-withdrawal" /> : null}
             </ListGroup>
           ) : null}
           {d.entry.type === 'ride_commission' ? <StatusBanner compact tone="neutral" title="Course en espèces : vous avez gardé le total" message="seule la commission est débitée ici" /> : null}

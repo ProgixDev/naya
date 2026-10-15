@@ -30,7 +30,7 @@ export default function Ledger() {
   });
   const entries = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
-    <Screen header={<Header title="Mouvements" subtitle="Opérations confirmées uniquement." onBack={() => router.back()} />} testID="ledger-screen">
+    <Screen header={<Header title="Mouvements" subtitle="Opérations confirmées uniquement." onBack={() => (router.canGoBack() ? router.back() : router.replace('/wallet'))} />} testID="ledger-screen">
       <View style={{ gap: 12, marginTop: 4 }}>
         <ScrollView bounces={false} overScrollMode="never" horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -gutter, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: gutter, gap: 8, paddingVertical: 4 }} accessibilityRole="radiogroup">
           {FILTERS.map((f) => (
