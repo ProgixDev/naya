@@ -65,7 +65,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
             editable={editable}
             multiline={multiline}
             placeholder={floated ? placeholder : undefined}
-            placeholderTextColor={colors.disabledText}
+            placeholderTextColor={colors.muted}
             accessibilityLabel={label}
             accessibilityHint={error ?? helper}
             onFocus={(e) => {
@@ -336,8 +336,12 @@ export function Pill({ label, selected, onPress, icon, testID, disabled }: PillP
   );
 }
 
+/** Same ink as shadow.card in @naya/tokens: fixed in both schemes. */
+const SHADOW_INK = '#2E202C';
+
 const styles = themedStyles(() => StyleSheet.create({
-  field: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', paddingHorizontal: 20, gap: 10, shadowColor: colors.ink, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
+  // Control boundaries use outline (≥ 3:1 in both schemes); shadows use fixed plum ink, never colors.ink (a light glow in dark).
+  field: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, paddingHorizontal: 20, gap: 10, shadowColor: SHADOW_INK, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
   labelWrap: { position: 'absolute', left: 0, right: 0, transformOrigin: 'left center' },
   focused: { borderColor: colors.accent, borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.08, shadowRadius: 8 },
   errorBorder: { borderColor: colors.danger, borderWidth: 1.5 },
@@ -349,7 +353,7 @@ const styles = themedStyles(() => StyleSheet.create({
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: { position: 'absolute', left: 12, right: 12, bottom: 24, backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 20, gap: 4 },
   countryRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 12 },
-  box: { flex: 1, maxWidth: 52, height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignItems: 'center', justifyContent: 'center', shadowColor: colors.ink, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
+  box: { flex: 1, maxWidth: 52, height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, alignItems: 'center', justifyContent: 'center', shadowColor: SHADOW_INK, shadowOpacity: 0.025, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 0 },
   hiddenInput: { position: 'absolute', opacity: 0.011, height: 1, width: 1 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)', alignSelf: 'flex-start', shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline, alignSelf: 'flex-start', shadowColor: SHADOW_INK, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
 }));

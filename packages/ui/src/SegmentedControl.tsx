@@ -1,4 +1,4 @@
-import { themedStyles , colors } from '@naya/tokens';
+import { themedStyles, colors, getColorScheme } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
@@ -30,7 +30,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, t
   const indicator = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View testID={testID} accessibilityRole="tablist" style={styles.track} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width - 8)}>
-      {width > 0 ? <Animated.View style={[styles.indicator, { width: seg }, indicator]} /> : null}
+      {width > 0 ? <Animated.View testID={testID ? `${testID}-thumb` : undefined} style={[styles.indicator, { width: seg }, indicator]} /> : null}
       {options.map((o) => (
         <PressableScale
           key={o.value}
@@ -52,8 +52,15 @@ export function SegmentedControl<T extends string>({ options, value, onChange, t
   );
 }
 
+/**
+ * The selected thumb is always lighter than the track, as in light mode. In dark, `selected`
+ * (#3A2938) is lighter than every surface, so the track sinks to the page background with a
+ * hairline edge and the thumb rises to `elevated`. Light keeps today's mauve track.
+ * Border 1 + padding 3 keeps the 4-pt inset and the 44-pt height in both schemes.
+ */
 const styles = themedStyles(() => StyleSheet.create({
-  track: { flexDirection: 'row', backgroundColor: colors.selected, borderRadius: 999, padding: 4, minHeight: 44 },
-  indicator: { position: 'absolute', top: 4, bottom: 4, left: 4, borderRadius: 999, backgroundColor: colors.surface, shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  track: { flexDirection: 'row', backgroundColor: getColorScheme() === 'dark' ? colors.background : colors.selected, borderWidth: 1, borderColor: getColorScheme() === 'dark' ? colors.hairline : 'transparent', borderRadius: 999, padding: 3, minHeight: 44 },
+  // Shadow ink is fixed (shadow.card), never colors.ink, which glows in dark.
+  indicator: { position: 'absolute', top: 3, bottom: 3, left: 3, borderRadius: 999, backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.hairline, shadowColor: '#2E202C', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 36, paddingHorizontal: 8 },
 }));

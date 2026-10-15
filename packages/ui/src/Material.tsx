@@ -61,13 +61,32 @@ export function FrostLayers({ radius, tint = 'white' }: { radius: number; tint?:
   );
 }
 
+/**
+ * A plain constant, the same in both schemes. It must not read `colors.*`: a value read at
+ * import keeps the palette of that moment (the scheme is seeded from the device before this
+ * module runs, so on a dark cold start `colors.ink` would be a near-white glow for good).
+ * The shade is the light ink; in dark it simply disappears into the background. Frosted pills get
+ * their visible edge in dark from FrostLayers (`colors.glassBorder`).
+ */
 export const frostShadow: ViewStyle = {
-  shadowColor: colors.ink,
+  shadowColor: '#29232D',
   shadowOpacity: 0.07,
   shadowRadius: 12,
   shadowOffset: { width: 0, height: 4 },
   elevation: 2,
 };
 
-/** Hairline that keeps a frosted pill legible on a white surface. */
-export const frostOutline: ViewStyle = { borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(46,32,44,0.10)' };
+/**
+ * Hairline that keeps a frosted pill legible on its surface (DM-14). `borderColor` is a getter, so
+ * it is read when the style is used, never at import: a pill mounts with the current scheme's
+ * `colors.hairline`. React Native skips a style object that is the same reference as in the
+ * previous render, so a pill that is already mounted keeps its edge until it remounts when the
+ * scheme changes. To follow a live switch, spread it at render (`{ ...frostOutline }`) or inside a
+ * `themedStyles` factory: the spread reads the getter and makes a new object.
+ */
+export const frostOutline: ViewStyle = {
+  borderWidth: StyleSheet.hairlineWidth,
+  get borderColor() {
+    return colors.hairline;
+  },
+};

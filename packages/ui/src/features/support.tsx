@@ -196,7 +196,7 @@ export function TicketThreadScreen({ accountId, ticketId, onBack }: { accountId:
               {t.messages.map((m) => {
                 const mine = m.author === 'user';
                 return (
-                  <View key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '86%', backgroundColor: mine ? colors.selected : m.author === 'system' ? 'transparent' : colors.surface, borderRadius: 18, padding: m.author === 'system' ? 0 : 12, borderWidth: m.author === 'agent' ? 1 : 0, borderColor: colors.line }}>
+                  <View key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '86%', backgroundColor: mine ? colors.selected : m.author === 'system' ? 'transparent' : colors.surface, borderRadius: 18, padding: m.author === 'system' ? 0 : 12, borderWidth: m.author === 'agent' ? 1 : 0, borderColor: colors.hairline }}>
                     {m.author !== 'user' ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <MessageCircle size={14} color={colors.accent} />
@@ -229,12 +229,12 @@ function Composer({ value, onChange, sending, onSend }: { value: string; onChang
   useTheme();
   const ready = !!value.trim() && !sending;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, paddingVertical: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, paddingVertical: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline }}>
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder="Votre réponse"
-        placeholderTextColor={colors.disabledText}
+        placeholderTextColor={colors.muted}
         multiline
         maxLength={2000}
         accessibilityLabel="Répondre"

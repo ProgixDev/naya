@@ -111,7 +111,7 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 }
 
 const styles = themedStyles(() => StyleSheet.create({
-  group: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(41,35,45,0.045)' },
+  group: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.hairline },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
   rowPress: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: -16, paddingLeft: 16 },
   leading: { alignItems: 'center', justifyContent: 'center' },

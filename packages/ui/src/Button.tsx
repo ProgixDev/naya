@@ -80,7 +80,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
           disabled ? { backgroundColor: colors.disabledFill } : null,
           gloss ? glossShadow(variant === 'danger' ? 'danger' : 'accent') : null,
           frost ? frostShadow : null,
-          frost && variant === 'secondary' ? frostOutline : null,
+          frost && variant === 'secondary' ? { ...frostOutline } : null,
           focused ? styles.focus : null,
         ]}
       >
@@ -148,7 +148,7 @@ export function IconButton({ icon, accessibilityLabel, onPress, label, variant =
         {icon}
       </Glass>
     ) : (
-      <View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }, variant === 'solid' ? [frostShadow, frostOutline] : null]}>
+      <View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }, variant === 'solid' ? [frostShadow, { ...frostOutline }] : null]}>
         {variant === 'solid' || variant === 'tonal' ? <FrostLayers radius={size / 2} tint={variant === 'tonal' ? 'mauve' : 'white'} /> : null}
         {/* Wrapped so the icon paints above the absolutely positioned frost layers (web stacking). */}
         <View style={styles.disc}>{icon}</View>

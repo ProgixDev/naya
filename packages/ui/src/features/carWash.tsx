@@ -752,7 +752,7 @@ function Stars({ value, onChange }: { value: number; onChange?: (n: number) => v
   return (
     <View style={{ flexDirection: 'row', gap: 6 }} accessibilityRole={onChange ? 'adjustable' : undefined} accessibilityLabel={`Note : ${value} sur 5`}>
       {[1, 2, 3, 4, 5].map((n) => {
-        const icon = <Star size={30} color={n <= value ? colors.accent : colors.line} fill={n <= value ? colors.accent : 'transparent'} />;
+        const icon = <Star size={30} color={n <= value ? colors.accent : colors.outline} fill={n <= value ? colors.accent : 'transparent'} />;
         return onChange ? (
           <PressableScale key={n} onPress={() => (onChange(n), haptic.select())} accessibilityRole="button" accessibilityLabel={`${n} étoile${n > 1 ? 's' : ''}`} hitSlop={6} testID={`car-wash-star-${n}`}>
             {icon}
@@ -807,10 +807,10 @@ function CancelWashSheet({ accountId, order, visible, onClose, onCancelled }: { 
 const styles = themedStyles(() =>
   StyleSheet.create({
     entry: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.background },
-    pkg: { backgroundColor: colors.surface, borderRadius: radius.card, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.line },
+    pkg: { backgroundColor: colors.surface, borderRadius: radius.card, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.outline },
     pkgOn: { borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.selected },
     rule: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line },
-    dot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+    dot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.outline, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     dotCurrent: { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 6 },
     stem: { width: 2, flex: 1, minHeight: 14, backgroundColor: colors.line },
     photo: { width: '100%', aspectRatio: mockPhotoAspect, borderRadius: 14, backgroundColor: colors.map },

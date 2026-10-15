@@ -9,7 +9,7 @@ import { PressableScale } from '../../PressableScale';
 import { activeFamilyTrip, useFamily } from './hooks';
 
 const s = themedStyles(() => ({
-  card: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, backgroundColor: colors.surface, borderRadius: radius.card, padding: 14, marginBottom: 8, ...shadow.card },
+  card: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, backgroundColor: colors.surface, borderRadius: radius.card, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.hairline, ...shadow.card },
 }));
 
 /**

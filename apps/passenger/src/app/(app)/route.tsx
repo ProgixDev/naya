@@ -100,7 +100,7 @@ function PlaceSearch({ slot, cityId, onPick, onCancel, onPin }: { slot: Slot; ci
       <View style={{ gap: 12, marginTop: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 56, borderRadius: 28, paddingHorizontal: 20, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.accent }}>
           <Search size={20} color={colors.ink} />
-          <TextInput ref={input} autoFocus value={q} onChangeText={setQ} placeholder="Rechercher une adresse ou un lieu" placeholderTextColor={colors.disabledText} style={[{ flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]} accessibilityLabel={`Rechercher : ${title}`} testID="place-search" returnKeyType="search" />
+          <TextInput ref={input} autoFocus value={q} onChangeText={setQ} placeholder="Rechercher une adresse ou un lieu" placeholderTextColor={colors.muted} style={[{ flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.ink }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]} accessibilityLabel={`Rechercher : ${title}`} testID="place-search" returnKeyType="search" />
           {results.isFetching ? <ActivityIndicator color={colors.accent} /> : null}
         </View>
         <Button label="Choisir sur la carte" variant="secondary" size="compact" style={{ alignSelf: 'flex-start' }} icon={<MapPin size={16} color={colors.accent} />} onPress={onPin} testID="search-pin" />
