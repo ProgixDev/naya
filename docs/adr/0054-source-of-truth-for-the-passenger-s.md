@@ -58,6 +58,18 @@ Line numbers at commit `c38429d`.
 - `services/demo-api/src/services/rides.ts:70-72` (`createQuote` uses the city it is given); `services/demo-api/src/app.ts:257-271` (`PATCH /me`, no audit).
 - Enforced by: nothing.
 
+## Implementation status (15 Oct 2026)
+
+Status stays Proposed: the choice is Achraf's. Branch `feat/passenger-polish` implements steps 1 and 2 with one change:
+
+- The app reads the city from `/me` through `useCityId()` (`apps/passenger/src/lib/prefs.ts`). The device keeps a
+  cache, tagged with the account it belongs to (`cityAccountId`, prefs version 2), used only while `/me` loads; another
+  account's cache is ignored. This replaces "store no city on the device", so the first screen does not wait for `/me`.
+- The city picker calls `PATCH /me`, writes the answer into the `/me` cache and refetches `/me` and the payment methods.
+- Home, the route editor, the schedule picker and the scheduled-booking detail (the booking's own city) use it.
+
+Not done: steps 3 (the server refuses a quote for another city) and 4 (an audit entry per city change, API-12).
+
 ## Revisit when
 
 - A second city goes live, or

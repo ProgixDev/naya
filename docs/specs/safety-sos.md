@@ -27,7 +27,7 @@ Out of scope: support tickets in the « Sécurité » category (planned `specs/s
 | Parent and chauffeuse on a Famille trip | trip card in « Naya Famille » (both apps) | Same, tied to the family trip. |
 | Trusted contact | free-text name in the SOS sheet | Nobody is contacted. |
 | Safety desk | apps/admin, « Alertes SOS » (`/sos`) | Admins with `safety.respond` (the support agent has it), or `config.edit` for admin records stored before that permission existed. |
-| Emergency services | phone numbers in copy | The SOS sheet dials nothing (R12). |
+| Emergency services | phone numbers in copy and `tel:` links | The phone dials them; Naya does not connect the call (R12). |
 
 ## Rules
 
@@ -112,20 +112,25 @@ At `c38429d` any status could follow any other, `resolved` back to `new` include
 
 ### Emergency numbers
 
-**R12 · The apps name emergency numbers in copy. Only 19 is ever dialled, from the passenger's or (branch) the chauffeuse's contact sheet, never from the SOS sheet.** ⚠️ ❓
+**R12 · The apps name the Moroccan emergency numbers correctly, and each number shown as a button dials that number.** ⚠️ ❓
 
-- Enforced at: copy « Urgence : 19 (police) · 15 (SAMU) » (`packages/ui/src/features/support.tsx:149`) and « Appelez le 19 (police) ou le 15 (SAMU). » (`apps/passenger/src/features/help/topics.ts:48`). The passenger contact sheet row « Urgence · police (19) » dials `tel:19` (branch: `apps/passenger/src/features/ride/ContactSheet.tsx:22`).
-- Branch: the chauffeuse's contact sheet reads « En cas d’urgence, composez le 19 (police). » and has an « Appeler le 19 (police) » button that opens `tel:19` (`apps/driver/src/app/(app)/ride.tsx:205-213`); at `c38429d` it only named the number (`:224-226`). On both sheets, a device that cannot dial shows a native alert « Appel impossible depuis cet appareil » (a toast would sit behind the sheet).
-- Tested by: **not tested**.
-- Gap: PAX-11, PRD-23. The numbers below must be confirmed locally before any copy changes.
+Since 15 Oct 2026 (branch `feat/passenger-polish`, PAX-11, PRD-23) no screen says « SAMU ». The passenger app reads one list, `apps/passenger/src/features/help/emergency.ts`: police 19 (in cities), Protection civile 15 (fire and ambulance), Gendarmerie royale 177 (outside cities), and 112 from a mobile.
 
-| Number | Service, per the audit's verifiers | In the apps today | Status |
+- Passenger contact sheet (`apps/passenger/src/features/ride/ContactSheet.tsx`): « Police · 19 » (`call-police`), « Protection civile · 15 » (`call-civil-protection`), « Gendarmerie royale · 177 » (`call-gendarmerie`), each a `tel:` link, and a line for 112. The sheet scrolls, so the rows stay reachable at the largest text sizes.
+- Help: the « SOS et sécurité » topic names the four numbers, and its page has the same three call rows (`help-call-police`, `help-call-civil-protection`, `help-call-gendarmerie`).
+- Support form, category « Sécurité » (both apps, `packages/ui/src/features/support.tsx`): a banner « En cas de danger, appelez d’abord » with the same numbers and « Une demande n’est pas un appel d’urgence. » (`support-emergency-numbers`). The old « signalements traités en priorité » promise is gone. The text is written by hand there (the UI kit cannot import the app's list).
+- The SOS sheet (`packages/ui/src/features/prototype.tsx`), the chauffeuse's contact sheet (`apps/driver/src/app/(app)/ride.tsx`) and the Famille police button offer only « Appeler le 19 (police) ».
+- On every sheet, a device that cannot dial shows a native alert « Appel impossible depuis cet appareil ».
+- Tested by: `apps/passenger/src/features/help/__tests__/help.test.tsx` (the copy and the `tel:` links use the same numbers; no « SAMU »).
+- Gap: the numbers still need confirming with local ops (D2). 141 (SAMU) is not shown.
+
+| Number | Service, per the audit's verifiers | In the apps (15 Oct 2026) | Status |
 |---|---|---|---|
-| 19 | Police (in cities) | Dialled from the passenger contact sheet; named in support and help copy | to confirm |
-| 177 | Gendarmerie royale (outside cities) | Absent | to confirm |
-| 15 | Protection civile (fire and ambulance), not SAMU | Labelled « SAMU » (`packages/ui/src/features/support.tsx:149`, `apps/passenger/src/features/help/topics.ts:48`) | to confirm, then relabel |
+| 19 | Police (in cities) | Dialled from the passenger contact sheet, the help page, the SOS sheet, the driver sheet and Famille | to confirm |
+| 177 | Gendarmerie royale (outside cities) | Dialled from the passenger contact sheet and the help page; named in the support banner | to confirm |
+| 15 | Protection civile (fire and ambulance), not SAMU | Labelled « Protection civile »; dialled from the passenger contact sheet and the help page | to confirm |
 | 141 | SAMU (medical emergencies) | Absent | to confirm |
-| 112 | Emergency number from mobile phones | Absent | to confirm |
+| 112 | Emergency number from mobile phones | Named on the contact sheet, in help and in the support banner; not a button | to confirm |
 
 ## States and transitions
 
@@ -172,6 +177,8 @@ Integration status per capability: [status/integrations.md](../status/integratio
 - **Demo gating.** Hide the simulated sheet outside demo builds. [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md).
 
 ## Last verified
+
+2026-10-15, AI session (branch `feat/passenger-polish`): R12 re-read against `emergency.ts`, `ContactSheet.tsx`, `help/[topic].tsx`, `topics.ts` and `support.tsx`. The rest of this page was not re-checked.
 
 `2026-10-13 @ c38429d`, AI session; re-checked the same day against branch `chore/docs-foundation-and-fixes` (docs reconciliation).
 

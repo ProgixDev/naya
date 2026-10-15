@@ -69,6 +69,17 @@ Line numbers at commit `c38429d`.
 - `packages/domain/src/machines/verification.ts:13` (`approved: {}`, terminal); `packages/domain/src/entities.ts:100-114` (no expiry fields).
 - Enforced by: nothing.
 
+## Implementation status (15 Oct 2026)
+
+Status stays Proposed. Branch `feat/passenger-polish` adds in-app deletion for passengers only (PAX-12): Compte →
+« Préférences » → « Supprimer mon compte », a two-step sheet that calls `POST /me/deletion` (Idempotency-Key). The
+server refuses while she has an active ride, a Famille trip under way, an open SOS alert, a booked car wash, a pending
+payment, a refused ride payment or a wallet balance (`details.blockers`, each with a French message saying what to do);
+otherwise it anonymises the profile, cancels scheduled rides and Famille trips, and revokes the sessions (`services/demo-api/src/services/auth.ts`; tests `services/demo-api/test/accountDeletion.test.ts`).
+
+Open: a passenger with a wallet balance cannot delete, and nothing can refund a passenger wallet (needs a decision);
+driver deletion (PRD-35); suspension, revocation and expiry.
+
 ## Revisit when
 
 - App Store review raises deletion, or

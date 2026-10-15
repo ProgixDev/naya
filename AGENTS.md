@@ -69,7 +69,7 @@ Driver money: services/demo-api/src/services/finance.ts + packages/domain/src/wa
 - Driver wallet = projection of an append-only ledger. Each posting has a unique
   business key (ride:<id>:net, ride:<id>:commission ...). Only confirmed events credit.
 - Booking, money, SOS and family mutations send an Idempotency-Key (useSingleFlight). Mutations never
-  auto-retry. Today: the Oct 6 screens mint a new key per call (UI-17).
+  auto-retry. The key survives a network error or 5xx and changes after a success, a 4xx or a new payload (ADR-0053).
 - Accepting a quote freezes its terms (FrozenTerms). Rule changes never re-price a booked ride.
 - Offers expire on the server (city offerTimeoutSeconds, 10–120 s, default 30) and never auto-accept.
 - Women-only service. Identity review is manual, with no face or gender inference.
@@ -113,6 +113,11 @@ fix lands.
   It rewrites Xcode phases by regex, so re-check it after every Expo SDK upgrade (ADR-0050).
 - Simulator builds must be signed (CODE_SIGN_IDENTITY=-) or SecureStore fails and sign-in breaks.
 - Run pod install again after expo prebuild.
+- Typed routes live in the git-ignored apps/<app>/.expo/types/router.d.ts, written by Metro. A stale one fails
+  typecheck on routes that exist ("'/docs/famille' is not assignable"): start that app's Metro once, or regenerate it
+  with EXPO_ROUTER_APP_ROOT=$PWD/src/app node -e "require('@expo/router-server/build/typed-routes').regenerateDeclarations('.expo/types')"
+  from the app folder. `pnpm typecheck` runs in parallel and can be SIGKILLed when memory is short (Metro and a
+  simulator running): use `pnpm -r --workspace-concurrency=1 typecheck`.
 - Both Expo apps start Metro on 8081; run the driver on another port (e2e uses 8082).
 - Today: the category commission overrides the city commission (rides.ts:127). P8, ADR-0033.
 - Today: build numbers live in app.config.ts while eas.json says appVersionSource 'remote' (ADR-0049).

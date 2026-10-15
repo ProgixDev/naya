@@ -32,7 +32,7 @@ Added on Oct 6 (commit 89aae18), no Figma frame (listed at the end of the passen
 | `(app)/wallet` | `PassengerWalletScreen` | Compte → « Portefeuille Naya » |
 | `(app)/family` | `FamilyScreen role="passenger"` | Compte → « Naya Famille » |
 | `(app)/brand` | `BrandConceptsScreen` (6 logo concepts) | Compte → « Identité · 6 pistes » |
-| `(app)/preferences` | P13 plus `ThemePicker` (light / dark / system) | Compte → « Notifications » |
+| `(app)/preferences` | P13 plus `ThemePicker` (light / dark / system) and « Supprimer mon compte » (two-step sheet, `POST /me/deletion`, PAX-12) | Compte → « Préférences » (`account-preferences`) |
 | `dev` | `DevLauncher` (scenario launcher) | No visible entry (ADR-0058): 2 s long press on the welcome logo, or naya://dev; `__DEV__` builds only |
 
 ## Expo rules (replaces the old AGENTS.expo.md)
@@ -65,7 +65,9 @@ Added on Oct 6 (commit 89aae18), no Figma frame (listed at the end of the passen
 ## State and storage
 - Server data through TanStack Query hooks in `src/lib/queries.ts`, keyed with `qk` from `@naya/api`.
 - Session: `createSessionStore('passenger')`, key `naya.passenger.session` in SecureStore (sessionStorage on web).
-  Device prefs: AsyncStorage `naya.passenger.prefs`.
+  Device prefs: AsyncStorage `naya.passenger.prefs` (version 2).
+- City: the server's `user.cityId` is the truth (ADR-0054, PAX-05). Read it with `useCityId()` (`src/lib/prefs.ts`);
+  the prefs only cache it per account (`cityAccountId`). The city picker calls `PATCH /me`.
   Theme: AsyncStorage `naya.theme` (packages/ui).
 - Location is foreground only, with a manual pin fallback (`src/features/location`). Do not add background location here.
 
@@ -74,11 +76,17 @@ Added on Oct 6 (commit 89aae18), no Figma frame (listed at the end of the passen
   There are no passenger screen tests yet (PAX-13).
 - e2e: passenger web on :8081 (`pnpm --filter @naya/passenger web`). See [e2e runbook](../../docs/runbooks/e2e.md).
 
-## Contact sheet
+## Contact sheet and emergency numbers
 - `src/features/ride/ContactSheet.tsx` promises no masked number: calling and messaging through Naya are shown as
-  unavailable (no telephony provider), and « Urgence · police (19) » opens `tel:19`. Where the device cannot dial, it
-  shows `Alert.alert`, because toasts render behind modal sheets (UI-07).
+  unavailable (no telephony provider). It lists « Police · 19 » (`call-police`), « Protection civile · 15 »
+  (`call-civil-protection`) and « Gendarmerie royale · 177 » (`call-gendarmerie`), each a `tel:` link, plus 112 from a
+  mobile. Where the device cannot dial, it shows `Alert.alert`.
+- The numbers live in `src/features/help/emergency.ts` (PAX-11): the help topic, the topic page and the contact sheet
+  read them from there. The support form banner in `packages/ui/src/features/support.tsx` repeats them by hand (the UI
+  kit cannot import from the app): change both together.
 
 ## Today (known defects; delete when fixed)
-- Payment method is hidden below the quote sheet fold and wallet payments read as card or cash (P14, PAX-02).
+- The passenger wallet query key `['naya', a, 'passenger-wallet']` is written by hand in quote.tsx, CancelSheet.tsx
+  and packages/ui prototype.tsx instead of coming from `qk` (needs `qk.passengerWallet`). Payment labels and icons
+  must come from `paymentMethodPresentation()` (`@naya/domain`, P14); never show `paymentMethod.label` raw.
 - The quote always starts on category 'standard' (`quote.tsx:55`, PAX-08), so the category commission applies (P8).

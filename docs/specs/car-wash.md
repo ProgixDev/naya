@@ -2,7 +2,7 @@
 title: "Lavage à domicile (mobile car wash)"
 status: Draft
 owner: Achraf
-last_verified: 2026-10-13 @ feat/car-wash
+last_verified: 2026-10-15 @ feat/passenger-polish (R5, R7, R8, R9 only)
 related: [ADR-0058, ADR-0003, ADR-0005, ADR-0007, ADR-0009, ADR-0013, ADR-0029, ADR-0040, docs/tasks/2026-10-13.md (task 5)]
 ---
 
@@ -41,7 +41,11 @@ a chauffeuse for her Naya car. There is no washer app: the demo API plays the te
   an active zone of the city (`OUT_OF_ZONE`). Parking notes (≤ 200 characters) go to the team. The car is make, model,
   colour and plate; a driver's form is prefilled from her approved vehicle, and `vehicleId` must be her own.
 - **R5 ✅ When.** « Maintenant » estimates the start at now + `nowEtaMinutes` and is refused outside opening hours.
-  « Planifier » accepts only an offered slot (`assertWashStartAllowed`).
+  « Planifier » accepts only an offered slot (`assertWashStartAllowed`). Since 15 Oct 2026 (CW-04) the booking screen
+  applies the same hours check: outside them it selects « Planifier », shows « « Maintenant » n’est pas disponible » with
+  the first free slot (`car-wash-now-closed`), and preselects the first day that has a free slot. The server still
+  refuses a « Maintenant » order that arrives after closing. VoiceOver is not told the « Maintenant » option is disabled
+  (SegmentedControl cannot disable one option).
 - **R6 ✅ Who may order.** Manual identity review is what the women-only rule rests on, so both roles need it (CW-02):
   - Passengers need an approved identity case.
   - Drivers need an approved dossier chauffeuse (person case: identity and licence). A driver whose dossier is a draft,
@@ -54,7 +58,12 @@ a chauffeuse for her Naya car. There is no washer app: the demo API plays the te
 - **R7 ✅ Payment uses the existing methods.** Passengers: cash, card, Portefeuille Naya, « Wallet marocain », each
   available under the same city rules as rides. Drivers: Portefeuille chauffeuse or cash.
   - Card: a payment is created at completion and confirmed by the mock provider (same signed path as rides).
-  - Portefeuille Naya: the price is held at booking, settled at completion, released on cancellation.
+  - Portefeuille Naya: the price is held at booking, settled at completion, released on cancellation. The wallet
+    history reads « Lavage · LV-xxx » and « Frais d’annulation · LV-xxx » (CW-07; entries written before 15 Oct 2026
+    keep « Course · LV-xxx »).
+  - Wallet options carry `balance` (centimes, `GET /car-wash/payment-options`). The screen offers a wallet only when it
+    covers the price, the same test the server applies at booking; otherwise the row reads « Solde insuffisant pour X ·
+    Disponible : Y » and cannot be selected (CW-M3).
   - Portefeuille chauffeuse: debited at booking (ledger `car_wash`, key `wash:<id>:charge`, needs the available balance),
     refunded minus the fee on cancellation (`car_wash_refund`, key `wash:<id>:refund`).
   - Cash and wallet marocain: confirmed at completion (mock, no provider).
@@ -64,8 +73,12 @@ a chauffeuse for her Naya car. There is no washer app: the demo API plays the te
   10 s after assignment, so the « Annulation gratuite jusqu’à HH:MM » the sheet shows must hold; CW-01). After that window:
   20 MAD while the team is assigned, 30 MAD once it is en route; never above the price. The preview and the cancel use
   the same function at the same instant: the customer must acknowledge the fee shown (`acknowledgedFee`); a changed fee
-  answers `CONFLICT`.
-- **R9 ✅ Tracking.** The order screen polls every 2 s while the order is open (ADR-0013) and shows the five-step timeline,
+  answers `CONFLICT`. Booking and cancelling keep one Idempotency-Key per intent through `useSingleFlight` (kept after a
+  network error or 5xx, new after a success, a 4xx or a changed payload; CW-12, ADR-0053). The rating takes no key; a
+  sent rating keeps its button disabled.
+- **R9 ✅ Tracking.** The order screen polls every 2 s while the order is open (ADR-0013); once it is closed, it keeps
+  polling (every 4 s) only while a card payment is pending, the one kind a provider settles on its own (CW-M1). It
+  shows the five-step timeline,
   the team's position (moved by the mock backend) and ETA while en route, before photos when washing starts, after photos and the receipt
   at completion, then a 1–5 rating (once).
 - **R10 ✅ Mock team, shown as a real one** (changed 14 Oct 2026, [ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md);

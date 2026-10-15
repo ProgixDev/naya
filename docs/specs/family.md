@@ -22,6 +22,21 @@ Line numbers refer to commit `c38429d`, except where a line says **(branch)**: t
 > and `packages/ui/src/features/famille/` (parent approval, live position, drop-off photo); re-check them against
 > that code before relying on a line number.
 
+> **15 Oct 2026 (branch `feat/passenger-polish`; FS-12 to FS-15 of the [14 October verification](../audits/2026-10-14-verification.md)).**
+> - **Codes (FS-12).** The parent sees each recipient's handover code again, masked; a tap reveals it for 15 s
+>   (`famille-code-<childId>-<recipientId>`). Only the parent's payload carries codes (`famille.ts`); the chauffeuse
+>   still never receives one (R7).
+> - **Remote approval (FS-13).** The « famille-start » notification has a single action, « Voir la photo et
+>   répondre », which opens the trip; nothing approves the start from the notification without the pick-up photo. A tap
+>   that cold-launches the app opens `/family/[id]` after sign-in (`apps/passenger/src/features/family/useFamilyAlerts.ts`).
+>   The approval card sits above the map on the trip screen and shows its own countdown (`famille-approval-countdown`).
+> - **Screen readers and layout (FS-14).** The map chips stack top-left (GPS, then the ETA chip `famille-live-eta-chip`);
+>   countdowns no longer tick in a live region (only state changes are announced); one level-1 heading per Famille screen.
+> - **Wording (FS-15).** Notifications, the timeline and the invite copy no longer force a gender on the child, and the
+>   invite no longer says « invité·e ». Still open: the domain label « Déposé · photo et remise confirmées »
+>   (`FAMILY_STATUS_LABELS.completed`) and the server strings in `services/demo-api/src/services/famille.ts`.
+> - Still open: cancel, call, police, incident and guardian actions send no Idempotency-Key (`packages/api/src/client.ts`).
+
 ## Purpose
 
 A parent's subscription that gives her child a dedicated chauffeuse for planned, recurring trips, with a proof at each step and a handover to an authorised person. It answers client feedback item 2 (`docs/MOBILE-FEEDBACK-AUDIT.md:20`), and the [founder brief](../tasks/2026-10-13.md) (task 4) asks to extend it.
@@ -264,6 +279,8 @@ Task 4 of the [founder brief](../tasks/2026-10-13.md). None of this is built. Pl
 - **Module.** The family code lives in the "prototype" module under `/prototype` ([ADR-0039](../adr/0039-future-of-the-prototype-module.md)).
 
 ## Last verified
+
+2026-10-15, AI session (branch `feat/passenger-polish`): only the 15 Oct note at the top was checked, against `packages/ui/src/features/famille/` and `useFamilyAlerts.ts`.
 
 `2026-10-13 @ c38429d`, AI session; re-checked the same day against branch `chore/docs-foundation-and-fixes` (docs reconciliation).
 

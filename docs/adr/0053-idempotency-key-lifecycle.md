@@ -66,6 +66,21 @@ Line numbers at commit `c38429d`.
 - `apps/admin/src/pages/Finance.tsx:173` (one key per dialog); `services/demo-api/src/app.ts:851-857` (correction route skips `idempotent()`); `services/demo-api/src/services/finance.ts:291-298` (ledger key `correction:<key>`).
 - Enforced by: no test covers retry after a timeout.
 
+## Implementation status (15 Oct 2026)
+
+Status stays Proposed: the choice is Achraf's. Branch `feat/passenger-polish` implements the client rule as recommended:
+
+- `useSingleFlight` keeps the key after a network error, a timeout or a 5xx, and makes a new one after a success, a
+  definitive 4xx or a payload change, so screens that still call `reset()` in `onError` keep their key across a retry.
+  Tested in `packages/ui/src/__tests__/useSingleFlight.test.tsx`.
+- The Oct 6 screens (`packages/ui/src/features/prototype.tsx`: SOS, wallet top-up, Famille subscribe, invite) no longer
+  build a key inside the call (UI-17). A retried SOS reuses its frozen body only within 60 s.
+- Car-wash booking and cancelling pass their payload to `run()` (CW-12).
+
+Not done: the server side (admin corrections through `idempotent()`, scoped by admin id with a body hash; API-07), and
+the keys the Famille cancel, call, police, incident and guardian routes still do not take. CancelSheet and the quote
+read their payload from a closure, so a changed reason or method after an unanswered attempt gets a 409 once.
+
 ## Revisit when
 
 - The production backend stores idempotency rows in Postgres ([ADR-0045](0045-production-backend-and-live-integrations.md)): set their retention, or

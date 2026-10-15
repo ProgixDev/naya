@@ -147,16 +147,30 @@ cancellation fee booked again. Whether it should block is open.
 
 **R12 · Every screen describes the payment method as it really works: icon, timing, receipt text and fee text.** ⚠️
 
-Today the quote shows any non-card method with a banknote icon and « Débitée à l’arrivée », although the wallet is
-held at booking, and shows no wallet balance. The payment row and Maintenant/Planifier sit below the fold of the quote
-sheet. The receipt calls any confirmed non-cash payment « Carte · paiement confirmé ». Driver earnings label wallet
-rides « Carte ».
+Since 15 Oct 2026 (branch `feat/passenger-polish`) one helper, `paymentMethodPresentation()` in
+`packages/domain/src/payments.ts`, gives the passenger screens each method's icon, label and timing, following the
+server rules:
 
-- Enforced at: `apps/passenger/src/app/(app)/quote.tsx:189-196`, `:218`; `apps/passenger/src/app/(app)/receipt/[id].tsx:14-24`;
-  `apps/driver/src/app/(app)/(tabs)/earnings.tsx:69`.
-- Tested by: **not tested**.
-- Gap: P14 (PAX-02, PRD-15, VIS-03, VIS-25, DRV-08). The audit's fix: one `paymentMethodPresentation(kind)` helper
-  used on the quote, cancel sheet, receipt, payments and driver earnings screens.
+| Kind | Label | Timing shown | Cancellation fee (cancel sheet) |
+|---|---|---|---|
+| `cash` | « Espèces » | « À régler à la chauffeuse en fin de trajet » | « Les frais éventuels restent dus et figurent sur votre reçu. » (no promise of when: R19) |
+| `card` | « Carte •••• 4242 » | « Débité sur votre carte à l’arrivée » | « … débités sur votre carte •••• 4242. » |
+| `wallet` | « Portefeuille Naya » | « Réservé sur votre solde dès la réservation, débité à l’arrivée » | « Le montant réservé est libéré ; les frais éventuels sont débités de votre solde Naya. » |
+| `mobile_wallet` | « Paiement mobile » | « Réglé par paiement mobile à l’arrivée » | « … réglés aussitôt par paiement mobile. » |
+
+- The quote footer is pinned: Maintenant/Planifier, the payment row and Confirm stay visible (VIS-03); the map shrinks
+  when the system text scale is above 1.3. With the wallet selected, the quote shows the available balance (balance
+  minus other holds, `walletAvailable`) and disables Confirm when it does not cover the fare (`walletCovers`, the
+  server's hold test; VIS-25).
+- The receipt banner comes from `paymentReceiptState()`: « Portefeuille Naya · paiement confirmé », « Paiement mobile
+  confirmé », « Carte · paiement confirmé », and a fee's own wording.
+- The ride screen and the scheduled-booking detail use the same label (the detail also its icon, and « réservé sur
+  votre solde » for a wallet booking). Still raw: driver earnings label wallet rides « Carte » (DRV-08); the car-wash
+  receipt shows the stored label (the helper has no `driver_wallet` kind).
+- Enforced at: `packages/domain/src/payments.ts`; `apps/passenger/src/app/(app)/quote.tsx`, `receipt/[id].tsx`,
+  `payments.tsx`, `ride.tsx`, `scheduled/[id].tsx`; `apps/passenger/src/features/ride/CancelSheet.tsx`.
+- Tested by: `packages/domain/test/payments.test.ts`.
+- Gap: P14 (passenger side done; DRV-08 and the car-wash receipt open).
 
 ### Cancellation fees
 
@@ -215,11 +229,14 @@ receipt still says « Réglez avec une autre carte ».
 
 Neither happens. The fee payment is created `pending` with provider `cash` and no reference; nothing ever resolves
 it, no ledger entry is posted, and the admin's pending-payments list grows. Checked on 2026-10-13: an hour after a
-15 MAD cash fee, the payment was still `pending` and the driver's balance had not moved. The receipt promises
-« … à régler avec votre prochaine course. », and so does the cancel sheet.
+15 MAD cash fee, the payment was still `pending` and the driver's balance had not moved. Until 15 Oct 2026 the
+receipt and the cancel sheet promised « … à régler avec votre prochaine course. ». They now promise no date: the cancel
+sheet says « Les frais éventuels restent dus et figurent sur votre reçu. » and the receipt « Frais d’annulation à
+régler · X restent dus pour cette annulation. » (PAX-16, copy part). The cash cancel button still reads « Annuler et
+payer X ».
 
-- Enforced at: `services/demo-api/src/services/rides.ts:439-456`; copy at
-  `apps/passenger/src/app/(app)/receipt/[id].tsx:19`, `apps/passenger/src/features/ride/CancelSheet.tsx:60`.
+- Enforced at: `services/demo-api/src/services/rides.ts:439-456`; copy in `paymentMethodPresentation()` and
+  `paymentReceiptState()` (`packages/domain/src/payments.ts`).
 - Tested by: **not tested**.
 - Gap: P11 (DOM-08, API-02, PRD-05, PAX-16). Decision D7, [ADR-0041](../adr/0041-cash-and-fee-settlement.md). The
   audit's recommended default: add the fee to the next fare, post it under `ride:<id>:cancel-fee`, and credit the
@@ -228,10 +245,10 @@ it, no ledger entry is posted, and the admin's pending-payments list grows. Chec
 **R20 · Wallet and mobile-wallet fees are confirmed by a provider like any other money.** ⚠️ ❓
 
 Today a wallet fee is taken from the passenger wallet at once, a mobile-wallet fee is simply marked confirmed, and in
-both cases the chauffeuse is credited the net immediately. The cancel sheet tells both passengers the fee is « à
-régler avec votre prochaine course ».
+both cases the chauffeuse is credited the net immediately. Since 15 Oct 2026 the cancel sheet says so per method
+(R12 table); before, it told both passengers the fee was « à régler avec votre prochaine course ».
 
-- Enforced at: `services/demo-api/src/services/rides.ts:457-460`; `apps/passenger/src/features/ride/CancelSheet.tsx:60`.
+- Enforced at: `services/demo-api/src/services/rides.ts:457-460`; copy in `packages/domain/src/payments.ts`.
 - Tested by: **not tested**.
 - Gap: P7, P14. Decision D5, [ADR-0040](../adr/0040-passenger-wallet-model.md).
 
@@ -497,6 +514,8 @@ The same terminal outcome again is a duplicate; the other one is refused.
   until a payout provider exists.
 
 ## Last verified
+
+2026-10-15, AI session (branch `feat/passenger-polish`): R12, R19 and R20 re-read against `packages/domain/src/payments.ts` and the passenger quote, receipt, cancel sheet, ride and scheduled screens. The rest of this page was not re-checked.
 
 2026-10-13 @ `c38429d`, AI session (docs pass). Line numbers refer to that commit.
 
