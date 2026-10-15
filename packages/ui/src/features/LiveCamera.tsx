@@ -11,6 +11,10 @@ import { PressableScale } from '../PressableScale';
 import { haptic } from '../haptics';
 import { CaptureFrame, FRAME_RATIO, type FrameKind } from './CaptureGuide';
 
+/** The viewfinder is black in both schemes: text on it is fixed white, never `inverse` (DM-02). */
+const ON_MEDIA = '#FFFFFF';
+const ON_MEDIA_MUTED = 'rgba(255,255,255,0.82)';
+
 export interface LiveCameraProps {
   visible: boolean;
   kind: FrameKind;
@@ -61,10 +65,10 @@ export function LiveCamera({ visible, kind, title, tip, front, onClose, onCaptur
           <CameraView ref={ref} style={{ flex: 1 }} facing={facing} onCameraReady={() => setReady(true)} onMountError={onUnavailable} />
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16 }}>
-            <Text variant="title" tone="inverse" align="center">
+            <Text variant="title" align="center" style={{ color: ON_MEDIA }}>
               Autoriser l’appareil photo
             </Text>
-            <Text variant="body" align="center" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            <Text variant="body" align="center" style={{ color: ON_MEDIA_MUTED }}>
               Naya utilise l’appareil photo uniquement pour vos pièces justificatives, pendant l’inscription.
             </Text>
             {permission && !permission.canAskAgain ? (
@@ -85,10 +89,10 @@ export function LiveCamera({ visible, kind, title, tip, front, onClose, onCaptur
         {permission?.granted ? (
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 24, alignItems: 'center', gap: 18, paddingHorizontal: 28 }}>
             <View style={{ gap: 4, alignItems: 'center' }} accessibilityLiveRegion="polite">
-              <Text variant="heading" tone="inverse" align="center">
+              <Text variant="heading" align="center" style={{ color: ON_MEDIA }}>
                 {title}
               </Text>
-              <Text variant="caption" align="center" style={{ color: 'rgba(255,255,255,0.82)' }}>
+              <Text variant="caption" align="center" style={{ color: ON_MEDIA_MUTED }}>
                 {tip}
               </Text>
             </View>
@@ -99,9 +103,9 @@ export function LiveCamera({ visible, kind, title, tip, front, onClose, onCaptur
               accessibilityLabel="Prendre la photo"
               accessibilityState={{ disabled: !ready || busy, busy }}
               testID="camera-shutter"
-              style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', opacity: ready ? 1 : 0.5 }}
+              style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: ON_MEDIA, alignItems: 'center', justifyContent: 'center', opacity: ready ? 1 : 0.5 }}
             >
-              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: busy ? 'rgba(255,255,255,0.6)' : '#FFFFFF' }} />
+              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: busy ? 'rgba(255,255,255,0.6)' : ON_MEDIA }} />
             </PressableScale>
           </View>
         ) : null}

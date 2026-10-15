@@ -225,16 +225,24 @@ export function DriverCard({ driver, trailing, eta }: { driver: DriverSummary; t
  * Accounting balance, reserved funds, withdrawable funds and commission debt are four
  * distinct figures with distinct labels. Only the balance is the hero.
  */
+/**
+ * The wallet card is fixed plum in both schemes (DM-17): the theme accent turns pale pink in dark,
+ * and `inverse` turns near-black, so neither may be used here. Text on it is fixed white.
+ */
+const WALLET_PLUM = ['#7A3F64', '#6B3657', '#4E2541'] as const;
+const ON_PLUM = '#FFFFFF';
+const ON_PLUM_MUTED = 'rgba(255,255,255,0.82)';
+
 export function WalletSummary({ wallet, testID }: { wallet: Wallet; testID?: string }) {
   useTheme();
   const negative = wallet.balance < 0;
   return (
     <View testID={testID ?? 'wallet-summary'} style={styles.walletCard}>
-      <LinearGradient colors={['#7A3F64', colors.accent, colors.accentDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.card + 4 }]} />
-      <Text variant="caption" tone="inverse" style={{ opacity: 0.86 }}>
+      <LinearGradient colors={WALLET_PLUM} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: radius.card + 4 }]} />
+      <Text variant="caption" style={{ color: ON_PLUM_MUTED }}>
         Solde comptable
       </Text>
-      <Money amount={wallet.balance} variant="display" tone="inverse" weight="semibold" />
+      <Money amount={wallet.balance} variant="display" weight="semibold" style={{ color: ON_PLUM }} />
       <View style={styles.walletGrid}>
         <WalletFigure label="Disponible au retrait" amount={wallet.available} />
         <WalletFigure label="Réservé (retrait en cours)" amount={wallet.reserved} />
@@ -242,7 +250,7 @@ export function WalletSummary({ wallet, testID }: { wallet: Wallet; testID?: str
         {wallet.pendingRecharges > 0 ? <WalletFigure label="Recharge en attente" amount={wallet.pendingRecharges} note="non disponible" /> : null}
       </View>
       {negative ? (
-        <Text variant="caption" tone="inverse" style={{ opacity: 0.9, marginTop: 4 }}>
+        <Text variant="caption" style={{ color: ON_PLUM, marginTop: 4 }}>
           {wallet.offersBlockedByDebt ? 'Plafond atteint : nouvelles courses suspendues jusqu’à la recharge.' : 'Commissions dues sur les courses en espèces, compensées par vos courses carte.'}
         </Text>
       ) : null}
@@ -254,12 +262,12 @@ function WalletFigure({ label, amount, suffix, note }: { label: string; amount: 
   useTheme();
   return (
     <View style={{ width: '50%', paddingRight: 8, gap: 2, marginTop: 12 }} accessible accessibilityLabel={`${label} ${formatMoney(amount)}${suffix ?? ''}${note ? `, ${note}` : ''}`}>
-      <Text variant="micro" tone="inverse" style={{ opacity: 0.8 }}>
+      <Text variant="micro" style={{ color: ON_PLUM_MUTED }}>
         {label}
       </Text>
-      <Text variant="label" tone="inverse" weight="semibold" numeric>
+      <Text variant="label" weight="semibold" numeric style={{ color: ON_PLUM }}>
         {formatMoney(amount)}
-        <Text variant="caption" tone="inverse" style={{ opacity: 0.75 }}>
+        <Text variant="caption" style={{ color: ON_PLUM_MUTED }}>
           {suffix ?? ''}
         </Text>
       </Text>

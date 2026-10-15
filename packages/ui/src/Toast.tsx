@@ -1,4 +1,4 @@
-import { themedStyles , colors } from '@naya/tokens';
+import { getColorScheme, colors } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Keyboard, Platform, StyleSheet, View } from 'react-native';
@@ -127,6 +127,13 @@ function Layer({ active, base }: { active: boolean; base: boolean }) {
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardHeight();
   const { reduceMotion } = useA11yPrefs();
+  // Light: a dark ink pill (inverse text). Dark: an inverted ink pill would be the brightest thing
+  // on the screen, so the pill is a raised surface with a hairline edge and ink text (DM-15);
+  // danger and success keep their meaning through the soft status fills.
+  const dark = getColorScheme() === 'dark';
+  const pill = dark
+    ? { backgroundColor: tone === 'danger' ? colors.dangerSoft : tone === 'success' ? colors.successSoft : colors.elevated, borderWidth: 1, borderColor: colors.hairline }
+    : { backgroundColor: tone === 'danger' ? colors.danger : tone === 'success' ? colors.success : colors.ink };
   // A Modal's layer exists only while it is on top. The root's live region never unmounts:
   // Android (and the web) announce a change inside a region, not a region that appears together
   // with its text, which is what happens when a sheet closes and a toast is raised in the same tap.
@@ -144,9 +151,9 @@ function Layer({ active, base }: { active: boolean; base: boolean }) {
           testID="toast"
           entering={reduceMotion ? undefined : FadeInDown.duration(180)}
           exiting={reduceMotion ? undefined : FadeOutDown.duration(160)}
-          style={[styles.toast, tone === 'danger' && { backgroundColor: colors.danger }, tone === 'success' && { backgroundColor: colors.success }]}
+          style={[styles.toast, pill]}
         >
-          <Text variant="label" weight="semibold" tone="inverse" align="center">
+          <Text variant="label" weight="semibold" tone={dark ? 'ink' : 'inverse'} align="center">
             {message}
           </Text>
         </Animated.View>
@@ -155,6 +162,6 @@ function Layer({ active, base }: { active: boolean; base: boolean }) {
   );
 }
 
-const styles = themedStyles(() => StyleSheet.create({
-  toast: { maxWidth: 340, minHeight: 44, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 999, backgroundColor: colors.ink, justifyContent: 'center' },
-}));
+const styles = StyleSheet.create({
+  toast: { maxWidth: 340, minHeight: 44, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 999, justifyContent: 'center' },
+});

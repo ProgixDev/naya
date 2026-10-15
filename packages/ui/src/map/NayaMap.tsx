@@ -1,14 +1,16 @@
-import { getColorScheme , colors } from '@naya/tokens';
+import { colors, darkColors, getColorScheme } from '@naya/tokens';
 import { useTheme } from './../core/theme';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Constants from 'expo-constants';
-import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
+import MapView, { Marker, Polyline, type MapViewProps, type Region } from 'react-native-maps';
 import { useA11yPrefs } from '../a11y';
 import { MarkerView } from './Markers';
 import { TileMap } from './TileMap';
 import { DEFAULT_ZOOM, type NayaMapProps } from './types';
 import { useAnimatedCoordinate } from './useAnimatedCoordinate';
+
+type MapStyleElement = NonNullable<MapViewProps['customMapStyle']>[number];
 
 const googleConfigured = !!(Constants.expoConfig?.extra as { googleMapsConfigured?: boolean } | undefined)?.googleMapsConfigured;
 
@@ -16,6 +18,28 @@ const googleConfigured = !!(Constants.expoConfig?.extra as { googleMapsConfigure
 export const mapEngine: 'apple' | 'google' | 'tiles' = Platform.OS === 'ios' ? 'apple' : Platform.OS === 'android' && googleConfigured ? 'google' : 'tiles';
 
 const deltaForZoom = (zoom: number) => 360 / 2 ** zoom;
+
+/**
+ * Google Maps (Android) ignores userInterfaceStyle, so dark mode needs its own style, built from the
+ * fixed dark palette. Light passes an empty style: react-native-maps keeps the previous style when
+ * the prop is undefined, so [] is what resets it after a switch back to light.
+ */
+const googleDarkStyle: MapStyleElement[] = [
+  { elementType: 'geometry', stylers: [{ color: darkColors.map }] },
+  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: darkColors.muted }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: darkColors.background }] },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: darkColors.line }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry.fill', stylers: [{ color: darkColors.line }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: darkColors.background }] },
+  { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: darkColors.disabledText }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: darkColors.muted }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: darkColors.background }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: darkColors.disabledText }] },
+];
+const googleLightStyle: MapStyleElement[] = [];
 
 /**
  * Map adapter. iOS: Apple Maps (no key, Apple attribution drawn by MapKit). Android: Google
@@ -62,6 +86,7 @@ function NativeMap({ center, zoom = DEFAULT_ZOOM, markers = [], route, fitTo, on
         style={StyleSheet.absoluteFill}
         initialRegion={initial}
         userInterfaceStyle={getColorScheme()}
+        customMapStyle={Platform.OS === 'android' ? (getColorScheme() === 'dark' ? googleDarkStyle : googleLightStyle) : undefined}
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
         showsPointsOfInterests={false}
         showsCompass={false}
