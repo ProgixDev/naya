@@ -88,12 +88,18 @@ export function washCatalog(s: State, cityId: string) {
 const driverWalletId = (u: User) => `driver-wallet-${u.id}`;
 const driverCashId = (u: User) => `driver-cash-${u.id}`;
 
+/**
+ * A payment option as the booking screen receives it. Wallets also say what they can spend now
+ * (`balance`, centimes), so the screen offers them only for a price they cover (CW-M3).
+ */
+export type WashPaymentOptionView = WashPaymentOption & { balance?: number };
+
 /** Methods a customer may pay a wash with in this city. Passengers: their saved methods. Drivers: wallet or cash. */
-export function washPaymentOptions(s: State, user: User, cityId: string, at: string): WashPaymentOption[] {
+export function washPaymentOptions(s: State, user: User, cityId: string, at: string): WashPaymentOptionView[] {
   if (user.role === 'driver') {
     const wallet = walletOf(s, user.id, at);
     return [
-      { id: driverWalletId(user), kind: 'driver_wallet', label: 'Portefeuille chauffeuse', available: wallet.available > 0, note: `Disponible : ${formatMoney(wallet.available)}`, isDefault: wallet.available > 0 },
+      { id: driverWalletId(user), kind: 'driver_wallet', label: 'Portefeuille chauffeuse', available: wallet.available > 0, note: `Disponible : ${formatMoney(wallet.available)}`, isDefault: wallet.available > 0, balance: Math.max(0, wallet.available) },
       { id: driverCashId(user), kind: 'cash', label: 'Espèces à l’équipe de lavage', available: true, note: 'À régler à la fin du lavage', isDefault: wallet.available <= 0 },
     ];
   }
@@ -101,17 +107,19 @@ export function washPaymentOptions(s: State, user: User, cityId: string, at: str
   const mobileOn = (s.prototype?.catalog ?? defaultPrototypeCatalog()).payments.some((p) => p.kind === 'mobile' && p.enabled && (!p.cityIds.length || p.cityIds.includes(cityId)));
   const wallet = s.prototype?.wallets.find((w) => w.userId === user.id);
   const walletAvailable = wallet ? wallet.entries.filter((e) => e.status === 'confirmed').reduce((n, e) => n + e.amount, 0) + wallet.entries.filter((e) => e.status === 'pending' && e.amount < 0).reduce((n, e) => n + e.amount, 0) : 0;
+  const walletBalance = Math.max(0, walletAvailable);
   const own = s.paymentMethods.filter((p) => p.userId === user.id);
-  const options: WashPaymentOption[] = own.map((m) => ({
+  const options: WashPaymentOptionView[] = own.map((m) => ({
     id: m.id,
     kind: m.kind,
     label: m.label,
     available: m.kind === 'wallet' ? walletAvailable > 0 : m.kind === 'mobile_wallet' ? mobileOn : rideProviders.has(m.kind),
     note: m.kind === 'cash' ? 'À régler à l’équipe à la fin du lavage' : m.kind === 'wallet' ? `Disponible : ${formatMoney(Math.max(0, walletAvailable))}` : m.kind === 'card' ? 'Débitée à la fin du lavage' : 'Débité à la fin du lavage',
     isDefault: m.isDefault,
+    ...(m.kind === 'wallet' ? { balance: walletBalance } : {}),
   }));
   // The wallet methods are created on first use (see prototypeMethods); list them before they exist.
-  if (!own.some((m) => m.kind === 'wallet')) options.push({ id: `wallet-${user.id}`, kind: 'wallet', label: 'Portefeuille Naya', available: walletAvailable > 0, note: `Disponible : ${formatMoney(Math.max(0, walletAvailable))}`, isDefault: false });
+  if (!own.some((m) => m.kind === 'wallet')) options.push({ id: `wallet-${user.id}`, kind: 'wallet', label: 'Portefeuille Naya', available: walletAvailable > 0, note: `Disponible : ${formatMoney(walletBalance)}`, isDefault: false, balance: walletBalance });
   if (!own.some((m) => m.kind === 'mobile_wallet')) options.push({ id: `mobile-${user.id}`, kind: 'mobile_wallet', label: 'Wallet marocain', available: mobileOn, note: 'Débité à la fin du lavage', isDefault: false });
   return options;
 }
@@ -314,7 +322,7 @@ function settleCancellation(ctx: Ctx, s: State, o: WashOrder, fee: number, at: s
     const pm = s.paymentMethods.find((m) => m.id === o.paymentMethod.id);
     queueCardOutcome(s, ctx, p.providerRef!, pm?.providerToken ?? null);
   } else if (kind === 'wallet') {
-    settlePassengerWallet(s, o.customerId, `${o.id}-fee`, fee, at);
+    settlePassengerWallet(s, o.customerId, `${o.id}-fee`, fee, at, `Frais d’annulation · ${o.id}`);
     p.status = 'confirmed';
   } else if (kind === 'mobile_wallet' || kind === 'driver_wallet') {
     p.status = 'confirmed';
@@ -455,7 +463,7 @@ function settleWash(ctx: Ctx, s: State, o: WashOrder, at: string) {
       return;
     }
     case 'wallet':
-      settlePassengerWallet(s, o.customerId, o.id, o.terms.price, at);
+      settlePassengerWallet(s, o.customerId, o.id, o.terms.price, at, `Lavage · ${o.id}`);
       p.status = 'confirmed';
       tl(o, at, 'payment.confirmed', `Payé avec le portefeuille Naya · ${formatMoney(p.amount)}`);
       return;

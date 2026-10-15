@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { casablancaLocalToUtc, mad, PLACES, RABAT_RULES, toCasablancaParts } from '@naya/domain';
+import { casablancaLocalToUtc, formatMoney, mad, PLACES, RABAT_RULES, toCasablancaParts } from '@naya/domain';
 import { PHONES, setup, START } from './harness';
 
 type H = ReturnType<typeof setup>;
@@ -221,6 +221,45 @@ describe('car wash (« Lavage à domicile »)', () => {
     await h.ok('POST', `/car-wash/orders/${booked.id}/cancel`, { token: salma, body: { reasonCode: 'changed_plans' } });
     w = await h.ok('GET', '/prototype/wallet', { token: salma });
     expect(w.balance - w.reserved).toBe(mad(200));
+  });
+
+  it('passenger wallet: the option carries its spendable balance, and the history names washes and their fees (CW-07, CW-M3)', async () => {
+    const h = setup('first-ride');
+    const salma = await h.login(PHONES.salma, 'passenger');
+    const top = await h.ok('POST', '/prototype/wallet/topup', { token: salma, body: { amount: mad(200), providerId: 'demo-mobile' } });
+    await h.ok('POST', `/prototype/wallet/${top.id}/resolve`, { token: salma, body: { outcome: 'confirmed' } });
+    let wallet = (await optionsOf(h, salma)).find((o) => o.kind === 'wallet');
+    expect(wallet).toMatchObject({ available: true, balance: mad(200), note: `Disponible : ${formatMoney(mad(200))}` });
+    // Cards and cash carry no balance: only wallets can fall short of a price.
+    expect((await optionsOf(h, salma)).filter((o) => o.balance !== undefined).map((o) => o.kind)).toEqual(['wallet']);
+
+    // A « Maintenant » wash paid from the wallet, run to completion.
+    const now = await h.ok('POST', '/car-wash/orders', { token: salma, body: order({ paymentMethodId: wallet.id }) });
+    wallet = (await optionsOf(h, salma)).find((o) => o.kind === 'wallet');
+    expect(wallet.balance).toBe(mad(90));
+    h.advance(15);
+    h.advance(10);
+    h.advance(30);
+    h.advance(30);
+    h.advance(225);
+    expect((await h.ok('GET', `/car-wash/orders/${now.id}`, { token: salma })).order.status).toBe('completed');
+
+    // A scheduled wash cancelled late: the hold is released and the 20 MAD fee is taken.
+    const startAt = casablancaLocalToUtc(TOMORROW, '10:00');
+    const later = await h.ok('POST', '/car-wash/orders', { token: salma, body: order({ paymentMethodId: wallet.id, timing: 'scheduled', startAt, packageId: 'exterior', expectedPrice: mad(60) }) });
+    h.advance(20);
+    h.clock.advance((Date.parse(startAt) - h.clock.now()) / 1000 - 3600);
+    h.advance(0);
+    await h.ok('POST', `/car-wash/orders/${later.id}/cancel`, { token: salma, body: { reasonCode: 'wrong_time', acknowledgedFee: mad(20) } });
+
+    const w = await h.ok('GET', '/prototype/wallet', { token: salma });
+    const settled = w.entries.filter((e: any) => e.status === 'confirmed' && e.amount < 0).map((e: any) => [e.label, e.amount]);
+    expect(settled).toEqual([
+      [`Lavage · ${now.id}`, -mad(110)],
+      [`Frais d’annulation · ${later.id}`, -mad(20)],
+    ]);
+    expect(JSON.stringify(w.entries)).not.toMatch(/Course · LV-/);
+    expect(w.balance - w.reserved).toBe(mad(70));
   });
 
   it('driver: prefills her Naya vehicle, pays from her wallet ledger and is refunded minus the fee', async () => {

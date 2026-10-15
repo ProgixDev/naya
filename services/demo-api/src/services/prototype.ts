@@ -223,6 +223,8 @@ export function settlePassengerWallet(
   reference: string,
   amount: number,
   at: string,
+  /** What the history shows once settled. Rides keep « Course · <reference> »; washes pass their own (CW-07). */
+  label = `Course · ${reference}`,
 ) {
   const w = passengerWallet(s, userId);
   const prior = w.entries.find(
@@ -235,11 +237,11 @@ export function settlePassengerWallet(
   if (hold) {
     hold.status = 'confirmed';
     hold.amount = -amount;
-    hold.label = `Course · ${reference}`;
+    hold.label = label;
     hold.at = at;
   } else {
     reservePassengerWallet(s, userId, reference, amount, at);
-    return settlePassengerWallet(s, userId, reference, amount, at);
+    return settlePassengerWallet(s, userId, reference, amount, at, label);
   }
   passengerWallet(s, userId);
 }

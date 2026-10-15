@@ -14,19 +14,24 @@ import {
   isWashOpen,
   PAYMENT_STATUS_LABELS,
   toCasablancaParts,
+  washEndAt,
   washSlots,
   WASH_CANCEL_REASONS,
   WASH_PROGRESS,
   WASH_STATUS_LABELS,
+  type CancelInput,
   type LatLng,
   type Place,
   type SavedPlace,
   type ServiceZone,
+  type CreateWashOrderInput,
   type Vehicle,
   type WashOrder,
   type WashOrderStatus,
   type WashPackageId,
   type WashCar,
+  type WashPaymentOption,
+  type WashScheduling,
   type WashTiming,
 } from '@naya/domain';
 import { mockPhotos, mockPhotoAspect } from '@naya/assets';
@@ -146,6 +151,35 @@ function OrderRow({ order, onPress }: { order: WashOrder; onPress: () => void })
 
 const STEPS = ['Où est la voiture ?', 'La voiture', 'La formule', 'Quand ?', 'Paiement'] as const;
 const weekday = new Intl.DateTimeFormat('fr-MA', { weekday: 'short', day: 'numeric', timeZone: 'Africa/Casablanca' });
+const hhmm = (t: string) => t.replace(':', 'h');
+
+/**
+ * Why « Maintenant » cannot be ordered at this moment, or null when it can (CW-04). Same rule as the
+ * server (services/demo-api carWash.ts): the team arrives after the ETA, in Rabat time, and the wash
+ * must end by closing time.
+ */
+function nowUnavailable(cat: { nowEtaMinutes: number; scheduling: WashScheduling }, durationMinutes: number, nowMs: number): string | null {
+  const start = new Date(nowMs + cat.nowEtaMinutes * 60_000).toISOString();
+  const local = toCasablancaParts(start).time;
+  const end = toCasablancaParts(washEndAt(start, durationMinutes)).time;
+  const { openingTime, closingTime } = cat.scheduling;
+  if (local >= openingTime && end <= closingTime && end >= local) return null;
+  const hours = `Les équipes passent de ${hhmm(openingTime)} à ${hhmm(closingTime)}`;
+  const clock = toCasablancaParts(new Date(nowMs).toISOString()).time;
+  return clock >= openingTime && clock < closingTime ? `${hours} : un lavage commandé maintenant finirait trop tard.` : `${hours}.`;
+}
+
+/** What a wallet can spend now, in centimes; null for the other methods. Sent by the server with each wallet option. */
+function walletBalance(o: WashPaymentOption): number | null {
+  const balance = (o as WashPaymentOption & { balance?: unknown }).balance;
+  return typeof balance === 'number' ? balance : null;
+}
+
+/** A wallet is offered only when it covers the price (CW-M3); the other methods follow the server. */
+function canPayWith(o: WashPaymentOption, price: number | undefined): boolean {
+  const balance = walletBalance(o);
+  return o.available && (balance === null || price === undefined || balance >= price);
+}
 
 export interface CarWashBookingProps {
   accountId: string;
@@ -179,13 +213,14 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
   const [carDraft, setCar] = useState<WashCar | null>(null);
   const car = carDraft ?? { make: vehicle?.make ?? '', model: vehicle?.model ?? '', color: vehicle?.color ?? '', plate: vehicle?.plate ?? '' };
   const [packageId, setPackageId] = useState<WashPackageId>('exterior');
-  const [timing, setTiming] = useState<WashTiming>('now');
-  const [day, setDay] = useState(() => toCasablancaParts(new Date(serverClock.now()).toISOString()).date);
+  const [timingPick, setTiming] = useState<WashTiming>('now');
+  const [pickedDay, setDay] = useState<string | null>(null);
   const [pickedTime, setTime] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const cat = catalog.data?.available ? catalog.data : null;
   const pkg = cat?.packages.find((p) => p.id === packageId) ?? cat?.packages[0];
+  const nowMs = serverClock.now();
   const days = useMemo(() => {
     const now = serverClock.now();
     return Array.from({ length: cat?.scheduling.maxDaysAhead ?? 7 }, (_, i) => {
@@ -193,20 +228,29 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
       return { date: toCasablancaParts(iso).date, label: i === 0 ? 'Aujourd’hui' : i === 1 ? 'Demain' : weekday.format(new Date(iso)) };
     });
   }, [cat?.scheduling.maxDaysAhead]);
-  const slots = cat && pkg ? washSlots(cat.scheduling, pkg.durationMinutes, day, serverClock.now()) : [];
+  const slotsOn = (date: string) => (cat && pkg ? washSlots(cat.scheduling, pkg.durationMinutes, date, nowMs) : []);
+  // Untouched, the day is the first one with a free slot (late in the evening, that is tomorrow).
+  const firstOpenDay = days.find((d) => slotsOn(d.date).length > 0);
+  const day = pickedDay ?? firstOpenDay?.date ?? days[0]?.date ?? toCasablancaParts(new Date(nowMs).toISOString()).date;
+  const slots = slotsOn(day);
   // A slot that no longer fits (other day, longer package) falls back to the first one offered.
   const time = pickedTime && slots.includes(pickedTime) ? pickedTime : (slots[0] ?? null);
+  // Outside the teams' hours « Maintenant » is refused here, not at the final confirm (CW-04): the next slot is preselected.
+  const nowClosed = cat && pkg ? nowUnavailable(cat, pkg.durationMinutes, nowMs) : null;
+  const timing: WashTiming = nowClosed ? 'scheduled' : timingPick;
+  const firstSlot = firstOpenDay ? `${firstOpenDay.label === 'Aujourd’hui' || firstOpenDay.label === 'Demain' ? firstOpenDay.label.toLowerCase() : firstOpenDay.label} à ${hhmm(slotsOn(firstOpenDay.date)[0]!)}` : null;
 
-  const option = payOptions.data?.find((o) => o.id === paymentId && o.available) ?? payOptions.data?.find((o) => o.isDefault && o.available) ?? payOptions.data?.find((o) => o.available);
+  const usable = (o: WashPaymentOption) => canPayWith(o, pkg?.price);
+  const option = payOptions.data?.find((o) => o.id === paymentId && usable(o)) ?? payOptions.data?.find((o) => o.isDefault && usable(o)) ?? payOptions.data?.find(usable);
   const carComplete = car.make.trim() && car.model.trim() && car.color.trim() && car.plate.trim().length >= 2;
   const inZone = place ? isInService(place.location, zones) || !zones.length : false;
   const vehicleId = role === 'driver' && vehicle && car.plate.trim() === vehicle.plate ? vehicle.id : null;
 
-  const book = useSingleFlight(
-    async (_v: void, key: string) => {
-      if (!place || !pkg || !option) throw new Error('Commande incomplète.');
-      return api.carWash.create(
-        {
+  // The order is the mutation's variables: useSingleFlight keeps one Idempotency-Key per intent and
+  // makes a new one when what she orders changes (ADR-0053).
+  const draftOrder = (): CreateWashOrderInput | null =>
+    place && pkg && option
+      ? {
           cityId,
           location: place,
           parkingNotes: notes.trim(),
@@ -217,10 +261,10 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
           timing,
           startAt: timing === 'scheduled' && time ? casablancaLocalToUtc(day, time) : null,
           paymentMethodId: option.id,
-        },
-        key,
-      );
-    },
+        }
+      : null;
+  const book = useSingleFlight(
+    (input: CreateWashOrderInput, key: string) => api.carWash.create(input, key),
     {
       onSuccess: (order) => {
         haptic.success();
@@ -232,14 +276,17 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
       },
       onError: (e) => {
         haptic.error();
-        if (isApiError(e) && e.code === 'CONFLICT' && e.details?.price !== undefined) {
-          catalog.refetch();
-          book.reset();
-        }
+        if (isApiError(e) && e.code === 'CONFLICT' && e.details?.price !== undefined) catalog.refetch();
+        // A balance or a method may have changed since the list was loaded.
+        if (isApiError(e) && e.status >= 400 && e.status < 500) qc.invalidateQueries({ queryKey: qk.carWashPaymentOptions(accountId, cityId) });
         toast(errorMessage(e), 'danger');
       },
     },
   );
+  const confirm = () => {
+    const input = draftOrder();
+    if (input) book.run(input);
+  };
 
   const applyMyPosition = async () => {
     if (!locate) return;
@@ -272,6 +319,7 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
   const reason = [!place ? 'Indiquez où est garée la voiture.' : !inZone ? 'Cet endroit est hors de la zone desservie.' : undefined, 'Complétez la voiture et sa plaque.', undefined, 'Choisissez un créneau.', 'Choisissez un moyen de paiement.'][step];
   const back = () => (step === 0 ? onBack() : setStep(step - 1));
   const when = timing === 'now' ? `Dès que possible · arrivée estimée sous ${cat?.nowEtaMinutes ?? 40} min` : time ? formatDateTime(casablancaLocalToUtc(day, time)) : 'Créneau à choisir';
+  const pickTiming = (v: WashTiming) => (v === 'now' && nowClosed ? toast(`« Maintenant » n’est pas disponible. ${nowClosed}`) : setTiming(v));
 
   return (
     <Screen
@@ -282,7 +330,7 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
         step < STEPS.length - 1 ? (
           <Button label="Continuer" size="major" full disabled={!canContinue} disabledReason={canContinue ? undefined : reason} onPress={() => setStep(step + 1)} testID="car-wash-continue" />
         ) : (
-          <Button label={pkg ? `Confirmer · ${formatMoney(pkg.price)}` : 'Confirmer'} size="major" full loading={book.isPending} loadingLabel="Réservation…" disabled={!canContinue || !pkg || !place} disabledReason={canContinue ? undefined : reason} onPress={() => book.run()} testID="car-wash-confirm" />
+          <Button label={pkg ? `Confirmer · ${formatMoney(pkg.price)}` : 'Confirmer'} size="major" full loading={book.isPending} loadingLabel="Réservation…" disabled={!canContinue || !pkg || !place} disabledReason={canContinue ? undefined : reason} onPress={confirm} testID="car-wash-confirm" />
         )
       }
     >
@@ -365,7 +413,8 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
 
       {step === 3 ? (
         <View style={{ gap: 14 }}>
-          <SegmentedControl options={[{ value: 'now', label: 'Maintenant' }, { value: 'scheduled', label: 'Planifier' }]} value={timing} onChange={setTiming} testID="car-wash-timing" />
+          <SegmentedControl options={[{ value: 'now', label: 'Maintenant' }, { value: 'scheduled', label: 'Planifier' }]} value={timing} onChange={pickTiming} testID="car-wash-timing" />
+          {nowClosed ? <StatusBanner tone="neutral" title="« Maintenant » n’est pas disponible" message={`${nowClosed}${firstSlot ? ` Premier créneau libre : ${firstSlot}.` : ''}`} testID="car-wash-now-closed" /> : null}
           {timing === 'now' ? (
             <StatusBanner tone="neutral" title={`Arrivée estimée sous ${cat?.nowEtaMinutes ?? 40} min`} message={`Les équipes passent de ${cat?.scheduling.openingTime.replace(':', 'h') ?? '08h00'} à ${cat?.scheduling.closingTime.replace(':', 'h') ?? '20h00'}. ${pkg ? `Lavage de ${pkg.durationMinutes} min environ.` : ''}`} />
           ) : (
@@ -392,16 +441,21 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
       {step === 4 ? (
         <View style={{ gap: 16 }}>
           <ListGroup label="Paiement">
-            {(payOptions.data ?? []).map((o) => (
-              <ListRow
-                key={o.id}
-                testID={`car-wash-pay-${o.kind}`}
-                title={o.label}
-                subtitle={o.available ? (o.note ?? undefined) : `Indisponible${o.note ? ` · ${o.note}` : ''}`}
-                trailing={o.id === option?.id ? <Check size={20} color={colors.accent} /> : undefined}
-                onPress={o.available ? () => (setPaymentId(o.id), haptic.select()) : undefined}
-              />
-            ))}
+            {(payOptions.data ?? []).map((o) => {
+              const ok = usable(o);
+              // A wallet short of the price is shown with its balance (« Disponible : … ») but not offered.
+              const short = !ok && walletBalance(o) !== null;
+              return (
+                <ListRow
+                  key={o.id}
+                  testID={`car-wash-pay-${o.kind}`}
+                  title={o.label}
+                  subtitle={ok ? (o.note ?? undefined) : `${short ? `Solde insuffisant${pkg ? ` pour ${formatMoney(pkg.price)}` : ''}` : 'Indisponible'}${o.note ? ` · ${o.note}` : ''}`}
+                  trailing={o.id === option?.id ? <Check size={20} color={colors.accent} /> : undefined}
+                  onPress={ok ? () => (setPaymentId(o.id), haptic.select()) : undefined}
+                />
+              );
+            })}
           </ListGroup>
           <Card style={{ gap: 10 }} testID="car-wash-summary">
             <SummaryLine label="Où" value={place?.label ?? '—'} sub={notes.trim() || place?.address} />
@@ -481,7 +535,10 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
     refetchInterval: (q) => {
       const d = q.state.data;
       if (!d) return 4000;
-      return isWashOpen(d.order.status) ? 2000 : d.payments.some((p) => p.status === 'pending') ? 4000 : false;
+      if (isWashOpen(d.order.status)) return 2000;
+      // Only a card payment settles on its own (the provider answers). A pending cash fee waits for
+      // the assistance team, so polling for it would never end (CW-M1).
+      return d.payments.some((p) => p.status === 'pending' && p.method === 'card') ? 4000 : false;
     },
   });
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -658,7 +715,18 @@ function RatingBlock({ order, onDone }: { order: WashOrder; onDone: () => void }
   const api = useApi();
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
-  const [busy, setBusy] = useState(false);
+  // Single flight: a double tap sends one rating. The rating route takes no Idempotency-Key; the
+  // server refuses a second rating (409).
+  const rate = useSingleFlight((input: { stars: number; comment: string | null }) => api.carWash.rate(order.id, input.stars, input.comment), {
+    onSuccess: () => {
+      haptic.success();
+      onDone();
+    },
+    onError: (e) => {
+      haptic.error();
+      toast(errorMessage(e), 'danger');
+    },
+  });
   if (order.rating) {
     return (
       <Card style={{ gap: 6 }} testID="car-wash-rated">
@@ -668,24 +736,13 @@ function RatingBlock({ order, onDone }: { order: WashOrder; onDone: () => void }
       </Card>
     );
   }
-  const send = async () => {
-    setBusy(true);
-    try {
-      await api.carWash.rate(order.id, stars, comment.trim() || null);
-      haptic.success();
-      onDone();
-    } catch (e) {
-      toast(errorMessage(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <Card style={{ gap: 12 }} testID="car-wash-rating">
       <Text variant="label" weight="semibold">Comment s’est passé le lavage ?</Text>
       <Stars value={stars} onChange={setStars} />
       <FormField label="Un commentaire (facultatif)" value={comment} onChangeText={setComment} maxLength={500} multiline />
-      <Button label="Envoyer la note" disabled={!stars} disabledReason={stars ? undefined : 'Choisissez une note.'} loading={busy} onPress={send} testID="car-wash-rate" />
+      {/* Sent: stays disabled until the refreshed order shows the rating, so a second tap cannot hit the 409. */}
+      <Button label="Envoyer la note" disabled={!stars || rate.isSuccess} disabledReason={stars ? undefined : 'Choisissez une note.'} loading={rate.isPending} onPress={() => rate.run({ stars, comment: comment.trim() || null })} testID="car-wash-rate" />
     </Card>
   );
 }
@@ -714,22 +771,20 @@ function CancelWashSheet({ accountId, order, visible, onClose, onCancelled }: { 
   const preview = useQuery({ queryKey: qk.carWashCancelPreview(accountId, order.id), queryFn: () => api.carWash.cancellationPreview(order.id), enabled: visible, refetchInterval: visible ? 5000 : false });
   const [reason, setReason] = useState<string>('changed_plans');
   const [other, setOther] = useState('');
-  const cancel = useSingleFlight(
-    async (_v: void, key: string) => api.carWash.cancel(order.id, { reasonCode: reason, reasonText: reason === 'other' ? other.trim() || undefined : undefined, acknowledgedFee: preview.data?.fee ?? 0 }, key),
-    {
-      onSuccess: () => {
-        haptic.success();
-        toast('Lavage annulé');
-        onCancelled();
-      },
-      onError: (e) => {
-        haptic.error();
-        preview.refetch();
-        cancel.reset();
-        toast(errorMessage(e), 'danger');
-      },
+  // The request is the mutation's variables: a retry after a network error replays the same key,
+  // a changed reason or fee gets a new one (ADR-0053, CW-12).
+  const cancel = useSingleFlight((input: CancelInput, key: string) => api.carWash.cancel(order.id, input, key), {
+    onSuccess: () => {
+      haptic.success();
+      toast('Lavage annulé');
+      onCancelled();
     },
-  );
+    onError: (e) => {
+      haptic.error();
+      preview.refetch();
+      toast(errorMessage(e), 'danger');
+    },
+  });
   const fee = preview.data?.fee ?? 0;
   return (
     <Sheet visible={visible} onClose={onClose} title="Annuler le lavage ?" subtitle={preview.data?.explanation} testID="car-wash-cancel-sheet">
@@ -742,7 +797,7 @@ function CancelWashSheet({ accountId, order, visible, onClose, onCancelled }: { 
           ))}
         </View>
         {reason === 'other' ? <FormField label="Motif" value={other} onChangeText={setOther} maxLength={200} /> : null}
-        <Button label={fee > 0 ? `Annuler · ${formatMoney(fee)} de frais` : 'Annuler sans frais'} variant="danger" full loading={cancel.isPending} disabled={!preview.data || preview.data.reason === 'not_cancellable'} onPress={() => cancel.run()} testID="car-wash-cancel-confirm" />
+        <Button label={fee > 0 ? `Annuler · ${formatMoney(fee)} de frais` : 'Annuler sans frais'} variant="danger" full loading={cancel.isPending} disabled={!preview.data || preview.data.reason === 'not_cancellable'} onPress={() => cancel.run({ reasonCode: reason, reasonText: reason === 'other' ? other.trim() || undefined : undefined, acknowledgedFee: fee })} testID="car-wash-cancel-confirm" />
         <Button label="Garder mon lavage" variant="ghost" full onPress={onClose} />
       </View>
     </Sheet>
