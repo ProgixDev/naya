@@ -34,11 +34,17 @@ export const lightColors = {
   info: '#3C5A86',
   infoSoft: '#E6ECF5',
   map: '#EFE9EC',
+  // Component boundaries (WCAG 1.4.11: ≥ 3:1 against surface, background and elevated)
+  outline: '#8A7F8F', // switch off-track, strong control borders: 3.81:1 on surface, 3.57:1 on background
+  thumb: '#FFFFFF', // switch thumb, light in both schemes: 3.81:1 on outline
+  hairline: 'rgba(46,32,44,0.08)', // decorative separators and card edges; works on any surface
 } as const;
 
 export type ColorToken = keyof typeof lightColors;
 export const darkColors: Record<ColorToken, string> = {
   background: '#16121A', surface: '#231D28', selected: '#3A2938', ink: '#F4EDF5', muted: '#BBAFBE', inverse: '#201522', accent: '#E5B6D4', line: '#423648', accentPressed: '#D59AC2', accentDeep: '#382233', mauve: '#CDA0BF', mauveSoft: '#302432', elevated: '#2C2431', glass: 'rgba(35,29,40,0.88)', glassBorder: 'rgba(230,206,231,0.14)', scrim: 'rgba(0,0,0,0.65)', disabledFill: '#332A38', disabledText: '#8A7C91', success: '#9AD5B4', successSoft: '#203A2E', warning: '#F0C982', warningSoft: '#423320', danger: '#FFABB6', dangerSoft: '#48242F', info: '#A9C9F5', infoSoft: '#25344C', map: '#25202B',
+  // outline 4.04:1 on surface, 3.68:1 on elevated, 4.54:1 on background; thumb 3.54:1 on outline
+  outline: '#857A8C', thumb: '#F4EDF5', hairline: 'rgba(244,237,245,0.12)',
 };
 let scheme: 'light' | 'dark' = 'light';
 const listeners = new Set<() => void>();

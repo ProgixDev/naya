@@ -151,9 +151,11 @@ const tileFilter = Platform.OS === 'web' ? ({ filter: getColorScheme() === 'dark
   );
 }
 
-/** Calm, pearl-leaning basemap: desaturated on web where CSS filters exist. */
-
-
+/**
+ * The OSM attribution is a licence requirement, so it must stay legible over any tile. An opaque
+ * surface chip keeps muted text at 5.26:1 (light) and 7.82:1 (dark) whatever the tile below; the
+ * former white 70 % chip fell to 3.5:1 over dark tiles in light and 1.0:1 in dark.
+ */
 const styles = themedStyles(() => StyleSheet.create({
-  attribution: { position: 'absolute', left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 4, paddingHorizontal: 4 },
+  attribution: { position: 'absolute', left: 8, backgroundColor: colors.surface, borderColor: colors.hairline, borderWidth: StyleSheet.hairlineWidth, borderRadius: 4, paddingHorizontal: 4 },
 }));

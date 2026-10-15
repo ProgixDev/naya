@@ -1,19 +1,23 @@
 import { View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { logoConcepts, conceptSvg } from '@naya/assets';
-import { colors } from '@naya/tokens';
+import { colors, darkColors, lightColors } from '@naya/tokens';
 import { useTheme } from '../core/theme';
 import { Screen } from '../Screen';
 import { Header } from '../Header';
 import { Text } from '../Text';
 export function BrandConceptsScreen({ onBack }: { onBack: () => void }) {
-  useTheme();
+  const scheme = useTheme();
+  // The preview tile shows the symbol in the other scheme. A fixed dark tile matched the dark
+  // card exactly (#231D28 on #231D28) and vanished; in dark mode the card already is the dark
+  // preview, so the tile shows the light one instead.
+  const preview = scheme === 'dark' ? lightColors : darkColors;
   return (
     <Screen header={<Header title="Six pistes pour Naya" onBack={onBack} />}>
       <View style={{ gap: 18 }}>
         <Text tone="muted">
           Croquis vectoriels originaux · symbole, signature et aperçu sur fond
-          sombre.
+          {scheme === 'dark' ? ' clair' : ' sombre'}.
         </Text>
         {logoConcepts.map((c) => (
           <View
@@ -44,15 +48,16 @@ export function BrandConceptsScreen({ onBack }: { onBack: () => void }) {
               />
             </View>
             <View
+              testID={`logo-preview-${c.id}`}
               style={{
                 alignSelf: 'flex-start',
-                backgroundColor: '#231D28',
+                backgroundColor: preview.surface,
                 padding: 10,
                 borderRadius: 18,
               }}
             >
               <SvgXml
-                xml={conceptSvg(c.id, '#E5B6D4', false, '#231D28')}
+                xml={conceptSvg(c.id, preview.accent, false, preview.surface)}
                 width={52}
                 height={52}
               />
