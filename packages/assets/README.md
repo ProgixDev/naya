@@ -1,10 +1,10 @@
 # @naya/assets
 
-Provenance: every file here comes from `Naya-Expo-Handoff.zip` (Figma file nOuWsQ5MA8CdU5HsSGoXwP).
+Provenance: `brand/`, `illustrations/`, `characters/` and `avatars/` come from `Naya-Expo-Handoff.zip` (Figma file nOuWsQ5MA8CdU5HsSGoXwP). The onboarding photos, the cars and the mock photos were generated with GPT Image (see each line below).
 
 - `brand/` — "Rencontre" symbol, drawn wordmark, lockups and app marks, unchanged SVG.
 - `illustrations/`, `characters/` — image-generated transparent PNGs of original characters (Salma, Amina). Resized to 1080 px wide / cropped to their alpha bounds; aspect ratio and alpha preserved.
-- `photos/` — onboarding photos generated with GPT Image on 13 October 2026 from the founder's prompts (`docs/tasks/2026-10-13-onboarding-prompts.md`), cropped from 9:16 to 941 × 1100 JPEG. Shown on driver slide 1 and passenger slides 1 and 3 of `WelcomeJourney`.
-- `cars/` — original Naya Signature car (pearl, plum) and the top view used as the map marker. `*-small` variants for 130-pt usage.
+- `photos/` — onboarding photos, 940 × 1100 JPEG (cropped from 9:16, faces in the upper half; `WelcomeJourney` crops from the top), under 150 KB each. Slide 1 of each app (`naya-passageres-trajet.jpg`, `naya-chauffeuse-route.jpg`): generated with GPT Image on 13 October 2026 from the founder's prompts (`docs/tasks/2026-10-13-onboarding-prompts.md`). Passenger slide 2 (`naya-passagere-rythme.jpg`), passenger slide 3 (`naya-portail-ecole.jpg`) and driver slide 2 (`naya-chauffeuse-gains.jpg`): generated on 15 October 2026 with GPT Image (slides 2: prompts #6 and #7 of `docs/design/media-prompts/2026-10-14-image-prompts.md`; passenger slide 3: the owner's own prompt, not in the repo), QC'd and retouched (phone camera details, a visor sticker) before export. Every `WelcomeJourney` slide now shows a photo: passenger slides 1–3, driver slides 1–2.
+- `cars/` — original Naya Signature car, transparent PNG: pearl and plum side views (1080 px wide, `*-small` at 420 px for 130-pt usage) and a plum top view (103 × 192, left-hand drive) for the map. Generated on 15 October 2026 with GPT Image from prompts #1–#3 of `docs/design/media-prompts/2026-10-14-image-prompts.md`, QC'd (alpha cleaned, glass made opaque, top view flipped to left-hand drive) and fitted to the previous canvases, so `aspect.*` is unchanged. There is no pearl top view: a pearl car shows plum on the map.
 
 No third-party logos are stored here. Apple sign-in uses the native `AppleAuthenticationButton`; Google sign-in is hidden until configured (see docs/status/integrations.md).

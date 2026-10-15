@@ -7,14 +7,28 @@ export const illustrations = {
   driverWallet: require('../illustrations/naya-chauffeuse-portefeuille.png'),
 } as const;
 
-/** Onboarding photos (GPT Image, 13 October 2026), cropped from 9:16 to 941 × 1100 with the faces in the upper half. */
+/**
+ * Onboarding photos (GPT Image), cropped from 9:16 to 940 × 1100 JPEG with the faces in the upper half, because
+ * WelcomeJourney crops them from the top. Slide 1 of each app: 13 October 2026. Slides 2 and passenger slide 3:
+ * 15 October 2026, from the docs/design/media-prompts prompts, reviewed before export.
+ */
 export const photos = {
+  /** Driver slide 1. */
   driverOnRoad: require('../photos/naya-chauffeuse-route.jpg'),
+  /** Driver slide 2: a chauffeuse at the wheel, door open, checking her phone by the sea. */
+  driverEarnings: require('../photos/naya-chauffeuse-gains.jpg'),
+  /** Passenger slide 1. */
   passengersBetweenWomen: require('../photos/naya-passageres-trajet.jpg'),
-  familleDeparture: require('../photos/naya-famille-depart.jpg'),
+  /** Passenger slide 2: a passenger on a café terrace, looking at her phone. */
+  passengerRhythm: require('../photos/naya-passagere-rythme.jpg'),
+  /** Passenger slide 3: a chauffeuse at her car door greets a mother and her daughter by a green school gate. */
+  schoolGate: require('../photos/naya-portail-ecole.jpg'),
 } as const;
 
-/** Original Naya Signature car. Colour variants do not imply a fare tier. */
+/**
+ * Original Naya Signature car (GPT Image, 15 October 2026), transparent PNG. Colour variants do not imply a fare
+ * tier. `top` is plum only and left-hand drive.
+ */
 export const cars = {
   pearl: require('../cars/naya-signature-pearl.png'),
   plum: require('../cars/naya-signature-plum.png'),
@@ -49,5 +63,5 @@ export const aspect = {
   carSmall: 420 / 237,
   carTop: 103 / 192,
   portrait: 360 / 620,
-  photo: 941 / 1100,
+  photo: 940 / 1100,
 } as const;

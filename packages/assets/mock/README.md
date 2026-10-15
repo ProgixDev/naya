@@ -5,8 +5,9 @@ team's before and after shots, and the Naya Famille proof photos taken by a chau
 by the mock bot (or attached on a device without a camera). They are exported as `mockPhotos` from
 `@naya/assets` (`src/mock.ts`) and never labelled as mock in the UI.
 
-The files committed today are **neutral placeholder art** (drawn shapes and the Naya Signature car,
-no text, no people). To swap in real mock photos, replace a file **with the same name, the same
+The files committed today are photos generated on 15 October 2026 with GPT Image from the prompts below
+(car wash: prompts #4 and #5 of `docs/design/media-prompts/`) and QC'd before export
+(lettering on a tyre softened in « Après », which is aligned to « Avant »; 1200 × 900, JPEG q72–q82). To swap them, replace a file **with the same name, the same
 format (JPEG) and the same 4:3 ratio**. No code change is needed; restart Metro so it picks up the
 new file.
 
@@ -46,5 +47,6 @@ spot, so « Avant » and « Après » read as one car.
 > into the courtyard, a teacher waiting inside (out of focus). Whitewashed walls, green gate,
 > soft daylight. Faces not visible, no readable signage, no logos.
 
-Placeholder art was generated with Pillow from `cars/naya-signature-pearl.png` and simple shapes
-in the brand palette (14 October 2026).
+Provenance: generated on 15 October 2026 with GPT Image from the prompts above, QC'd and exported at 1200 × 900 under 200 KB. They replace the Pillow placeholder art
+of 14 October 2026. Known limits: the car in `famille-pickup.jpg` is a cool white and its open door is the front
+one; `car-wash-before.jpg` leaves about 3 % margin in front of the bumper.

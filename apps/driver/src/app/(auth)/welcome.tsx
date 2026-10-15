@@ -3,10 +3,10 @@ import { illustrations, photos } from '@naya/assets';
 import { DevLauncherGesture, WelcomeJourney } from '@naya/ui';
 import { usePrefs } from '@/lib/prefs';
 
-/** Slide 2 shows its illustration until a photo is added here as `photo` (with a `photoLabel`). */
+/** Every slide shows a photo (`photo`, described in French by `photoLabel`); `image` is drawn only on a slide without one. */
 const SLIDES = [
   { image: illustrations.driverWelcome, photo: photos.driverOnRoad, photoLabel: 'Une chauffeuse souriante au volant, une passagère à l’arrière', title: 'Conduisez entre femmes.', body: 'Des passagères vérifiées, des trajets dans Rabat, et vous choisissez quand prendre la route.' },
-  { image: illustrations.driverWallet, title: 'Des gains clairs.', body: 'Chaque course affiche votre revenu net avant d’accepter. Commissions et retraits restent lisibles.' },
+  { image: illustrations.driverWallet, photo: photos.driverEarnings, photoLabel: 'Une chauffeuse assise au volant, portière ouverte, consulte son téléphone, la mer en arrière-plan', title: 'Des gains clairs.', body: 'Chaque course affiche votre revenu net avant d’accepter. Commissions et retraits restent lisibles.' },
 ] as const;
 
 export default function Welcome() {
