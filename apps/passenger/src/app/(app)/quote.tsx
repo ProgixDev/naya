@@ -38,7 +38,7 @@ import { cars, aspect } from '@naya/assets';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { draftStops, useDraft } from '@/lib/draft';
 import { useAccountId, usePaymentMethods } from '@/lib/queries';
-import { usePrefs } from '@/lib/prefs';
+import { useCityId } from '@/lib/prefs';
 import { SchedulePicker, firstDay } from '@/features/schedule/SchedulePicker';
 
 /** Cards read « Visa •••• 4242 » (« Carte •••• 4242 » when the label names no brand); other methods keep their label. */
@@ -56,7 +56,7 @@ export default function QuoteScreen() {
   const a = useAccountId();
   const insets = useSafeAreaInsets();
   const draft = useDraft();
-  const cityId = usePrefs((s) => s.cityId);
+  const cityId = useCityId(); // the server's user.cityId (ADR-0054, PAX-05)
   const stops = draftStops(draft);
   const stopsKey = JSON.stringify(stops?.map((s) => [s.label, s.location.lat, s.location.lng]));
   const [categoryId, setCategoryId] = useState('standard');

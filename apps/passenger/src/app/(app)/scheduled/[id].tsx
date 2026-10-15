@@ -9,7 +9,8 @@ import { useApi } from '@naya/api/react';
 import { casablancaLocalToUtc, formatDateTime, formatMoney, formatShort, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
-import { SchedulePicker } from '@/features/schedule/SchedulePicker';
+import { SchedulePicker, useCityScheduling } from '@/features/schedule/SchedulePicker';
+import { formatLeadTime } from '@/features/schedule/slots';
 
 /** P12-detail: recorded booking, modify time (price unchanged), cancel (free). */
 export default function ScheduledDetail() {
@@ -25,6 +26,8 @@ export default function ScheduledDetail() {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [fareOpen, setFareOpen] = useState(false);
   const b = q.data;
+  // The booking's own city rules (it may differ from the passenger's current city).
+  const scheduling = useCityScheduling(b?.cityId);
   const parts = b ? toCasablancaParts(b.pickupAt) : null;
   const [day, setDay] = useState(parts?.date ?? '');
   const [time, setTime] = useState<string | null>(parts?.time ?? null);
@@ -56,7 +59,7 @@ export default function ScheduledDetail() {
   if (q.isLoading) return <Screen header={<Header title="Réservation" onBack={() => router.back()} />}><SkeletonList rows={3} /></Screen>;
   if (q.isError || !b) return <Screen header={<Header title="Réservation" onBack={() => router.back()} />}><ErrorState onRetry={() => q.refetch()} /></Screen>;
   const open = b.status === 'scheduled';
-  const cutoffPassed = Date.parse(b.pickupAt) - now < 60 * 60_000;
+  const cutoffPassed = Date.parse(b.pickupAt) - now < scheduling.modifyCutoffMinutes * 60_000;
 
   return (
     <Screen
@@ -75,9 +78,9 @@ export default function ScheduledDetail() {
     >
       <View style={{ gap: 12, marginTop: 4 }}>
         {open ? <StatusBanner compact tone="info" title="Aucune chauffeuse n’est encore confirmée" message="recherche 15 min avant le départ" /> : <StatusPill tone={b.status === 'cancelled' ? 'danger' : 'neutral'} label={SCHEDULED_STATUS_LABELS[b.status]} />}
-        {open && cutoffPassed ? <Text variant="caption" tone="muted">Modification possible jusqu’à 1 h avant le départ.</Text> : null}
+        {open && cutoffPassed ? <Text variant="caption" tone="muted">Modification possible jusqu’à {formatLeadTime(scheduling.modifyCutoffMinutes)} avant le départ.</Text> : null}
         <ListGroup>
-          <ListRow title={formatDateTime(b.pickupAt)} subtitle="Heure de Rabat" leading={<IconDisc><CalendarClock size={18} color={colors.accent} /></IconDisc>} />
+          <ListRow title={formatDateTime(b.pickupAt)} subtitle="Heure du Maroc" leading={<IconDisc><CalendarClock size={18} color={colors.accent} /></IconDisc>} />
           <ListRow title={b.route.stops.map((s) => s.label).join(' → ')} subtitle={b.route.stops[0]!.address} leading={<IconDisc><RouteIcon size={18} color={colors.accent} /></IconDisc>} />
           <ListRow title={b.paymentMethod.label} subtitle={`Prix gelé · ${formatMoney(b.terms.breakdown.total)}`} leading={<IconDisc><CreditCard size={18} color={colors.accent} /></IconDisc>} onPress={() => setFareOpen(true)} testID="scheduled-fare" />
         </ListGroup>
@@ -91,7 +94,7 @@ export default function ScheduledDetail() {
         <FareBreakdown fare={b.terms.breakdown} distanceMeters={b.route.distanceMeters} durationSeconds={b.route.durationSeconds} dynamicReason={b.terms.dynamic?.reason} />
       </Sheet>
       <Sheet visible={editing} onClose={() => setEditing(false)} title="Modifier l’horaire" subtitle="Le prix reste celui de la réservation." footer={<Button label="Enregistrer le nouvel horaire" full loading={modify.isPending} disabled={!time} onPress={() => modify.mutate()} testID="save-schedule" />}>
-        <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} />
+        <SchedulePicker cityId={b.cityId} day={day} time={time} onDay={setDay} onTime={setTime} />
       </Sheet>
       <ConfirmDialog visible={confirmCancel} title="Annuler cette réservation ?" message="Aucune chauffeuse n’est encore assignée : l’annulation est gratuite." confirmLabel="Oui, annuler la réservation" cancelLabel="Garder la réservation" destructive loading={cancel.isPending} onConfirm={() => cancel.mutate()} onCancel={() => setConfirmCancel(false)} testID="confirm-cancel-scheduled" />
     </Screen>

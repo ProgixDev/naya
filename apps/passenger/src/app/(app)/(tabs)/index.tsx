@@ -6,13 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Baby, Briefcase, CalendarClock, ChevronRight, Home as HomeIcon, LocateFixed, MapPin, Search } from 'lucide-react-native';
 import { isInService, isRideActive, PLACES, RIDE_STATUS_LABELS, type Place } from '@naya/domain';
-import { qk } from '@naya/api';
+import { errorMessage, qk, type MeResponse } from '@naya/api';
 import { cars, aspect } from '@naya/assets';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow, themedStyles } from '@naya/tokens';
 import { useAccountId, useActiveRide, useCities, useMe } from '@/lib/queries';
 import { useDraft } from '@/lib/draft';
-import { usePrefs } from '@/lib/prefs';
+import { useCityId } from '@/lib/prefs';
 import { useTabBarSpace } from '@/components/TabBar';
 import { useForegroundLocation } from '@/features/location/useLocation';
 import { LocationExplainer } from '@/features/location/LocationExplainer';
@@ -29,8 +29,8 @@ export default function Home() {
   const me = useMe();
   const cities = useCities();
   const active = useActiveRide();
-  const cityId = usePrefs((s) => s.cityId);
-  const setCity = usePrefs((s) => s.setCity);
+  // The server's user.cityId is the passenger's city (ADR-0054); the device only caches it.
+  const cityId = useCityId();
   const draft = useDraft();
   const loc = useForegroundLocation();
   const [explainer, setExplainer] = useState(false);
@@ -48,12 +48,15 @@ export default function Home() {
 
   const changeCity = useMutation({
     mutationFn: (id: string) => api.me.update({ cityId: id }),
-    onSuccess: (_u, id) => {
-      setCity(id);
+    onSuccess: (updated) => {
+      // Show the new city at once; the refetch brings the city's rules and payment availability.
+      qc.setQueryData<MeResponse>(qk.me(a), (old) => (old ? { ...old, user: updated } : old));
       draft.reset();
       qc.invalidateQueries({ queryKey: qk.me(a) });
+      qc.invalidateQueries({ queryKey: qk.paymentMethods(a) });
       setCityPicker(false);
     },
+    onError: (e) => toast(errorMessage(e), 'danger'),
   });
 
   const applyMyPosition = async () => {
@@ -147,7 +150,7 @@ export default function Home() {
                 title={c.name}
                 subtitle={c.status === 'active' ? 'Service ouvert' : tester ? 'Ville en test · accès testeuse' : 'Ville en test · bientôt disponible'}
                 trailing={c.id === cityId ? <StatusPill tone="success" label="Sélectionnée" /> : c.status === 'test' ? <StatusPill tone="warning" label="Test" /> : undefined}
-                onPress={() => changeCity.mutate(c.id)}
+                onPress={() => (c.id === cityId ? setCityPicker(false) : changeCity.isPending ? undefined : changeCity.mutate(c.id))}
               />
             );
           })}

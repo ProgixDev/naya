@@ -9,7 +9,7 @@ import { useApi } from '@naya/api/react';
 import type { Place, SavedPlace } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useAccountId, useMe } from '@/lib/queries';
-import { usePrefs } from '@/lib/prefs';
+import { useCityId } from '@/lib/prefs';
 
 const ICON = { home: HomeIcon, work: Briefcase, other: Star };
 
@@ -20,7 +20,7 @@ export default function Places() {
   const qc = useQueryClient();
   const a = useAccountId();
   const me = useMe();
-  const cityId = usePrefs((s) => s.cityId);
+  const cityId = useCityId(); // the server's user.cityId (ADR-0054, PAX-05)
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<SavedPlace['kind']>('home');
   const [label, setLabel] = useState('Maison');

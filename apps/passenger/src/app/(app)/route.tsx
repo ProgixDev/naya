@@ -11,7 +11,7 @@ import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { MAX_STOPS, useDraft } from '@/lib/draft';
 import { useCities, useMe } from '@/lib/queries';
-import { usePrefs } from '@/lib/prefs';
+import { useCityId } from '@/lib/prefs';
 
 type Slot = { kind: 'pickup' } | { kind: 'destination' } | { kind: 'stop'; index: number } | { kind: 'newStop' };
 
@@ -21,7 +21,7 @@ export default function RouteEditor() {
   const params = useLocalSearchParams<{ focus?: string; pin?: string; schedule?: string }>();
   const draft = useDraft();
   const cities = useCities();
-  const cityId = usePrefs((s) => s.cityId);
+  const cityId = useCityId();
   const city = cities.data?.find((c) => c.id === cityId);
   const [slot, setSlot] = useState<Slot | null>(params.pin ? null : params.focus === 'destination' || !draft.destination ? { kind: 'destination' } : null);
   const [pinFor, setPinFor] = useState<Slot | null>(params.pin ? { kind: 'pickup' } : null);
