@@ -55,7 +55,7 @@ import type { Ctx } from './context';
 import type { State } from './state';
 import { mustFind, nextId } from './store';
 import { appendAudit, verifyAuditChain } from './audit';
-import { adminLogin, authenticate, logout, requestOtp, verifyOtp, type Principal } from './services/auth';
+import { adminLogin, authenticate, deleteAccount, logout, requestOtp, verifyOtp, type Principal } from './services/auth';
 import { createUpload, readUpload } from './services/uploads';
 import { casesForUser, decideCase, ensureFamilleCase, ensureVehicleCase, reopenCase, saveDetails, saveDraft, setItem, simulateReview, startReview, submitCase, REJECTION_REASONS, RECOVERABLE_REJECTIONS } from './services/verification';
 import {
@@ -296,6 +296,11 @@ export function createApp(ctx: Ctx, options: { embedded?: boolean } = {}) {
         return u;
       }),
     );
+  });
+  /** In-app account deletion (App Store 5.1.1(v)). Refused while a ride, a Famille trip, an SOS or a payment is under way. */
+  app.post('/me/deletion', async (c) => {
+    const user = userOf(c, 'passenger');
+    return c.json(await idempotent(ctx, c, user.id, {}, () => deleteAccount(ctx, user)));
   });
 
   /* ───────── Uploads and verification ───────── */

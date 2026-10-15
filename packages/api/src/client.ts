@@ -384,6 +384,8 @@ export function createApiClient(opts: ClientOptions) {
       update: (input: ProfileUpdate) => request<User>('PATCH', '/me', input),
       addPlace: (input: SavedPlaceInput) => post<User>('/me/places', input),
       removePlace: (id: string) => request<User>('DELETE', `/me/places/${id}`),
+      /** Deletes the passenger's account (profile anonymised, sessions revoked). Refusals carry `details.blockers`. */
+      deleteAccount: (key: string) => post<{ ok: true; deletedAt: string }>('/me/deletion', {}, key),
     },
 
     uploads: {

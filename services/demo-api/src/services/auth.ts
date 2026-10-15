@@ -1,9 +1,12 @@
-import { Buffer, createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from '../platform';
-import { DomainError, type AdminUser, type MobileRole, type User } from '@naya/domain';
+import { Buffer, createHash, join, randomBytes, randomInt, rmSync, scryptSync, timingSafeEqual } from '../platform';
+import { DomainError, formatMoney, isRideActive, scheduledMachine, type AdminUser, type FamilyTripStatus, type MobileRole, type User, type WashOrderStatus } from '@naya/domain';
 import type { Ctx } from '../context';
 import type { State } from '../state';
 import { nextId } from '../store';
 import { appendAudit } from '../audit';
+import { applyFamilyEvent } from './famille';
+import { releasePassengerWallet } from './prototype';
+import { uploadDir } from './uploads';
 
 const OTP_TTL_S = 300;
 const OTP_RESEND_S = 30;
@@ -172,4 +175,206 @@ export function logout(ctx: Ctx, bearer: string | undefined) {
   ctx.store.tx((s) => {
     s.sessions = s.sessions.filter((x) => x.tokenHash !== hash);
   });
+}
+
+/* ───────────── Account deletion (App Store guideline 5.1.1(v), PRD-35, PAX-12) ───────────── */
+
+/** The name every kept record shows once its account is deleted (rides, tickets, alerts, the account itself). */
+export const DELETED_ACCOUNT_NAME = 'Compte supprimé';
+const DELETED_CHILD_NAME = 'Enfant';
+
+export type DeletionBlocker =
+  | 'ride_active'
+  | 'payment_pending'
+  | 'payment_due'
+  | 'wallet_balance'
+  | 'family_trip_active'
+  | 'safety_alert_open'
+  | 'wash_order_active';
+
+const ACTIVE_WASH: readonly WashOrderStatus[] = ['booked', 'washer_assigned', 'en_route', 'washing'];
+/** A Famille trip in one of these states has a chauffeuse on the way or the child on board. */
+const FAMILY_TRIP_UNDER_WAY: readonly FamilyTripStatus[] = ['en_route', 'arrived', 'picked_up', 'awaiting_approval', 'in_progress'];
+/** Upload file extensions, as `uploads.ts` writes them. */
+const UPLOAD_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf', 'image/svg+xml': 'svg' };
+
+/**
+ * What stops a passenger from deleting her account right now, first reason first. Each one is
+ * something she can finish or settle herself; the message says how.
+ */
+export function deletionBlockers(s: State, user: User): { code: DeletionBlocker; message: string }[] {
+  const out: { code: DeletionBlocker; message: string }[] = [];
+  const rides = s.rides.filter((r) => r.passengerId === user.id);
+  if (rides.some((r) => isRideActive(r.status))) {
+    out.push({ code: 'ride_active', message: 'Une course est en cours. Vous pourrez supprimer votre compte une fois la course terminée ou annulée.' });
+  }
+  if (s.prototype?.trips.some((t) => t.passengerId === user.id && FAMILY_TRIP_UNDER_WAY.includes(t.status))) {
+    out.push({ code: 'family_trip_active', message: 'Un trajet Naya Famille est en cours. Vous pourrez supprimer votre compte une fois le trajet terminé.' });
+  }
+  if (s.prototype?.alerts.some((a) => a.userId === user.id && a.status !== 'resolved')) {
+    out.push({ code: 'safety_alert_open', message: 'Une alerte de sécurité est en cours de traitement. Vous pourrez supprimer votre compte une fois l’alerte close.' });
+  }
+  if (s.carWash?.orders.some((o) => o.customerId === user.id && ACTIVE_WASH.includes(o.status))) {
+    out.push({ code: 'wash_order_active', message: 'Un lavage à domicile est réservé ou en cours. Annulez-le ou attendez sa fin, puis revenez ici.' });
+  }
+  const wallet = s.prototype?.wallets.find((w) => w.userId === user.id);
+  // Wallet holds (`hold:<ride>`) belong to a ride, a booking or a wash order, each handled on its own.
+  if (s.payments.some((p) => p.payerId === user.id && p.status === 'pending') || wallet?.entries.some((e) => e.status === 'pending' && !e.id.startsWith('hold:'))) {
+    out.push({ code: 'payment_pending', message: 'Un paiement est en cours de confirmation. Réessayez une fois qu’il sera confirmé.' });
+  }
+  if (rides.some((r) => r.paymentId && s.payments.find((p) => p.id === r.paymentId)?.status === 'failed')) {
+    out.push({ code: 'payment_due', message: 'Une course reste à régler. Réglez-la depuis son reçu dans Trajets, puis revenez ici.' });
+  }
+  if (wallet && wallet.balance > 0) {
+    out.push({
+      code: 'wallet_balance',
+      message: `Il reste ${formatMoney(wallet.balance)} sur votre portefeuille Naya. Utilisez ce solde ou demandez son remboursement à l’assistance, puis revenez ici.`,
+    });
+  }
+  return out;
+}
+
+/**
+ * Deletes a passenger's account at her request. Refused while something is under way or money is
+ * still moving (`deletionBlockers`). Otherwise, in one transaction:
+ * - erased: name, phone, saved places, notification choices, tester cities, saved payment methods,
+ *   identity details and identity photos, open sign-in codes, sessions, stored request replays,
+ *   her Famille children's details and the relatives she invited (their follow links stop working);
+ * - cancelled: her scheduled rides (free while no chauffeuse is assigned), her upcoming Famille trips
+ *   (the chauffeuse is told) and her Famille subscription;
+ * - kept under the pseudonym « Compte supprimé » (same account id): rides, payments, wallet entries,
+ *   support tickets, SOS alerts and car-wash orders, which are financial, safety or legal records.
+ * The account stays as a `suspended` row so every kept record still resolves; nobody can sign in to
+ * it, and the same phone number signs up as a new account. The audit event carries no personal data.
+ * Identity photo files are removed after the transaction commits.
+ */
+export function deleteAccount(ctx: Ctx, user: User) {
+  const at = ctx.clock.iso();
+  const files = ctx.store.tx((s) => {
+    const u = s.users.find((x) => x.id === user.id);
+    if (!u || u.status !== 'active') throw new DomainError('UNAUTHORIZED');
+    const blockers = deletionBlockers(s, u);
+    const first = blockers[0];
+    if (first) {
+      throw new DomainError(first.code === 'ride_active' ? 'ACTIVE_RIDE_EXISTS' : 'PENDING_OPERATION', first.message, { blockers: blockers.map((b) => b.code) });
+    }
+    const phone = u.phone;
+
+    // Naya Famille: children first, so the cancellations below never write a child's name to the audit trail.
+    const p = s.prototype;
+    let cancelledTrips = 0;
+    if (p) {
+      // Names her trips' timelines and notifications were written with (« Photo de Lina… », « Remise confirmée à … »).
+      const familyNames = new Map<string, string>();
+      for (const child of p.children.filter((c) => c.passengerId === u.id)) {
+        if (child.firstName.trim()) familyNames.set(child.firstName, DELETED_CHILD_NAME);
+        for (const r of child.recipients) if (r.name.trim()) familyNames.set(r.name, 'la personne autorisée');
+        Object.assign(child, { firstName: DELETED_CHILD_NAME, age: 0, school: '', notes: '', recipients: [] });
+      }
+      const scrub = (text: string) => [...familyNames].reduce((out, [name, generic]) => out.split(name).join(generic), text);
+      for (const t of p.trips.filter((x) => x.passengerId === u.id)) {
+        if (t.childName.trim()) familyNames.set(t.childName, DELETED_CHILD_NAME);
+        t.childName = DELETED_CHILD_NAME;
+        for (const e of t.timeline) e.label = scrub(e.label);
+        for (const n of t.notifications) Object.assign(n, { title: scrub(n.title), ...(n.body === undefined ? {} : { body: scrub(n.body) }) });
+        if (t.status === 'scheduled') {
+          applyFamilyEvent(ctx, s, t, 'CANCEL', { kind: 'parent', user: { ...u, firstName: 'la passagère', lastName: '' } }, { reason: DELETED_ACCOUNT_NAME });
+          cancelledTrips += 1;
+        }
+      }
+      for (const sub of p.subscriptions.filter((x) => x.passengerId === u.id)) {
+        sub.status = 'paused';
+        if (Date.parse(sub.endsAt) > Date.parse(at)) sub.endsAt = at;
+      }
+      for (const g of (p.guardians ?? []).filter((x) => x.passengerId === u.id)) {
+        Object.assign(g, { name: 'Proche', phone: null, status: 'revoked', tokenHash: '', revokedAt: g.revokedAt ?? at });
+      }
+      for (const a of p.alerts.filter((x) => x.userId === u.id)) {
+        Object.assign(a, { userName: DELETED_ACCOUNT_NAME, contactName: '' });
+        // Her own steps were signed with her first name; the safety team's steps keep theirs.
+        for (const step of a.actions) if (step.by === u.firstName) step.by = DELETED_ACCOUNT_NAME;
+      }
+    }
+
+    // Scheduled rides have no chauffeuse yet, so cancelling them is free (cancelScheduled).
+    let cancelledBookings = 0;
+    for (const b of s.scheduled) {
+      if (b.passengerId !== u.id || b.status !== 'scheduled') continue;
+      b.status = scheduledMachine.next(b.status, 'CANCEL');
+      b.cancellation = { reasonCode: 'account_deleted', reasonText: DELETED_ACCOUNT_NAME, at };
+      b.updatedAt = at;
+      if (b.paymentMethod.kind === 'wallet') releasePassengerWallet(s, u.id, b.id);
+      b.history.push({ at, label: 'Réservation annulée · sans frais · compte supprimé' });
+      cancelledBookings += 1;
+    }
+
+    // Kept records, pseudonymised.
+    let rides = 0;
+    for (const r of s.rides) {
+      if (r.passengerId !== u.id) continue;
+      r.passenger.firstName = DELETED_ACCOUNT_NAME;
+      rides += 1;
+    }
+    for (const o of s.offers) if (o.passenger.id === u.id) o.passenger.firstName = DELETED_ACCOUNT_NAME;
+    let tickets = 0;
+    for (const t of s.tickets) {
+      if (t.userId !== u.id) continue;
+      t.userName = DELETED_ACCOUNT_NAME;
+      for (const m of t.messages) if (m.author === 'user') m.authorName = DELETED_ACCOUNT_NAME;
+      tickets += 1;
+    }
+    for (const o of s.carWash?.orders ?? []) {
+      if (o.customerId !== u.id) continue;
+      o.customerFirstName = DELETED_ACCOUNT_NAME;
+      o.parkingNotes = '';
+    }
+
+    // Identity: details and photos go; the case keeps its decision history so a past review stays traceable.
+    const removed = s.uploads.filter((x) => x.ownerId === u.id && x.purpose !== 'support_attachment' && x.purpose !== 'family_proof');
+    const removedIds = new Set(removed.map((x) => x.id));
+    s.uploads = s.uploads.filter((x) => !removedIds.has(x.id));
+    for (const c of s.cases) {
+      if (c.userId !== u.id) continue;
+      c.identity = null;
+      c.draft = null;
+      for (const item of c.items) item.uploadIds = item.uploadIds.filter((id) => !removedIds.has(id));
+      c.updatedAt = at;
+      c.version += 1;
+    }
+
+    // The profile itself.
+    Object.assign(u, {
+      firstName: 'Compte',
+      lastName: 'supprimé',
+      phone: '',
+      status: 'suspended',
+      testerCities: [],
+      savedPlaces: [],
+      notifications: { rideUpdates: false, scheduledReminders: false, supportReplies: false, offers: false, product: false },
+    } satisfies Partial<User>);
+    s.paymentMethods = s.paymentMethods.filter((m) => m.userId !== u.id);
+    s.sessions = s.sessions.filter((x) => !(x.subjectType === 'user' && x.subjectId === u.id));
+    s.otps = s.otps.filter((o) => !(o.phone === phone && o.role === u.role));
+    s.idempotency = s.idempotency.filter((r) => r.subjectId !== u.id);
+
+    appendAudit(s, at, {
+      actor: { type: 'user', id: u.id, name: DELETED_ACCOUNT_NAME },
+      action: 'account.deleted',
+      entityType: 'user',
+      entityId: u.id,
+      cityId: u.cityId,
+      summary: 'Compte passagère supprimé à sa demande · profil anonymisé, courses et paiements conservés sous pseudonyme',
+      before: { status: 'active' },
+      after: { status: 'suspended', deleted: true, kept: { rides, tickets }, erased: { identityFiles: removed.length }, cancelled: { bookings: cancelledBookings, familyTrips: cancelledTrips } },
+    });
+    return removed;
+  });
+  for (const f of files) {
+    try {
+      rmSync(join(uploadDir(ctx), `${f.id}.${UPLOAD_EXT[f.mimeType] ?? 'jpg'}`), { force: true });
+    } catch {
+      // The record is gone; a file the platform cannot remove is unreadable through the API anyway.
+    }
+  }
+  return { ok: true as const, deletedAt: at };
 }

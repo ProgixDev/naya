@@ -36,7 +36,7 @@ export default function Account() {
           <ListRow title="Identité · 6 pistes" subtitle="Explorer les propositions de logo" onPress={() => router.push('/brand')} />
           <ListRow testID="account-payments" title="Moyens de paiement" leading={<IconDisc><CreditCard size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/payments')} />
           <ListRow testID="account-places" title="Adresses enregistrées" subtitle={saved || 'Maison, travail…'} leading={<IconDisc><MapPin size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/places')} />
-          <ListRow testID="account-preferences" title="Notifications" leading={<IconDisc><Bell size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/preferences')} />
+          <ListRow testID="account-preferences" title="Préférences" subtitle="Notifications, affichage, suppression du compte" leading={<IconDisc><Bell size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/preferences')} />
         </ListGroup>
         <ListGroup label="À vos côtés">
           <ListRow testID="account-help" title="Aide et demandes" leading={<IconDisc><LifeBuoy size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/help')} />
