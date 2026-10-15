@@ -3,7 +3,7 @@ title: "Naya Famille"
 status: Current
 owner: Achraf
 last_verified: 2026-10-13 @ c38429d + branch chore/docs-foundation-and-fixes
-related: [ADR-0058, ADR-0007, ADR-0013, ADR-0018, ADR-0020, ADR-0030, ADR-0031, ADR-0034, ADR-0036, ADR-0037, ADR-0039, ADR-0044, ADR-0045, P1, P16, DOM-02, DOM-16, DOM-17, API-01, API-17, API-18, API-26, ADM-09, ADM-10, DOC-06, PRD-01, PRD-02, PRD-03, PRD-09, PRD-29, PRD-31, PRD-39, VIS-04, VIS-09, VIS-19, specs/eligibility-and-verification.md, specs/safety-sos.md, docs/tasks/2026-10-13.md]
+related: [ADR-0058, ADR-0059, RD-07, ADR-0007, ADR-0013, ADR-0018, ADR-0020, ADR-0030, ADR-0031, ADR-0034, ADR-0036, ADR-0037, ADR-0039, ADR-0044, ADR-0045, P1, P16, DOM-02, DOM-16, DOM-17, API-01, API-17, API-18, API-26, ADM-09, ADM-10, DOC-06, PRD-01, PRD-02, PRD-03, PRD-09, PRD-29, PRD-31, PRD-39, VIS-04, VIS-09, VIS-19, specs/eligibility-and-verification.md, specs/safety-sos.md, docs/tasks/2026-10-13.md]
 ---
 
 # Naya Famille
@@ -36,6 +36,20 @@ Line numbers refer to commit `c38429d`, except where a line says **(branch)**: t
 >   invite no longer says « invité·e ». Still open: the domain label « Déposé · photo et remise confirmées »
 >   (`FAMILY_STATUS_LABELS.completed`) and the server strings in `services/demo-api/src/services/famille.ts`.
 > - Still open: cancel, call, police, incident and guardian actions send no Idempotency-Key (`packages/api/src/client.ts`).
+
+> **15 Oct 2026, redesign (branch `feat/passenger-polish`, 87282c3; [redesign audit](../audits/2026-10-15-redesign-audit.md) P-62, P-63, C11–C14, R5, R8).**
+> - **Interruptions never change the route (P-62).** A new start request no longer pushes the trip screen. Wherever the
+>   parent is in the app, `FamilleApprovalBanner` (`famille-approval-banner`, mounted in `apps/passenger/src/app/(app)/_layout.tsx`)
+>   pins a banner with the countdown ring under the screen's top controls (72 pt on `/ride`, below the safety disc; 52
+>   elsewhere) and moves toasts below it. A tap opens the pick-up photo and the answers in a sheet
+>   (`famille-approval-sheet`); « Voir le trajet » (`famille-approval-open-trip`) opens `/family/[id]`. The banner is hidden
+>   where the approval card is already on screen (Famille home, that trip). `useFamilyAlerts` keeps the haptic and the
+>   local notification; only a notification tap opens the trip.
+> - **States (C11–C14, R5).** Trip, approval, eligibility and subscription states come from `statusPresentation`
+>   ([ADR-0059](../adr/0059-status-is-an-icon-problems-keep-words.md)): one tone table instead of four per-screen mappings.
+> - **Safety (P-63, R8).** The trip screen has the pinned « Sécurité » disc of [safety-sos.md](safety-sos.md) R2 instead of
+>   its own police button; calling the 19 from that sheet still writes the 'police' line in the trip journal. The
+>   WhatsApp row is hidden in mock builds (`FamilleContactBar`, `calls = !DEMO_MODE`); the co-parent invite stays.
 
 ## Purpose
 
@@ -279,6 +293,8 @@ Task 4 of the [founder brief](../tasks/2026-10-13.md). None of this is built. Pl
 - **Module.** The family code lives in the "prototype" module under `/prototype` ([ADR-0039](../adr/0039-future-of-the-prototype-module.md)).
 
 ## Last verified
+
+2026-10-15, AI session (redesign, d50e2c7): only the redesign note at the top, against `FamilleApprovalBanner.tsx`, `useFamilyAlerts.ts`, `(app)/_layout.tsx` and `FamilleTripScreen.tsx`.
 
 2026-10-15, AI session (branch `feat/passenger-polish`): only the 15 Oct note at the top was checked, against `packages/ui/src/features/famille/` and `useFamilyAlerts.ts`.
 

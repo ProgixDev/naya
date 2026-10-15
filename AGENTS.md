@@ -22,7 +22,8 @@ There is no production backend. Docs index: [docs/README.md](docs/README.md).
 - plugins/           Expo config plugins, used by both apps: with-scene-lifecycle (iOS 27 UIScene),
                      with-ios-build-paths (repo path contains spaces; committed in c38429d).
 - scripts/           capture-native.sh (simulator captures of a review build); docs/gen-api-reference.mjs
-                     (writes docs/architecture/api-reference.md; `--check` exits 1 when it is stale).
+                     (writes docs/architecture/api-reference.md; `--check` exits 1 when it is stale);
+                     capture-web/ (Expo web review captures on scratch ports; PNGs go to work/, never committed).
 
 "prototype" in code means the Oct 6 feedback features (service categories, Naya Famille,
 passenger wallet, SOS, dispute reasons, demo payment options). They live in
@@ -95,6 +96,8 @@ Driver money: services/demo-api/src/services/finance.ts + packages/domain/src/wa
 - Mobile styling: @naya/tokens + useTheme() + themedStyles(). No className
   (NativeWind is wired but unused). Never read colors.* at module scope.
 - Shared screens live in packages/ui; app route files are thin wrappers.
+- A state is a glyph from statusPresentation (packages/domain/src/status.ts) rendered by StatusIcon: glyph alone in rows,
+  the word on heroes and problems, the sentence always in the accessibilityLabel (ADR-0059). No per-screen tone maps.
 - New endpoint: route in services/demo-api/src/app.ts (or services/*.ts), method in
   packages/api/src/client.ts, key in keys.ts, and a vitest; then run node scripts/docs/gen-api-reference.mjs.
   See services/demo-api/AGENTS.md.
@@ -119,6 +122,9 @@ fix lands.
   from the app folder. `pnpm typecheck` runs in parallel and can be SIGKILLed when memory is short (Metro and a
   simulator running): use `pnpm -r --workspace-concurrency=1 typecheck`.
 - Both Expo apps start Metro on 8081; run the driver on another port (e2e uses 8082).
+- Any console.error or warning on Expo web (an RN accessibility prop reaching a lucide SVG, BackHandler on web) opens the
+  dev overlay, whose #error-toast swallows Playwright clicks. Spread HIDDEN_GLYPH from packages/ui/src/Icon.tsx on bare
+  glyphs and guard BackHandler with Platform.OS === 'android'. Alternate e2e URLs must use localhost, not 127.0.0.1 (Vite).
 - Today: the category commission overrides the city commission (rides.ts:127). P8, ADR-0033.
 - Today: build numbers live in app.config.ts while eas.json says appVersionSource 'remote' (ADR-0049).
   Current numbers and the build log: docs/runbooks/testflight-eas.md.

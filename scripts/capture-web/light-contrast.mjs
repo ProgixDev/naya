@@ -1,0 +1,27 @@
+import fs from 'node:fs';
+import { chromium, PAX, DRV, OUT, PH, post, newPage, helpers, signIn } from './lib.mjs';
+const log = [];
+await post('/dev/reset', { scenario: 'default' });
+await post('/dev/bot', { online: false });
+const browser = await chromium.launch();
+const pp = await newPage(browser, 'light'); const P = helpers(pp, 'contrast-light', log);
+const dp = await newPage(browser, 'light'); const D = helpers(dp, 'contrast-light-driver', log);
+await signIn(pp, PAX, 'passenger', PH.salma);
+await signIn(dp, DRV, 'driver', PH.amina);
+await P.step('home', async () => { await P.S('D1-home-idle'); });
+await P.step('wallet', async () => { await P.go(PAX, '/wallet', 3000); await P.S('D5-wallet'); });
+await P.step('receipt', async () => { await P.go(PAX, '/receipt/NY-001', 3000); await P.S('D4-receipt'); });
+await D.step('online', async () => { await D.tid('toggle-online').click(); await dp.waitForTimeout(1500); await D.S('D1-home-online'); });
+await P.step('quote', async () => {
+  await P.go(PAX, '/', 3000); await P.tid('where-to').click(); await pp.waitForTimeout(800);
+  await P.tid('place-search').fill('Gare'); await P.tid('place-rabat-gare').click(); await pp.waitForTimeout(1500);
+  await pp.waitForTimeout(3000); await P.S('D2-quote');
+  await P.tid('confirm-booking').click(); await pp.waitForTimeout(1500);
+});
+await D.step('offer', async () => { await dp.waitForSelector('[data-testid="offer-pending"]', { timeout: 20000 }); await dp.waitForTimeout(800); await D.S('D2-offer'); await D.tid('accept-offer').click(); await dp.waitForTimeout(2500); await D.S('D3-ride-assigned'); });
+await P.step('ride', async () => { await pp.waitForTimeout(2500); await P.S('D3-ride-driver-assigned'); });
+await D.step('wallet', async () => { await D.go(DRV, '/wallet', 3000); await D.S('D4-wallet'); });
+await P.step('account', async () => { await P.go(PAX, '/account', 3000); await P.S('D6-account'); });
+await D.step('dossier', async () => { await D.go(DRV, '/docs/status', 3000); await D.S('D5-dossier-status'); });
+fs.writeFileSync(`${OUT}/contrast-light/_log.json`, JSON.stringify({ errors: [pp.__errors, dp.__errors], log }, null, 1));
+await browser.close();

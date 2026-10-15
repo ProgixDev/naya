@@ -12,14 +12,14 @@ Legend — **E2E**: covered by a Playwright spec in `e2e/tests/`; **API**: cover
 |---|---|---|---|
 | P01 `8:2` | P01b, P01c | `(auth)/welcome` | capture, E2E |
 | P02 `8:180` | P02-consent, -keyboard, -error | `(auth)/phone` | capture, E2E S01 |
-| P03 `8:217` | P03-error, -expired, -resent | `(auth)/otp` | E2E S01, API (OTP) |
+| P03 `8:217` | P03-error, -expired, -resent | `(auth)/otp` (submits at the 6th digit, no « Vérifier »; « Réessayer » after a network error; R16, 15 Oct 2026) | E2E S01, API (OTP) |
 | P04 `8:250` | P04-selfie, -capture, -preview, -permission, -document, -unreadable, -review | `(verify)/identity`, `(verify)/capture/[item]`, `(verify)/review` | capture, E2E S01/S02 |
 | P05 `8:295` | P05-approved, -more, -rejected | `(verify)/verification-status` | capture, E2E S01/S02, cross-role S01 |
 | P06 `8:339` | P06-permission, -zone, -network, -city, -casa, -reduced, -opaque | `(app)/(tabs)/index` | capture, E2E S07 |
-| P07 `8:461` | P07-add, -reordered, -no-stop, -map | `(app)/route` | capture, E2E S03/S07 |
+| P07 `8:461` | P07-add, -reordered, -no-stop, -map | `(app)/route`: since 15 Oct 2026 (R6) a search for one place, never an itinerary step; stops are edited on the quote (see below) | capture, E2E S03/S07 |
 | P08 `8:539` | P08-price, -payment, -electronic, -dynamic, -casa, -schedule, -price-dynamic | `(app)/quote` | capture, E2E S03/S05/S06 |
 | P09 `8:642` | P09-none, -long, -cancel, -cancelled, -electronic, -dynamic | `(app)/ride` (searching / no_driver) | capture, E2E S07 |
-| P10 `8:708` | P10-contact, -cancel, -arrived, -trip, -driver-cancel, -stale, -electronic, -dynamic variants | `(app)/ride` | capture, E2E S03/S08/S09/S16 |
+| P10 `8:708` | P10-contact (no contact sheet since 15 Oct 2026, R8: the 19 is in the safety sheet), -cancel, -arrived, -trip, -driver-cancel, -stale, -electronic, -dynamic variants | `(app)/ride` | capture, E2E S03/S08/S09/S16 |
 | P11 `8:864` | P11-payment, -rating, -rated, -cancelled, -pending, -failed, -electronic, -dynamic | `(app)/receipt/[id]` | capture, E2E S03/S04/S08/S16 |
 | P12 `8:927` | P12-history, -detail, -cancel, -empty | `(app)/(tabs)/trips`, `(app)/scheduled/[id]` | capture, E2E S05/S14 |
 | P13 `8:992` | P13-address, -settings, -notifications | `(app)/(tabs)/account`, `(app)/places`, `(app)/preferences` | capture, E2E |
@@ -33,8 +33,28 @@ Added later with no Figma frame (Oct 6, 89aae18; a few captures in `docs/screens
 |---|---|---|
 | `(app)/wallet` | Portefeuille Naya (passenger wallet) | E2E scenarios-feedback |
 | `(app)/family`, `(app)/family/plans`, `(app)/family/[id]`, `suivi/[token]` | Naya Famille, parent side (see « Naya Famille » below) | E2E scenarios-feedback |
-| `(app)/brand` | Identité · 6 pistes (logo concepts) | E2E scenarios-feedback |
+| `(app)/brand` | Identité · 6 pistes (logo concepts). Since 15 Oct 2026 no row in Compte: opened from the dev launcher (`dev-brand`, R4) or by URL | E2E scenarios-feedback |
 | `dev` | Lanceur de scénarios (`__DEV__` builds only; no visible entry: 2 s long press on the welcome logo or the deep link, ADR-0058) | — |
+
+### Booking flow since the 15 Oct 2026 redesign (R6)
+
+Home → `(app)/route` (destination search) → `(app)/quote` → `(app)/ride` or `(app)/scheduled/[id]`. Choosing the
+destination replaces the search with the quote (`router.replace`), so back from the ride or a receipt never lands on
+the search (PAX-15). Every later change is made on the quote, which pushes `(app)/route` with `from=quote` and gets the
+quote back. `(app)/route` params:
+
+| Param | Values | Meaning |
+|---|---|---|
+| `slot` | `pickup`, `destination` (default), `stop`, `newStop` | which place the search fills |
+| `index` | number | the stop to replace, with `slot=stop` |
+| `pin` | `1` | open the map pin picker directly (`pin=1` alone means the pickup) |
+| `from` | `quote` | return to the quote after the choice |
+| `schedule` | `1` | carry « Planifier » to the quote, which opens the « Départ » sheet in schedule mode (Trajets → « Planifier ») |
+| `focus` | `destination` | older links; still works |
+
+No route was added or removed by the redesign. New shared overlays, not routes: the pinned safety disc and its sheet
+(`SafetyDisc`, both ride screens and the Famille trip) and the Famille approval banner (`FamilleApprovalBanner`, every
+passenger `(app)` screen).
 
 ## Driver (apps/driver)
 
@@ -47,7 +67,7 @@ Added later with no Figma frame (Oct 6, 89aae18; a few captures in `docs/screens
 | D05 `9:238` | D05-more, -refused, -approved | `docs/status` (person and vehicle independent) | capture, E2E S10 |
 | D06 `9:291` | D06-online, -debt, -gps, -docs, -restored, -casa, -opaque, -reduced | `(app)/(tabs)/index` | capture, E2E S11/S12 |
 | D07 `9:418` | D07-10, -expired, -declined, -withdrawn, D07-timer-29…1 | `(app)/offer` | capture, E2E S11, API S11 (deadline, race) |
-| D08 `9:501` | D08-arrived, -contact, -cancel, -cancelled | `(app)/ride` | capture, E2E S09 |
+| D08 `9:501` | D08-arrived, -contact (no contact sheet since 15 Oct 2026, R8), -cancel, -cancelled | `(app)/ride` | capture, E2E S09 |
 | D09 `9:580` | D09-stale, -stop | `(app)/ride` | capture, E2E S03 |
 | D10 `9:651` | D10-cash, -electronic, -pending, -failed | `(app)/ride-end/[id]` | capture, E2E S03/S04 |
 | D11 `9:711` | D11-filter, -empty | `(app)/(tabs)/earnings` | capture, cross-role S03+S04 |
@@ -64,7 +84,7 @@ Added later with no Figma frame (Oct 6, 89aae18):
 | Route | Screen | Evidence |
 |---|---|---|
 | `(app)/family`, `(app)/family/[id]` | Naya Famille, chauffeuse side (see « Naya Famille » below) | E2E scenarios-feedback |
-| `(app)/brand` | Identité · 6 pistes (logo concepts) | — |
+| `(app)/brand` | Identité · 6 pistes (logo concepts). Since 15 Oct 2026 no row in Compte: opened from the dev launcher (`dev-brand`, R4) | — |
 | `dev` | Lanceur de scénarios (`__DEV__` builds only; no visible entry: 2 s long press on the welcome logo or the deep link, ADR-0058) | — |
 
 ## Naya Famille (both apps, 13 Oct · founder brief task 4)

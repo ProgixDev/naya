@@ -16,7 +16,7 @@ Most screens are thin wrappers over `@naya/ui`; app-only code lives in `src/lib`
 | P01–P03 | `(auth)/welcome`, `(auth)/phone`, `(auth)/otp` |
 | P04–P05 | `(verify)/identity`, `(verify)/capture/[item]`, `(verify)/review`, `(verify)/verification-status` |
 | P06 | `(app)/(tabs)/index` (home) |
-| P07–P08 | `(app)/route`, `(app)/quote` |
+| P07–P08 | `(app)/route` (one place search, no itinerary step since R6), `(app)/quote` (stops edited here; params in docs/SCREENS.md) |
 | P09–P10 | `(app)/ride` (searching, assigned, arrived, in progress) |
 | P11 | `(app)/receipt/[id]` |
 | P12 | `(app)/(tabs)/trips`, `(app)/scheduled/[id]` |
@@ -31,7 +31,7 @@ Added on Oct 6 (commit 89aae18), no Figma frame (listed at the end of the passen
 |---|---|---|
 | `(app)/wallet` | `PassengerWalletScreen` | Compte → « Portefeuille Naya » |
 | `(app)/family` | `FamilyScreen role="passenger"` | Compte → « Naya Famille » |
-| `(app)/brand` | `BrandConceptsScreen` (6 logo concepts) | Compte → « Identité · 6 pistes » |
+| `(app)/brand` | `BrandConceptsScreen` (6 logo concepts) | Not a customer screen (R4): dev launcher row `dev-brand`, or the URL |
 | `(app)/preferences` | P13 plus `ThemePicker` (light / dark / system) and « Supprimer mon compte » (two-step sheet, `POST /me/deletion`, PAX-12) | Compte → « Préférences » (`account-preferences`) |
 | `dev` | `DevLauncher` (scenario launcher) | No visible entry (ADR-0058): 2 s long press on the welcome logo, or naya://dev; `__DEV__` builds only |
 
@@ -80,17 +80,22 @@ Added on Oct 6 (commit 89aae18), no Figma frame (listed at the end of the passen
   There are no passenger screen tests yet (PAX-13).
 - e2e: passenger web on :8081 (`pnpm --filter @naya/passenger web`). See [e2e runbook](../../docs/runbooks/e2e.md).
 
-## Contact sheet and emergency numbers
-- `src/features/ride/ContactSheet.tsx` promises no masked number: calling and messaging through Naya are shown as
-  unavailable (no telephony provider). It lists « Police · 19 » (`call-police`), « Protection civile · 15 »
-  (`call-civil-protection`) and « Gendarmerie royale · 177 » (`call-gendarmerie`), each a `tel:` link, plus 112 from a
-  mobile. Where the device cannot dial, it shows `Alert.alert`.
-- The numbers live in `src/features/help/emergency.ts` (PAX-11): the help topic, the topic page and the contact sheet
-  read them from there. The support form banner in `packages/ui/src/features/support.tsx` repeats them by hand (the UI
-  kit cannot import from the app): change both together.
+## Safety and emergency numbers
+- The ride screen has no contact sheet while calling and messaging through Naya are not live (R8, 15 Oct 2026): no call
+  or message button, no « Bientôt disponible » row. Do not bring them back before a telephony provider (ADR-0031).
+- Safety is the pinned « Sécurité » disc (`SafetyDisc` from `@naya/ui`, testID `sos`) on the map's right edge, outside
+  the sheet's scroll. Its sheet sends the alert on a 1.5 s hold (`confirm-sos`), then offers « Appeler le 19 »
+  (`sos-call-police`) and « Autres numéros d’urgence » (`emergency-numbers`: 15 `call-civil-protection`, 177
+  `call-gendarmerie`, 112 as a line). Rules: [docs/specs/safety-sos.md](../../docs/specs/safety-sos.md) R2, R4, R6, R12.
+  The ride screen passes the SOS position (car's fresh signal, the phone if location is already allowed, the pickup)
+  and its label; keep that order.
+- The numbers live in `packages/domain/src/emergency.ts` (`EMERGENCY_NUMBERS`, PAX-11); `src/features/help/emergency.ts`
+  re-exports them for the help topic and page. The support form banner in `packages/ui/src/features/support.tsx` still
+  repeats them by hand: change both together.
+- Status words and glyphs come from `statusPresentation` / `StatusIcon` ([ADR-0059](../../docs/adr/0059-status-is-an-icon-problems-keep-words.md)):
+  a glyph alone in rows, the word on heroes and problems, the sentence always in the accessibilityLabel.
 
 ## Today (known defects; delete when fixed)
 - The passenger wallet query key `['naya', a, 'passenger-wallet']` is written by hand in quote.tsx, CancelSheet.tsx
   and packages/ui prototype.tsx instead of coming from `qk` (needs `qk.passengerWallet`). Payment labels and icons
   must come from `paymentMethodPresentation()` (`@naya/domain`, P14); never show `paymentMethod.label` raw.
-- The quote always starts on category 'standard' (`quote.tsx:55`, PAX-08), so the category commission applies (P8).

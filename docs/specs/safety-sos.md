@@ -2,8 +2,8 @@
 title: "Safety and SOS"
 status: Current
 owner: Achraf
-last_verified: 2026-10-13 @ c38429d + branch chore/docs-foundation-and-fixes
-related: [ADR-0058, ADR-0009, ADR-0017, ADR-0030, ADR-0035, ADR-0037, ADR-0039, ADR-0042, ADR-0044, ADR-0045, P2, P5, P9, ADM-03, API-04, DOM-05, DOM-11, PAX-03, PAX-11, PRD-06, PRD-23, PRD-24, UI-05, UI-17, DRV-13, VIS-01, VIS-02, VIS-23, VIS-24, specs/family.md]
+last_verified: 2026-10-15 @ d50e2c7 (R2, R4, R6, R12 only) · 2026-10-13 @ c38429d for the rest
+related: [ADR-0058, ADR-0059, RD-04, RD-12, ADR-0009, ADR-0017, ADR-0030, ADR-0035, ADR-0037, ADR-0039, ADR-0042, ADR-0044, ADR-0045, P2, P5, P9, ADM-03, API-04, DOM-05, DOM-11, PAX-03, PAX-11, PRD-06, PRD-23, PRD-24, UI-05, UI-17, DRV-13, VIS-01, VIS-02, VIS-23, VIS-24, specs/family.md]
 ---
 
 # Safety and SOS
@@ -39,11 +39,13 @@ Out of scope: support tickets in the « Sécurité » category (planned `specs/s
 - Tested by: `services/demo-api/test/prototype.test.ts:197` "records SOS simulation actions, enforces ownership and supports admin resolution" (another passenger gets 404).
 - Gap: whether SOS exists outside a ride or trip is open ([ADR-0035](../adr/0035-sos-production-model.md)).
 
-**R2 · The control « SOS · sécurité » is a neutral secondary button. It shows on the passenger ride screen in every state that screen renders, including the search for a driver; on the chauffeuse's ride screen; and on every Famille trip card that is not completed, for the parent and for the chauffeuse.** ⚠️
+**R2 · The safety entry is a pinned 44-pt « Sécurité » disc with the `Siren` glyph (`SafetyDisc`, testID `sos`), on the map's right edge, outside any scroll, so it never scrolls away and toasts are kept below it. It shows on the passenger ride screen in every state that screen renders, the search for a driver included; on the chauffeuse's ride screen; and on a Naya Famille trip while it is active, for the parent and for the chauffeuse. Since 15 Oct 2026 (redesign R10, X-02).** ✅ ❓
 
-- Enforced at: `apps/passenger/src/app/(app)/ride.tsx:173`; `apps/driver/src/app/(app)/ride.tsx:214`; `packages/ui/src/features/prototype.tsx:749` (trip card), `:83-88` (button).
-- Tested by: `e2e/tests/scenarios-feedback.spec.ts:52-54` (chauffeuse on a family trip). The test reloads the page to close the sheet (`:78-79`).
-- Gap: P5, VIS-01. Audit default for D2: a danger-styled control shown from `driver_assigned` onwards, closable from the UI.
+Before 15 Oct 2026 the control was a neutral secondary button « SOS · sécurité » inside each screen's card, which scrolled away and could be covered (audit `16o`). `SafetyButton` remains as a deprecated wrapper that opens the same sheet.
+
+- Enforced at: `packages/ui/src/features/prototype.tsx` (`SafetyDisc`, `SafetySheet`); `apps/passenger/src/app/(app)/ride.tsx`; `apps/driver/src/app/(app)/ride.tsx`; `packages/ui/src/features/famille/FamilleTripScreen.tsx`. The Famille approval banner sits below the disc on `/ride` (`offset` 72, `apps/passenger/src/app/(app)/_layout.tsx`).
+- Tested by: `packages/ui/src/__tests__/safety.test.tsx`; `e2e/tests/scenarios-feedback.spec.ts` (opens `sos`, holds `confirm-sos`).
+- Gap: whether the entry shows before `driver_assigned` is part of [ADR-0035](../adr/0035-sos-production-model.md).
 
 **R3 · Raising an alert is idempotent for a given Idempotency-Key, but the app sends a new key on every tap.** ⚠️
 
@@ -51,11 +53,13 @@ Out of scope: support tickets in the « Sécurité » category (planned `specs/s
 - Tested by: `services/demo-api/test/prototype.test.ts:212-225` (same key returns the same alert).
 - Gap: a retry after a network error creates a second alert (UI-17).
 
-**R4 · The alert stores the position the app sends. On a ride that is the driver's last known position, or else the pickup point; on a Famille trip it is the simulated trip position. The reporter's phone GPS is never read.** ⚠️
+**R4 · The alert stores the position the app sends, chosen in this order: on a ride, the car's last signal while it is fresh (the passenger only once the trip is in progress); then the phone's own position, read only when location access was already granted (no prompt is shown from the sheet); then, for the chauffeuse, the car's last signal even if old; then the pickup point. The sheet names the position it sends (`sos-location`), and the pickup is labelled as the pickup. On a Famille trip it is the trip position. Since 15 Oct 2026 (PAX-03).** ✅ ❓
 
-- Enforced at: `apps/passenger/src/app/(app)/ride.tsx:173` and `apps/driver/src/app/(app)/ride.tsx:214` (`ride.driverLocation?.location ?? ride.route.stops[0]!.location`); `packages/ui/src/features/prototype.tsx:749` (`t.location`), which the server moves step by step (`services/demo-api/src/services/prototype.ts:710-718`).
-- Tested by: **not tested**.
-- Gap: P5, PAX-03.
+Before 15 Oct 2026 both ride screens sent `ride.driverLocation?.location ?? ride.route.stops[0]!.location`, so the passenger's alert carried the driver's position before pickup, and the reporter's phone was never read.
+
+- Enforced at: `apps/passenger/src/app/(app)/ride.tsx` and `apps/driver/src/app/(app)/ride.tsx` (`getForegroundPermissionsAsync`, then `getLastKnownPositionAsync` or `getCurrentPositionAsync`); `packages/ui/src/features/famille/FamilleTripScreen.tsx`.
+- Tested by: **not tested** (the position choice lives in the screens).
+- Gap: one position at the moment of the alert, no live tracking until closed (P5, [ADR-0035](../adr/0035-sos-production-model.md)).
 
 **R5 · The trusted contact is an optional free-text name (« Aucun proche indiqué » when left empty, since 14 Oct 2026; « Contact de confiance » before). Naya contacts nobody: the reporter can share her position herself with « Prévenir un proche » (R6).** ⚠️ ❓
 
@@ -63,12 +67,12 @@ Out of scope: support tickets in the « Sécurité » category (planned `specs/s
 - Tested by: **not tested**.
 - Gap: trusted contacts saved in the profile, with a phone number, are part of the live model to decide ([ADR-0035](../adr/0035-sos-production-model.md)).
 
-**R6 · Since 14 Oct 2026 the sheet offers two real actions, each logged on the alert once done: « Appeler le 19 (police) » opens `tel:19` (« Appel au 19 lancé »), and « Prévenir un proche » opens the phone's share sheet with a map link (« Position partagée avec un proche », logged only when shared). The copy is true for the mode it runs in ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)): connected builds say the alert is « Transmise à l’équipe sécurité Naya avec votre position »; standalone builds, which have no desk, say the alert and the position are recorded and never claim that a team was notified.** ✅ ⚠️
+**R6 · The sheet is titled « Sécurité ». Since 15 Oct 2026 (R10) an alert is raised by holding a full-width 56-pt danger button « Maintenez pour alerter » for 1.5 s (`HoldToConfirmButton`, testID `confirm-sos`): a progress fill and a haptic at the start and at the end; an early release shows « Gardez le doigt sur le bouton 1,5 seconde pour envoyer l’alerte. » (`confirm-sos-hint`); screen readers send at once through the `activate` action. « Appeler le 19 » is a full-width button under it, before the optional trusted-contact field, and the other numbers close the sheet (R12). Once the alert exists, one banner (`sos-recorded`) says what happened, then « Appeler le 19 » (danger) and « Prévenir un proche » (share sheet with a map link). Both actions are real and logged on the alert once done (« Appel au 19 lancé », « Position partagée avec un proche »). The copy is true for the mode it runs in ([ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md)): connected builds say « Transmise à l’équipe sécurité Naya avec votre position » and then follow the desk's state; standalone builds, which have no desk, say the alert and the position are recorded and never claim that a team was notified.** ✅ ⚠️
 
-The sheet is titled « SOS · sécurité » and shows no demo wording. Before 14 Oct 2026 it was titled « SOS · démonstration », « Les appels et les envois sont simulés. », and its four actions (« Appel urgence simulé », « Position partagée (simulation) », « Contact de confiance alerté (simulation) », « Support contacté (simulation) ») called and sent nothing; the server still accepts those names from older builds and records them under the new wording (`SOS_ACTION_LABELS`).
+From 14 to 15 Oct 2026 the sheet was titled « SOS · sécurité » and the alert was one tap on a 40-pt button. Before 14 Oct 2026 it was titled « SOS · démonstration », « Les appels et les envois sont simulés. », and its four actions (« Appel urgence simulé », « Position partagée (simulation) », « Contact de confiance alerté (simulation) », « Support contacté (simulation) ») called and sent nothing; the server still accepts those names from older builds and records them under the new wording (`SOS_ACTION_LABELS`). On a Famille trip the 19 call is also written in the trip journal, without delaying the call.
 
-- Enforced at: `services/demo-api/src/services/prototype.ts` (`SOS_ACTION_LABELS`, `POST /prototype/sos/:id/action`, own alert only); `packages/ui/src/features/prototype.tsx` (`SafetyButton`: `callPolice`, `sharePosition`, `desk`).
-- Tested by: `services/demo-api/test/prototype.test.ts`; `e2e/tests/scenarios-feedback.spec.ts` (connected copy « équipe sécurité », `sos-call-police`; the admin sees « Alerte déclenchée · position enregistrée »).
+- Enforced at: `services/demo-api/src/services/prototype.ts` (`SOS_ACTION_LABELS`, `POST /prototype/sos/:id/action`, own alert only); `packages/ui/src/features/prototype.tsx` (`HoldToConfirmButton`, `SafetySheet`: `callPolice`, `sharePosition`, `desk`).
+- Tested by: `services/demo-api/test/prototype.test.ts`; `packages/ui/src/__tests__/safety.test.tsx`; `e2e/tests/scenarios-feedback.spec.ts` (holds `confirm-sos` with `click({ delay: 1700 })`, connected copy « équipe sécurité », `sos-call-police`; the admin sees « Alerte déclenchée · position enregistrée »).
 - Gap: not gated by demo mode (P9, UI-05, DRV-13; [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md)). The API uses the French labels as enum values ([ADR-0039](../adr/0039-future-of-the-prototype-module.md)).
 
 **R7 · The reporter keeps sight of her alert only while the sheet's screen stays mounted. Since 14 Oct 2026, in connected mode, the open sheet polls the alert and shows the desk's status (« Prise en charge », « Résolue » with its note); standalone builds have no desk.** ⚠️
@@ -114,23 +118,22 @@ At `c38429d` any status could follow any other, `resolved` back to `new` include
 
 **R12 · The apps name the Moroccan emergency numbers correctly, and each number shown as a button dials that number.** ⚠️ ❓
 
-Since 15 Oct 2026 (branch `feat/passenger-polish`, PAX-11, PRD-23) no screen says « SAMU ». The passenger app reads one list, `apps/passenger/src/features/help/emergency.ts`: police 19 (in cities), Protection civile 15 (fire and ambulance), Gendarmerie royale 177 (outside cities), and 112 from a mobile.
+Since 15 Oct 2026 (branch `feat/passenger-polish`, PAX-11, PRD-23) no screen says « SAMU ». Both apps read one list, `packages/domain/src/emergency.ts` (`EMERGENCY_NUMBERS`; `apps/passenger/src/features/help/emergency.ts` re-exports it): police 19 (in cities), Protection civile 15 (fire and ambulance), Gendarmerie royale 177 (outside cities), and 112 from a mobile.
 
-- Passenger contact sheet (`apps/passenger/src/features/ride/ContactSheet.tsx`): « Police · 19 » (`call-police`), « Protection civile · 15 » (`call-civil-protection`), « Gendarmerie royale · 177 » (`call-gendarmerie`), each a `tel:` link, and a line for 112. The sheet scrolls, so the rows stay reachable at the largest text sizes.
+- Safety sheet (R2, R6), on the passenger ride, the chauffeuse's ride and the Famille trip: « Appeler le 19 » (`sos-call-police`), then « Autres numéros d’urgence » (`emergency-numbers`, `OtherEmergencyNumbers` in `packages/ui/src/features/emergency.tsx`): « Protection civile · 15 » (`call-civil-protection`), « Gendarmerie royale · 177 » (`call-gendarmerie`), each a `tel:` link, and a line for 112. Since 15 Oct 2026 (R8) there is no ride contact sheet: calling and messaging through Naya are not live, so nothing offers them, and the 19 moved to the safety sheet.
 - Help: the « SOS et sécurité » topic names the four numbers, and its page has the same three call rows (`help-call-police`, `help-call-civil-protection`, `help-call-gendarmerie`).
-- Support form, category « Sécurité » (both apps, `packages/ui/src/features/support.tsx`): a banner « En cas de danger, appelez d’abord » with the same numbers and « Une demande n’est pas un appel d’urgence. » (`support-emergency-numbers`). The old « signalements traités en priorité » promise is gone. The text is written by hand there (the UI kit cannot import the app's list).
-- The SOS sheet (`packages/ui/src/features/prototype.tsx`), the chauffeuse's contact sheet (`apps/driver/src/app/(app)/ride.tsx`) and the Famille police button offer only « Appeler le 19 (police) ».
+- Support form, category « Sécurité » (both apps, `packages/ui/src/features/support.tsx`): a banner « En cas de danger, appelez d’abord » with the same numbers and « Une demande n’est pas un appel d’urgence. » (`support-emergency-numbers`). The old « signalements traités en priorité » promise is gone. The text is still written by hand there; it could now read `EMERGENCY_NUMBERS` from `@naya/domain`.
 - On every sheet, a device that cannot dial shows a native alert « Appel impossible depuis cet appareil ».
 - Tested by: `apps/passenger/src/features/help/__tests__/help.test.tsx` (the copy and the `tel:` links use the same numbers; no « SAMU »).
 - Gap: the numbers still need confirming with local ops (D2). 141 (SAMU) is not shown.
 
 | Number | Service, per the audit's verifiers | In the apps (15 Oct 2026) | Status |
 |---|---|---|---|
-| 19 | Police (in cities) | Dialled from the passenger contact sheet, the help page, the SOS sheet, the driver sheet and Famille | to confirm |
-| 177 | Gendarmerie royale (outside cities) | Dialled from the passenger contact sheet and the help page; named in the support banner | to confirm |
-| 15 | Protection civile (fire and ambulance), not SAMU | Labelled « Protection civile »; dialled from the passenger contact sheet and the help page | to confirm |
+| 19 | Police (in cities) | Dialled from the safety sheet (passenger ride, driver ride, Famille trip) and the help page | to confirm |
+| 177 | Gendarmerie royale (outside cities) | Dialled from the safety sheet and the help page; named in the support banner | to confirm |
+| 15 | Protection civile (fire and ambulance), not SAMU | Labelled « Protection civile »; dialled from the safety sheet and the help page | to confirm |
 | 141 | SAMU (medical emergencies) | Absent | to confirm |
-| 112 | Emergency number from mobile phones | Named on the contact sheet, in help and in the support banner; not a button | to confirm |
+| 112 | Emergency number from mobile phones | Named in the safety sheet, in help and in the support banner; not a button | to confirm |
 
 ## States and transitions
 
@@ -152,9 +155,9 @@ The ride or trip status never changes (R8).
 
 | Aspect | Demo today | Live needs |
 |---|---|---|
-| Control and sheet | « SOS · sécurité » in every build, with no demo wording since 14 Oct 2026 (R2, R6). | The control and promise chosen in [ADR-0035](../adr/0035-sos-production-model.md). Audit default: one tap, danger style, a short cancel window. |
+| Control and sheet | A pinned « Sécurité » disc and a 1.5 s hold to send, in every build, with no demo wording (R2, R6; 15 Oct 2026). | The control and promise chosen in [ADR-0035](../adr/0035-sos-production-model.md). |
 | Emergency call | A real `tel:19` call from the sheet, logged as « Appel au 19 lancé » (R6). | A real call to confirmed numbers (R12). |
-| Position | Driver position, pickup point, or the simulated trip position (R4). | The reporter's device GPS. The passenger app uses foreground location only ([ADR-0030](../adr/0030-location-policy.md)). |
+| Position | The car's fresh signal, the phone's position when location is already allowed, or the pickup, named in the sheet (R4). | The reporter's device GPS, asked for when needed. The passenger app uses foreground location only ([ADR-0030](../adr/0030-location-policy.md)). |
 | Trusted contact | A name; Naya contacts nobody, the reporter shares her position herself through the share sheet (R5, R6). | Saved contacts with a phone number, and an SMS or a shared live-location link. |
 | Desk | Connected builds: the admin « Alertes SOS » page, and the sheet says so. Standalone builds keep the alert on the phone and the sheet says only that it is recorded (fixed 14 Oct 2026; PRD-24). | A staffed desk with stated hours, an SLA, an escalation runbook, and a sound or push alert (audit section 8.5). |
 | Feedback to the reporter | Connected builds: the desk's status while the sheet is open (R7). Nothing after it closes. | Status polled or pushed into both apps ([ADR-0045](../adr/0045-production-backend-and-live-integrations.md) for remote push). |
@@ -177,6 +180,8 @@ Integration status per capability: [status/integrations.md](../status/integratio
 - **Demo gating.** Hide the simulated sheet outside demo builds. [ADR-0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md).
 
 ## Last verified
+
+2026-10-15, AI session (redesign, branch `feat/passenger-polish` at d50e2c7): R2, R4, R6 and R12 re-read against `prototype.tsx` (`SafetyDisc`, `SafetySheet`, `HoldToConfirmButton`), `emergency.tsx`, `packages/domain/src/emergency.ts`, both ride screens and `FamilleTripScreen.tsx`. The rest of this page was not re-checked.
 
 2026-10-15, AI session (branch `feat/passenger-polish`): R12 re-read against `emergency.ts`, `ContactSheet.tsx`, `help/[topic].tsx`, `topics.ts` and `support.tsx`. The rest of this page was not re-checked.
 

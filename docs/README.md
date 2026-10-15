@@ -64,7 +64,7 @@ top. At each milestone (TestFlight upload, feature pass) walk this table and re-
 | [status/backlog.md](status/backlog.md) | Every known issue, with ID, severity and status | 2026-10-13 | New, seeded from the audit |
 | [status/open-questions.md](status/open-questions.md) | Decisions waiting on Achraf (D1–D15, each linked to Proposed ADRs) and the founder brief's open questions (F1–F4) | 2026-10-13 | New |
 | [status/integrations.md](status/integrations.md) | Per capability: real, simulated or missing, and what live needs | 2026-10-13 | New; replaces docs/INTEGRATIONS.md (deleted on this branch) |
-| [adr/](adr/) | ADR-0001 to ADR-0057, one file each; status (Proposed / Accepted / Superseded) in each file's front matter. Template: [adr/0000-template.md](adr/0000-template.md). Index: [adr/README.md](adr/README.md) | 2026-10-13 | New |
+| [adr/](adr/) | ADR-0001 to ADR-0059, one file each; status (Proposed / Accepted / Superseded) in each file's front matter. Template: [adr/0000-template.md](adr/0000-template.md). Index: [adr/README.md](adr/README.md) | 2026-10-13 | New |
 
 ### Specs (feature rules)
 
@@ -129,6 +129,7 @@ Verdicts from section 6.2 of the [full audit](audits/2026-10-13-full-audit.md). 
 |---|---|---|
 | [audits/2026-10-13-full-audit.md](audits/2026-10-13-full-audit.md) | Full audit: priorities P1–P20, docs plan, decisions D1–D15 | Immutable snapshot (13 Oct, 89aae18) |
 | [audits/2026-10-13-full-audit-findings.md](audits/2026-10-13-full-audit-findings.md) | Every verified finding with file:line evidence | Immutable snapshot |
+| [audits/2026-10-15-redesign-audit.md](audits/2026-10-15-redesign-audit.md) | Redesign of both apps: status icon system, 150 icon pairings, findings by screen, batches B0–B12, decisions R1–R18 (follow-up: RD rows in the backlog) | Immutable snapshot (15 Oct, fc6f88c) |
 | [tasks/](tasks/) | The founder's briefs, e.g. [tasks/2026-10-13.md](tasks/2026-10-13.md) | Owned by the founder's sessions |
 
 ## How to keep this page true

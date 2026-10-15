@@ -77,8 +77,19 @@ server refuses while she has an active ride, a Famille trip under way, an open S
 payment, a refused ride payment or a wallet balance (`details.blockers`, each with a French message saying what to do);
 otherwise it anonymises the profile, cancels scheduled rides and Famille trips, and revokes the sessions (`services/demo-api/src/services/auth.ts`; tests `services/demo-api/test/accountDeletion.test.ts`).
 
+Later the same day (e07ef01) the chauffeuse got the same route from Compte → « Préférences » → « Supprimer mon compte »
+(`delete-account`, a sheet that lists what is erased and what is kept). The server refuses while she has a ride or a
+Famille trip under way, is online, has an open SOS alert, a booked car wash, a ride payment or a recharge or withdrawal
+pending, a wallet balance (to withdraw) or a debt (to recharge or settle with the assistance), or active Famille
+subscriptions or scheduled trips assigned to her; every blocker comes back at once. Otherwise her payout accounts,
+presence and the vehicle's plate go too, and the rides she drove, her ledger, recharges and withdrawals are kept under
+« Compte supprimé » (rides keep the car for the passenger's receipt; Famille journals replace her first name). The
+balance must be exactly zero, so nothing is paid out by the deletion itself (`driverDeletionBlockers` in
+`services/demo-api/src/services/auth.ts`; tests `services/demo-api/test/driverAccountDeletion.test.ts`). Item 4 is done
+for the app (DRV-10, e07ef01): every driver sign-out goes offline first and stays signed in when the server refuses.
+
 Open: a passenger with a wallet balance cannot delete, and nothing can refund a passenger wallet (needs a decision);
-driver deletion (PRD-35); suspension, revocation and expiry.
+the 30-day request queue of item 1 (deletion is immediate today); suspension, revocation and expiry.
 
 ## Revisit when
 

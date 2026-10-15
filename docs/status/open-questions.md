@@ -1,10 +1,13 @@
 # Open questions
 
-Decisions waiting on Achraf. Owner: Achraf. Last updated: 2026-10-13.
+Decisions waiting on Achraf. Owner: Achraf. Last updated: 2026-10-15.
 
 - **D1–D15** come from section 9 of the [13 October audit](../audits/2026-10-13-full-audit.md#9-decisions-needed-from-achraf),
   which merged about 110 questions into 15 decisions. Each one except D12 maps to Proposed ADRs in [docs/adr/](../adr/).
   The audit has the full reasoning; this page keeps the question, the options and the recommended default.
+- **R1–R18** are the owner decisions of the [redesign audit of 15 October](../audits/2026-10-15-redesign-audit.md#7-owner-decisions).
+  All eighteen were decided on 15 Oct 2026 (the recommended option each time); see
+  [Redesign decisions](#redesign-decisions-r1r18-15-october) at the end of this page.
 - **F1–F4** are the open questions of the founder's brief, [docs/tasks/2026-10-13.md](../tasks/2026-10-13.md#open-questions-for-the-founder-answered-above).
   The founder answered them the same day ([Founder’s answers](../tasks/2026-10-13.md#founders-answers-13-october-2026)); no ADR or spec records the answers yet.
 
@@ -321,3 +324,31 @@ phone's own call app?
   other parent may be invited to follow the trip. A WhatsApp hand-off exposes phone numbers, so it needs an ADR that
   supersedes ADR-0031 for Famille.
 - Status: answered 2026-10-13 (brief); not yet in an ADR or spec.
+
+## Redesign decisions R1–R18 (15 October)
+
+Source: section 7 of the [redesign audit](../audits/2026-10-15-redesign-audit.md#7-owner-decisions). On 15 Oct 2026
+Achraf accepted the recommended option (a) for every decision. R1, R3 and R5 are recorded in
+[ADR-0059](../adr/0059-status-is-an-icon-problems-keep-words.md). The work is tracked in the RD rows of the
+[backlog](backlog.md#15-october-redesign-rd); commits are on branch `feat/passenger-polish`.
+
+| # | Decision | Chosen (15 Oct 2026) | Outcome | Status |
+|---|---|---|---|---|
+| R1 | Do states go icon-only in lists? | (a) Glyph alone in rows and lists; the word on detail heroes, at first sight and for problems; always in the accessibilityLabel | `StatusIcon` `showLabel: 'auto'` (61e2413); every screen batch | decided (ADR-0059, 2026-10-15), done |
+| R2 | Main button height | (a) 50-pt `control.major` for booking and driver decisions, 44 elsewhere | `Button` and `control` tokens (61e2413), applied per screen | decided 2026-10-15, done |
+| R3 | Status tones | (a) Cancelled neutral, pending info, washing accent (§2.3) | `status.ts` tones; card payment waiting for the bank is info (61e2413) | decided (ADR-0059, 2026-10-15), done |
+| R4 | « Identité · 6 pistes » in customer accounts | (a) Remove the row; `/brand` stays reachable from the dev launcher | Row removed in both apps (5500275, e07ef01); `dev-brand` in the launcher (e07ef01) | decided 2026-10-15, done |
+| R5 | One Famille trip tone mapping | (a) The C11 table | `status.ts` (61e2413), Famille screens (87282c3) | decided (ADR-0059, 2026-10-15), done |
+| R6 | Remove the itinerary step | (a) Search goes straight to the quote; the route is edited on the quote | 820a87e; [SCREENS.md](../SCREENS.md) `(app)/route` | decided 2026-10-15, done |
+| R7 | Home services: Famille and Lavage | (a) One services rail below the main card on passenger home; the car-wash cross-sell leaves driver home for Compte | Passenger home (820a87e); driver Compte (e07ef01), driver home (d50e2c7) | decided 2026-10-15, done |
+| R8 | Contact sheets while calling and messaging are not live | (a) Hide the call and message actions and the « Bientôt disponible » rows; the 19 call moves to the safety sheet | Passenger (953b79a), Famille (87282c3), driver (d50e2c7). The passenger city sheet still says « Bientôt disponible » for a city that is not open: a true statement about the city, not a feature row, kept | decided 2026-10-15, done |
+| R9 | Does the admin adopt `statusPresentation` now? | (a) Later (batch B12) | Not started (RD-13) | decided 2026-10-15, deferred |
+| R10 | SOS gesture | (a) Hold 1.5 s on a full-width 56-pt button with haptic and progress fill; pinned safety disc in both apps; copy true per mode (ADR-0058) | 953b79a, 87282c3, d50e2c7; [safety-sos.md](../specs/safety-sos.md) R2, R6 | decided 2026-10-15, done |
+| R11 | Wording for a failed wallet debit | (a) « Montant libéré · rien n'a été débité » | 61e2413, 953b79a | decided 2026-10-15, done |
+| R12 | Driver blocked | (a) Show the unblocking action instead of a disabled « Passer en ligne » | d50e2c7; the button stays disabled with its reason when she cannot act (review, test city) | decided 2026-10-15, done |
+| R13 | Car-wash photos layout | (a) One row per angle with Avant / Après thumbnails | 4754a60 | decided 2026-10-15, done |
+| R14 | Commit the captures and the capture scripts | (a) Scripts under `scripts/capture-web/`, not the PNGs (ADR-0052) | `scripts/capture-web/` (docs commit of 15 Oct) | decided 2026-10-15, done |
+| R15 | Backlog prefix | (a) `RD-` | [backlog](backlog.md#15-october-redesign-rd) | decided 2026-10-15, done |
+| R16 | OTP: auto-submit at the 6th digit | (a) Yes, no « Vérifier » button; « Réessayer » after a network or server error | 0c7bdd3; `packages/ui/src/__tests__/auth.test.tsx` | decided 2026-10-15, done |
+| R17 | Slide-to-confirm for « Commencer » / « Terminer » | (a) Not now | Nothing built (d50e2c7 keeps buttons) | decided 2026-10-15, done (no change) |
+| R18 | Earnings chart | (a) One 7- or 30-day bar chart, simple Views, no chart library | 8aa9451 | decided 2026-10-15, done |

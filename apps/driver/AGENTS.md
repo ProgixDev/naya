@@ -29,7 +29,7 @@ App-only code: `src/lib` (session, queries, prefs, location, backgroundLocation,
 | D18 | `(app)/support`, `support/new`, `support/[id]` |
 
 Added on Oct 6 (89aae18), no Figma frame: `(app)/family` (`FamilyScreen role="driver"`), `(app)/brand`
-(6 logo concepts), and `dev` (`DevLauncher`; no visible entry since ADR-0058: 2 s long press on the welcome logo or
+(6 logo concepts; not a customer screen since R4: no row in Compte, only the dev launcher's `dev-brand`), and `dev` (`DevLauncher`; no visible entry since ADR-0058: 2 s long press on the welcome logo or
 naya-chauffeuse://dev, `__DEV__` builds only).
 
 ## Background location (src/lib/backgroundLocation.ts)
@@ -37,7 +37,9 @@ naya-chauffeuse://dev, `__DEV__` builds only).
   phone. Never while merely online. The permission copy in `app.config.ts` promises exactly this.
 - The TaskManager task `naya-driver-ride-location` is defined at import time from the root `_layout.tsx`.
   It is not defined in standalone demo builds or on web; `startRideTracking()` returns 'unsupported' there.
-- "Always" permission is requested in context, after foreground permission. If refused, sharing is foreground-only.
+- « Always » is never requested on its own (DRV-16): `startRideTracking()` starts only when it is already granted and
+  returns 'needs-consent' while it can still be asked. The ride screen then shows `BackgroundLocationExplainer`, which calls
+  `requestRideBackgroundLocation()` only after she accepts. If refused, sharing is foreground-only.
 - Start and stop follow the server's active ride (`status.activeRide`), not the ride screen: `useRideTracking()` in
   `(app)/_layout.tsx` starts it once per ride id and stops it as soon as the server reports no active ride, including
   at app start after a kill. Going home mid-ride keeps it on. Never start or stop it from `ride.tsx` (P4).
@@ -45,9 +47,10 @@ naya-chauffeuse://dev, `__DEV__` builds only).
   saved session, on 401/403/409 from `POST /driver/location`, or when the server answers `onRide: false`.
   Android runs it with `killServiceOnDestroy: true` (swipe from recents kills the service).
 - Today: once the ride ends with the phone locked and parked, the self-stop waits for the next location fix (status
-  polling pauses in the background). « Always » is still requested with no prominent disclosure (DRV-16).
-- The task reads the session from SecureStore key `naya.driver.session` and posts with raw fetch (DRV-17).
-  If you change the session shape in packages/ui, update the task too.
+  polling pauses in the background).
+- The task reads the session through `useSession` (restoring it in a fresh background JS context) and posts with the
+  API client's `driver.sendLocation` (DRV-17). Permission strings live in `app.config.ts`: photos only, no microphone
+  (DRV-15); they need prebuild and a new native build.
 
 ## Offer timer
 - The deadline is the server's `offer.expiresAt`. `useDeadline` counts down against `serverClock`, which corrects
@@ -55,21 +58,29 @@ naya-chauffeuse://dev, `__DEV__` builds only).
 - The timeout is per city: `offerTimeoutSeconds`, 10–120 s, default 30 (packages/domain/src/schemas.ts, cities.ts).
   Never hard-code 30 s in copy, notifications or the countdown ring. Offers never auto-accept.
 - The background « Nouvelle course » notification gives the time left from `offer.expiresAt` (`(app)/_layout.tsx`).
-- Today: `offer.tsx:82` (« Le délai de 30 secondes »), `:117` (`total={30}`) and `(tabs)/index.tsx:127`
-  (« 30 s pour répondre ») still assume 30 s (DRV-05).
+- The ring's total is the offer's own window (`expiresAt` − creation), else the city's `offerTimeoutSeconds`; the home
+  line « N s pour répondre » and the expiry copy use the same value, and the line is hidden while she is blocked
+  (DRV-05, DRV-11). Android back on a pending offer opens the decline sheet (DRV-19).
 
 ## Money screens
 - Wallet, ledger, recharge and withdrawal show a projection of the server ledger. Never compute balances in the app;
   format with `formatMoney` from `@naya/domain`. Recharges and withdrawals send an Idempotency-Key.
-- Today: wallet and mobile-wallet rides show as « Carte » in earnings (P14, DRV-08).
+- Earnings name the method with `paymentMethodPresentation()` and count every non-cash ride as credited (DRV-08).
 
-## Sign-out and contact
-- Account sign-out first calls `setOnline(false)`; if the server answers `ACTIVE_RIDE_EXISTS`, it stays signed in
-  with « Terminez la course en cours avant de vous déconnecter. » (DRV-10). Today: a network failure there still
-  signs out, and the DossierHub and dev-launcher sign-outs do not check.
-- The ride contact sheet promises no masked call: « L’appel et le message via Naya ne sont pas encore disponibles. »,
-  plus an « Appeler le 19 (police) » button (`tel:19`). Toasts render behind modal sheets (UI-07), so a failure
-  inside a sheet uses `Alert.alert`.
+## Sign-out, deletion, safety and blocks
+- Sign-out goes through `useDriverSignOut` (`src/components/useDriverSignOut.ts`, account and DossierHub): offline
+  first; if the server refuses (`ACTIVE_RIDE_EXISTS`) or the network fails, she stays signed in and sees the reason
+  (DRV-10). Only the dev launcher (dev builds) signs out directly.
+- Account deletion: Compte → « Préférences » → « Supprimer mon compte » (`POST /me/deletion`, ADR-0055 implementation
+  status). The sheet's lists mirror `deleteAccount` in `services/demo-api/src/services/auth.ts`: keep both in step.
+- No contact sheet on the ride while calling is not live (R8): no call button, no « Bientôt disponible » row. Safety
+  is the pinned « Sécurité » disc (`SafetyDisc`, testID `sos`) with the 1.5 s hold, « Appeler le 19 » and the other
+  numbers in its sheet ([safety-sos.md](../../docs/specs/safety-sos.md)). Toasts render behind modal sheets (UI-07), so
+  a failure inside a sheet uses `Alert.alert`.
+- A blocked chauffeuse who can lift the block herself sees that action as the main button instead of a disabled
+  « Passer en ligne » (R12); while she waits on a review or a test city, the button stays disabled with the reason.
+- Status glyphs and words come from `statusPresentation` / `StatusIcon` and `ActionNote kind/state`
+  ([ADR-0059](../../docs/adr/0059-status-is-an-icon-problems-keep-words.md)).
 
 ## Theming
 - Same rules as [apps/passenger/AGENTS.md](../passenger/AGENTS.md#theming): `@naya/tokens` + `useTheme()` or
@@ -77,8 +88,7 @@ naya-chauffeuse://dev, `__DEV__` builds only).
   `packages/ui/src/__tests__/theme.test.tsx` also scans this app; `KNOWN` stays empty.
 - Control boundaries `outline` (radio, checkbox), decorative card edges `hairline`, separators `line`, placeholders
   `muted`; `inverse` only on accent; `shadowColor` never `colors.ink`.
-- Today: `WalletCard` (`src/components/WalletCard.tsx:30`) hard-codes both gradients; in dark it is a pink card with
-  `inverse` text (readable, DOM-12).
+- `WalletCard` is artwork: fixed plum stops and fixed white text in both schemes, like the passenger WalletSummary (DM-17).
 
 ## Checks
 - `pnpm --filter @naya/driver typecheck`, `pnpm --filter @naya/driver lint` (0 errors).
