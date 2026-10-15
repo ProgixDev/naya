@@ -1,9 +1,9 @@
-import { themedStyles , colors, radius } from '@naya/tokens';
+import { themedStyles, colors, radius, type TypeToken } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { ArrowDownLeft, ArrowUpRight, Banknote, CreditCard, Droplets, GripVertical, MapPin, Receipt, Star, Trash2, Wrench } from 'lucide-react-native';
+import { Car, CircleCheck, Droplets, GripVertical, Landmark, MapPin, Percent, Plus, ReceiptText, Star, Trash2, Undo2, Wrench, type LucideIcon } from 'lucide-react-native';
 import { cars, aspect } from '@naya/assets';
 import { Illustration , Avatar } from './Brand';
 import {
@@ -24,10 +24,11 @@ import { Text } from './Text';
 import { IconButton } from './Button';
 import { PressableScale } from './PressableScale';
 import { IconDisc } from './List';
+import { Icon } from './Icon';
 
 /* ───────────── Money ───────────── */
 
-export function Money({ amount, variant = 'label', tone = 'ink', sign, weight = 'semibold', style }: { amount: Centimes; variant?: 'display' | 'hero' | 'title' | 'heading' | 'label' | 'caption' | 'action' | 'body'; tone?: 'ink' | 'muted' | 'accent' | 'inverse' | 'success' | 'danger'; sign?: 'auto' | 'always'; weight?: 'regular' | 'medium' | 'semibold' | 'bold'; style?: object }) {
+export function Money({ amount, variant = 'label', tone = 'ink', sign, weight = 'semibold', style }: { amount: Centimes; variant?: TypeToken; tone?: 'ink' | 'muted' | 'accent' | 'inverse' | 'success' | 'danger'; sign?: 'auto' | 'always'; weight?: 'regular' | 'medium' | 'semibold' | 'bold'; style?: object }) {
   useTheme();
   return (
     <Text variant={variant} tone={tone} weight={weight} numeric style={style} accessibilityLabel={`${formatMoney(amount, { sign }).replace('−', 'moins ')}`}>
@@ -60,7 +61,20 @@ const roleLabel: Record<StopRole, string> = { pickup: 'Départ', stop: 'Arrêt',
 
 export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMoveUp, onMoveDown, isLast, done, compact = false, testID }: RouteStopRowProps) {
   useTheme();
-  const marker = role === 'pickup' ? <View style={[styles.dot, { borderColor: colors.accent }]} /> : role === 'destination' ? <MapPin size={18} color={colors.accent} fill={colors.selected} /> : <View style={[styles.square, done && { backgroundColor: colors.success, borderColor: colors.success }]} />;
+  // A done stop is a check (audit A4): the glyph says it, so the row no longer adds « · effectué ».
+  const marker =
+    role === 'pickup' ? (
+      <View style={[styles.dot, { borderColor: colors.accent }]} />
+    ) : role === 'destination' ? (
+      <MapPin size={18} color={colors.accent} fill={colors.selected} />
+    ) : done ? (
+      <View style={styles.doneMarker} testID={testID ? `${testID}-done` : undefined}>
+        <CircleCheck size={16} color={colors.success} strokeWidth={2} />
+      </View>
+    ) : (
+      <View style={styles.square} />
+    );
+  const spoken = `${roleLabel[role]}${done ? ', effectué' : ''} : ${place?.label ?? placeholder ?? 'à choisir'}`;
   const rail = (
     <View style={styles.rail}>
       {marker}
@@ -71,7 +85,6 @@ export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMo
       <View style={{ flex: 1, paddingVertical: compact ? 6 : 10, gap: 2 }}>
         <Text variant="micro" tone="muted" weight="semibold">
           {roleLabel[role]}
-          {done ? ' · effectué' : ''}
         </Text>
         <Text variant="label" tone={place ? 'ink' : 'muted'} numberOfLines={1}>
           {place?.label ?? placeholder ?? 'Choisir une adresse'}
@@ -101,11 +114,15 @@ export function RouteStopRow({ place, role, placeholder, onPress, onRemove, onMo
       {actions}
     </View>
   );
-  if (!onPress) return <View testID={testID}>{content}</View>;
+  const hasActions = !!(onMoveUp || onMoveDown || onRemove);
+  if (!onPress) {
+    // Read as one line (« Arrêt, effectué : Agdal ») unless it holds its own controls.
+    return hasActions ? <View testID={testID}>{content}</View> : <View testID={testID} accessible accessibilityLabel={spoken}>{content}</View>;
+  }
   // The row body is the pressable; reorder/remove controls stay siblings (no nested buttons).
   return (
     <View style={styles.stopRow}>
-      <PressableScale testID={testID} onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={`${roleLabel[role]} : ${place?.label ?? placeholder ?? 'à choisir'}`} style={[styles.stopRow, { flex: 1 }]}>
+      <PressableScale testID={testID} onPress={onPress} pressedScale={0.985} accessibilityRole="button" accessibilityLabel={spoken} style={[styles.stopRow, { flex: 1 }]}>
         {rail}
         {body}
       </PressableScale>
@@ -178,42 +195,58 @@ export function VehicleImage({ color, width = 132 }: { color: string; width?: nu
 /** Portrait avatars exist only for the illustrated demo characters. */
 export const avatarFor = (_firstName: string): null => null;
 
-export function DriverCard({ driver, trailing, eta }: { driver: DriverSummary; trailing?: ReactNode; eta?: string }) {
+/**
+ * The plate as the passenger checks it against the car (audit P-56): 20/700 tabular figures in a
+ * 36-tall plate chip, 28/700 once the chauffeuse has arrived and the check happens.
+ */
+export function PlateChip({ plate, large = false, testID }: { plate: string; large?: boolean; testID?: string }) {
   useTheme();
   return (
+    <View style={[styles.plate, large ? styles.plateLarge : null]} accessible accessibilityRole="text" accessibilityLabel={`Immatriculation ${plate}`} testID={testID}>
+      <Text variant="title" weight="bold" numeric numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.4} style={large ? styles.plateTextLarge : styles.plateText}>
+        {plate}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * The chauffeuse on a live ride. Recognising the car is the safety check, so the plate leads, then
+ * the car model and colour (15), then who drives it: photo 48 (an initial until photos exist), name
+ * and rating. `arrived` enlarges the plate. `trailing` is an action beside the name (a call, once live).
+ */
+export function DriverCard({ driver, trailing, eta, arrived = false }: { driver: DriverSummary; trailing?: ReactNode; eta?: string; arrived?: boolean }) {
+  useTheme();
+  const rating = driver.ratingAverage?.toFixed(1).replace('.', ',') ?? null;
+  return (
     <View style={styles.driver} testID="driver-card">
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Avatar source={avatarFor(driver.firstName)} name={driver.firstName} size={52} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="heading">
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <View style={{ flex: 1, gap: 8 }}>
+          <PlateChip plate={driver.vehicle.plate} large={arrived} testID="driver-plate" />
+          <Text variant="label" numberOfLines={2}>
+            {driver.vehicle.make} {driver.vehicle.model} · {driver.vehicle.color}
+          </Text>
+          {eta ? (
+            <Text variant="caption" tone="accent" weight="semibold" numeric>
+              {eta}
+            </Text>
+          ) : null}
+        </View>
+        <Avatar source={avatarFor(driver.firstName)} name={driver.firstName} size={48} />
+      </View>
+      <View style={styles.driverLine}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} accessible accessibilityLabel={`${driver.firstName} ${driver.lastInitial}.${rating ? `, note ${rating} sur 5` : ', nouvelle chauffeuse'}`}>
+          <Text variant="label" weight="semibold" numberOfLines={1}>
             {driver.firstName} {driver.lastInitial}.
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Star size={14} color={colors.accent} fill={colors.accent} />
             <Text variant="caption" tone="muted" numeric>
-              {driver.ratingAverage?.toFixed(1).replace('.', ',') ?? 'Nouvelle'} · Chauffeuse
+              {rating ?? 'Nouvelle'}
             </Text>
           </View>
-          {eta ? (
-            <Text variant="caption" tone="accent" weight="semibold">
-              {eta}
-            </Text>
-          ) : null}
         </View>
         {trailing}
-      </View>
-      <View style={styles.vehicleRow}>
-        <VehicleImage color={driver.vehicle.color} width={96} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="label">
-            {driver.vehicle.make} {driver.vehicle.model} · {driver.vehicle.color}
-          </Text>
-          <View style={styles.plate} accessibilityLabel={`Immatriculation ${driver.vehicle.plate}`}>
-            <Text variant="caption" weight="bold" numeric>
-              {driver.vehicle.plate}
-            </Text>
-          </View>
-        </View>
       </View>
     </View>
   );
@@ -275,15 +308,16 @@ function WalletFigure({ label, amount, suffix, note }: { label: string; amount: 
   );
 }
 
-const ledgerMeta: Record<LedgerEntry['type'], { label: string; Icon: typeof Receipt }> = {
-  ride_commission: { label: 'Commission · course espèces', Icon: Banknote },
-  ride_net_credit: { label: 'Revenu net · course carte', Icon: CreditCard },
-  cancellation_fee_credit: { label: 'Frais d’annulation', Icon: Receipt },
-  recharge: { label: 'Recharge', Icon: ArrowDownLeft },
-  withdrawal: { label: 'Retrait', Icon: ArrowUpRight },
+/** Ledger types, not states (audit C18): a 40 disc whose glyph names the movement. */
+const ledgerMeta: Record<LedgerEntry['type'], { label: string; Icon: LucideIcon }> = {
+  ride_commission: { label: 'Commission · course espèces', Icon: Percent },
+  ride_net_credit: { label: 'Revenu net · course carte', Icon: Car },
+  cancellation_fee_credit: { label: 'Frais d’annulation', Icon: ReceiptText },
+  recharge: { label: 'Recharge', Icon: Plus },
+  withdrawal: { label: 'Retrait', Icon: Landmark },
   correction: { label: 'Correction exceptionnelle', Icon: Wrench },
   car_wash: { label: 'Lavage à domicile', Icon: Droplets },
-  car_wash_refund: { label: 'Remboursement · lavage annulé', Icon: ArrowDownLeft },
+  car_wash_refund: { label: 'Remboursement · lavage annulé', Icon: Undo2 },
 };
 
 export function TransactionRow({ entry, onPress, subtitle }: { entry: Pick<LedgerEntry, 'type' | 'amount' | 'createdAt' | 'rideId' | 'id'>; onPress?: () => void; subtitle?: string }) {
@@ -292,8 +326,9 @@ export function TransactionRow({ entry, onPress, subtitle }: { entry: Pick<Ledge
   const credit = entry.amount > 0;
   const body = (
     <View style={styles.txRow}>
+      {/* The sign and the tint say the direction; the tint is never alone (success only on incoming money). */}
       <IconDisc tone={credit ? 'success' : 'plain'}>
-        <meta.Icon size={18} color={credit ? colors.success : colors.accent} />
+        <Icon icon={meta.Icon} size={20} scale={false} color={credit ? colors.success : colors.accent} />
       </IconDisc>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="label">{meta.label}</Text>
@@ -342,9 +377,14 @@ const styles = themedStyles(() => StyleSheet.create({
   square: { width: 12, height: 12, borderRadius: 3, borderWidth: 2, borderColor: colors.accent, backgroundColor: colors.surface },
   line: { position: 'absolute', top: '62%', bottom: '-38%', width: 2, backgroundColor: colors.line },
   fareLine: { flexDirection: 'row', alignItems: 'center', minHeight: 26, gap: 12 },
-  driver: { backgroundColor: colors.surface, borderRadius: radius.card, padding: 16, gap: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
-  vehicleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.background, borderRadius: radius.row, padding: 10 },
-  plate: { alignSelf: 'flex-start', borderWidth: 1.5, borderColor: colors.ink, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 1, marginTop: 4, backgroundColor: colors.surface },
+  driver: { backgroundColor: colors.surface, borderRadius: radius.card, padding: 16, gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.hairline },
+  doneMarker: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderRadius: 10 },
+  driverLine: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, paddingTop: 10 },
+  // A number plate: ink edge on the surface in both schemes, like the real plate it stands for.
+  plate: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center', borderWidth: 2, borderColor: colors.ink, borderRadius: 8, paddingHorizontal: 12, backgroundColor: colors.surface, maxWidth: '100%' },
+  plateLarge: { minHeight: 48, paddingHorizontal: 14, borderRadius: 10 },
+  plateText: { fontSize: 20, lineHeight: 26, letterSpacing: 0.5 },
+  plateTextLarge: { fontSize: 28, lineHeight: 34, letterSpacing: 0.8 },
   walletCard: { borderRadius: radius.card + 4, padding: 20, overflow: 'hidden', gap: 2 },
   walletGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
   txRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 10 },

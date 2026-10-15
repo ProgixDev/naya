@@ -1,22 +1,74 @@
-import { useTheme , SafetyButton } from '@naya/ui';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
-import { ArrowLeft, CheckCircle2, Clock, MapPinned, Phone, Signal } from 'lucide-react-native';
-import { formatDuration, formatMoney, haversineMeters, paymentMethodPresentation, RIDE_STATUS_LABELS, secondsBetween, type Ride } from '@naya/domain';
+import { ArrowLeft, CalendarClock } from 'lucide-react-native';
+import { formatDuration, formatMoney, haversineMeters, paymentMethodPresentation, secondsBetween, type LatLng, type Ride } from '@naya/domain';
 import { errorMessage, newIdempotencyKey, qk, serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
-import { Button, DriverCard, ErrorState, IconButton, NayaMap, RouteStopRow, StatusBanner, Text, haptic, toast, type MapMarker } from '@naya/ui';
+import { Button, DriverCard, EmptyState, ErrorState, IconButton, NayaMap, RouteStopRow, SafetyDisc, StatusBanner, StatusIcon, Text, TextButton, haptic, toast, useTheme, type MapMarker } from '@naya/ui';
 import { useAccountId, useActiveRide } from '@/lib/queries';
 import { CancelSheet } from '@/features/ride/CancelSheet';
 import { useDraft } from '@/lib/draft';
-import { ContactSheet } from '@/features/ride/ContactSheet';
+import { OtherEmergencyNumbers } from '@/features/ride/ContactSheet';
 
 const LONG_WAIT_S = 45;
+/** A stop closer than this names the place in the safety sheet (« près de Gare Rabat Ville »). */
+const NEAR_M = 800;
+
+/**
+ * The phone's own position for SOS (PAX-03), read only when location access was already granted:
+ * an alert never waits on a permission prompt. Null when unknown; the caller then says which
+ * position is sent instead of passing the pickup off as the passenger's position.
+ */
+function usePhonePosition(): LatLng | null {
+  const [pos, setPos] = useState<LatLng | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const read = async () => {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (!perm.granted) return;
+        const p = (await Location.getLastKnownPositionAsync({ maxAge: 120_000 })) ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        if (alive && p) setPos({ lat: p.coords.latitude, lng: p.coords.longitude });
+      } catch {
+        // No position: the pickup is sent, and the sheet says so.
+      }
+    };
+    read();
+    const t = setInterval(read, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  return pos;
+}
+
+/** The position sent with an SOS and where it is, in words (never raw coordinates, P-57). */
+function sosPosition(ride: Ride, phone: LatLng | null): { location: LatLng; label: string } {
+  const stops = ride.route.stops;
+  const near = (p: LatLng) => {
+    const closest = stops.map((s) => ({ s, d: haversineMeters(p, s.location) })).sort((x, y) => x.d - y.d)[0];
+    return closest && closest.d <= NEAR_M ? `près de ${closest.s.label}` : null;
+  };
+  const car = ride.driverLocation;
+  // On board, the car is where the passenger is.
+  if (ride.status === 'in_progress' && car && !car.stale) {
+    const n = near(car.location);
+    return { location: car.location, label: n ? `Position de la voiture, ${n}` : 'Position de la voiture' };
+  }
+  if (phone) {
+    const n = near(phone);
+    return { location: phone, label: n ? `Votre position, ${n}` : 'Votre position actuelle' };
+  }
+  if (ride.status === 'in_progress' && car) return { location: car.location, label: 'Dernière position connue de la voiture' };
+  return { location: stops[0]!.location, label: `Point de prise en charge : ${stops[0]!.label} (votre position n’est pas disponible)` };
+}
 
 export default function RideScreen() {
   useTheme();
@@ -25,10 +77,11 @@ export default function RideScreen() {
   const qc = useQueryClient();
   const a = useAccountId();
   const active = useActiveRide();
+  const phone = usePhonePosition();
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [contactOpen, setContactOpen] = useState(false);
   const lastId = useRef<string | null>(null);
   const lastStatus = useRef<string | null>(null);
+  const [ended, setEnded] = useState(false);
   const [now, setNow] = useState(serverClock.now());
   useEffect(() => {
     const t = setInterval(() => setNow(serverClock.now()), 1000);
@@ -38,9 +91,12 @@ export default function RideScreen() {
   const ride = active.data;
   useEffect(() => { if (ride) lastId.current = ride.id; }, [ride]);
 
-  // When the ride leaves the active set (completed or cancelled), open its receipt.
+  // When the ride leaves the active set (completed or cancelled), open its receipt. With no ride
+  // seen on this mount there is nothing to follow: say so instead of spinning (PAX-09).
   useEffect(() => {
-    if (active.isSuccess && !ride && lastId.current) router.replace({ pathname: '/receipt/[id]', params: { id: lastId.current } });
+    if (!active.isSuccess || ride) return;
+    if (lastId.current) router.replace({ pathname: '/receipt/[id]', params: { id: lastId.current } });
+    else setEnded(true);
   }, [active.isSuccess, ride]);
 
   // Arrival notification when the app is in the background (see docs: needs push for a closed app).
@@ -82,8 +138,31 @@ export default function RideScreen() {
     onError: (e) => toast(errorMessage(e), 'danger'),
   });
 
-  if (active.isError && !ride) return <View style={{ flex: 1, paddingTop: insets.top + 60, backgroundColor: colors.background }}><ErrorState onRetry={() => active.refetch()} /></View>;
-  if (!ride) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}><ActivityIndicator color={colors.accent} /></View>;
+  const home = () => router.dismissTo('/');
+
+  // PAX-09: every way out of the spinner names the cause and offers one move.
+  if (!ride) {
+    if (active.isError) {
+      return (
+        <View style={{ flex: 1, paddingTop: insets.top + 60, paddingHorizontal: gutter, backgroundColor: colors.background, gap: 8 }} testID="ride-error">
+          <ErrorState onRetry={() => active.refetch()} />
+          <TextButton label="Retour à l’accueil" onPress={home} testID="ride-home" />
+        </View>
+      );
+    }
+    if (ended) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: gutter, backgroundColor: colors.background }} testID="ride-none">
+          <EmptyState title="Aucune course en cours" message="Votre course est terminée ou a été annulée. Retrouvez-la dans Trajets." action={{ label: 'Retour à l’accueil', onPress: home }} />
+        </View>
+      );
+    }
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }} testID="ride-loading">
+        <ActivityIndicator color={colors.accent} accessibilityLabel="Chargement de la course" />
+      </View>
+    );
+  }
 
   const stops = ride.route.stops;
   const pickup = stops[0]!;
@@ -95,7 +174,9 @@ export default function RideScreen() {
   const etaMin = approaching && driverPos ? Math.max(1, Math.round(haversineMeters(driverPos, pickup.location) / (20_000 / 60))) : null;
   const searchingFor = secondsBetween(ride.searchStartedAt, now);
   const recovered = ride.driverCancellations.length > 0 && ride.status === 'searching';
-  const cancellable = ['searching', 'driver_assigned', 'driver_arrived', 'no_driver'].includes(ride.status);
+  const cancellable = ['searching', 'driver_assigned', 'driver_arrived'].includes(ride.status);
+  const name = ride.driver?.firstName ?? 'Votre chauffeuse';
+  // The sheet title carries the state's word (A56); the header shows its glyph only.
   const title =
     ride.status === 'searching'
       ? recovered
@@ -104,88 +185,93 @@ export default function RideScreen() {
       : ride.status === 'no_driver'
         ? 'Aucune chauffeuse disponible'
         : ride.status === 'driver_assigned'
-          ? `${ride.driver?.firstName} arrive`
+          ? etaMin
+            ? `${name} arrive dans ${etaMin} min`
+            : `${name} arrive`
           : ride.status === 'driver_arrived'
-            ? `${ride.driver?.firstName} est arrivée`
+            ? `${name} est arrivée`
             : 'Trajet en cours';
+  const sos = sosPosition(ride, phone);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID={`ride-${ride.status}`}>
       <View style={{ flex: 1, minHeight: '38%' }}>
         <NayaMap center={pickup.location} markers={markers} route={ride.status === 'in_progress' || ride.status === 'searching' || ride.status === 'no_driver' ? ride.route.polyline : undefined} fitTo={fit} topInset={insets.top + 8} bottomInset={36} interactive />
-        <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Retour à l’accueil" onPress={() => router.navigate('/')} testID="ride-back" />
-          <View style={{ flex: 1, height: 44, borderRadius: 22, backgroundColor: colors.elevated, justifyContent: 'center', paddingHorizontal: 16, ...shadow.card }}>
-            <Text variant="label" numberOfLines={1}>{RIDE_STATUS_LABELS[ride.status]}</Text>
+        <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Retour à l’accueil" onPress={home} testID="ride-back" />
+            {/* A56: the ride's glyph, announced when it changes; the word is the sheet title. */}
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.elevated, alignItems: 'center', justifyContent: 'center', ...shadow.card }}>
+              <StatusIcon kind="ride" state={ride.status} showLabel={false} announce testID="ride-status" />
+            </View>
           </View>
+          {/* X-02: pinned on the map's right edge, outside the sheet's scroll, never covered. */}
+          <SafetyDisc rideId={ride.id} location={sos.location} locationLabel={sos.label} extra={<OtherEmergencyNumbers />} />
         </View>
       </View>
 
       <View style={{ maxHeight: '62%', marginTop: -28, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingBottom: insets.bottom + 12, ...shadow.float }}>
-        <ScrollView bounces={false} overScrollMode="never" style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 18, paddingBottom: 10, gap: 12 }} showsVerticalScrollIndicator>
-        <View style={{ gap: 4 }}>
-          <Text variant="title" style={{ fontSize: 22, lineHeight: 28 }} accessibilityRole="header" accessibilityLiveRegion="polite" testID="ride-title">
-            {title}
-          </Text>
-          {ride.status === 'searching' ? (
-            <Text variant="label" tone="muted" numeric>
-              {searchingFor >= LONG_WAIT_S ? 'La recherche prend plus de temps que d’habitude. Nous continuons.' : 'Votre demande est envoyée aux chauffeuses proches.'}
+        <ScrollView bounces={false} overScrollMode="never" style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: gutter, paddingTop: 20, paddingBottom: 10, gap: 12 }} showsVerticalScrollIndicator>
+          <View style={{ gap: 4 }}>
+            <Text variant="title" accessibilityRole="header" accessibilityLiveRegion="polite" numeric testID="ride-title">
+              {title}
             </Text>
+            {ride.status === 'searching' ? (
+              <Text variant="label" tone="muted" numeric>
+                {searchingFor >= LONG_WAIT_S ? 'La recherche prend plus de temps que d’habitude. Nous continuons.' : 'Votre demande est envoyée aux chauffeuses proches.'}
+              </Text>
+            ) : null}
+            {ride.status === 'searching' ? (
+              <Text variant="caption" tone="muted" numeric testID="ride-searching-for">
+                Recherche depuis {Math.floor(searchingFor / 60)} min {String(searchingFor % 60).padStart(2, '0')} s
+              </Text>
+            ) : null}
+            {/* A58: the title already says « aucune chauffeuse »; this line gives the two ways forward. */}
+            {ride.status === 'no_driver' ? (
+              <Text variant="label" tone="muted" testID="no-driver">
+                Toutes les chauffeuses proches sont occupées. Relancez la recherche ou planifiez la course.
+              </Text>
+            ) : null}
+            {ride.status === 'driver_arrived' ? <Text variant="label" tone="muted">Vérifiez la plaque avant de monter.</Text> : null}
+            {ride.status === 'in_progress' ? <Text variant="label" tone="muted" numeric>{formatDuration(ride.route.durationSeconds)} de trajet · {formatMoney(ride.terms.breakdown.total)} · {paymentMethodPresentation(ride.paymentMethod).label}</Text> : null}
+          </View>
+
+          {recovered ? <StatusBanner compact tone="warning" title="Chauffeuse désistée" message={`${ride.driverCancellations[ride.driverCancellations.length - 1]!.reasonText} · annulation sans frais`} testID="driver-cancelled" /> : null}
+          {ride.driverLocation?.stale ? <StatusBanner compact kind="location" state="stale" title="Position en attente" message={`dernier signal il y a ${secondsBetween(ride.driverLocation.at, now)} s · la course continue`} testID="stale-tracking" /> : null}
+
+          {/* R8: no call or message action while Naya has no telephony; the 19 is in the safety sheet. */}
+          {ride.driver && ['driver_assigned', 'driver_arrived', 'in_progress'].includes(ride.status) ? <DriverCard driver={ride.driver} arrived={ride.status === 'driver_arrived'} /> : null}
+
+          {ride.status === 'in_progress' ? (
+            <View>
+              {stops.map((s, i) => (
+                <RouteStopRow compact key={i} role={i === 0 ? 'pickup' : i === stops.length - 1 ? 'destination' : 'stop'} place={s} done={i > 0 && i <= ride.completedStops && i < stops.length - 1} isLast={i === stops.length - 1} />
+              ))}
+            </View>
+          ) : ride.status === 'searching' || ride.status === 'no_driver' ? (
+            <Text variant="label" numberOfLines={2}>{stops.map((s) => s.label).join(' → ')}</Text>
           ) : null}
-          {etaMin ? <Text variant="label" tone="accent" weight="semibold" numeric>Arrivée estimée : {etaMin} min</Text> : null}
-          {ride.status === 'driver_arrived' ? <Text variant="label" tone="muted">Vérifiez la plaque avant de monter.</Text> : null}
-          {ride.status === 'in_progress' ? <Text variant="label" tone="muted" numeric>{formatDuration(ride.route.durationSeconds)} de trajet · {formatMoney(ride.terms.breakdown.total)} · {paymentMethodPresentation(ride.paymentMethod).label}</Text> : null}
-        </View>
-
-        {recovered ? <StatusBanner compact tone="warning" title="Chauffeuse désistée" message={`${ride.driverCancellations[ride.driverCancellations.length - 1]!.reasonText} · annulation sans frais`} testID="driver-cancelled" /> : null}
-        {ride.driverLocation?.stale ? <StatusBanner compact tone="warning" icon={<Signal size={16} color={colors.warning} />} title="Position en attente" message={`dernier signal il y a ${secondsBetween(ride.driverLocation.at, now)} s · la course continue`} testID="stale-tracking" /> : null}
-
-        {ride.status === 'searching' ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <ActivityIndicator color={colors.accent} />
-            <Text variant="caption" tone="muted" numeric>Recherche depuis {Math.floor(searchingFor / 60)} min {String(searchingFor % 60).padStart(2, '0')} s</Text>
-          </View>
-        ) : null}
-
-        {ride.status === 'no_driver' ? <StatusBanner compact tone="warning" icon={<Clock size={16} color={colors.warning} />} title="Toutes occupées" message="relancez ou planifiez pour plus tard" testID="no-driver" /> : null}
-
-        {ride.driver && ['driver_assigned', 'driver_arrived', 'in_progress'].includes(ride.status) ? (
-          <DriverCard driver={ride.driver} trailing={<IconButton variant="tonal" icon={<Phone size={20} color={colors.accent} />} accessibilityLabel={`Contacter ${ride.driver.firstName}`} label="Contacter" onPress={() => setContactOpen(true)} testID="contact" />} />
-        ) : null}
-
-        {ride.status === 'in_progress' ? (
-          <View>
-            {stops.map((s, i) => (
-              <RouteStopRow compact key={i} role={i === 0 ? 'pickup' : i === stops.length - 1 ? 'destination' : 'stop'} place={s} done={i > 0 && i <= ride.completedStops && i < stops.length - 1} isLast={i === stops.length - 1} />
-            ))}
-          </View>
-        ) : ride.status === 'searching' || ride.status === 'no_driver' ? (
-          <Text variant="label" numberOfLines={2}>{stops.map((s) => s.label).join(' → ')}</Text>
-        ) : null}
-
         </ScrollView>
-        <View style={{ paddingHorizontal: gutter, gap: 6, paddingTop: 2 }}>
-        <SafetyButton rideId={ride.id} location={ride.driverLocation?.location ?? ride.route.stops[0]!.location} />
-        {ride.status === 'no_driver' ? <Button label="Relancer la recherche" size="major" full loading={retry.isPending} onPress={() => retry.mutate()} testID="retry-search" /> : null}
-        {ride.status === 'in_progress' ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-            <CheckCircle2 size={16} color={colors.success} />
-            <Text variant="caption" tone="muted" style={{ flex: 1 }}>Votre trajet s’affiche en direct · SOS à portée de main pendant toute la course.</Text>
+        {ride.status === 'no_driver' || cancellable ? (
+          <View style={{ paddingHorizontal: gutter, gap: 4, paddingTop: 4 }}>
+            {ride.status === 'no_driver' ? (
+              <>
+                <Button label="Relancer la recherche" size="major" full loading={retry.isPending} onPress={() => retry.mutate()} testID="retry-search" />
+                {/* P-60: the two other ways out are text, not equal outlines. */}
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Button label="Planifier" variant="ghost" icon={<CalendarClock size={18} color={colors.accent} strokeWidth={2} />} loading={planLater.isPending} onPress={() => planLater.mutate()} testID="plan-later" />
+                  <TextButton label="Annuler" tone="danger" onPress={() => setCancelOpen(true)} testID="cancel-ride" />
+                </View>
+              </>
+            ) : (
+              // P-58: cancelling is text, never a full-width button beside the ride.
+              <TextButton label={ride.status === 'searching' ? 'Annuler la demande' : 'Annuler la course'} tone="danger" onPress={() => setCancelOpen(true)} testID="cancel-ride" />
+            )}
           </View>
         ) : null}
-        {ride.status === 'no_driver' ? (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Button label="Planifier" variant="secondary" style={{ flex: 1 }} full icon={<MapPinned size={17} color={colors.accent} />} loading={planLater.isPending} onPress={() => planLater.mutate()} testID="plan-later" />
-            <Button label="Annuler" variant="secondary" style={{ flex: 1 }} full onPress={() => setCancelOpen(true)} testID="cancel-ride" />
-          </View>
-        ) : cancellable ? (
-          <Button label={ride.status === 'searching' ? 'Annuler la demande' : 'Annuler la course'} variant="secondary" full onPress={() => setCancelOpen(true)} testID="cancel-ride" />
-        ) : null}
-        </View>
       </View>
 
       <CancelSheet ride={ride} visible={cancelOpen} onClose={() => setCancelOpen(false)} onCancelled={(r: Ride) => { setCancelOpen(false); router.replace({ pathname: '/receipt/[id]', params: { id: r.id } }); }} />
-      {ride.driver ? <ContactSheet driver={ride.driver} visible={contactOpen} onClose={() => setContactOpen(false)} /> : null}
     </View>
   );
 }
