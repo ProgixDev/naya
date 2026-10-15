@@ -32,7 +32,7 @@ async function compose(p) {
   await tid(p, 'place-search').fill('Hay'); await tid(p, 'place-rabat-hay-riad').click();
   await tid(p, 'stop-pickup').click(); await tid(p, 'place-search').fill('Gare'); await tid(p, 'place-rabat-gare').click();
   await tid(p, 'add-stop').click(); await tid(p, 'place-search').fill('Agdal'); await tid(p, 'place-rabat-agdal').click();
-  await tid(p, 'see-quote').click();
+  // R6: the quote is already showing.
 }
 
 // Home extras
@@ -52,7 +52,7 @@ await tid(p, 'fare-card').click(); await shot(p, 'P08-price');
 await p.context().close();
 
 // Schedule mode
-p = await page('default'); await compose(p); await tid(p, 'mode').getByText('Planifier').click(); await shot(p, 'P08-schedule');
+p = await page('default'); await compose(p); await tid(p, 'when-chip').click(); await tid(p, 'mode-schedule').click(); await shot(p, 'P08-schedule');
 await p.context().close();
 
 // Live ride

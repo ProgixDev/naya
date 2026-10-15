@@ -65,7 +65,6 @@ test.describe('cross-role', () => {
 
     // S03 — passenger books Gare → Agdal → Hay Riad in cash.
     await composeAgdalTrip(passenger);
-    await byTestId(passenger, 'see-quote').click();
     await expect(byTestId(passenger, 'fare-card')).toContainText('100');
     await byTestId(passenger, 'confirm-booking').click();
     await expect(byTestId(passenger, 'ride-searching')).toBeVisible();
@@ -97,7 +96,6 @@ test.describe('cross-role', () => {
     // S04 — passenger books the same trip by card; the net is credited only after confirmation.
     await byTestId(passenger, 'receipt-done').click();
     await composeAgdalTrip(passenger);
-    await byTestId(passenger, 'see-quote').click();
     await byTestId(passenger, 'payment-row').click();
     await byTestId(passenger, 'pm-4242').click();
     await expect(byTestId(passenger, 'payment-sheet')).toBeHidden();

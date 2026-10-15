@@ -66,10 +66,8 @@ for (const s of SHOTS.filter((x) => !ONLY || x.name.startsWith(ONLY))) {
     await page.locator('[data-testid="place-search"]').fill('Agdal');
     await page.locator('[data-testid="place-rabat-agdal"]').click();
     await page.waitForTimeout(600);
-    if (s.path === '/quote') {
-      await page.locator('[data-testid="see-quote"]').click();
-      await page.waitForTimeout(2500);
-    }
+    // R6: choosing the stops already shows the quote.
+    if (s.path === '/quote') await page.waitForTimeout(2500);
   }
   const contentH = await page.evaluate(() => {
     let max = 0;
