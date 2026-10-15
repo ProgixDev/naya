@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronRight, Clock, Droplets, LocateFixed, MapPin, Star, X } from 'lucide-react-native';
+import { Briefcase, Check, ChevronRight, Clock, Droplets, House, ImageOff, LocateFixed, MapPin, Star, X } from 'lucide-react-native';
 import { errorMessage, isApiError, qk, serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import {
@@ -13,6 +13,7 @@ import {
   isInService,
   isWashOpen,
   PAYMENT_STATUS_LABELS,
+  statusPresentation,
   toCasablancaParts,
   washEndAt,
   washSlots,
@@ -27,8 +28,8 @@ import {
   type CreateWashOrderInput,
   type Vehicle,
   type WashOrder,
-  type WashOrderStatus,
   type WashPackageId,
+  type WashPhoto,
   type WashCar,
   type WashPaymentOption,
   type WashScheduling,
@@ -42,9 +43,9 @@ import { useSingleFlight } from '../core/useSingleFlight';
 import { Screen, Section } from '../Screen';
 import { Header } from '../Header';
 import { Text } from '../Text';
-import { Button, IconButton } from '../Button';
-import { FormField, Pill } from '../Form';
-import { EmptyState, ErrorState, Skeleton, StatusBanner, StatusPill, type BannerTone } from '../Feedback';
+import { Button, IconButton, TextButton } from '../Button';
+import { FieldRow, FormField, Pill } from '../Form';
+import { EmptyState, ErrorState, Skeleton, SkeletonList, StatusBanner } from '../Feedback';
 import { Card, IconDisc, ListGroup, ListRow } from '../List';
 import { Sheet } from '../BottomSheet';
 import { SegmentedControl } from '../SegmentedControl';
@@ -53,23 +54,24 @@ import { Money } from '../Ride';
 import { toast } from '../Toast';
 import { haptic } from '../haptics';
 import { NayaMap } from '../map';
-import { Attachment } from './Attachment';
+import { Icon } from '../Icon';
+import { StatusIcon } from '../StatusIcon';
+import { washPaymentIcon } from '../paymentIcons';
+import { Avatar } from '../Brand';
 
 /**
  * « Lavage à domicile », shared by the passenger and driver apps. Route files stay thin:
  * they pass the account, the role and what only the app knows (saved places, vehicle,
  * how to read the phone's position). The washing team is played by the mock backend; its
  * before/after shots come from @naya/assets `mockPhotos` until the team uploads real ones.
+ *
+ * States follow the shared status map (redesign audit C15): a glyph alone in the order rows, the
+ * full sentence as the order screen's title, and the word always in the accessibility label (R1).
  */
 
-const STATUS_TONE: Record<WashOrderStatus, BannerTone> = {
-  booked: 'neutral',
-  washer_assigned: 'info',
-  en_route: 'info',
-  washing: 'warning',
-  completed: 'success',
-  cancelled: 'danger',
-};
+/** Same shortcuts as the driver's vehicle sign-up step (P-53). */
+const MAKES = ['Dacia', 'Renault', 'Peugeot', 'Hyundai', 'Toyota', 'Kia'];
+const COLOURS = ['Blanc', 'Gris', 'Noir', 'Bleu', 'Rouge', 'Beige'];
 
 /* ───────────── Entry card (home) ───────────── */
 
@@ -77,19 +79,19 @@ const STATUS_TONE: Record<WashOrderStatus, BannerTone> = {
 export function CarWashEntry({ onPress, testID = 'car-wash-entry' }: { onPress: () => void; testID?: string }) {
   useTheme();
   return (
-    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel="Lavage à domicile. Votre voiture lavée là où elle est garée." style={styles.entry} testID={testID} pressedScale={0.985}>
-      <IconDisc tone="accent" size={36}>
-        <Droplets size={18} color={colors.accent} />
+    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel="Lavage à domicile. Votre voiture lavée sur place." style={styles.entry} testID={testID} pressedScale={0.985}>
+      <IconDisc tone="accent" size={40}>
+        <Icon icon={Droplets} size={20} color={colors.accent} scale={false} />
       </IconDisc>
       <View style={{ flex: 1, gap: 1 }}>
         <Text variant="label" weight="semibold" numberOfLines={1}>
           Lavage à domicile
         </Text>
-        <Text variant="micro" tone="muted" numberOfLines={1}>
-          Votre voiture lavée là où elle est garée
+        <Text variant="caption" tone="muted" numberOfLines={1}>
+          Votre voiture lavée sur place
         </Text>
       </View>
-      <ChevronRight size={18} color={colors.muted} />
+      <ChevronRight size={20} color={colors.muted} />
     </PressableScale>
   );
 }
@@ -113,7 +115,7 @@ export function CarWashOrdersScreen({ accountId, onBack, onNew, onOpen }: { acco
       testID="car-wash-orders"
     >
       <View style={{ gap: 16 }}>
-        {orders.isLoading ? <Skeleton height={64} /> : null}
+        {orders.isLoading ? <SkeletonList rows={2} /> : null}
         {orders.isError ? <ErrorState onRetry={() => orders.refetch()} /> : null}
         {orders.data && !orders.data.length ? <EmptyState title="Aucun lavage pour le moment" message="Choisissez l’endroit, la formule et le créneau : l’équipe vient à votre voiture." /> : null}
         {open.length ? (
@@ -135,17 +137,20 @@ export function CarWashOrdersScreen({ accountId, onBack, onNew, onOpen }: { acco
   );
 }
 
+/** One signal per row (principle 7): the state's glyph alone; its sentence is read with the row (R1). */
 function OrderRow({ order, onPress }: { order: WashOrder; onPress: () => void }) {
   return (
     <ListRow
       testID={`car-wash-order-${order.id}`}
       title={`${order.terms.packageName} · ${order.car.make} ${order.car.model}`}
       subtitle={`${formatShort(order.startAt)} · ${order.location.label}`}
-      trailing={<StatusPill tone={STATUS_TONE[order.status]} label={WASH_STATUS_LABELS[order.status]} />}
+      status={{ kind: 'wash', state: order.status }}
       onPress={onPress}
     />
   );
 }
+
+const savedPlaceIcon = (kind: SavedPlace['kind']) => (kind === 'home' ? House : kind === 'work' ? Briefcase : Star);
 
 /* ───────────── Booking ───────────── */
 
@@ -207,6 +212,8 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
   const [step, setStep] = useState(0);
   const [place, setPlace] = useState<Place | null>(null);
   const [pinOpen, setPinOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [notes, setNotes] = useState('');
   // Untouched, the car follows the driver's vehicle file (which may load after the screen).
@@ -271,7 +278,7 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
         qc.invalidateQueries({ queryKey: qk.carWashOrders(accountId) });
         qc.invalidateQueries({ queryKey: qk.carWashPaymentOptions(accountId, cityId) });
         if (role === 'driver') qc.invalidateQueries({ queryKey: qk.wallet(accountId) });
-        toast('Lavage réservé');
+        toast('Lavage réservé', 'success');
         onBooked(order.id);
       },
       onError: (e) => {
@@ -340,40 +347,78 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
           <Text variant="label" tone="muted">
             Chez vous, au travail ou ailleurs : l’équipe de lavage vient à la voiture.
           </Text>
-          {place ? (
-            <Card padded={false} style={{ overflow: 'hidden' }} testID="car-wash-place">
-              <View style={{ height: 150 }} pointerEvents="none">
-                <NayaMap center={place.location} zoom={16} markers={[{ id: 'car', kind: 'destination', coordinate: place.location, label: place.label }]} interactive={false} />
-              </View>
-              <View style={{ padding: 14, gap: 2 }}>
-                <Text variant="label" weight="semibold">{place.label}</Text>
-                <Text variant="caption" tone="muted" numberOfLines={2}>{place.address}</Text>
-                {!inZone ? <StatusBanner compact tone="danger" title="Hors zone" message="choisissez un endroit dans la zone desservie" /> : null}
-              </View>
-            </Card>
-          ) : null}
           {savedPlaces.length ? (
             <ListGroup label="Adresses enregistrées">
               {savedPlaces.map((sp) => (
-                <ListRow key={sp.id} testID={`car-wash-saved-${sp.kind}`} title={sp.label} subtitle={sp.place.address} leading={<MapPin size={18} color={colors.accent} />} trailing={place?.id === sp.place.id && place?.label === sp.label ? <Check size={18} color={colors.accent} /> : undefined} onPress={() => (setPlace({ ...sp.place, label: sp.label }), haptic.select())} />
+                <ListRow
+                  key={sp.id}
+                  testID={`car-wash-saved-${sp.kind}`}
+                  title={sp.label}
+                  subtitle={sp.place.address}
+                  leading={<Icon icon={savedPlaceIcon(sp.kind)} size={24} color={colors.accent} />}
+                  selected={place?.id === sp.place.id && place?.label === sp.label}
+                  onPress={() => setPlace({ ...sp.place, label: sp.label })}
+                />
               ))}
             </ListGroup>
           ) : null}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {locate ? <Button label="Ma position" variant="secondary" size="compact" style={{ flex: 1 }} full loading={locating} icon={<LocateFixed size={16} color={colors.accent} />} onPress={applyMyPosition} testID="car-wash-locate" /> : null}
-            <Button label="Choisir sur la carte" variant="secondary" size="compact" style={{ flex: 1 }} full icon={<MapPin size={16} color={colors.accent} />} onPress={() => setPinOpen(true)} testID="car-wash-pin" />
-          </View>
+          {/* P-54: two rows, not two tiles; neither inserts a map that pushes the list down. */}
+          <ListGroup label={savedPlaces.length ? 'Autre endroit' : undefined}>
+            {locate ? (
+              <ListRow
+                testID="car-wash-locate"
+                title="Ma position"
+                subtitle={locating ? 'Recherche de votre position…' : undefined}
+                leading={<Icon icon={LocateFixed} size={24} color={colors.accent} />}
+                chevron={false}
+                onPress={locating ? undefined : applyMyPosition}
+              />
+            ) : null}
+            <ListRow testID="car-wash-pin" title="Choisir sur la carte" leading={<Icon icon={MapPin} size={24} color={colors.accent} />} onPress={() => setPinOpen(true)} />
+          </ListGroup>
+          {place ? (
+            <Card style={{ gap: 10 }} testID="car-wash-place">
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1, gap: 2 }} accessible accessibilityLabel={`La voiture est ici : ${place.label}, ${place.address}`}>
+                  <Text variant="label" weight="semibold">{place.label}</Text>
+                  <Text variant="caption" tone="muted" numberOfLines={2}>{place.address}</Text>
+                </View>
+                <TextButton label="Voir la carte" onPress={() => setMapOpen(true)} testID="car-wash-place-map" />
+              </View>
+              {!inZone ? <StatusBanner compact tone="danger" title="Hors zone" message="choisissez un endroit dans la zone desservie" /> : null}
+            </Card>
+          ) : null}
           <FormField label="Précisions pour l’équipe (étage, place, code…)" value={notes} onChangeText={setNotes} maxLength={200} multiline helper="Exemple : sous-sol −1, place 42, badge à l’accueil." testID="car-wash-notes" />
+          <Sheet visible={mapOpen && !!place} onClose={() => setMapOpen(false)} title={place?.label} subtitle={place?.address} scroll={false} testID="car-wash-place-sheet">
+            {place ? (
+              <View style={styles.sheetMap} pointerEvents="none">
+                <NayaMap center={place.location} zoom={16} markers={[{ id: 'car', kind: 'destination', coordinate: place.location, label: place.label }]} interactive={false} />
+              </View>
+            ) : null}
+          </Sheet>
         </View>
       ) : null}
 
       {step === 1 ? (
         <View style={{ gap: 12 }}>
-          {role === 'driver' && vehicle ? <StatusBanner compact tone="success" title="Votre véhicule Naya" message="préremplie depuis votre dossier" /> : null}
-          <FormField label="Marque" value={car.make} onChangeText={(v) => setCar({ ...car, make: v })} maxLength={40} testID="car-wash-make" />
-          <FormField label="Modèle" value={car.model} onChangeText={(v) => setCar({ ...car, model: v })} maxLength={40} testID="car-wash-model" />
+          {role === 'driver' && vehicle ? <StatusBanner compact tone="info" title="Votre véhicule Naya" message="prérempli depuis votre dossier" /> : null}
+          {/* P-53: the driver sign-up's shortcut chips, so most cars take two taps. */}
+          <FieldRow>
+            <FormField label="Marque" value={car.make} onChangeText={(v) => setCar({ ...car, make: v })} maxLength={40} testID="car-wash-make" />
+            <FormField label="Modèle" value={car.model} onChangeText={(v) => setCar({ ...car, model: v })} maxLength={40} testID="car-wash-model" />
+          </FieldRow>
+          <View style={styles.chips} accessibilityLabel="Marques courantes">
+            {MAKES.map((m) => (
+              <Pill key={m} label={m} selected={car.make.trim() === m} onPress={() => setCar({ ...car, make: m })} testID={`car-wash-make-${m}`} />
+            ))}
+          </View>
           <FormField label="Couleur" value={car.color} onChangeText={(v) => setCar({ ...car, color: v })} maxLength={30} testID="car-wash-color" />
-          <FormField label="Immatriculation" value={car.plate} onChangeText={(v) => setCar({ ...car, plate: v })} autoCapitalize="characters" maxLength={20} helper="Pour que l’équipe reconnaisse la voiture." testID="car-wash-plate" />
+          <View style={styles.chips} accessibilityLabel="Couleurs courantes">
+            {COLOURS.map((c) => (
+              <Pill key={c} label={c} selected={car.color.trim() === c} onPress={() => setCar({ ...car, color: c })} testID={`car-wash-color-${c}`} />
+            ))}
+          </View>
+          <FormField label="Immatriculation" value={car.plate} onChangeText={(v) => setCar({ ...car, plate: v.toUpperCase() })} autoCapitalize="characters" autoCorrect={false} maxLength={20} example="Ex. : 12345-A-6" helper="Pour que l’équipe reconnaisse la voiture." inputStyle={{ letterSpacing: 1 }} testID="car-wash-plate" />
         </View>
       ) : null}
 
@@ -383,8 +428,12 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
           {cat?.packages.map((p) => {
             const on = p.id === pkg?.id;
             return (
-              <PressableScale key={p.id} onPress={() => (setPackageId(p.id), haptic.select())} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${p.name}, ${formatMoney(p.price)}, ${p.durationMinutes} minutes`} style={[styles.pkg, on ? styles.pkgOn : null]} testID={`car-wash-package-${p.id}`} pressedScale={0.985}>
+              // P-55 (rule 20): selected = 2-pt accent outline plus a filled check, never a tint alone.
+              <PressableScale key={p.id} onPress={() => (setPackageId(p.id), haptic.select())} accessibilityRole="radio" accessibilityState={{ checked: on, selected: on }} aria-selected={on} accessibilityLabel={`${p.name}, ${formatMoney(p.price)}, ${p.durationMinutes} minutes. ${p.includes.join(', ')}`} style={[styles.pkg, on ? styles.pkgOn : null]} testID={`car-wash-package-${p.id}`} pressedScale={0.985}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                  <View style={[styles.radio, on ? styles.radioOn : null]} testID={on ? `car-wash-package-${p.id}-check` : undefined}>
+                    {on ? <Check size={14} strokeWidth={3} color={colors.inverse} /> : null}
+                  </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text variant="heading">{p.name}</Text>
                     <Text variant="caption" tone="muted">{p.description}</Text>
@@ -392,16 +441,16 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
                   <View style={{ alignItems: 'flex-end', gap: 2 }}>
                     <Money amount={p.price} variant="title" />
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Clock size={13} color={colors.muted} />
-                      <Text variant="micro" tone="muted" numeric>{p.durationMinutes} min</Text>
+                      <Icon icon={Clock} size={16} color={colors.muted} />
+                      <Text variant="caption" tone="muted" numeric>{p.durationMinutes} min</Text>
                     </View>
                   </View>
                 </View>
-                <View style={{ gap: 3 }}>
+                <View style={{ gap: 4 }}>
                   {p.includes.map((i) => (
                     <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                      <Check size={14} color={colors.success} />
-                      <Text variant="caption">{i}</Text>
+                      <Icon icon={Check} size={16} tone="success" />
+                      <Text variant="caption" style={{ flex: 1 }}>{i}</Text>
                     </View>
                   ))}
                 </View>
@@ -440,23 +489,29 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
 
       {step === 4 ? (
         <View style={{ gap: 16 }}>
-          <ListGroup label="Paiement">
-            {(payOptions.data ?? []).map((o) => {
-              const ok = usable(o);
-              // A wallet short of the price is shown with its balance (« Disponible : … ») but not offered.
-              const short = !ok && walletBalance(o) !== null;
-              return (
-                <ListRow
-                  key={o.id}
-                  testID={`car-wash-pay-${o.kind}`}
-                  title={o.label}
-                  subtitle={ok ? (o.note ?? undefined) : `${short ? `Solde insuffisant${pkg ? ` pour ${formatMoney(pkg.price)}` : ''}` : 'Indisponible'}${o.note ? ` · ${o.note}` : ''}`}
-                  trailing={o.id === option?.id ? <Check size={20} color={colors.accent} /> : undefined}
-                  onPress={ok ? () => (setPaymentId(o.id), haptic.select()) : undefined}
-                />
-              );
-            })}
-          </ListGroup>
+          {/* The header already says « Paiement »: the group has no label (principle 9). Choices carry a trailing check (X-08). */}
+          {payOptions.isLoading ? <SkeletonList rows={3} /> : null}
+          {payOptions.isError ? <ErrorState onRetry={() => payOptions.refetch()} /> : null}
+          {payOptions.data ? (
+            <ListGroup>
+              {payOptions.data.map((o) => {
+                const ok = usable(o);
+                // A wallet short of the price is shown with its balance (« Disponible : … ») but not offered.
+                const short = !ok && walletBalance(o) !== null;
+                return (
+                  <ListRow
+                    key={o.id}
+                    testID={`car-wash-pay-${o.kind}`}
+                    title={o.label}
+                    subtitle={ok ? (o.note ?? undefined) : `${short ? `Solde insuffisant${pkg ? ` pour ${formatMoney(pkg.price)}` : ''}` : 'Indisponible'}${o.note ? ` · ${o.note}` : ''}`}
+                    leading={<Icon icon={washPaymentIcon(o.kind)} size={24} color={ok ? colors.ink : colors.muted} />}
+                    selected={o.id === option?.id}
+                    onPress={ok ? () => setPaymentId(o.id) : undefined}
+                  />
+                );
+              })}
+            </ListGroup>
+          ) : null}
           <Card style={{ gap: 10 }} testID="car-wash-summary">
             <SummaryLine label="Où" value={place?.label ?? '—'} sub={notes.trim() || place?.address} />
             <SummaryLine label="Voiture" value={`${car.make} ${car.model} · ${car.color}`} sub={car.plate.toUpperCase()} />
@@ -469,9 +524,29 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
             </View>
           </Card>
           {cat ? (
-            <Text variant="micro" tone="muted">
-              {`Annulation gratuite tant qu’aucune équipe n’est assignée, puis jusqu’à ${Math.round(cat.cancellation.freeUntilMinutesBefore / 60)} h avant le créneau (ou ${Math.round(cat.cancellation.graceSeconds / 60)} min après l’attribution). Ensuite ${formatMoney(cat.cancellation.lateFee)}, et ${formatMoney(cat.cancellation.enRouteFee)} si l’équipe est en route. Plus d’annulation une fois le lavage commencé.`}
-            </Text>
+            // P-51: one policy line; the full conditions open in a sheet.
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text variant="caption" tone="muted" style={{ flex: 1 }}>
+                Annulation gratuite tant qu’aucune équipe n’est assignée.
+              </Text>
+              <TextButton label="Conditions" onPress={() => setPolicyOpen(true)} testID="car-wash-policy" />
+            </View>
+          ) : null}
+          {cat ? (
+            <Sheet visible={policyOpen} onClose={() => setPolicyOpen(false)} title="Conditions d’annulation" testID="car-wash-policy-sheet">
+              <View style={{ gap: 12 }}>
+                {[
+                  'Gratuite tant qu’aucune équipe n’est assignée.',
+                  `Ensuite, gratuite jusqu’à ${Math.round(cat.cancellation.freeUntilMinutesBefore / 60)} h avant le créneau, ou dans les ${Math.round(cat.cancellation.graceSeconds / 60)} min qui suivent l’attribution.`,
+                  `Après ce délai : ${formatMoney(cat.cancellation.lateFee)} de frais, ${formatMoney(cat.cancellation.enRouteFee)} si l’équipe est en route.`,
+                  'Plus d’annulation une fois le lavage commencé.',
+                ].map((line) => (
+                  <Text key={line} variant="body">
+                    {line}
+                  </Text>
+                ))}
+              </View>
+            </Sheet>
           ) : null}
         </View>
       ) : null}
@@ -479,12 +554,15 @@ export function CarWashBookingScreen({ accountId, role, cityId, savedPlaces = []
   );
 }
 
-function SummaryLine({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function SummaryLine({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon?: ReactNode }) {
   return (
     <View style={{ flexDirection: 'row', gap: 12 }} accessible accessibilityLabel={`${label} : ${value}${sub ? `, ${sub}` : ''}`}>
       <Text variant="caption" tone="muted" style={{ width: 64 }}>{label}</Text>
       <View style={{ flex: 1, gap: 1 }}>
-        <Text variant="label" weight="semibold">{value}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {icon}
+          <Text variant="label" weight="semibold" style={{ flexShrink: 1 }}>{value}</Text>
+        </View>
         {sub ? <Text variant="caption" tone="muted" numberOfLines={2}>{sub}</Text> : null}
       </View>
     </View>
@@ -504,14 +582,15 @@ function PinPicker({ initial, zones, onConfirm, onCancel }: { initial: LatLng; z
       <NayaMap center={initial} zoom={17} onCenterChange={setCenter} bottomInset={240} />
       <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 240, alignItems: 'center', justifyContent: 'center' }}>
         <View style={{ alignItems: 'center', marginBottom: 36 }}>
-          <View style={{ backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 6 }}>
+          {/* inverse only on accent (dark-mode token rules). */}
+          <View style={{ backgroundColor: colors.accent, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 6 }}>
             <Text variant="caption" tone="inverse" weight="semibold">La voiture est ici</Text>
           </View>
-          <MapPin size={40} color={colors.accent} fill={colors.surface} strokeWidth={2.2} />
+          <MapPin size={40} color={colors.accent} fill={colors.surface} strokeWidth={2} />
         </View>
       </View>
       <View style={{ position: 'absolute', top: insets.top + 8, left: gutter }}>
-        <IconButton icon={<X size={22} color={colors.ink} />} accessibilityLabel="Annuler" onPress={onCancel} testID="car-wash-pin-cancel" />
+        <IconButton icon={<Icon icon={X} size={24} />} accessibilityLabel="Annuler" onPress={onCancel} testID="car-wash-pin-cancel" />
       </View>
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, padding: gutter, paddingBottom: insets.bottom + 16, gap: 12, ...shadow.float }}>
         <Text variant="heading">Où est garée la voiture ?</Text>
@@ -568,14 +647,15 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
   const mainPayment = detail.data!.payments.find((p) => p.purpose === 'car_wash');
   const feePayment = detail.data!.payments.find((p) => p.purpose === 'car_wash_fee');
   const live = o.status === 'en_route' || o.status === 'washing';
-  const before = o.photos.filter((p) => p.stage === 'before');
-  const after = o.photos.filter((p) => p.stage === 'after');
+  const status = statusPresentation('wash', o.status);
 
   return (
-    <Screen header={<Header title={WASH_STATUS_LABELS[o.status]} subtitle={`${o.terms.packageName} · ${o.id}`} onBack={onBack} />} testID="car-wash-order">
+    // The order's state is said once, as the title (first sight, C15); the timeline marks where it stands.
+    <Screen header={<Header title={status.label} subtitle={`${o.terms.packageName} · ${o.id}`} onBack={onBack} />} testID="car-wash-order">
       <View style={{ gap: 16 }}>
         {o.status === 'cancelled' && o.cancellation ? (
-          <StatusBanner tone="danger" title={o.cancellation.fee > 0 ? `Lavage annulé · frais ${formatMoney(o.cancellation.fee)}` : 'Lavage annulé sans frais'} message={o.cancellation.reasonText} testID="car-wash-cancelled" />
+          // R3: a cancellation is neutral, not a failure. The title already says « Lavage annulé ».
+          <StatusBanner kind="wash" state="cancelled" title={o.cancellation.fee > 0 ? `Frais d’annulation : ${formatMoney(o.cancellation.fee)}` : 'Annulé sans frais'} message={o.cancellation.reasonText} testID="car-wash-cancelled" />
         ) : null}
 
         {live && o.teamLocation ? (
@@ -592,8 +672,8 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
                 interactive={false}
               />
             </View>
-            <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Clock size={18} color={colors.accent} />
+            <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Icon icon={Clock} size={20} color={colors.accent} />
               <Text variant="label" weight="semibold" style={{ flex: 1 }} testID="car-wash-eta">
                 {o.status === 'en_route' ? `Arrivée dans ~${o.teamLocation.etaMinutes ?? 1} min` : `Fin prévue vers ${formatTime(new Date(Date.parse(o.startedAt ?? o.startAt) + o.terms.durationMinutes * 60_000).toISOString())}`}
               </Text>
@@ -608,27 +688,26 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
         </Card>
 
         {o.team ? (
+          // A18: the team's avatar, not a decorative droplet. No call line: masked calls are not live (R8).
           <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }} testID="car-wash-team">
-            <IconDisc tone="accent" size={44}>
-              <Droplets size={20} color={colors.accent} />
-            </IconDisc>
-            <View style={{ flex: 1, gap: 1 }}>
-              <Text variant="label" weight="semibold">{o.team.name}</Text>
-              <Text variant="caption" tone="muted">{`${o.team.vehicleLabel} · ${o.team.ratingAverage.toFixed(1).replace('.', ',')} ★`}</Text>
-              <Text variant="micro" tone="muted">{o.team.phoneMasked}</Text>
+            <View accessible accessibilityLabel={`${o.team.name}, ${o.team.vehicleLabel}, note ${o.team.ratingAverage.toFixed(1).replace('.', ',')} sur 5`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                <Avatar name={o.team.name} size={40} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="label" weight="semibold">{o.team.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text variant="caption" tone="muted" style={{ flexShrink: 1 }} numberOfLines={1}>{o.team.vehicleLabel}</Text>
+                  <Text variant="caption" tone="muted">·</Text>
+                  <Icon icon={Star} size={16} color={colors.accent} />
+                  <Text variant="caption" tone="muted" numeric>{o.team.ratingAverage.toFixed(1).replace('.', ',')}</Text>
+                </View>
+              </View>
             </View>
           </Card>
         ) : null}
 
-        {before.length || after.length ? (
-          <Section title="Photos" style={{ marginTop: 4 }}>
-            <View style={{ gap: 10 }} testID="car-wash-photos">
-              {before.length ? <PhotoRow title="Avant" photos={before} accountId={accountId} /> : null}
-              {after.length ? <PhotoRow title="Après" photos={after} accountId={accountId} /> : null}
-              <Text variant="micro" tone="muted">Photos prises par l’équipe avant et après le lavage.</Text>
-            </View>
-          </Section>
-        ) : null}
+        {o.photos.length ? <WashPhotos order={o} accountId={accountId} /> : null}
 
         <Section title={o.status === 'completed' ? 'Reçu' : 'Votre commande'} style={{ marginTop: 4 }}>
           <Card style={{ gap: 10 }} testID="car-wash-receipt">
@@ -636,7 +715,19 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
             <SummaryLine label="Voiture" value={`${o.car.make} ${o.car.model} · ${o.car.color}`} sub={o.car.plate} />
             <SummaryLine label="Formule" value={`${o.terms.packageName} · ${o.terms.durationMinutes} min`} sub={o.terms.includes.join(' · ')} />
             <SummaryLine label="Quand" value={o.timing === 'now' ? `Dès que possible · ${formatShort(o.createdAt)}` : formatDateTime(o.startAt)} />
-            <SummaryLine label="Paiement" value={o.paymentMethod.label} sub={mainPayment ? PAYMENT_STATUS_LABELS[mainPayment.status] : o.status === 'cancelled' ? undefined : 'Réglé à la fin du lavage'} />
+            <SummaryLine
+              label="Paiement"
+              value={o.paymentMethod.label}
+              sub={mainPayment ? PAYMENT_STATUS_LABELS[mainPayment.status] : o.status === 'cancelled' ? undefined : 'Réglé à la fin du lavage'}
+              // C3/C19: the method's glyph, with the payment state as its badge once a payment exists.
+              icon={
+                mainPayment ? (
+                  <StatusIcon kind="payment" state={mainPayment.status} accessible={false} badgeOn={<Icon icon={washPaymentIcon(o.paymentMethod.kind)} size={20} />} testID="car-wash-payment-status" />
+                ) : (
+                  <Icon icon={washPaymentIcon(o.paymentMethod.kind)} size={20} />
+                )
+              }
+            />
             {feePayment ? <SummaryLine label="Frais" value={formatMoney(feePayment.amount)} sub={PAYMENT_STATUS_LABELS[feePayment.status]} /> : null}
             <View style={styles.rule} />
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -649,25 +740,37 @@ export function CarWashOrderScreen({ accountId, orderId, onBack, onHelp }: { acc
 
         {o.status === 'completed' ? <RatingBlock order={o} onDone={refresh} /> : null}
 
-        {o.status === 'booked' || o.status === 'washer_assigned' || o.status === 'en_route' ? <Button label="Annuler le lavage" variant="secondary" full onPress={() => setCancelOpen(true)} testID="car-wash-cancel" /> : null}
-        {o.status === 'washing' ? <Text variant="micro" tone="muted" align="center">Le lavage a commencé : il ne peut plus être annulé.</Text> : null}
-        {onHelp ? <Button label="Un problème ? Contacter l’assistance" variant="ghost" full onPress={onHelp} /> : null}
+        {/* P-52: no full-width outline as the only action. Help first, the destructive action last, in red text. */}
+        <View style={{ gap: 4, marginTop: 4 }}>
+          {onHelp ? <TextButton label="Un problème ? Contacter l’assistance" onPress={onHelp} testID="car-wash-help" /> : null}
+          {o.status === 'booked' || o.status === 'washer_assigned' || o.status === 'en_route' ? <TextButton label="Annuler le lavage" tone="danger" onPress={() => setCancelOpen(true)} testID="car-wash-cancel" /> : null}
+          {o.status === 'washing' ? (
+            <Text variant="caption" tone="muted" align="center">
+              Le lavage a commencé : il ne peut plus être annulé.
+            </Text>
+          ) : null}
+        </View>
       </View>
       <CancelWashSheet accountId={accountId} order={o} visible={cancelOpen} onClose={() => setCancelOpen(false)} onCancelled={() => (setCancelOpen(false), refresh())} />
     </Screen>
   );
 }
 
+/**
+ * A19, the timeline model the other screens copy: filled check = done, ring = current, hollow = to do.
+ * Shape carries the step's state, not colour alone, and the state is read with the step.
+ */
 function TimelineStep({ status, order, last }: { status: (typeof WASH_PROGRESS)[number]; order: WashOrder; last: boolean }) {
   useTheme();
   const reached = order.status === 'cancelled' ? stepAt(order, status) !== null : WASH_PROGRESS.indexOf(status) <= WASH_PROGRESS.indexOf(order.status as (typeof WASH_PROGRESS)[number]);
   const current = order.status === status && status !== 'completed';
   const at = stepAt(order, status);
+  const word = current ? 'en cours' : reached ? 'fait' : 'à venir';
   return (
-    <View style={{ flexDirection: 'row', gap: 12 }} accessible accessibilityLabel={`${WASH_STATUS_LABELS[status]}${reached ? (at ? `, ${formatTime(at)}` : '') : ', à venir'}`} testID={`car-wash-step-${status}`}>
+    <View style={{ flexDirection: 'row', gap: 12 }} accessible accessibilityLabel={`${WASH_STATUS_LABELS[status]}, ${word}${reached && at ? `, ${formatTime(at)}` : ''}`} testID={`car-wash-step-${status}`}>
       <View style={{ alignItems: 'center', width: 22 }}>
         <View style={[styles.dot, reached ? { backgroundColor: colors.accent, borderColor: colors.accent } : null, current ? styles.dotCurrent : null]}>{reached && !current ? <Check size={12} color={colors.inverse} strokeWidth={3} /> : null}</View>
-        {last ? null : <View style={[styles.stem, reached ? { backgroundColor: colors.accent } : null]} />}
+        {last ? null : <View style={[styles.stem, reached && !current ? { backgroundColor: colors.accent } : null]} />}
       </View>
       <View style={{ flex: 1, paddingBottom: last ? 0 : 14, flexDirection: 'row', gap: 8 }}>
         <Text variant="label" weight={current ? 'semibold' : 'medium'} tone={reached ? 'ink' : 'muted'} style={{ flex: 1 }}>
@@ -686,26 +789,141 @@ function stepAt(o: WashOrder, s: (typeof WASH_PROGRESS)[number]): string | null 
 /** Labels written before 14 Oct 2026 end with a « (photo …) » marker: shown without it. */
 const photoCaption = (label: string) => label.replace(/ \(photo [^)]*\)$/, '');
 
-function PhotoRow({ title, photos, accountId }: { title: string; photos: WashOrder['photos']; accountId: string }) {
+const STAGE_WORD = { before: 'Avant', after: 'Après' } as const;
+
+interface PhotoAngle {
+  key: string;
+  /** « Carrosserie », « Jantes »… from the shot's label (« Avant · carrosserie »). */
+  title: string;
+  before: WashPhoto | null;
+  after: WashPhoto | null;
+}
+
+/**
+ * Pairs the team's shots by angle (R13): one row per angle with its « Avant » and « Après ». The angle
+ * is what follows « · » in the label; a label without one is paired by its rank within its stage.
+ */
+function photoAngles(photos: WashPhoto[]): PhotoAngle[] {
+  const out: PhotoAngle[] = [];
+  const rank = { before: 0, after: 0 };
+  for (const p of photos) {
+    const n = rank[p.stage]++;
+    const parts = photoCaption(p.label).split(' · ');
+    const what = parts.length > 1 ? parts.slice(1).join(' · ').trim() : '';
+    const key = what ? what.toLowerCase() : `#${n}`;
+    let angle = out.find((a) => a.key === key && !a[p.stage]);
+    if (!angle) {
+      angle = { key, title: what ? what.charAt(0).toUpperCase() + what.slice(1) : `Photo ${n + 1}`, before: null, after: null };
+      out.push(angle);
+    }
+    angle[p.stage] = p;
+  }
+  return out;
+}
+
+/**
+ * P-50 / R13: a row per angle with Avant and Après as 4:3 thumbnails side by side (about 167 × 125 on
+ * a 390-pt phone). A tap opens both shots in large. A missing shot is a neutral placeholder with a
+ * glyph, never a blank tile.
+ */
+function WashPhotos({ order, accountId }: { order: WashOrder; accountId: string }) {
   useTheme();
+  const angles = useMemo(() => photoAngles(order.photos), [order.photos]);
+  const [viewing, setViewing] = useState<PhotoAngle | null>(null);
+  const [open, setOpen] = useState(false);
+  // While the order is open, a missing « Après » is still to come.
+  const pending = isWashOpen(order.status);
+  const show = (a: PhotoAngle) => {
+    setViewing(a);
+    setOpen(true);
+  };
   return (
-    <View style={{ gap: 6 }}>
-      <Text variant="caption" weight="semibold">{title}</Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {photos.map((p) => (
-          p.uploadId ? (
-            <View key={p.id} style={{ flex: 1 }}>
-              <Attachment id={p.uploadId} accountId={accountId} label={photoCaption(p.label)} />
+    <Section title="Photos" style={{ marginTop: 4 }}>
+      <View style={{ gap: 16 }} testID="car-wash-photos">
+        {angles.map((a, i) => (
+          <View key={`${a.key}-${i}`} style={{ gap: 8 }} testID={`car-wash-angle-${i}`}>
+            <Text variant="label" weight="semibold">{a.title}</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {(['before', 'after'] as const).map((stage) => (
+                <PhotoTile key={stage} stage={stage} angle={a} accountId={accountId} pending={pending} onOpen={() => show(a)} />
+              ))}
             </View>
-          ) : (
-            // One element for screen readers: the photo and its caption are announced once.
-            <View key={p.id} style={{ flex: 1, gap: 4 }} accessible accessibilityRole="image" accessibilityLabel={photoCaption(p.label)}>
-              <Image source={p.stage === 'before' ? mockPhotos.carWashBefore : mockPhotos.carWashAfter} style={styles.photo} resizeMode="cover" />
-              <Text variant="micro" tone="muted" numberOfLines={1}>{photoCaption(p.label)}</Text>
-            </View>
-          )
+          </View>
         ))}
+        <Text variant="caption" tone="muted">Photos prises par l’équipe avant et après le lavage.</Text>
       </View>
+      <Sheet visible={open} onClose={() => setOpen(false)} title={viewing?.title} testID="car-wash-photo-viewer">
+        <View style={{ gap: 16 }}>
+          {viewing
+            ? (['before', 'after'] as const).map((stage) => {
+                const p = viewing[stage];
+                return p ? (
+                  <View key={stage} style={{ gap: 8 }}>
+                    <Text variant="label" weight="semibold">{STAGE_WORD[stage]}</Text>
+                    <View accessible accessibilityRole="image" accessibilityLabel={photoCaption(p.label)}>
+                      <WashPhotoImage photo={p} accountId={accountId} />
+                    </View>
+                  </View>
+                ) : null;
+              })
+            : null}
+        </View>
+      </Sheet>
+    </Section>
+  );
+}
+
+function PhotoTile({ stage, angle, accountId, pending, onOpen }: { stage: WashPhoto['stage']; angle: PhotoAngle; accountId: string; pending: boolean; onOpen: () => void }) {
+  useTheme();
+  const photo = angle[stage];
+  const word = STAGE_WORD[stage];
+  if (!photo) {
+    const missing = pending ? 'À venir' : 'Pas de photo';
+    return (
+      <View style={{ flex: 1, gap: 6 }} accessible accessibilityLabel={`${word} · ${angle.title.toLowerCase()}, ${missing.toLowerCase()}`} testID={`car-wash-photo-missing-${stage}`}>
+        <View style={[styles.frame, styles.placeholder]}>
+          <Icon icon={ImageOff} size={24} color={colors.muted} />
+          <Text variant="caption" tone="muted">{missing}</Text>
+        </View>
+        <Text variant="caption" weight="semibold">{word}</Text>
+      </View>
+    );
+  }
+  return (
+    <PressableScale style={{ flex: 1, gap: 6 }} onPress={onOpen} accessibilityRole="imagebutton" accessibilityLabel={photoCaption(photo.label)} accessibilityHint="Affiche les photos en grand" pressedScale={0.98} testID={`car-wash-photo-${photo.id}`}>
+      <WashPhotoImage photo={photo} accountId={accountId} />
+      <Text variant="caption" weight="semibold">{word}</Text>
+    </PressableScale>
+  );
+}
+
+/**
+ * A 4:3 frame with the shot filling it. The image is absolutely placed inside a frame that owns the
+ * aspect ratio, so the photo's own size can never stretch the tile (the tall, half-blank tiles of P-50).
+ */
+function WashPhotoImage({ photo, accountId }: { photo: WashPhoto; accountId: string }) {
+  useTheme();
+  const api = useApi();
+  // Same key as the shared Attachment preview, so both read one cached copy.
+  const upload = useQuery({ queryKey: ['naya', accountId, 'attachment', photo.uploadId ?? 'none'], queryFn: () => api.uploadPreview(photo.uploadId!), enabled: !!photo.uploadId });
+  const source = photo.uploadId
+    ? upload.data && upload.data.mimeType.startsWith('image/')
+      ? { uri: upload.data.uri }
+      : null
+    : photo.stage === 'before'
+      ? mockPhotos.carWashBefore
+      : mockPhotos.carWashAfter;
+  const failed = !!photo.uploadId && (upload.isError || (!!upload.data && !source));
+  return (
+    <View style={[styles.frame, source ? null : styles.placeholder]}>
+      {source ? (
+        <Image source={source} style={styles.photo} resizeMode="cover" />
+      ) : failed ? (
+        <>
+          <Icon icon={ImageOff} size={24} color={colors.muted} />
+          <Text variant="caption" tone="muted">Photo indisponible</Text>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -776,7 +994,7 @@ function CancelWashSheet({ accountId, order, visible, onClose, onCancelled }: { 
   const cancel = useSingleFlight((input: CancelInput, key: string) => api.carWash.cancel(order.id, input, key), {
     onSuccess: () => {
       haptic.success();
-      toast('Lavage annulé');
+      toast('Lavage annulé', 'success');
       onCancelled();
     },
     onError: (e) => {
@@ -791,11 +1009,12 @@ function CancelWashSheet({ accountId, order, visible, onClose, onCancelled }: { 
       <View style={{ gap: 12 }}>
         {preview.isLoading ? <Skeleton height={48} /> : null}
         {preview.data ? <StatusBanner tone={fee > 0 ? 'warning' : 'success'} title={fee > 0 ? `Frais d’annulation : ${formatMoney(fee)}` : 'Annulation gratuite'} message={preview.data.freeUntil ? `jusqu’à ${formatTime(preview.data.freeUntil)}` : order.paymentMethod.kind === 'driver_wallet' ? `${formatMoney(order.terms.price - fee)} remboursés sur votre portefeuille` : undefined} /> : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityLabel="Motif">
+        {/* §5.6: a choice sheet uses rows with a trailing check. */}
+        <ListGroup label="Motif">
           {WASH_CANCEL_REASONS.map((r) => (
-            <Pill key={r.code} label={r.label} selected={reason === r.code} onPress={() => setReason(r.code)} testID={`car-wash-reason-${r.code}`} />
+            <ListRow key={r.code} title={r.label} selected={reason === r.code} onPress={() => setReason(r.code)} testID={`car-wash-reason-${r.code}`} />
           ))}
-        </View>
+        </ListGroup>
         {reason === 'other' ? <FormField label="Motif" value={other} onChangeText={setOther} maxLength={200} /> : null}
         <Button label={fee > 0 ? `Annuler · ${formatMoney(fee)} de frais` : 'Annuler sans frais'} variant="danger" full loading={cancel.isPending} disabled={!preview.data || preview.data.reason === 'not_cancellable'} onPress={() => cancel.run({ reasonCode: reason, reasonText: reason === 'other' ? other.trim() || undefined : undefined, acknowledgedFee: fee })} testID="car-wash-cancel-confirm" />
         <Button label="Garder mon lavage" variant="ghost" full onPress={onClose} />
@@ -807,12 +1026,19 @@ function CancelWashSheet({ accountId, order, visible, onClose, onCancelled }: { 
 const styles = themedStyles(() =>
   StyleSheet.create({
     entry: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.background },
+    // The selected card swaps a 1-pt outline for a 2-pt accent one; the padding absorbs the difference so nothing moves.
     pkg: { backgroundColor: colors.surface, borderRadius: radius.card, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.outline },
-    pkgOn: { borderWidth: 1.5, borderColor: colors.accent, backgroundColor: colors.selected },
+    pkgOn: { borderWidth: 2, padding: 15, borderColor: colors.accent, backgroundColor: colors.selected },
+    radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.outline, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+    radioOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     rule: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line },
     dot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.outline, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     dotCurrent: { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 6 },
     stem: { width: 2, flex: 1, minHeight: 14, backgroundColor: colors.line },
-    photo: { width: '100%', aspectRatio: mockPhotoAspect, borderRadius: 14, backgroundColor: colors.map },
+    sheetMap: { height: 260, borderRadius: radius.card, overflow: 'hidden', backgroundColor: colors.map },
+    frame: { width: '100%', aspectRatio: mockPhotoAspect, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.map },
+    placeholder: { backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.hairline },
+    photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' },
   }),
 );
