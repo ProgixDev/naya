@@ -16,7 +16,7 @@ import {
 } from '@naya/domain';
 import { colors, themedStyles } from '@naya/tokens';
 import { STANDALONE_DEMO } from '../core/apiBase';
-import { useSingleFlight } from '../core/useSingleFlight';
+import { isUncertainFailure, useSingleFlight } from '../core/useSingleFlight';
 import { Screen, Section } from '../Screen';
 import { Header } from '../Header';
 import { Text } from '../Text';
@@ -47,6 +47,14 @@ const styles = themedStyles(() =>
 /** SOS actions, worded as the server records them (services/demo-api/src/services/prototype.ts). */
 const CALLED_POLICE = 'Appel au 19 lancé';
 const SHARED_POSITION = 'Position partagée avec un proche';
+/** How long a retry after an unanswered SOS resends that attempt's position (UI-17). */
+const SOS_REPLAY_MS = 60_000;
+type SosBody = {
+  rideId: string | null;
+  familyTripId: string | null;
+  location: LatLng;
+  contactName: string;
+};
 const mapsLink = (l: LatLng) =>
   `https://maps.google.com/?q=${l.lat.toFixed(5)},${l.lng.toFixed(5)}`;
 
@@ -82,31 +90,43 @@ export function SafetyButton({
   const shown =
     fresh && sos && fresh.actions.length >= sos.actions.length ? fresh : sos;
   const raise = useSingleFlight(
-    (_: void, k) =>
-      api.prototype.sos(
-        {
-          rideId,
-          familyTripId,
-          location,
-          contactName: contact.trim() || 'Aucun proche indiqué',
-        },
-        k,
-      ),
+    (body: SosBody, k) => api.prototype.sos(body, k),
     {
       onSuccess: (alert) => {
         haptic.success();
         setSos(alert);
       },
+      // No reset here: after a network error or a timeout the retry keeps the same
+      // Idempotency-Key, so an alert the server did record is not raised twice (UI-17).
       onError: (e) => {
         haptic.error();
-        raise.reset();
+        // Without an answer the server may still have recorded the alert: do not say it was
+        // not sent. A retry replays it rather than raising a second one.
         Alert.alert(
-          'Alerte non envoyée',
-          `${errorMessage(e)} En cas de danger, appelez le 19.`,
+          isUncertainFailure(e) ? 'Alerte non confirmée' : 'Alerte non envoyée',
+          isUncertainFailure(e)
+            ? `${errorMessage(e)} Réessayez. En cas de danger, appelez le 19.`
+            : `${errorMessage(e)} En cas de danger, appelez le 19.`,
         );
       },
     },
   );
+  const trigger = () => {
+    const contactName = contact.trim() || 'Aucun proche indiqué';
+    // The position moves during a ride. A prompt retry after an unanswered attempt resends
+    // that attempt's body, so the server replays it instead of refusing a changed body. After
+    // SOS_REPLAY_MS the current position matters more: a fresh body, hence a new key.
+    const last = raise.variables;
+    const retry =
+      raise.isError &&
+      isUncertainFailure(raise.error) &&
+      Date.now() - raise.submittedAt < SOS_REPLAY_MS &&
+      last !== undefined &&
+      last.rideId === rideId &&
+      last.familyTripId === familyTripId &&
+      last.contactName === contactName;
+    raise.run(retry ? last : { rideId, familyTripId, location, contactName });
+  };
   const record = (action: string) => {
     if (!sos) return;
     api.prototype
@@ -183,7 +203,7 @@ export function SafetyButton({
                 label="Déclencher l’alerte"
                 variant="danger"
                 loading={raise.isPending}
-                onPress={() => raise.run()}
+                onPress={trigger}
                 testID="confirm-sos"
               />
               <Button
@@ -314,10 +334,18 @@ export function PassengerWalletScreen({
         topup.reset();
         qc.invalidateQueries({ queryKey });
       },
+      // No reset here: a retry of the same amount and provider after a network error or a
+      // timeout keeps the same Idempotency-Key, so the wallet is never credited twice (UI-17).
       onError: (e) => {
         haptic.error();
-        setError(errorMessage(e));
-        topup.reset();
+        if (isUncertainFailure(e)) {
+          // The provider may have the top-up already: show it if so, and say the same retry
+          // is safe (same amount and provider, same Idempotency-Key).
+          setError(
+            `${errorMessage(e)} Réessayez avec le même montant et le même moyen : la recharge ne sera pas comptée deux fois.`,
+          );
+          qc.invalidateQueries({ queryKey });
+        } else setError(errorMessage(e));
       },
     },
   );
