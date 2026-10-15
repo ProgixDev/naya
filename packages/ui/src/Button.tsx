@@ -35,7 +35,10 @@ const heights: Record<Size, number> = { major: control.major, standard: control.
 /**
  * One component for every pill button. Primary = glossy plum (the one action per screen);
  * secondary/tonal = frosted glass; ghost = text. Loading keeps the width (label stays in
- * layout, hidden); disabled is a neutral grey, never a paler plum.
+ * layout, hidden). Disabled (X-07) is the neutral `disabledFill` with `disabledText`, no gloss,
+ * no shadow and no plum at all, whatever the variant; a ghost stays text. Give the reason with
+ * `disabledReason`, or show the unblocking action instead of a disabled one.
+ * Sizes (R2): `major` 50 for booking and driver decisions, `standard` 44 everywhere else.
  */
 export function Button({ label, onPress, variant = 'primary', size = 'standard', loading, loadingLabel, disabled, disabledReason, icon, full, style, accessibilityHint, testID }: ButtonProps) {
   useTheme();
@@ -77,7 +80,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'standard',
         style={[
           styles.pill,
           { minHeight: h, borderRadius: r },
-          disabled ? { backgroundColor: colors.disabledFill } : null,
+          disabled && variant !== 'ghost' ? styles.disabled : null,
           gloss ? glossShadow(variant === 'danger' ? 'danger' : 'accent') : null,
           frost ? frostShadow : null,
           frost && variant === 'secondary' ? { ...frostOutline } : null,
@@ -182,4 +185,5 @@ const styles = themedStyles(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   disc: { alignItems: 'center', justifyContent: 'center' },
   focus: { borderWidth: 2, borderColor: colors.info },
+  disabled: { backgroundColor: colors.disabledFill, shadowOpacity: 0, elevation: 0 },
 }));

@@ -2,56 +2,93 @@ import { themedStyles , colors, radius } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Animated as RNAnimated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { AlertTriangle, CheckCircle2, Info, WifiOff, XCircle } from 'lucide-react-native';
+import { TriangleAlert, WifiOff } from 'lucide-react-native';
+import { TONE_GLYPHS, statusPresentation, type StateOf, type StatusGlyph, type StatusKind, type StatusTone, type StatusViewer } from '@naya/domain';
 import { Illustration } from './Brand';
 import { Text } from './Text';
 import { Button } from './Button';
 import { useA11yPrefs } from './a11y';
+import { GLYPHS, toneColor, toneFill } from './Icon';
+import { StatusChip, StatusIcon } from './StatusIcon';
 
-export type BannerTone = 'info' | 'success' | 'warning' | 'danger' | 'neutral';
+/** The status tones (audit §2.3). `accent` = live, `info` = waiting on someone else, `neutral` = ended with no fault. */
+export type BannerTone = StatusTone;
 
-const toneStyle = themedStyles((): Record<BannerTone, { bg: string; fg: string; Icon: typeof Info }> => ({
-  info: { bg: colors.infoSoft, fg: colors.info, Icon: Info },
-  success: { bg: colors.successSoft, fg: colors.success, Icon: CheckCircle2 },
-  warning: { bg: colors.warningSoft, fg: colors.warning, Icon: AlertTriangle },
-  danger: { bg: colors.dangerSoft, fg: colors.danger, Icon: XCircle },
-  neutral: { bg: colors.mauveSoft, fg: colors.accent, Icon: Info },
-}));
+/** Problems keep a title plus a sentence; every other banner is one line with a glyph (audit A1). */
+const isProblem = (tone: BannerTone) => tone === 'warning' || tone === 'danger';
 
-export interface StatusBannerProps {
+export interface StatusBannerProps<K extends StatusKind = StatusKind> {
   tone?: BannerTone;
   /** Compact one-line pill for reassurance notes ("Examen humain · données chiffrées"). */
   compact?: boolean;
   title: string;
   message?: string;
   action?: { label: string; onPress: () => void };
+  /** A custom leading icon. Without it the glyph comes from `kind`/`state`, else from the tone. */
   icon?: ReactNode;
+  /** Draw the state's own glyph (and take its tone unless `tone` is set). */
+  kind?: K;
+  state?: StateOf<K>;
+  viewer?: StatusViewer;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
-/** States are icons plus words; problems always keep a sentence explaining the cause. */
-export function StatusBanner({ tone = 'info', title, message, action, icon, style, testID, compact }: StatusBannerProps) {
+function bannerGlyph<K extends StatusKind>(tone: BannerTone | undefined, kind: K | undefined, state: StateOf<K> | undefined, viewer?: StatusViewer): { tone: BannerTone; glyph: StatusGlyph } {
+  if (kind && state !== undefined) {
+    const p = statusPresentation(kind, state, { viewer });
+    return { tone: tone ?? p.tone, glyph: p.glyph };
+  }
+  const t = tone ?? 'info';
+  return { tone: t, glyph: TONE_GLYPHS[t] };
+}
+
+/**
+ * States are glyphs; problems always keep their words and a sentence explaining the cause.
+ * Success and info banners are one line (glyph, title, message); warning and danger keep a title
+ * over the sentence. Banners are for problems, and for facts the screen shows nowhere else.
+ */
+export function StatusBanner<K extends StatusKind>({ tone: toneProp, title, message, action, icon, kind, state, viewer, style, testID, compact }: StatusBannerProps<K>) {
   useTheme();
-  const t = toneStyle[tone];
+  const { tone, glyph } = bannerGlyph(toneProp, kind, state, viewer);
+  const fg = toneColor(tone);
+  const Glyph = GLYPHS[glyph];
+  const titleColor = tone === 'neutral' || tone === 'accent' ? colors.ink : fg;
   if (compact) {
     return (
-      <View testID={testID} accessible accessibilityRole="text" accessibilityLabel={[title, message].filter(Boolean).join('. ')} style={[styles.note, { backgroundColor: t.bg }, style]}>
-        {icon ?? <t.Icon size={16} color={t.fg} />}
-        <Text variant="caption" weight="medium" style={{ flex: 1, color: tone === 'neutral' ? colors.ink : t.fg }} numberOfLines={2}>
+      <View testID={testID} accessible accessibilityRole="text" accessibilityLabel={[title, message].filter(Boolean).join('. ')} style={[styles.note, { backgroundColor: toneFill(tone) }, style]}>
+        {icon ?? <Glyph size={16} color={fg} strokeWidth={2} />}
+        <Text variant="caption" weight="medium" style={{ flex: 1, color: titleColor }} numberOfLines={2}>
           {title}
           {message ? <Text variant="caption" tone="muted">{` · ${message}`}</Text> : null}
         </Text>
       </View>
     );
   }
+  if (!isProblem(tone)) {
+    return (
+      <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.line, { backgroundColor: toneFill(tone) }, style]}>
+        <View style={{ paddingTop: 1 }}>{icon ?? <Glyph size={20} color={fg} strokeWidth={2} />}</View>
+        <View style={{ flex: 1, gap: action ? 8 : 0 }}>
+          <Text variant="caption" style={{ color: colors.ink }}>
+            <Text variant="caption" weight="semibold" style={{ color: titleColor }}>
+              {title}
+            </Text>
+            {message ? <Text variant="caption" tone="muted">{' · '}</Text> : null}
+            {message ? <Text variant="caption" tone="ink">{message}</Text> : null}
+          </Text>
+          {action ? <Button label={action.label} onPress={action.onPress} size="compact" variant="secondary" style={{ alignSelf: 'flex-start' }} /> : null}
+        </View>
+      </View>
+    );
+  }
   return (
     // One accessibility element so it is announced as a single alert — unless it holds an
     // action, which must stay separately reachable.
-    <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.banner, { backgroundColor: t.bg }, style]}>
-      <View style={{ paddingTop: 1 }}>{icon ?? <t.Icon size={20} color={t.fg} />}</View>
+    <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.banner, { backgroundColor: toneFill(tone) }, style]}>
+      <View style={{ paddingTop: 1 }}>{icon ?? <Glyph size={20} color={fg} strokeWidth={2} />}</View>
       <View style={{ flex: 1, gap: 4 }}>
-        <Text variant="label" weight="semibold" style={{ color: tone === 'neutral' ? colors.ink : t.fg }}>
+        <Text variant="label" weight="semibold" style={{ color: titleColor }}>
           {title}
         </Text>
         {message ? <Text variant="caption" tone="ink">{message}</Text> : null}
@@ -61,17 +98,39 @@ export function StatusBanner({ tone = 'info', title, message, action, icon, styl
   );
 }
 
-export function StatusPill({ tone = 'neutral', label, testID }: { tone?: BannerTone; label: string; testID?: string }) {
+/** Tone-only pill (the original API): the tone's glyph replaces the dot. */
+export interface ToneStatusPillProps {
+  tone?: BannerTone;
+  label: string;
+  /** A glyph for this word when the tone's default would be ambiguous. */
+  glyph?: StatusGlyph;
+  testID?: string;
+}
+/** A state's own pill: its glyph, tone and short word from statusPresentation. */
+export interface KindStatusPillProps<K extends StatusKind> {
+  kind: K;
+  state: StateOf<K>;
+  /** Overrides the short word; the full sentence stays the accessibilityLabel. */
+  label?: string;
+  viewer?: StatusViewer;
+  testID?: string;
+}
+
+/**
+ * Glyph + word chip, 28 tall. Prefer `<StatusIcon kind state />`: in rows and lists a state is its
+ * glyph alone (R1); the visible word is for heroes, first sight and problems.
+ * @deprecated Wrapper kept so screens compile until they migrate to StatusIcon (audit §2.6).
+ */
+export function StatusPill<K extends StatusKind>(props: ToneStatusPillProps | KindStatusPillProps<K>) {
   useTheme();
-  const t = toneStyle[tone];
-  return (
-    <View testID={testID} style={[styles.pill, { backgroundColor: t.bg }]}>
-      <View style={[styles.dot, { backgroundColor: t.fg }]} />
-      <Text variant="micro" weight="semibold" style={{ color: tone === 'neutral' ? colors.accent : t.fg }} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  );
+  if ('kind' in props) {
+    const { kind, state, label, viewer, testID } = props;
+    if (label === undefined) return <StatusIcon kind={kind} state={state} viewer={viewer} showLabel testID={testID} />;
+    const p = statusPresentation(kind, state, { viewer });
+    return <StatusChip glyph={p.glyph} tone={p.tone} text={label} a11y={{ accessible: true, accessibilityRole: 'text', accessibilityLabel: p.label }} testID={testID} />;
+  }
+  const { tone = 'neutral', label, glyph, testID } = props;
+  return <StatusChip glyph={glyph ?? TONE_GLYPHS[tone]} tone={tone} text={label} testID={testID} />;
 }
 
 export interface EmptyStateProps {
@@ -106,7 +165,7 @@ export function ErrorState({ title = 'Impossible de charger', message, onRetry, 
   useTheme();
   return (
     <View testID={testID} style={styles.empty} accessibilityRole="alert">
-      <View style={styles.errorDisc}>{offline ? <WifiOff size={26} color={colors.danger} /> : <AlertTriangle size={26} color={colors.danger} />}</View>
+      <View style={styles.errorDisc}>{offline ? <WifiOff size={26} color={colors.danger} strokeWidth={2} /> : <TriangleAlert size={26} color={colors.danger} strokeWidth={2} />}</View>
       <Text variant="heading" align="center">
         {offline ? 'Vous êtes hors ligne' : title}
       </Text>
@@ -156,10 +215,9 @@ export function SkeletonList({ rows = 4 }: { rows?: number }) {
 }
 
 const styles = themedStyles(() => StyleSheet.create({
-  banner: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.row + 6 },
+  banner: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: radius.row },
+  line: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderRadius: radius.row },
   note: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, alignSelf: 'stretch' },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, borderRadius: 999 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
   empty: { alignItems: 'center', gap: 10, paddingVertical: 32, paddingHorizontal: 16 },
   errorDisc: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.dangerSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
 }));

@@ -34,6 +34,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, t
       {options.map((o) => (
         <PressableScale
           key={o.value}
+          testID={testID ? `${testID}-${o.value}` : undefined}
           onPress={() => {
             if (o.value !== value) haptic.select();
             onChange(o.value);
@@ -41,6 +42,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, t
           pressedScale={1}
           accessibilityRole="tab"
           accessibilityState={{ selected: o.value === value }}
+          aria-selected={o.value === value}
           style={styles.item}
         >
           <Text variant="caption" weight={o.value === value ? 'semibold' : 'medium'} tone={o.value === value ? 'ink' : 'muted'} numberOfLines={1}>

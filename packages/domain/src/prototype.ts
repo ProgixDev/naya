@@ -363,6 +363,35 @@ export const FAMILY_STATUS_LABELS: Record<FamilyTripStatus, string> = {
   completed: 'Déposé · photo et remise confirmées',
   cancelled: 'Trajet annulé',
 };
+/** Chip words (≤ 18 characters); the long labels above stay for the screen reader (audit 2026-10-15 C11). */
+export const FAMILY_STATUS_SHORT_LABELS: Record<FamilyTripStatus, string> = {
+  scheduled: 'Planifié',
+  en_route: 'En route',
+  arrived: 'Arrivée',
+  picked_up: 'Récupéré',
+  awaiting_approval: 'Votre accord',
+  in_progress: 'En cours',
+  completed: 'Déposé',
+  cancelled: 'Annulé',
+};
+/** Start approval states (audit C12). */
+export const FAMILY_APPROVAL_SHORT_LABELS: Record<FamilyStartApproval['status'], string> = {
+  pending: 'Accord attendu',
+  approved: 'Départ autorisé',
+  refused: 'Départ refusé',
+  expired: 'Délai dépassé',
+};
+/** Guardian follow-link states (audit C13). */
+export const GUARDIAN_STATUS_SHORT_LABELS: Record<FamilyGuardian['status'], string> = {
+  invited: 'Invitation envoyée',
+  active: 'Suivi ouvert',
+  revoked: 'Accès retiré',
+};
+/** Famille plan states (audit C14). */
+export const FAMILY_SUBSCRIPTION_SHORT_LABELS: Record<FamilySubscription['status'], string> = {
+  active: 'Active',
+  paused: 'En pause',
+};
 /** Wrong handover codes allowed on one trip before the handover is locked. */
 export const HANDOVER_MAX_ATTEMPTS = 5;
 

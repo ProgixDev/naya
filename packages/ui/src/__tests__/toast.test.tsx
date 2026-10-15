@@ -5,7 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { AccessibilityInfo, DeviceEventEmitter, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConfirmDialog, Sheet } from '../BottomSheet';
-import { TOAST_DURATION_MS, ToastHost, toast, useToast } from '../Toast';
+import { TOAST_DURATION_MS, ToastHost, toast, useScreenFocus, useToast, useToastAnchor } from '../Toast';
 
 const safeArea = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } };
 const wrap = (ui: ReactNode) => (
@@ -24,6 +24,11 @@ function SheetHarness({ initial }: { initial: boolean }) {
       <Text>Contenu</Text>
     </Sheet>
   );
+}
+
+function FooterHarness({ bottom, active = true }: { bottom: number; active?: boolean }) {
+  useToastAnchor({ bottom }, active);
+  return null;
 }
 
 type Node = ReturnType<typeof screen.getByText>;
@@ -78,15 +83,61 @@ describe('Toast', () => {
     expect(within(layers()[0]!).getByText('Adresse enregistrée')).toBeTruthy();
   });
 
-  it('lifts the pill above the iOS keyboard', async () => {
+  it('sits under the status bar when the screen has no pinned footer (X-06)', async () => {
+    await render(wrap(null));
+    await act(() => toast('Adresse copiée'));
+    const style = StyleSheet.flatten(screen.getByTestId('toast-layer').props.style);
+    expect(style.justifyContent).toBe('flex-start');
+    expect(style.paddingTop).toBe(47 + 8);
+  });
+
+  it('sits above a registered footer, and above the iOS keyboard while it is open (X-06)', async () => {
+    await render(wrap(<FooterHarness bottom={120} />));
+    await act(() => toast('Adresse hors zone', 'danger'));
+    const style = () => StyleSheet.flatten(screen.getByTestId('toast-layer').props.style);
+    expect(style().justifyContent).toBe('flex-end');
+    expect(style().paddingBottom).toBe(120 + 12);
+    await act(() => DeviceEventEmitter.emit('keyboardWillShow', { endCoordinates: { height: 336, screenX: 0, screenY: 508, width: 390 } }));
+    expect(style().paddingBottom).toBe(336 + 16);
+    await act(() => DeviceEventEmitter.emit('keyboardWillHide', { endCoordinates: { height: 0, screenX: 0, screenY: 844, width: 390 } }));
+    expect(style().paddingBottom).toBe(120 + 12);
+  });
+
+  it('forgets the footer of a screen that is unmounted or not focused', async () => {
+    const view = await render(wrap(<FooterHarness bottom={120} />));
+    await act(() => view.rerender(wrap(<FooterHarness bottom={120} active={false} />)));
+    await act(() => toast('Adresse copiée'));
+    expect(StyleSheet.flatten(screen.getByTestId('toast-layer').props.style).justifyContent).toBe('flex-start');
+  });
+
+  it('treats a tree with no navigator as focused, so a tab bar or footer anchor still registers', async () => {
+    function FocusedFooter() {
+      useToastAnchor({ bottom: 94 }, useScreenFocus());
+      return null;
+    }
+    await render(wrap(<FocusedFooter />));
+    await act(() => toast('Adresse copiée'));
+    const style = StyleSheet.flatten(screen.getByTestId('toast-layer').props.style);
+    expect(style.justifyContent).toBe('flex-end');
+    expect(style.paddingBottom).toBe(94 + 12);
+  });
+
+  it('keeps a sheet\'s pill at the top, clear of the sheet and its keyboard', async () => {
     await render(wrap(<SheetHarness initial />));
     await act(() => toast('Adresse hors zone', 'danger'));
-    const bottom = () => StyleSheet.flatten(layers().find((l) => insideModal(l))!.props.style).paddingBottom;
-    expect(bottom()).toBe(34 + 90);
-    await act(() => DeviceEventEmitter.emit('keyboardWillShow', { endCoordinates: { height: 336, screenX: 0, screenY: 508, width: 390 } }));
-    expect(bottom()).toBe(336 + 16);
-    await act(() => DeviceEventEmitter.emit('keyboardWillHide', { endCoordinates: { height: 0, screenX: 0, screenY: 844, width: 390 } }));
-    expect(bottom()).toBe(34 + 90);
+    const style = StyleSheet.flatten(layers().find((l) => insideModal(l))!.props.style);
+    expect(style.justifyContent).toBe('flex-start');
+  });
+
+  it('draws the tone glyph before the words', async () => {
+    await render(wrap(null));
+    await act(() => toast('Carte ajoutée', 'success'));
+    // lucide is mocked: each icon renders as a View with testID icon-<Name>.
+    expect(screen.getByTestId('icon-CircleCheck', { includeHiddenElements: true })).toBeTruthy();
+    await act(() => toast('Paiement refusé', 'danger'));
+    expect(screen.getByTestId('icon-CircleX', { includeHiddenElements: true })).toBeTruthy();
+    await act(() => toast('Lien copié'));
+    expect(screen.getByTestId('icon-Info', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('renders above an open sheet, once, and returns to the root when the sheet closes', async () => {

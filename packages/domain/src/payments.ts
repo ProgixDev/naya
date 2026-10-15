@@ -161,8 +161,9 @@ export function paymentReceiptState(
           ? { tone: 'info', title: 'Frais d’annulation à régler', message: `${amount} restent dus pour cette annulation.` }
           : { tone: 'info', title: 'Espèces · à remettre à la chauffeuse', message: `${amount} à régler en fin de trajet.` };
       }
+      // Waiting on the bank or the provider, not on her: info (R3, audit §2.3).
       return {
-        tone: 'warning',
+        tone: 'info',
         title: fee ? 'Frais en attente de confirmation' : 'Paiement en attente de confirmation',
         message: `${p.kind === 'card' ? 'Votre banque' : 'Le prestataire'} n’a pas encore confirmé le débit. Rien n’est débité deux fois ; cette page se met à jour.`,
       };

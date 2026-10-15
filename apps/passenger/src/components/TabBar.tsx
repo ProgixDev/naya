@@ -1,21 +1,23 @@
-import { useTheme , Glass, PressableScale, Text, haptic, useA11yPrefs, motionTiming } from '@naya/ui';
+import { useTheme , Glass, PressableScale, Text, haptic, useA11yPrefs, motionTiming, useTabBarInset, useTabBarTop, useToastAnchor, useScreenFocus, TAB_BAR_HEIGHT } from '@naya/ui';
 import { useEffect, useState, type ComponentProps } from 'react';
-import { View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { View, type LayoutChangeEvent } from 'react-native';
 import type { Tabs } from 'expo-router';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Route, UserRound } from 'lucide-react-native';
+import { House, Route, UserRound } from 'lucide-react-native';
 import { colors, gutter, shadow } from '@naya/tokens';
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-const ICONS: Record<string, typeof Home> = { index: Home, trips: Route, account: UserRound };
+const ICONS: Record<string, typeof House> = { index: House, trips: Route, account: UserRound };
 const LABELS: Record<string, string> = { index: 'Accueil', trips: 'Trajets', account: 'Compte' };
 
 /** Floating capsule with visible labels; the selected pill slides on the UI thread (no bounce). */
 export function CapsuleTabBar({ state, navigation }: TabBarProps) {
   useTheme();
   const insets = useSafeAreaInsets();
+  // X-06: on a tab screen, toasts sit just above the bar (only while the tabs are the visible screen).
+  useToastAnchor({ bottom: useTabBarTop() }, useScreenFocus());
   const { reduceMotion } = useA11yPrefs();
   const [width, setWidth] = useState(0);
   const count = state.routes.length;
@@ -27,12 +29,12 @@ export function CapsuleTabBar({ state, navigation }: TabBarProps) {
   const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: gutter - 4, right: gutter - 4, bottom: Math.max(insets.bottom, 12) }}>
-      <Glass radius={30} style={shadow.float} contentStyle={{ height: 60, paddingHorizontal: 6, justifyContent: 'flex-start' }}>
-        <View style={{ flex: 1, flexDirection: 'row', height: 60, alignItems: 'center' }} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width + 12)} accessibilityRole="tablist">
+      <Glass radius={30} style={shadow.float} contentStyle={{ height: TAB_BAR_HEIGHT, paddingHorizontal: 6, justifyContent: 'flex-start' }}>
+        <View style={{ flex: 1, flexDirection: 'row', height: TAB_BAR_HEIGHT, alignItems: 'center' }} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width + 12)} accessibilityRole="tablist">
           {width > 0 ? <Animated.View style={[{ position: 'absolute', left: 0, top: 6, bottom: 6, width: seg, borderRadius: 24, backgroundColor: colors.accent }, pill]} /> : null}
           {state.routes.map((route, i) => {
             const focused = state.index === i;
-            const Icon = ICONS[route.name] ?? Home;
+            const Icon = ICONS[route.name] ?? House;
             return (
               <PressableScale
                 key={route.key}
@@ -50,7 +52,7 @@ export function CapsuleTabBar({ state, navigation }: TabBarProps) {
                 }}
                 style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: 52, gap: 3 }}
               >
-                <Icon size={22} color={focused ? colors.inverse : colors.muted} strokeWidth={focused ? 2.3 : 1.9} />
+                <Icon size={24} color={focused ? colors.inverse : colors.muted} strokeWidth={focused ? 2.4 : 2} />
                 <Text variant="micro" weight={focused ? 'semibold' : 'medium'} tone={focused ? 'inverse' : 'muted'} maxFontSizeMultiplier={1.2}>
                   {LABELS[route.name]}
                 </Text>
@@ -63,10 +65,12 @@ export function CapsuleTabBar({ state, navigation }: TabBarProps) {
   );
 }
 
-/** Space reserved at the bottom of tab screens so content clears the floating bar. */
-/** Space reserved under tab content so the floating bar never covers the last row (grows with Dynamic Type). */
+/**
+ * Space reserved under tab content so the floating bar never covers the last row (grows with Dynamic
+ * Type): bar top + 24. Prefer `<Screen tabBar>`, which applies bar top + 16 by itself (X-04); this stays for screens
+ * that still pass their own paddingBottom.
+ */
 export function useTabBarSpace() {
-  const insets = useSafeAreaInsets();
-  const { fontScale } = useWindowDimensions();
-  return Math.max(insets.bottom, 12) + Math.round(60 + 16 * Math.max(0, Math.min(fontScale, 1.6) - 1)) + 24;
+  // Bar top + 24, as before: the home card is positioned with it.
+  return useTabBarInset() + 8;
 }

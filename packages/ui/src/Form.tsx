@@ -1,9 +1,9 @@
-import { themedStyles , colors, radius } from '@naya/tokens';
+import { themedStyles , colors, control, radius } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { Children, forwardRef, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Modal, Platform, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
-import { CalendarDays, Check, ChevronDown, type LucideIcon } from 'lucide-react-native';
+import { Check, ChevronDown, type LucideIcon } from 'lucide-react-native';
 import { COUNTRIES, formatNational, type Country } from '@naya/domain';
 import { Text } from './Text';
 import { PressableScale } from './PressableScale';
@@ -14,8 +14,14 @@ export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
   /** Shown inside the pill as the placeholder, then floats to the top-left. */
   label: string;
   error?: string | null;
+  /** Hint shown under the field while it has focus. */
   helper?: string;
-  /** Leading glyph inside the pill; unlike `leading` it does not keep the label floated. */
+  /** An example value in a 13-pt grey line under the field (« Ex. : 12/345678 »). Placeholders are examples, not labels (§5.8). */
+  example?: string;
+  /**
+   * @deprecated Fields carry no leading icon (§5.8, principle 5); the prop is accepted and ignored so
+   * unmigrated screens compile. Remove it at the call site.
+   */
   icon?: LucideIcon;
   leading?: ReactNode;
   trailing?: ReactNode;
@@ -24,11 +30,13 @@ export interface FormFieldProps extends Omit<TextInputProps, 'style'> {
 }
 
 /**
- * Pill input: 56 pt, white, label inside (floats up on focus or value), one line of
- * error under it. Multiline fields keep the language with a 24-pt radius.
+ * The one field primitive (X-09, §5.8): 56 pt (`control.field`), a floating label inside (it floats
+ * up on focus or value), no leading icon, one line of error or example under it. A prefix such as
+ * « +212 » goes in `leading`; a picker uses `PickerField` (trailing chevron). Multiline fields keep
+ * the language with a 22-pt radius.
  */
 export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField(
-  { label, error, helper, icon: Icon, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, value, multiline, placeholder, ...input },
+  { label, error, helper, example, icon: _icon, leading, trailing, onFocus, onBlur, editable = true, testID, inputStyle, value, multiline, placeholder, ...input },
   ref,
 ) {
   useTheme();
@@ -42,15 +50,14 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
   const labelStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(t.value, [0, 1], [0, -12]) }, { scale: interpolate(t.value, [0, 1], [1, 0.76]) }],
   }));
-  const radius = multiline ? 22 : 18;
+  const fieldRadius = multiline ? 22 : radius.field;
   return (
     <View style={{ gap: 6 }}>
       <Pressable
         onPress={() => (ref && typeof ref === 'object' ? ref.current?.focus() : undefined)}
-        style={[styles.field, { borderRadius: radius, minHeight: multiline ? 120 : 56, alignItems: multiline ? 'flex-start' : 'center' }, focused && styles.focused, !!error && styles.errorBorder, !editable && { backgroundColor: colors.disabledFill }]}
+        style={[styles.field, { borderRadius: fieldRadius, minHeight: multiline ? 120 : control.field, alignItems: multiline ? 'flex-start' : 'center' }, focused && styles.focused, !!error && styles.errorBorder, !editable && { backgroundColor: colors.disabledFill }]}
         accessible={false}
       >
-        {Icon ? <Icon size={20} color={error ? colors.danger : focused ? colors.accent : colors.muted} strokeWidth={1.8} style={{ alignSelf: 'center' }} /> : null}
         {leading}
         <View style={{ flex: 1, justifyContent: 'center', alignSelf: 'stretch', paddingTop: multiline ? 22 : 0 }}>
           <Animated.View pointerEvents="none" style={[styles.labelWrap, multiline ? { top: 10 } : null, labelStyle]}>
@@ -67,7 +74,7 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
             placeholder={floated ? placeholder : undefined}
             placeholderTextColor={colors.muted}
             accessibilityLabel={label}
-            accessibilityHint={error ?? helper}
+            accessibilityHint={error ?? helper ?? example}
             onFocus={(e) => {
               setFocused(true);
               onFocus?.(e);
@@ -91,10 +98,71 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
         <Text variant="caption" tone="muted" style={{ marginLeft: 18 }}>
           {helper}
         </Text>
+      ) : example ? (
+        <Text variant="caption" tone="muted" style={{ marginLeft: 18 }} importantForAccessibility="no" accessibilityElementsHidden>
+          {example}
+        </Text>
       ) : null}
     </View>
   );
 });
+
+export interface PickerFieldProps {
+  label: string;
+  /** The chosen value's display text; empty shows the label alone, like an empty field. */
+  value?: string | null;
+  onPress: () => void;
+  error?: string | null;
+  disabled?: boolean;
+  testID?: string;
+}
+
+/**
+ * A field that opens a choice (a sheet, a list): same 56-pt pill and floating label as `FormField`,
+ * with the one icon a field may carry, a trailing `ChevronDown` (§5.8).
+ */
+export function PickerField({ label, value, onPress, error, disabled, testID }: PickerFieldProps) {
+  useTheme();
+  const filled = !!value;
+  return (
+    <View style={{ gap: 6 }}>
+      <PressableScale
+        testID={testID}
+        onPress={onPress}
+        disabled={disabled}
+        pressedScale={0.99}
+        accessibilityRole="button"
+        accessibilityLabel={filled ? `${label}, ${value}` : label}
+        accessibilityHint={error ?? undefined}
+        accessibilityState={{ disabled: !!disabled }}
+        style={[styles.field, { borderRadius: radius.field, minHeight: control.field, alignItems: 'center' }, !!error && styles.errorBorder, disabled && { backgroundColor: colors.disabledFill }]}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignSelf: 'stretch', paddingVertical: filled ? 8 : 0 }}>
+          {filled ? (
+            <>
+              <Text variant="caption" tone={error ? 'danger' : 'muted'} numberOfLines={1}>
+                {label}
+              </Text>
+              <Text variant="body" weight="medium" numberOfLines={1}>
+                {value}
+              </Text>
+            </>
+          ) : (
+            <Text variant="label" tone={error ? 'danger' : 'muted'} numberOfLines={1}>
+              {label}
+            </Text>
+          )}
+        </View>
+        <ChevronDown size={20} color={colors.muted} />
+      </PressableScale>
+      {error ? (
+        <Text variant="caption" tone="danger" accessibilityLiveRegion="polite" accessibilityRole="alert" style={{ marginLeft: 18 }}>
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
 
 /** Two fields side by side (e.g. Prénom · Nom). Stacks at large text sizes. */
 export function FieldRow({ children }: { children: ReactNode }) {
@@ -129,7 +197,8 @@ export interface DateFieldProps {
 }
 
 /**
- * Date of birth as one pill with a JJ / MM / AAAA mask and the number pad. The typed digits
+ * Date of birth as one pill with a JJ / MM / AAAA mask and the number pad. No calendar glyph: it is a
+ * masked text field, not a picker (A10). The typed digits
  * are local: the parent receives the ISO date once it is complete and real, '' before that,
  * and its echo of that value never rewrites what is being typed. Only a value the field did
  * not send itself (a loaded record, a form reset) replaces the digits. A reset while the date
@@ -147,7 +216,6 @@ export function DateField({ label, value, onChange, error, testID }: DateFieldPr
   const invalid = digits.length === 8 && !isoFromDigits(digits);
   return (
     <FormField
-      icon={CalendarDays}
       label={label}
       testID={testID}
       value={maskDate(digits)}
@@ -192,7 +260,7 @@ export function PhoneField({ value, onChangeText, country, onCountryChange, erro
         keyboardType="phone-pad"
         textContentType="telephoneNumber"
         autoComplete="tel"
-        placeholder={country.example}
+        example={`Ex. : ${country.example}`}
         error={error}
         autoFocus={autoFocus}
         returnKeyType="done"

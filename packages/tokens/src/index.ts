@@ -22,8 +22,8 @@ export const lightColors = {
   glass: 'rgba(255,255,255,0.72)',
   glassBorder: 'rgba(255,255,255,0.9)',
   scrim: 'rgba(46,32,44,0.42)',
-  disabledFill: '#ECE6EA',
-  disabledText: '#A0939E',
+  disabledFill: '#ECEBEE', // neutral, no plum tint (X-07)
+  disabledText: '#8F8A93',
   // Status (text on white/pearl ≥ 4.5:1)
   success: '#2F6B4F',
   successSoft: '#E6F2EB',
@@ -42,7 +42,7 @@ export const lightColors = {
 
 export type ColorToken = keyof typeof lightColors;
 export const darkColors: Record<ColorToken, string> = {
-  background: '#16121A', surface: '#231D28', selected: '#3A2938', ink: '#F4EDF5', muted: '#BBAFBE', inverse: '#201522', accent: '#E5B6D4', line: '#423648', accentPressed: '#D59AC2', accentDeep: '#382233', mauve: '#CDA0BF', mauveSoft: '#302432', elevated: '#2C2431', glass: 'rgba(35,29,40,0.88)', glassBorder: 'rgba(230,206,231,0.14)', scrim: 'rgba(0,0,0,0.65)', disabledFill: '#332A38', disabledText: '#8A7C91', success: '#9AD5B4', successSoft: '#203A2E', warning: '#F0C982', warningSoft: '#423320', danger: '#FFABB6', dangerSoft: '#48242F', info: '#A9C9F5', infoSoft: '#25344C', map: '#25202B',
+  background: '#16121A', surface: '#231D28', selected: '#3A2938', ink: '#F4EDF5', muted: '#BBAFBE', inverse: '#201522', accent: '#E5B6D4', line: '#423648', accentPressed: '#D59AC2', accentDeep: '#382233', mauve: '#CDA0BF', mauveSoft: '#302432', elevated: '#2C2431', glass: 'rgba(35,29,40,0.88)', glassBorder: 'rgba(230,206,231,0.14)', scrim: 'rgba(0,0,0,0.65)', disabledFill: '#2E2B31', disabledText: '#86808A', success: '#9AD5B4', successSoft: '#203A2E', warning: '#F0C982', warningSoft: '#423320', danger: '#FFABB6', dangerSoft: '#48242F', info: '#A9C9F5', infoSoft: '#25344C', map: '#25202B',
   // outline 4.04:1 on surface, 3.68:1 on elevated, 4.54:1 on background; thumb 3.54:1 on outline
   outline: '#857A8C', thumb: '#F4EDF5', hairline: 'rgba(244,237,245,0.12)',
 };
@@ -109,7 +109,7 @@ export const gutter = 20;
 
 export const radius = { row: 16, card: 22, sheet: 32, pill: 999, field: 18 } as const;
 
-/** Control heights: standard 44, compact 36 (44 touch target via hitSlop), major booking/driver actions 54. */
+/** Control heights: standard 44, compact 36 (44 touch target via hitSlop), major booking and driver decisions 50 (R2). */
 export const control = { major: 50, standard: 44, compact: 36, chip: 32, field: 56, touch: 44, touchAndroid: 48 } as const;
 
 type ShadowStyle = { shadowColor: string; shadowOpacity: number; shadowRadius: number; shadowOffset: { width: number; height: number }; elevation: number };

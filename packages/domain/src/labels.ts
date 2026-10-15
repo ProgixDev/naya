@@ -46,6 +46,57 @@ export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = {
   rejected: 'Rejetée',
 };
 
+/*
+ * Short words (≤ 18 characters) for status chips and first-sight hints. The long labels above stay
+ * for the screens that already show them; screen readers get the sentence from statusPresentation
+ * (status.ts). Redesign audit 2026-10-15 §2.4.
+ */
+export const RIDE_STATUS_SHORT_LABELS: Record<RideStatus, string> = {
+  searching: 'Recherche',
+  driver_assigned: 'En route',
+  driver_arrived: 'Arrivée',
+  in_progress: 'En cours',
+  completed: 'Terminée',
+  cancelled: 'Annulée',
+  no_driver: 'Aucune chauffeuse',
+};
+
+export const OFFER_STATUS_SHORT_LABELS: Record<OfferStatus, string> = {
+  pending: 'En attente',
+  accepted: 'Acceptée',
+  declined: 'Refusée',
+  expired: 'Expirée',
+  withdrawn: 'Retirée',
+};
+
+export const PAYMENT_STATUS_SHORT_LABELS: Record<PaymentStatus, string> = {
+  pending: 'En attente',
+  confirmed: 'Payé',
+  failed: 'Échoué',
+  cancelled: 'Annulé',
+};
+
+export const TRANSFER_STATUS_SHORT_LABELS: Record<TransferStatus, string> = {
+  pending: 'En cours',
+  confirmed: 'Confirmé',
+  failed: 'Échoué',
+};
+
+export const SCHEDULED_STATUS_SHORT_LABELS: Record<ScheduledStatus, string> = {
+  scheduled: 'Enregistrée',
+  dispatched: 'Course lancée',
+  cancelled: 'Annulée',
+  expired: 'Expirée',
+};
+
+export const SUPPORT_STATUS_SHORT_LABELS: Record<SupportStatus, string> = {
+  open: 'Ouverte',
+  in_progress: 'En cours',
+  awaiting_user: 'Réponse attendue',
+  resolved: 'Résolue',
+  rejected: 'Rejetée',
+};
+
 export const PASSENGER_CANCEL_REASONS = [
   { code: 'changed_plans', label: 'Mes plans ont changé' },
   { code: 'wait_too_long', label: 'L’attente est trop longue' },

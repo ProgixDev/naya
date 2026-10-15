@@ -1,7 +1,7 @@
 import { themedStyles , colors, gutter, radius, shadow } from '@naya/tokens';
 import { useTheme } from './core/theme';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,10 +24,15 @@ export interface SheetProps {
   footer?: ReactNode;
   /** Prevent closing by swipe or scrim while a request is in flight. */
   dismissible?: boolean;
+  /**
+   * The body scrolls when the sheet reaches its height cap (UI-22), so tall content and large text
+   * stay reachable. Pass false for a body that scrolls by itself (a list, a map).
+   */
+  scroll?: boolean;
   testID?: string;
 }
 
-export function Sheet({ visible, onClose, title, subtitle, children, footer, dismissible = true, testID }: SheetProps) {
+export function Sheet({ visible, onClose, title, subtitle, children, footer, dismissible = true, scroll = true, testID }: SheetProps) {
   useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -80,12 +85,18 @@ export function Sheet({ visible, onClose, title, subtitle, children, footer, dis
                     </Text>
                     {subtitle ? <Text variant="caption" tone="muted">{subtitle}</Text> : null}
                   </View>
-                  {dismissible ? <IconButton icon={<X size={20} color={colors.ink} />} accessibilityLabel="Fermer" variant="tonal" size={36} onPress={onClose} /> : null}
+                  {dismissible ? <IconButton icon={<X size={18} color={colors.ink} />} accessibilityLabel="Fermer" variant="tonal" size={32} onPress={onClose} testID={testID ? `${testID}-close` : undefined} /> : null}
                 </View>
               ) : null}
             </View>
           </GestureDetector>
-          <View style={{ paddingHorizontal: gutter, flexShrink: 1 }}>{children}</View>
+          {scroll ? (
+            <ScrollView testID={testID ? `${testID}-body` : undefined} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: gutter }} bounces={false} overScrollMode="never" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} nestedScrollEnabled>
+              {children}
+            </ScrollView>
+          ) : (
+            <View style={{ paddingHorizontal: gutter, flexShrink: 1 }}>{children}</View>
+          )}
           {footer ? <View style={{ paddingHorizontal: gutter, paddingTop: 16, gap: 8 }}>{footer}</View> : null}
         </Animated.View>
       </KeyboardAvoidingView>
@@ -211,7 +222,8 @@ export function ConfirmDialog({ visible, title, message, children, confirmLabel,
 
 const styles = themedStyles(() => StyleSheet.create({
   sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float },
-  grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: colors.line },
+  // One sheet anatomy (§5.6): grabber 36×4, title 18/600, × disc 32 (44 touch), gutter 20.
+  grabber: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: colors.line },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: gutter, paddingTop: 14, paddingBottom: 12, gap: 12 },
   mapSheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, ...shadow.float },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

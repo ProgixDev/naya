@@ -7,6 +7,7 @@ export * from './wallet';
 export * from './geo';
 export * from './cities';
 export * from './labels';
+export * from './status';
 export * from './payments';
 export * from './phone';
 export * from './prototype';

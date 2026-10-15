@@ -1,9 +1,9 @@
 import { themedStyles , colors, fonts } from '@naya/tokens';
-import { useTheme , Button, FrostLayers, GlossLayers, IconDisc, Money, PressableScale, Text, frostOutline, frostShadow, glossShadow, haptic } from '@naya/ui';
+import { useTheme , Button, FrostLayers, GLYPHS, GlossLayers, Money, PressableScale, StatusIcon, Text, frostOutline, frostShadow, glossShadow, haptic, toneColor, toneFill, type BannerTone } from '@naya/ui';
 import { forwardRef, type ReactNode } from 'react';
 import { Platform, StyleSheet, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Check, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
-import type { Centimes } from '@naya/domain';
+import { Check } from 'lucide-react-native';
+import { TONE_GLYPHS, statusPresentation, type Centimes, type StateOf, type StatusKind, type StatusViewer } from '@naya/domain';
 
 /**
  * Driver-side compositions of design system v2 (Copilot-style tactile pills, Dimension
@@ -123,19 +123,26 @@ export function ChoiceRow({ title, subtitle, leading, selected, onPress, testID,
   );
 }
 
-/** One-line note with an inline frosted action (blocking reasons, resume ride, cash to confirm). */
-export function ActionNote({ tone, title, message, action, icon, testID }: { tone: 'info' | 'success' | 'warning' | 'danger' | 'neutral'; title: string; message?: string; action?: { label: string; onPress: () => void }; icon?: ReactNode; testID?: string }) {
+/**
+ * One-line note with an inline frosted action (blocking reasons, resume ride, cash to confirm).
+ * Its glyph is the banner's (audit §2.6, A106): info Info, success CircleCheck, warning TriangleAlert,
+ * danger CircleX. Never a clock. Pass `kind` and `state` to draw that state's own glyph and tone.
+ */
+export function ActionNote<K extends StatusKind>({ tone: toneProp, title, message, action, icon, kind, state, viewer, testID }: { tone?: BannerTone; title: string; message?: string; action?: { label: string; onPress: () => void }; icon?: ReactNode; kind?: K; state?: StateOf<K>; viewer?: StatusViewer; testID?: string }) {
   useTheme();
-  const t = tones()[tone];
+  const p = kind && state !== undefined ? statusPresentation(kind, state, { viewer }) : null;
+  const tone = toneProp ?? p?.tone ?? 'info';
+  const Glyph = GLYPHS[p?.glyph ?? TONE_GLYPHS[tone]];
+  const fg = toneColor(tone);
   return (
-    <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.note, { backgroundColor: t.bg }]}>
-      {icon ?? <t.Icon size={18} color={t.fg} />}
+    <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.note, { backgroundColor: toneFill(tone) }]}>
+      {icon ?? <Glyph size={20} color={fg} strokeWidth={2} />}
       <View style={{ flex: 1, gap: 1 }} accessible={!!action} accessibilityRole="text" accessibilityLabel={action ? [title, message].filter(Boolean).join('. ') : undefined}>
-        <Text variant="caption" weight="semibold" style={{ color: tone === 'neutral' ? colors.ink : t.fg }} numberOfLines={2}>
+        <Text variant="caption" weight="semibold" style={{ color: tone === 'neutral' || tone === 'accent' ? colors.ink : fg }} numberOfLines={2}>
           {title}
         </Text>
         {message ? (
-          <Text variant="micro" tone="ink" numberOfLines={3}>
+          <Text variant="caption" tone="ink" numberOfLines={3}>
             {message}
           </Text>
         ) : null}
@@ -145,26 +152,16 @@ export function ActionNote({ tone, title, message, action, icon, testID }: { ton
   );
 }
 
-/** Built at render: the palette follows the scheme active at that moment. */
-const tones = () => ({
-  info: { bg: colors.infoSoft, fg: colors.info, Icon: Clock },
-  success: { bg: colors.successSoft, fg: colors.success, Icon: CheckCircle2 },
-  warning: { bg: colors.warningSoft, fg: colors.warning, Icon: Clock },
-  danger: { bg: colors.dangerSoft, fg: colors.danger, Icon: XCircle },
-  neutral: { bg: colors.mauveSoft, fg: colors.accent, Icon: Clock },
-});
-
-/** Centred status hero for operation receipts (recharge, withdrawal, ride end). */
+/**
+ * Centred status hero for operation receipts (recharge, withdrawal, ride end). The state is the
+ * transfer glyph in a 56 disc (audit C4, A119): Hourglass pending, CircleCheck confirmed, CircleX
+ * failed. The kicker carries the words, so the glyph stays silent for screen readers.
+ */
 export function OperationHero({ state, amount, kicker, caption, sign, testID }: { state: 'pending' | 'confirmed' | 'failed' | 'neutral'; amount: Centimes; kicker: string; caption?: string; sign?: 'auto' | 'always'; testID?: string }) {
   useTheme();
-  const tone = state === 'confirmed' ? 'success' : state === 'failed' ? 'danger' : 'plain';
   return (
     <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }} testID={testID}>
-      {state === 'neutral' ? null : (
-        <IconDisc size={52} tone={tone}>
-          {state === 'confirmed' ? <CheckCircle2 size={26} color={colors.success} /> : state === 'failed' ? <XCircle size={26} color={colors.danger} /> : <Clock size={26} color={colors.accent} />}
-        </IconDisc>
-      )}
+      {state === 'neutral' ? null : <StatusIcon kind="transfer" state={state} size="lg" variant="disc" showLabel={false} accessible={false} testID={testID ? `${testID}-status` : undefined} />}
       <Text variant="caption" tone="muted" align="center">
         {kicker}
       </Text>

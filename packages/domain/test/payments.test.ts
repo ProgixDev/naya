@@ -87,7 +87,7 @@ describe('paymentReceiptState', () => {
     expect(card.message).toContain('carte •••• 4242');
     expect(paymentReceiptState('cash', ride('pending'), false).title).toBe('Espèces · à remettre à la chauffeuse');
     expect(paymentReceiptState('cash', ride('confirmed'), false).title).toBe('Espèces · paiement confirmé');
-    expect(paymentReceiptState('card', ride('pending'), false).tone).toBe('warning');
+    expect(paymentReceiptState('card', ride('pending'), false).tone).toBe('info');
   });
 
   it('offers another card only for a refused ride payment', () => {
