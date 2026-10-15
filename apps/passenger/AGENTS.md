@@ -57,10 +57,14 @@ Added on Oct 6 (commit 89aae18), no Figma frame (listed at the end of the passen
   light value forever. Use `themedStyles(() => ({ … }))` from `@naya/tokens`, or build styles inside the
   component after `useTheme()`.
 - Home (`(app)/(tabs)/index.tsx`) once did this and was unreadable in dark mode (P15, PAX-01); it now uses
-  `themedStyles`. The ride status pill (`colors.elevated`) and the verification hero (themed `toneColors`) no longer use
-  light-only literals (PAX-14), nor do the shared onboarding, document picker and capture guide in packages/ui (UI-02,
-  UI-06). Contrast was computed, not yet checked on a simulator.
-- Today: `WalletSummary` (`packages/ui/src/Ride.tsx:233`) still starts its gradient on a hex literal (DOM-12).
+  `themedStyles`. The guard in `packages/ui/src/__tests__/theme.test.tsx` (run by this app's jest) fails on colour reads
+  at import, components that read colours without `useTheme()`, and colours cached in hooks. Its `KNOWN` list stays
+  empty: fix the code, never add an exception.
+- Token roles (dark-mode audit, DM rows in the backlog, ADR-0023): control boundaries `outline`, decorative edges
+  `hairline`, separators `line`; placeholders `muted`, never `disabledText`. `inverse` is only for text on accent; on
+  media (camera) or the fixed plum wallet card use fixed `#FFFFFF`. `shadowColor` is never `colors.ink` (use
+  `shadow.*` or fixed `#2E202C`). Spread `frostOutline` and `shadow.*` at render or inside `themedStyles`, never into a
+  module-level constant. Check every screen you touch in both schemes.
 
 ## State and storage
 - Server data through TanStack Query hooks in `src/lib/queries.ts`, keyed with `qk` from `@naya/api`.

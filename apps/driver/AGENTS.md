@@ -71,6 +71,15 @@ naya-chauffeuse://dev, `__DEV__` builds only).
   plus an « Appeler le 19 (police) » button (`tel:19`). Toasts render behind modal sheets (UI-07), so a failure
   inside a sheet uses `Alert.alert`.
 
+## Theming
+- Same rules as [apps/passenger/AGENTS.md](../passenger/AGENTS.md#theming): `@naya/tokens` + `useTheme()` or
+  `themedStyles`, never `colors.*` at module scope (ActionNote tones were, DM-04). The jest guard in
+  `packages/ui/src/__tests__/theme.test.tsx` also scans this app; `KNOWN` stays empty.
+- Control boundaries `outline` (radio, checkbox), decorative card edges `hairline`, separators `line`, placeholders
+  `muted`; `inverse` only on accent; `shadowColor` never `colors.ink`.
+- Today: `WalletCard` (`src/components/WalletCard.tsx:30`) hard-codes both gradients; in dark it is a pink card with
+  `inverse` text (readable, DOM-12).
+
 ## Checks
 - `pnpm --filter @naya/driver typecheck`, `pnpm --filter @naya/driver lint` (0 errors).
 - There is no test script: the driver app has no unit tests (DRV-18). Its eslint packages are not declared in

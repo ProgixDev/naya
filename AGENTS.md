@@ -129,6 +129,8 @@ fix lands.
 - _handoff/ (original spec) and work/ (Xcode caches, archives) are local-only and git-ignored.
 - The scenario launcher (`dev` route) has no visible entry: long-press the welcome logo for 2 s, or open naya://dev /
   naya-chauffeuse://dev, in __DEV__ builds only. Release builds (TestFlight) redirect the deep link home.
+- Judge dark mode only on the Metro-backed « Naya » app after a full reload, or on a TestFlight build listed in the build
+  log. The side-loaded « Naya Feedback » copy (ma.naya.passagere.feedback) runs the 6 Oct bundle with the old home-card bug (DM-01).
 - Stores seeded before 14 Oct 2026 keep old demo labels in their data (plates « DÉMO-00x », past rides paid with
   « Carte de démonstration », no family for Salma) until POST /dev/reset or pnpm demo:reset. Phones keep theirs:
   a schemaVersion bump would wipe testers' data.
