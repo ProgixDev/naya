@@ -46,14 +46,38 @@ export const darkColors: Record<ColorToken, string> = {
   // outline 4.04:1 on surface, 3.68:1 on elevated, 4.54:1 on background; thumb 3.54:1 on outline
   outline: '#857A8C', thumb: '#F4EDF5', hairline: 'rgba(244,237,245,0.12)',
 };
-let scheme: 'light' | 'dark' = 'light';
-const listeners = new Set<() => void>();
-export const getColorScheme = () => scheme;
-export const subscribeColors = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
-export function setColorScheme(next: 'light' | 'dark') { if (next !== scheme) { scheme = next; listeners.forEach(fn => fn()); } }
-export const colors = new Proxy(lightColors as Record<ColorToken, string>, { get: (_target, key) => (scheme === 'dark' ? darkColors : lightColors)[key as ColorToken] });
-/** Style properties are evaluated with the current palette, including module-level styles. */
-export function themedStyles<T extends object>(factory: () => T): T { return new Proxy(factory(), { get: (_, key) => factory()[key as keyof T] }); }
+type Scheme = 'light' | 'dark';
+/**
+ * The current scheme and its listeners live on globalThis, not in module state: Fast Refresh
+ * can re-execute this module, and a second copy of `scheme` would give a mixed palette (some
+ * modules reading the old copy) until a full reload.
+ */
+type ThemeStore = { scheme: Scheme; listeners: Set<() => void> };
+const store: ThemeStore = ((globalThis as { __nayaTheme?: ThemeStore }).__nayaTheme ??= { scheme: 'light', listeners: new Set() });
+export const getColorScheme = (): Scheme => store.scheme;
+export const subscribeColors = (listener: () => void) => { store.listeners.add(listener); return () => { store.listeners.delete(listener); }; };
+export function setColorScheme(next: Scheme) { if (next !== store.scheme) { store.scheme = next; store.listeners.forEach(fn => fn()); } }
+export const colors = new Proxy(lightColors as Record<ColorToken, string>, { get: (_target, key) => (store.scheme === 'dark' ? darkColors : lightColors)[key as ColorToken] });
+/**
+ * Style properties are evaluated with the current palette, including module-level styles.
+ * The factory runs lazily, at most once per scheme; reads return the same objects for as long
+ * as the scheme is unchanged (stable references for memoised children, one StyleSheet.create
+ * per scheme). The factory must depend on the palette only.
+ */
+export function themedStyles<T extends object>(factory: () => T): T {
+  const cache: Partial<Record<Scheme, T>> = {};
+  const current = (): T => (cache[store.scheme] ??= factory());
+  return new Proxy({} as T, {
+    get: (_, key) => Reflect.get(current(), key),
+    has: (_, key) => Reflect.has(current(), key),
+    ownKeys: () => Reflect.ownKeys(current()),
+    getOwnPropertyDescriptor: (_, key) => {
+      const d = Reflect.getOwnPropertyDescriptor(current(), key);
+      // The proxy target is an empty extensible object, so every reported property must be configurable.
+      return d && { ...d, configurable: true };
+    },
+  });
+}
 
 /** Inter, real font files loaded with explicit weights. */
 export const fonts = {
@@ -88,11 +112,29 @@ export const radius = { row: 16, card: 22, sheet: 32, pill: 999, field: 18 } as 
 /** Control heights: standard 44, compact 36 (44 touch target via hitSlop), major booking/driver actions 54. */
 export const control = { major: 50, standard: 44, compact: 36, chip: 32, field: 56, touch: 44, touchAndroid: 48 } as const;
 
-export const shadow = {
+type ShadowStyle = { shadowColor: string; shadowOpacity: number; shadowRadius: number; shadowOffset: { width: number; height: number }; elevation: number };
+type ShadowToken = 'float' | 'card' | 'button';
+const lightShadow: Record<ShadowToken, ShadowStyle> = {
   float: { shadowColor: '#2E202C', shadowOpacity: 0.08, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
   card: { shadowColor: '#2E202C', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   button: { shadowColor: '#6B3657', shadowOpacity: 0.14, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-} as const;
+};
+/** Plum ink is 1.2:1 on the dark background, so dark elevation uses black at a higher opacity (DM-07). */
+const darkShadow: Record<ShadowToken, ShadowStyle> = {
+  float: { shadowColor: '#000000', shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
+  card: { shadowColor: '#000000', shadowOpacity: 0.4, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  button: { shadowColor: '#000000', shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+};
+/**
+ * Scheme-aware: each property is a getter that returns the current scheme's style, so read it
+ * (or spread it) in render or inside a themedStyles factory, never into a module-level constant.
+ */
+export const shadow: Readonly<Record<ShadowToken, ShadowStyle>> = {
+  get float() { return (store.scheme === 'dark' ? darkShadow : lightShadow).float; },
+  get card() { return (store.scheme === 'dark' ? darkShadow : lightShadow).card; },
+  get button() { return (store.scheme === 'dark' ? darkShadow : lightShadow).button; },
+};
+export { lightShadow, darkShadow };
 
 export const motion = {
   press: { scale: 0.985, in: 90, out: 140 },
