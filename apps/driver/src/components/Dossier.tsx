@@ -32,6 +32,7 @@ export const statusTone = (s: VerificationCase['status']): BannerTone =>
 const DOC_TONE: Record<DocumentStatus, BannerTone> = { missing: 'neutral', sent: 'info', in_review: 'info', approved: 'success', rejected: 'danger' };
 
 function DocIcon({ status }: { status: DocumentStatus }) {
+  useTheme();
   switch (status) {
     case 'approved':
       return <CheckCircle2 size={18} color={colors.success} />;
@@ -275,7 +276,7 @@ export function CaseReview({ kase, subject, recoverable, ctx }: { kase: Verifica
 
 const styles = themedStyles(() =>
   StyleSheet.create({
-    card: { backgroundColor: colors.surface, borderRadius: 24, padding: 14, ...shadow.card },
+    card: { backgroundColor: colors.surface, borderRadius: 24, padding: 14, borderWidth: 1, borderColor: colors.hairline, ...shadow.card },
     track: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.selected, overflow: 'hidden' },
     fill: { height: 4, borderRadius: 2 },
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginVertical: 6 },

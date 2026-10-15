@@ -30,7 +30,7 @@ export const AmountEntry = forwardRef<TextInput, { label: string; value: string;
           accessibilityLabel={`${label}, en MAD`}
           accessibilityHint={error ?? undefined}
           placeholder="0"
-          placeholderTextColor={colors.disabledText}
+          placeholderTextColor={colors.muted}
           maxLength={9}
           selectionColor={colors.accent}
           maxFontSizeMultiplier={1.2}
@@ -71,7 +71,7 @@ export function QuickPills({ options, selected, onSelect }: { options: { key: st
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
             hitSlop={6}
-            style={[styles.quick, on ? { backgroundColor: colors.ink } : [frostShadow, frostOutline]]}
+            style={[styles.quick, on ? { backgroundColor: colors.ink } : [frostShadow, { ...frostOutline }]]}
           >
             {on ? null : <FrostLayers radius={19} />}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -101,7 +101,7 @@ export function ChoiceRow({ title, subtitle, leading, selected, onPress, testID,
       accessibilityRole="radio"
       accessibilityState={{ checked: !!selected, selected: !!selected }}
       accessibilityLabel={[title, subtitle].filter(Boolean).join(', ')}
-      style={[styles.choice, frostShadow, selected ? styles.choiceOn : frostOutline]}
+      style={[styles.choice, frostShadow, selected ? styles.choiceOn : { ...frostOutline }]}
     >
       <FrostLayers radius={22} />
       <View style={styles.choiceRow}>
@@ -126,7 +126,7 @@ export function ChoiceRow({ title, subtitle, leading, selected, onPress, testID,
 /** One-line note with an inline frosted action (blocking reasons, resume ride, cash to confirm). */
 export function ActionNote({ tone, title, message, action, icon, testID }: { tone: 'info' | 'success' | 'warning' | 'danger' | 'neutral'; title: string; message?: string; action?: { label: string; onPress: () => void }; icon?: ReactNode; testID?: string }) {
   useTheme();
-  const t = TONES[tone];
+  const t = tones()[tone];
   return (
     <View testID={testID} accessible={!action} accessibilityRole="alert" accessibilityLabel={action ? undefined : [title, message].filter(Boolean).join('. ')} style={[styles.note, { backgroundColor: t.bg }]}>
       {icon ?? <t.Icon size={18} color={t.fg} />}
@@ -145,13 +145,14 @@ export function ActionNote({ tone, title, message, action, icon, testID }: { ton
   );
 }
 
-const TONES = {
+/** Built at render: the palette follows the scheme active at that moment. */
+const tones = () => ({
   info: { bg: colors.infoSoft, fg: colors.info, Icon: Clock },
   success: { bg: colors.successSoft, fg: colors.success, Icon: CheckCircle2 },
   warning: { bg: colors.warningSoft, fg: colors.warning, Icon: Clock },
   danger: { bg: colors.dangerSoft, fg: colors.danger, Icon: XCircle },
   neutral: { bg: colors.mauveSoft, fg: colors.accent, Icon: Clock },
-} as const;
+});
 
 /** Centred status hero for operation receipts (recharge, withdrawal, ride end). */
 export function OperationHero({ state, amount, kicker, caption, sign, testID }: { state: 'pending' | 'confirmed' | 'failed' | 'neutral'; amount: Centimes; kicker: string; caption?: string; sign?: 'auto' | 'always'; testID?: string }) {
@@ -247,7 +248,7 @@ export function ActionPill({ label, icon, variant = 'secondary', onPress, disabl
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: !!disabled }}
-      style={[styles.action, disabled ? { backgroundColor: colors.disabledFill } : gloss ? glossShadow('accent') : [frostShadow, frostOutline]]}
+      style={[styles.action, disabled ? { backgroundColor: colors.disabledFill } : gloss ? glossShadow('accent') : [frostShadow, { ...frostOutline }]]}
     >
       {disabled ? null : gloss ? <GlossLayers tone="accent" radius={22} /> : <FrostLayers radius={22} />}
       <View style={{ alignItems: 'center', gap: 4 }}>
@@ -267,7 +268,7 @@ const styles = themedStyles(() => StyleSheet.create({
   choice: { borderRadius: 22, minHeight: 60 },
   choiceOn: { borderWidth: 1.5, borderColor: colors.accent },
   choiceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, minHeight: 60 },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: colors.outline, alignItems: 'center', justifyContent: 'center' },
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 18, paddingVertical: 10, paddingLeft: 12, paddingRight: 8, minHeight: 48 },
   tile: { flex: 1, backgroundColor: colors.background, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, gap: 1 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44, paddingVertical: 4 },

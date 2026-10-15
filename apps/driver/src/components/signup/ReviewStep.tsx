@@ -124,7 +124,7 @@ export function ReviewStep({ section }: { section: SignupSection }) {
 
 const styles = themedStyles(() =>
   StyleSheet.create({
-    card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(46,32,44,0.06)' },
+    card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: colors.hairline },
     line: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   }),
 );

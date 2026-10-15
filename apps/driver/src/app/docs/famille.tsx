@@ -74,6 +74,6 @@ export default function FamilleOptIn() {
 
 const styles = themedStyles(() =>
   StyleSheet.create({
-    card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(46,32,44,0.06)' },
+    card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: colors.hairline },
   }),
 );

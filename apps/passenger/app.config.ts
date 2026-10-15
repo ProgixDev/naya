@@ -15,6 +15,7 @@ const config: ExpoConfig = {
     bundleIdentifier: 'ma.naya.passagere',
     appleTeamId: '89884BGNZR',
     supportsTablet: false,
+    userInterfaceStyle: 'automatic',
     buildNumber: '4',
     config: { usesNonExemptEncryption: false },
   },
@@ -22,6 +23,7 @@ const config: ExpoConfig = {
     package: 'ma.naya.passagere',
     adaptiveIcon: { backgroundColor: '#6B3657', foregroundImage: './assets/android-icon-foreground.png', monochromeImage: './assets/android-icon-monochrome.png' },
     predictiveBackGestureEnabled: false,
+    userInterfaceStyle: 'automatic',
     // Without a key the app uses the tile-based fallback map (see src/features/map).
     ...(googleMapsKey ? { config: { googleMaps: { apiKey: googleMapsKey } } } : {}),
   },
@@ -35,7 +37,8 @@ const config: ExpoConfig = {
     'expo-router',
     ['expo-secure-store', { faceIDPermission: 'Naya utilise Face ID uniquement si vous choisissez de protéger l’accès à votre compte.' }],
     'expo-web-browser',
-    ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 120, backgroundColor: '#FAF4F7' }],
+    // Dark phones get the dark background (darkColors.background in packages/tokens) from the first frame.
+    ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 120, backgroundColor: '#FAF4F7', dark: { backgroundColor: '#16121A', image: './assets/splash-icon.png' } }],
     'expo-font',
     'expo-image',
     ['expo-camera', { cameraPermission: 'Naya utilise l’appareil photo pour votre selfie et vos pièces justificatives, uniquement pendant la vérification.' }],

@@ -300,10 +300,10 @@ export function QuestionFields({ id, answers, set, errors, ctx }: { id: Question
 const styles = themedStyles(() =>
   StyleSheet.create({
     pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    stepper: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)' },
-    commit: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.surface, borderRadius: 22, padding: 16, minHeight: 64, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)' },
-    box: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
-    card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(46,32,44,0.07)' },
+    stepper: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: colors.hairline },
+    commit: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.surface, borderRadius: 22, padding: 16, minHeight: 64, borderWidth: 1, borderColor: colors.hairline },
+    box: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: colors.outline, alignItems: 'center', justifyContent: 'center' },
+    card: { backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: colors.hairline },
     plateBadge: { backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, marginLeft: -6 },
   }),
 );

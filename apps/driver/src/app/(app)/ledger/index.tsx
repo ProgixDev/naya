@@ -41,7 +41,7 @@ export default function Ledger() {
         {q.isError ? <ErrorState onRetry={() => q.refetch()} /> : null}
         {q.data && entries.length === 0 ? <EmptyState title="Aucun mouvement" message="Les commissions, crédits, recharges et retraits confirmés apparaîtront ici." /> : null}
         {entries.length ? (
-          <View style={{ backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 14, ...shadow.card }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: 22, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.hairline, ...shadow.card }}>
             {entries.map((e) => (
               <TransactionRow key={e.id} entry={e} onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: e.id } })} />
             ))}
