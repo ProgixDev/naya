@@ -2,7 +2,7 @@ import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
-import { PhoneSignInScreen, Text, useAuthProviders } from '@naya/ui';
+import { LegalConsent, PhoneSignInScreen, Text, useAuthProviders } from '@naya/ui';
 
 /**
  * Apple sign-in is shown only when the backend reports it configured AND the device
@@ -45,11 +45,8 @@ export default function Phone() {
       onBack={router.canGoBack() ? () => router.back() : undefined}
       onCodeSent={(p) => router.push({ pathname: '/(auth)/otp', params: { phone: p } })}
       providers={<ProviderButtons />}
-      legal={
-        <Text variant="micro" tone="muted" align="center">
-          En continuant, vous acceptez les conditions d’utilisation et la politique de confidentialité de Naya.
-        </Text>
-      }
+      // PAX-18: no terms or privacy page exists yet; pass `onOpen` to LegalConsent once one does.
+      legal={<LegalConsent />}
     />
   );
 }

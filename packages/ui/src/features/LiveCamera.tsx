@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SwitchCamera, X } from 'lucide-react-native';
 import { colors } from '@naya/tokens';
 import { Text } from '../Text';
+import { Icon } from '../Icon';
 import { Button, IconButton } from '../Button';
 import { PressableScale } from '../PressableScale';
 import { haptic } from '../haptics';
@@ -80,10 +81,10 @@ export function LiveCamera({ visible, kind, title, tip, front, onClose, onCaptur
         )}
         {permission?.granted ? <CaptureFrame kind={kind} width={frameW} height={frameH} overlay={{ width: W, height: H }} /> : null}
         <View style={{ position: 'absolute', top: insets.top + 8, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <IconButton icon={<X size={22} color={colors.ink} />} accessibilityLabel="Fermer l’appareil photo" onPress={onClose} testID="camera-close" />
+          <IconButton icon={<Icon icon={X} size={24} color={colors.ink} scale={false} />} accessibilityLabel="Fermer l’appareil photo" onPress={onClose} testID="camera-close" />
           <View style={{ flex: 1 }} />
           {front !== undefined && permission?.granted ? (
-            <IconButton icon={<SwitchCamera size={21} color={colors.ink} />} accessibilityLabel="Changer de caméra" onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} />
+            <IconButton icon={<Icon icon={SwitchCamera} size={24} color={colors.ink} scale={false} />} accessibilityLabel="Changer de caméra" onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} testID="camera-switch" />
           ) : null}
         </View>
         {permission?.granted ? (

@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { PhoneSignInScreen, Text } from '@naya/ui';
+import { LegalConsent, PhoneSignInScreen } from '@naya/ui';
 
 export default function Phone() {
   const { phone } = useLocalSearchParams<{ phone?: string }>();
@@ -11,11 +11,8 @@ export default function Phone() {
       subtitle="Il sert à vous connecter à votre espace chauffeuse."
       onBack={router.canGoBack() ? () => router.back() : undefined}
       onCodeSent={(p) => router.push({ pathname: '/(auth)/otp', params: { phone: p } })}
-      legal={
-        <Text variant="micro" tone="muted" align="center">
-          En continuant, vous acceptez les conditions chauffeuse et la politique de confidentialité de Naya.
-        </Text>
-      }
+      // PAX-18: no terms or privacy page exists yet; pass `onOpen` to LegalConsent once one does.
+      legal={<LegalConsent terms="conditions chauffeuse" />}
     />
   );
 }

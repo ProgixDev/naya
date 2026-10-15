@@ -3,10 +3,11 @@ import { illustrations, photos } from '@naya/assets';
 import { DevLauncherGesture, WelcomeJourney } from '@naya/ui';
 import { usePrefs } from '@/lib/prefs';
 
+/** Slide 2 shows its illustration until a photo is added here as `photo` (with a `photoLabel`). */
 const SLIDES = [
-  { image: illustrations.passengerWelcome, photo: photos.passengersBetweenWomen, photoLabel: 'Une chauffeuse au volant, une passagère au téléphone sur la banquette arrière', title: 'Vos trajets, entre femmes.', body: 'Des chauffeuses vérifiées à Rabat. Vous voyez son nom, sa voiture et sa plaque avant de monter.', note: 'Chauffeuses vérifiées' },
-  { image: illustrations.passengerPlanning, title: 'À votre rythme.', body: 'Réservez maintenant ou planifiez un départ. Le prix est affiché avant de confirmer.', note: 'Prix annoncé avant le départ' },
-  { image: illustrations.passengerIdentity, photo: photos.familleDeparture, photoLabel: 'Une chauffeuse se retourne vers une écolière qui attache sa ceinture, sa mère à la portière', title: 'Une communauté vérifiée.', body: 'Chaque compte est examiné par une personne de l’équipe Naya avant la première course.', note: 'Un examen humain' },
+  { image: illustrations.passengerWelcome, photo: photos.passengersBetweenWomen, photoLabel: 'Une chauffeuse au volant, une passagère au téléphone sur la banquette arrière', title: 'Vos trajets, entre femmes.', body: 'Des chauffeuses vérifiées à Rabat. Vous voyez son nom, sa voiture et sa plaque avant de monter.' },
+  { image: illustrations.passengerPlanning, title: 'À votre rythme.', body: 'Réservez maintenant ou planifiez un départ. Le prix est affiché avant de confirmer.' },
+  { image: illustrations.passengerIdentity, photo: photos.familleDeparture, photoLabel: 'Une chauffeuse se retourne vers une écolière qui attache sa ceinture, sa mère à la portière', title: 'Une communauté vérifiée.', body: 'Chaque compte est examiné par une personne de l’équipe Naya avant la première course.' },
 ] as const;
 
 export default function Welcome() {

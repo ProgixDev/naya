@@ -47,8 +47,9 @@ test.describe('passenger', () => {
     await uploadStep(page); // selfie
     await expect(page.getByRole('heading', { name: 'Pièce · recto' })).toBeVisible();
     for (let i = 0; i < 2; i++) await uploadStep(page);
-    await expect(tid(page, 'review-selfie')).toContainText('Ajoutée');
-    await expect(tid(page, 'review-id_back')).toContainText('Ajoutée');
+    // A1/A100: an added piece is a glyph; its state is read in the row's label.
+    await expect(tid(page, 'review-selfie')).toHaveAttribute('aria-label', /pièce ajoutée/i);
+    await expect(tid(page, 'review-id_back')).toHaveAttribute('aria-label', /pièce ajoutée/i);
     await tid(page, 'submit-identity').click();
     await expect(tid(page, 'status-pending')).toBeVisible();
     await expect(page.getByText('En attente de vérification')).toBeVisible();
@@ -77,7 +78,6 @@ test.describe('passenger', () => {
     await resetScenario('first-ride');
     await signInMobile(page, URLS.passenger, 'passenger', PHONES.salma);
     await composeAgdalTrip(page);
-    await tid(page, 'see-quote').click();
     await expect(tid(page, 'fare-card')).toContainText('100');
     await expect(tid(page, 'payment-row')).toContainText('Espèces');
     await tid(page, 'confirm-booking').click();
@@ -112,9 +112,9 @@ test.describe('passenger', () => {
     await resetScenario('default');
     await signInMobile(page, URLS.passenger, 'passenger', PHONES.salma);
     await tid(page, 'plan-trip').click();
+    await tid(page, 'when-later').click();
     await tid(page, 'place-search').fill('Agdal');
     await tid(page, 'place-rabat-agdal').click();
-    await tid(page, 'see-quote').click();
     await expect(tid(page, 'schedule-picker')).toBeVisible();
     await page.locator('[data-testid^="day-"]').nth(1).click();
     await page.locator('[data-testid="time-09:00"]').click();
@@ -134,7 +134,6 @@ test.describe('passenger', () => {
     await resetScenario('dynamic-pricing');
     await signInMobile(page, URLS.passenger, 'passenger', PHONES.salma);
     await composeAgdalTrip(page);
-    await tid(page, 'see-quote').click();
     await expect(tid(page, 'dynamic-banner')).toContainText('×1,2');
     await expect(tid(page, 'fare-card')).toContainText('120');
     await tid(page, 'fare-card').click();
@@ -149,7 +148,7 @@ test.describe('passenger', () => {
     await tid(page, 'place-search').fill('Salé');
     await tid(page, 'place-sale-tabriquet').click();
     await expect(tid(page, 'out-of-zone')).toBeVisible();
-    await expect(tid(page, 'see-quote')).toHaveAttribute('aria-disabled', 'true');
+    await expect(tid(page, 'confirm-booking')).toHaveAttribute('aria-disabled', 'true');
     await tid(page, 'stop-destination').click();
     await tid(page, 'place-search').fill('Agdal');
     await tid(page, 'place-rabat-agdal').click();
@@ -158,7 +157,6 @@ test.describe('passenger', () => {
     await expect(tid(page, 'confirm-pin')).toBeEnabled();
     await tid(page, 'confirm-pin').click();
     await expect(tid(page, 'stop-pickup')).toBeVisible();
-    await tid(page, 'see-quote').click();
     await tid(page, 'confirm-booking').click();
     await expect(tid(page, 'ride-searching')).toBeVisible();
     const ctx = await api();
@@ -172,7 +170,6 @@ test.describe('passenger', () => {
     await resetScenario('default');
     await signInMobile(page, URLS.passenger, 'passenger', PHONES.salma);
     await composeAgdalTrip(page);
-    await tid(page, 'see-quote').click();
     await tid(page, 'confirm-booking').click();
     await expect(tid(page, 'ride-searching')).toBeVisible();
     const amina = await driver();
@@ -195,7 +192,6 @@ test.describe('passenger', () => {
     await resetScenario('default');
     await signInMobile(page, URLS.passenger, 'passenger', PHONES.salma);
     await composeAgdalTrip(page);
-    await tid(page, 'see-quote').click();
     await tid(page, 'confirm-booking').click();
     const amina = await driver();
     await amina.post('/driver/online', { data: { online: true } });
@@ -236,7 +232,6 @@ test.describe('passenger', () => {
 
   async function bookAndDrive(page: Page, card: string) {
     await composeAgdalTrip(page);
-    await tid(page, 'see-quote').click();
     await tid(page, 'payment-row').click();
     await tid(page, `pm-${card}`).click();
     await expect(tid(page, 'payment-row')).toContainText(card);

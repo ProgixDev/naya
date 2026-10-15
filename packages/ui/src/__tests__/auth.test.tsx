@@ -17,6 +17,7 @@ import type { ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import type { ApiClient } from '@naya/api';
+import { ApiError } from '@naya/api';
 import { ApiProvider } from '@naya/api/react';
 import { OtpScreen, PhoneSignInScreen } from '../features/auth';
 import { DevLauncherGesture } from '../features/DevLauncher';
@@ -95,7 +96,7 @@ describe('sign-in', () => {
       expect(screen.getByTestId('otp-input').props.textContentType).toBe('oneTimeCode');
       expect(screen.queryByTestId('sms-code')).toBeNull();
       expect(screen.queryByText(/nouveau message|votre code est|propos[ée]|n’importe|d[ée]mo|\d{6}/i)).toBeNull();
-      expect(screen.getByTestId('verify-code')).toBeDisabled();
+      expect(screen.queryByTestId('verify-code')).toBeNull(); // R16: no « Vérifier » button
       await fireEvent.changeText(screen.getByTestId('otp-input'), '48291');
       expect(api.auth.verifyOtp).not.toHaveBeenCalled();
       await fireEvent.changeText(screen.getByTestId('otp-input'), '482913');
@@ -107,6 +108,57 @@ describe('sign-in', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('keeps « Recevoir le code » disabled until the number is complete', async () => {
+    const api = authApi();
+    await renderWith(<PhoneSignInScreen role="passenger" title="Votre numéro" subtitle="" legal={null} onCodeSent={jest.fn()} />, api);
+    await fireEvent.changeText(screen.getByTestId('phone-input'), '06771');
+    expect(screen.getByTestId('send-code')).toBeDisabled();
+    await fireEvent.changeText(screen.getByTestId('phone-input'), '0677123456');
+    expect(screen.getByTestId('send-code')).not.toBeDisabled();
+    await screen.unmount();
+  });
+
+  it('sends one request at a time and offers « Réessayer » after a network failure', async () => {
+    const api = authApi();
+    let fail = true;
+    let release: () => void = () => undefined;
+    api.auth.verifyOtp.mockImplementation(
+      (phone: string) =>
+        new Promise((resolve, reject) => {
+          release = () => (fail ? reject(new ApiError('NETWORK', 'Connexion impossible', 0)) : resolve({ token: 't-1', isNew: false, user: { id: 'PA-9', phone } }));
+        }),
+    );
+    const onVerified = jest.fn();
+    await renderWith(<OtpScreen role="passenger" phone="+212677000102" onBack={jest.fn()} onVerified={onVerified} />, api);
+    await fireEvent.changeText(screen.getByTestId('otp-input'), '482913');
+    await fireEvent.changeText(screen.getByTestId('otp-input'), '482913'); // SMS autofill after a paste
+    expect(api.auth.verifyOtp).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('verify-pending')).toBeTruthy();
+    await act(async () => release());
+    await waitFor(() => expect(screen.getByTestId('verify-code')).toBeTruthy());
+    expect(screen.getByTestId('otp-input').props.value).toBe('482913');
+    fail = false;
+    await fireEvent.press(screen.getByTestId('verify-code'));
+    expect(api.auth.verifyOtp).toHaveBeenCalledTimes(2);
+    await act(async () => release());
+    await waitFor(() => expect(onVerified).toHaveBeenCalledWith('t-1', 'PA-9', false));
+    await screen.unmount();
+  });
+
+  it('clears the boxes after a wrong code, and the next six digits verify again', async () => {
+    const api = authApi();
+    api.auth.verifyOtp.mockRejectedValueOnce(new ApiError('OTP_INVALID', 'Code incorrect', 400));
+    const onVerified = jest.fn();
+    await renderWith(<OtpScreen role="passenger" phone="+212677000102" onBack={jest.fn()} onVerified={onVerified} />, api);
+    await fireEvent.changeText(screen.getByTestId('otp-input'), '111111');
+    await waitFor(() => expect(screen.getByTestId('otp-input').props.value).toBe(''));
+    expect(screen.queryByTestId('verify-code')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('otp-input'), '482913');
+    await waitFor(() => expect(onVerified).toHaveBeenCalledWith('t-1', 'PA-9', true));
+    expect(api.auth.verifyOtp).toHaveBeenCalledTimes(2);
+    await screen.unmount();
   });
 });
 

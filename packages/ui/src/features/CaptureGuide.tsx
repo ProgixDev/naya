@@ -1,7 +1,6 @@
 import { useTheme } from '../core/theme';
 import { View } from 'react-native';
 import Svg, { Ellipse, Path, Rect } from 'react-native-svg';
-import { CheckCircle2 } from 'lucide-react-native';
 import type { VerificationItemKey } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { Text } from '../Text';
@@ -116,14 +115,17 @@ const roundRectPath = (x: number, y: number, w: number, h: number, r: number) =>
   `M${x + r} ${y} H${x + w - r} Q${x + w} ${y} ${x + w} ${y + r} V${y + h - r} Q${x + w} ${y + h} ${x + w - r} ${y + h} H${x + r} Q${x} ${y + h} ${x} ${y + h - r} V${y + r} Q${x} ${y} ${x + r} ${y} Z`;
 const ellipsePath = (cx: number, cy: number, rx: number, ry: number) => `M${cx - rx} ${cy} A${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A${rx} ${ry} 0 1 0 ${cx - rx} ${cy} Z`;
 
-/** The three checks of a guide, each with a tick. */
+/**
+ * The three checks of a guide, as a plain list. No tick: `CircleCheck` means « done » (A25, §2.2), and nothing is
+ * done before the photo is taken. A small dot marks each line.
+ */
 export function GuideTips({ tips }: { tips: readonly string[] }) {
   useTheme();
   return (
     <View style={{ gap: 8 }} accessibilityRole="list">
       {tips.map((t) => (
         <View key={t} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }} accessibilityRole="text">
-          <CheckCircle2 size={18} color={colors.accent} style={{ marginTop: 1 }} />
+          <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.muted, marginTop: 7 }} />
           <Text variant="caption" style={{ flex: 1 }}>
             {t}
           </Text>

@@ -1,19 +1,18 @@
-import { useTheme , Button, ErrorState, Header, IconDisc, Illustration, ListGroup, ListRow, Screen, SkeletonList, StatusBanner, Text, TextButton, haptic, toast } from '@naya/ui';
-import { StyleSheet, View } from 'react-native';
+import { useTheme , Button, ErrorState, Header, ListGroup, ListRow, Screen, SkeletonList, StatusIcon, Text, TextButton, haptic, toast } from '@naya/ui';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BadgeCheck, CircleAlert, Clock3, FileText, XCircle } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatDay, ITEM_LABELS, STATUS_LABELS } from '@naya/domain';
-import { aspect, illustrations } from '@naya/assets';
-import { colors, themedStyles } from '@naya/tokens';
+import { formatDay, ITEM_LABELS, statusPresentation, type VerificationStatus } from '@naya/domain';
 import { useAccountId } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 
 /**
  * P05: pending, approved, more information requested and rejected. Polls the decision;
  * approval shows a confirmation before the app opens (the guard switches on refresh).
+ * The state is said once (P-10): the header names the object, the hero gives the C7 glyph in a 56 disc,
+ * a 21/600 title and one grey line, with no card. Secondary actions are text (principle 1).
  */
 export default function Status() {
   useTheme();
@@ -30,24 +29,17 @@ export default function Status() {
     onError: (e) => toast(errorMessage(e), 'danger'),
   });
   const c = q.data?.cases.find((x) => x.subject === 'passenger_identity');
-  const signOut = <TextButton label="Se déconnecter" tone="muted" onPress={() => useSession.getState().signOut()} />;
+  const signOut = <TextButton label="Se déconnecter" tone="muted" onPress={() => useSession.getState().signOut()} testID="status-sign-out" />;
+  const support = <TextButton label="Contacter l’assistance" onPress={() => router.push('/(verify)/support/new')} testID="status-support" />;
+  const header = <Header title="Votre dossier" />;
 
-  if (q.isLoading) return <Screen header={<Header title="Votre dossier" />}><SkeletonList rows={2} /></Screen>;
-  if (q.isError || !c) return <Screen header={<Header title="Votre dossier" />}><ErrorState onRetry={() => q.refetch()} /></Screen>;
-
-  const received = (
-    <ListGroup>
-      <ListRow title={`Identité de ${c.identity?.firstName ?? 'la passagère'}`} subtitle={`${STATUS_LABELS[c.status]}${c.submittedAt ? ` le ${formatDay(c.submittedAt)}` : ''}`} leading={<IconDisc><FileText size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/(verify)/review')} />
-    </ListGroup>
-  );
+  if (q.isLoading) return <Screen header={header}><SkeletonList rows={2} /></Screen>;
+  if (q.isError || !c) return <Screen header={header}><ErrorState onRetry={() => q.refetch()} /></Screen>;
 
   if (c.status === 'approved') {
     return (
-      <Screen testID="status-approved" header={<Header title="Dossier approuvé" subtitle="Votre identité a été vérifiée." />} footer={<Button label="Commencer" size="major" full onPress={() => { haptic.success(); qc.invalidateQueries({ queryKey: qk.me(a) }); }} testID="start-app" />}>
-        <View style={{ gap: 16, marginTop: 12 }}>
-          <Illustration source={illustrations.passengerWelcome} aspect={aspect.illustration} width="78%" maxHeight={240} />
-          <StatusHero tone="success" Icon={BadgeCheck} title="Bienvenue sur Naya" message={c.decision?.message ?? 'Vous pouvez réserver votre première course.'} />
-        </View>
+      <Screen testID="status-approved" header={header} footer={<Button label="Commencer" full onPress={() => { haptic.success(); qc.invalidateQueries({ queryKey: qk.me(a) }); }} testID="start-app" />}>
+        <StatusHero state="approved" title="Bienvenue sur Naya" message={c.decision?.message ?? 'Votre identité a été vérifiée. Vous pouvez réserver votre première course.'} />
       </Screen>
     );
   }
@@ -55,12 +47,12 @@ export default function Status() {
   if (c.status === 'more_info_requested') {
     const fixes = c.items.filter((i) => i.status === 'needs_correction');
     return (
-      <Screen testID="status-more" header={<Header title="Un complément est demandé" />} footer={<><Button label="Corriger mon dossier" size="major" full onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: fixes[0]?.key ?? 'id_back', correction: '1' } })} testID="fix-case" />{signOut}</>}>
-        <View style={{ gap: 14, marginTop: 14 }}>
-          <StatusHero tone="warning" Icon={CircleAlert} title="Presque terminé" message={c.decision?.message ?? 'Une pièce doit être reprise.'} />
+      <Screen testID="status-more" header={header} footer={<><Button label="Corriger mon dossier" full onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: fixes[0]?.key ?? 'id_back', correction: '1' } })} testID="fix-case" />{signOut}</>}>
+        <StatusHero state="more_info_requested" title="Un complément est demandé" message={c.decision?.message ?? 'Une pièce doit être reprise.'} />
+        <View style={{ marginTop: 24 }}>
           <ListGroup label="À reprendre">
             {fixes.map((f) => (
-              <ListRow key={f.key} title={ITEM_LABELS[f.key]} subtitle={f.note ?? undefined} onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: f.key, correction: '1' } })} />
+              <ListRow key={f.key} title={ITEM_LABELS[f.key]} subtitle={f.note ?? undefined} onPress={() => router.push({ pathname: '/(verify)/capture/[item]', params: { item: f.key, correction: '1' } })} testID={`fix-${f.key}`} />
             ))}
           </ListGroup>
         </View>
@@ -74,59 +66,56 @@ export default function Status() {
     return (
       <Screen
         testID="status-rejected"
-        header={<Header title="Dossier non approuvé" />}
+        header={header}
         footer={
           <>
             {recoverable ? (
-              <Button label="Recommencer avec une pièce valide" size="major" full loading={reopen.isPending} onPress={() => reopen.mutate(c.id)} testID="reopen-case" />
+              <Button label="Recommencer avec une pièce valide" full loading={reopen.isPending} onPress={() => reopen.mutate(c.id)} testID="reopen-case" />
             ) : (
-              <Button label="Contacter l’assistance" size="major" full onPress={() => router.push('/(verify)/support/new')} />
+              <Button label="Contacter l’assistance" full onPress={() => router.push('/(verify)/support/new')} testID="status-support" />
             )}
-            {recoverable ? <Button label="Contacter l’assistance" variant="secondary" full onPress={() => router.push('/(verify)/support/new')} /> : null}
+            {recoverable ? support : null}
             {signOut}
           </>
         }
       >
-        <View style={{ marginTop: 14 }}>
-          <StatusHero tone="danger" Icon={XCircle} title={reason ?? 'Dossier refusé'} message={c.decision?.message ?? ''} />
-        </View>
+        <StatusHero state="rejected" title={reason ?? 'Dossier refusé'} message={c.decision?.message ?? ''} />
       </Screen>
     );
   }
 
+  // draft (reached only by a deep link), submitted, in_review
+  const sent = c.submittedAt ? `Envoyé le ${formatDay(c.submittedAt)}. ` : '';
   return (
-    <Screen testID="status-pending" header={<Header title="Dossier envoyé" />} footer={<><Button label="Consulter mon dossier" variant="secondary" full onPress={() => router.push('/(verify)/review')} />{signOut}</>}>
-      <View style={{ gap: 14, marginTop: 14 }}>
-        {c.status === 'in_review' ? (
-          <StatusHero tone="info" Icon={Clock3} title="Vérification en cours" message="Une personne de l’équipe Naya examine vos documents. Cette page se met à jour automatiquement." />
-        ) : (
-          <StatusHero tone="info" Icon={Clock3} title="En attente de vérification" message="Une personne de l’équipe Naya va examiner vos documents. Délai habituel : moins de 24 h." />
-        )}
-        {received}
-        <StatusBanner compact tone="neutral" title="Réservation disponible après approbation" />
-      </View>
+    <Screen testID="status-pending" header={header} footer={<><Button label="Consulter mon dossier" variant="secondary" full onPress={() => router.push('/(verify)/review')} testID="view-dossier" />{signOut}</>}>
+      {c.status === 'in_review' ? (
+        <StatusHero state="in_review" title="Vérification en cours" message={`${sent}Une personne de l’équipe Naya examine vos documents. Vous pourrez réserver dès l’approbation.`} />
+      ) : (
+        <StatusHero state={c.status} title="En attente de vérification" message={`${sent}Une personne de l’équipe Naya va examiner vos documents, en général en moins de 24 h. Vous pourrez réserver dès l’approbation.`} />
+      )}
     </Screen>
   );
 }
 
-const toneColors = themedStyles(() => ({
-  info: { bg: colors.infoSoft, fg: colors.info },
-  success: { bg: colors.successSoft, fg: colors.success },
-  warning: { bg: colors.warningSoft, fg: colors.warning },
-  danger: { bg: colors.dangerSoft, fg: colors.danger },
-}));
-
-/** One card per decision: tone disc, title, one line. */
-function StatusHero({ tone, Icon, title, message }: { tone: keyof typeof toneColors; Icon: typeof Clock3; title: string; message: string }) {
+/**
+ * The decision hero (A101, A102): the C7 glyph in a 56 disc (submitted `Send`, in review `ScanSearch`, approved
+ * `BadgeCheck`, complement `FileExclamationPoint`, refused `CircleX`), then the title and one line. The disc is read
+ * as the state's sentence unless the title already says it.
+ */
+function StatusHero({ state, title, message }: { state: VerificationStatus; title: string; message: string }) {
   useTheme();
-  const t = toneColors[tone];
+  const p = statusPresentation('verification', state);
   return (
-    <View accessible accessibilityRole="summary" style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 18, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line }}>
-      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={24} color={t.fg} />
-      </View>
-      <Text variant="heading">{title}</Text>
-      {message ? <Text variant="label" tone="muted">{message}</Text> : null}
+    <View style={{ gap: 12, marginTop: 16, alignItems: 'flex-start' }} testID="status-hero">
+      <StatusIcon kind="verification" state={state} size="lg" variant="disc" showLabel={false} accessible={p.label !== title} testID="status-hero-icon" />
+      <Text variant="title" accessibilityRole="header">
+        {title}
+      </Text>
+      {message ? (
+        <Text variant="label" weight="regular" tone="muted" style={{ lineHeight: 22 }}>
+          {message}
+        </Text>
+      ) : null}
     </View>
   );
 }

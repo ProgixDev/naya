@@ -8,6 +8,7 @@ import { useApi } from '@naya/api/react';
 import { ITEM_LABELS, type VerificationCase, type VerificationItemKey } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { Text } from '../Text';
+import { Icon } from '../Icon';
 import { Button } from '../Button';
 import { StatusBanner } from '../Feedback';
 import { haptic } from '../haptics';
@@ -123,7 +124,7 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
       {file ? (
         file.mimeType === 'application/pdf' ? (
           <View style={[frame, { backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 8 }]}>
-            <FileText size={34} color={colors.accent} />
+            <Icon icon={FileText} size={28} color={colors.accent} />
             <Text variant="label">Document PDF prêt</Text>
           </View>
         ) : (
@@ -145,7 +146,7 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
         </View>
       ) : (
         <View style={[frame, { borderWidth: 2, borderStyle: 'dashed', borderColor: existingUploadId ? colors.success : colors.mauve, backgroundColor: colors.glass, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 10 }]}>
-          {selfie ? <ScanFace size={34} color={colors.accent} /> : <IdCard size={34} color={colors.accent} />}
+          <Icon icon={selfie ? ScanFace : IdCard} size={28} color={colors.accent} />
           <Text variant="caption" tone="muted" align="center">
             {existingUploadId ? 'Pièce ajoutée · vous pouvez la remplacer' : guidance}
           </Text>
@@ -157,27 +158,26 @@ export function CaptureStep({ caseId, item, guidance, selfie, correctionNote, ex
           <Text variant="caption" tone="muted" align="center">
             Tout est lisible, sans reflet ni coin coupé ?
           </Text>
-          <Button label="Utiliser cette photo" full size="major" loading={busy === 'upload'} loadingLabel="Envoi sécurisé…" onPress={confirm} testID="use-photo" />
-          <Button label="Reprendre" variant="secondary" full icon={guided ? <RotateCcw size={17} color={colors.accent} /> : undefined} onPress={() => setFile(null)} disabled={busy === 'upload'} testID="retake-photo" />
+          <Button label="Utiliser cette photo" full loading={busy === 'upload'} loadingLabel="Envoi sécurisé…" onPress={confirm} testID="use-photo" />
+          <Button label="Reprendre" variant="secondary" full icon={<Icon icon={RotateCcw} size={20} color={colors.accent} />} onPress={() => setFile(null)} disabled={busy === 'upload'} testID="retake-photo" />
         </View>
       ) : (
         <View style={{ gap: 10 }}>
           {!web ? (
-            <Button label={selfie ? 'Prendre mon selfie' : guided ? 'Ouvrir l’appareil photo' : 'Prendre une photo'} full size="major" icon={<Camera size={18} color={colors.inverse} />} loading={busy === 'camera'} onPress={openCamera} testID="take-photo" />
+            <Button label={selfie ? 'Prendre mon selfie' : guided ? 'Ouvrir l’appareil photo' : 'Prendre une photo'} full icon={<Icon icon={Camera} size={20} color={colors.inverse} />} loading={busy === 'camera'} onPress={openCamera} testID="take-photo" />
           ) : null}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button
               label={guided ? 'Galerie' : 'Importer une photo'}
               variant={web ? 'primary' : 'secondary'}
-              size={web ? 'major' : 'standard'}
               full
               style={{ flex: 1 }}
-              icon={<ImageIcon size={17} color={web ? colors.inverse : colors.accent} />}
+              icon={<Icon icon={ImageIcon} size={20} color={web ? colors.inverse : colors.accent} />}
               loading={busy === 'library'}
               onPress={() => choose('library')}
               testID="import-photo"
             />
-            {(guided ? guide.pdf : !selfie) ? <Button label="PDF" variant="secondary" size={web ? 'major' : 'standard'} icon={<FileText size={17} color={colors.accent} />} onPress={() => choose('document')} testID="import-pdf" /> : null}
+            {(guided ? guide.pdf : !selfie) ? <Button label="PDF" variant="secondary" icon={<Icon icon={FileText} size={20} color={colors.accent} />} onPress={() => choose('document')} testID="import-pdf" /> : null}
           </View>
         </View>
       )}

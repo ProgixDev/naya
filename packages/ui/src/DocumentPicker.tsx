@@ -19,8 +19,9 @@ export const ID_DOCUMENTS: Record<IdDocumentType, { label: string; icon: LucideI
 const ORDER: IdDocumentType[] = ['cin', 'passport', 'residence_permit'];
 
 /**
- * Document choice as three icon tiles (one radio group). The selected tile takes the plum
- * edge, a soft mauve fill and a check; the others stay quiet surface tiles, like the fields.
+ * Document choice as three icon tiles (one radio group; A9 keeps glyph and word: the glyph tells the documents
+ * apart). The selected tile takes a 2-pt plum edge, a soft mauve fill and a check (principle 8, never a tint
+ * alone); the others stay quiet surface tiles, like the fields. One stroke (2) and a 40 disc (§5.3, §5.4).
  */
 export function DocumentPicker({ value, onChange, testID }: { value: IdDocumentType; onChange: (v: IdDocumentType) => void; testID?: string }) {
   useTheme();
@@ -45,14 +46,14 @@ export function DocumentPicker({ value, onChange, testID }: { value: IdDocumentT
             style={[styles.tile, largeText && styles.tileRow, on && styles.on]}
           >
             <View style={[styles.iconWrap, on && { backgroundColor: colors.accent }]}>
-              <Icon size={20} color={on ? colors.inverse : colors.accent} strokeWidth={1.8} />
+              <Icon size={20} color={on ? colors.inverse : colors.accent} strokeWidth={2} />
             </View>
             <Text variant="caption" weight={on ? 'semibold' : 'medium'} tone={on ? 'ink' : 'muted'} numberOfLines={1}>
               {d.label}
             </Text>
             {on ? (
               <View style={styles.check}>
-                <Check size={11} color={colors.inverse} strokeWidth={3} />
+                <Check size={12} color={colors.inverse} strokeWidth={2.4} />
               </View>
             ) : null}
           </PressableScale>
@@ -66,7 +67,7 @@ const styles = themedStyles(() => StyleSheet.create({
   // Decorative tile edge: hairline. Shadow ink is fixed (shadow.card), never colors.ink, which glows in dark.
   tile: { flex: 1, minHeight: 88, borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6, shadowColor: '#2E202C', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   tileRow: { flex: undefined, minHeight: 60, flexDirection: 'row', justifyContent: 'flex-start', paddingHorizontal: 16, gap: 12 },
-  on: { borderColor: colors.accent, borderWidth: 1.5, backgroundColor: colors.mauveSoft, shadowColor: colors.accent, shadowOpacity: 0.14, shadowRadius: 12 },
-  iconWrap: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' },
+  on: { borderColor: colors.accent, borderWidth: 2, backgroundColor: colors.mauveSoft, shadowColor: colors.accent, shadowOpacity: 0.14, shadowRadius: 12 },
+  iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.mauveSoft, alignItems: 'center', justifyContent: 'center' },
   check: { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
 }));
