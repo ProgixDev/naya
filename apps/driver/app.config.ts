@@ -2,6 +2,13 @@ import type { ExpoConfig } from 'expo/config';
 
 const googleMapsKey = process.env.GOOGLE_MAPS_ANDROID_KEY;
 
+// Usage strings say what the app does, in French (DRV-15, DRV-16). The camera also takes the Famille pickup and
+// drop-off photos; the photo library serves documents and support attachments.
+const CAMERA_USAGE = 'Naya utilise l’appareil photo pour votre selfie et vos pièces justificatives, et pour les photos de prise en charge et de dépôt des trajets Famille.';
+const ALWAYS_USAGE = 'Pendant une course acceptée, Naya partage votre position avec la passagère, même écran verrouillé. Le partage s’arrête à la fin de la course.';
+const MOTION_USAGE = 'Naya n’utilise pas les données de mouvement de votre téléphone.';
+const PHOTOS_USAGE = 'Naya accède à vos photos seulement si vous choisissez d’importer une pièce justificative ou de joindre une image à une demande d’assistance.';
+
 const config: ExpoConfig = {
   name: 'Naya Chauffeuse',
   slug: 'naya-chauffeuse',
@@ -41,14 +48,20 @@ const config: ExpoConfig = {
     ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 120, backgroundColor: '#FAF4F7', dark: { backgroundColor: '#16121A', image: './assets/splash-icon.png' } }],
     'expo-font',
     'expo-image',
-    ['expo-camera', { cameraPermission: 'Naya utilise l’appareil photo pour votre selfie et vos pièces justificatives, uniquement pendant la vérification.' }],
-    ['expo-image-picker', { photosPermission: 'Naya accède à vos photos seulement si vous choisissez d’importer une pièce justificative.' }],
+    // Photos only, never video: no microphone prompt or RECORD_AUDIO (DRV-15). image-picker's `false` also blocks
+    // RECORD_AUDIO for every other package. The camera string is repeated so the plugin order cannot fall back to English.
+    ['expo-camera', { cameraPermission: CAMERA_USAGE, microphonePermission: false, recordAudioAndroid: false }],
+    ['expo-image-picker', { photosPermission: PHOTOS_USAGE, cameraPermission: CAMERA_USAGE, microphonePermission: false }],
     ['expo-notifications', { color: '#6B3657' }],
     [
       'expo-location',
       {
-        locationWhenInUsePermission: 'Naya utilise votre position pour vous proposer des courses proches et guider la passagère vers vous.',
-        locationAlwaysAndWhenInUsePermission: 'Pendant une course acceptée, Naya partage votre position avec la passagère, même écran verrouillé. Le partage s’arrête à la fin de la course.',
+        locationWhenInUsePermission: 'Quand vous êtes en ligne ou en course, Naya utilise votre position pour vous proposer des courses proches et montrer votre arrivée à la passagère.',
+        // Asked only after BackgroundLocationExplainer on an accepted ride (DRV-16); refused = foreground sharing.
+        locationAlwaysAndWhenInUsePermission: ALWAYS_USAGE,
+        // Legacy key, and CoreMotion is linked by expo-location: keep both in French rather than the English defaults.
+        locationAlwaysPermission: ALWAYS_USAGE,
+        motionUsagePermission: MOTION_USAGE,
         isIosBackgroundLocationEnabled: true,
         isAndroidBackgroundLocationEnabled: true,
         isAndroidForegroundServiceEnabled: true,

@@ -2,6 +2,11 @@ import type { ExpoConfig } from 'expo/config';
 
 const googleMapsKey = process.env.GOOGLE_MAPS_ANDROID_KEY;
 
+// Usage strings say what the app does, in French (DRV-15). The photo library serves documents and support attachments.
+const CAMERA_USAGE = 'Naya utilise l’appareil photo pour votre selfie et vos pièces justificatives, uniquement pendant la vérification.';
+const NO_BACKGROUND_USAGE = 'Naya n’utilise pas votre position en arrière-plan ; elle sert seulement pendant que l’app est ouverte.';
+const PHOTOS_USAGE = 'Naya accède à vos photos seulement si vous choisissez d’importer une pièce justificative ou de joindre une image à une demande d’assistance.';
+
 const config: ExpoConfig = {
   name: 'Naya',
   slug: 'naya-passagere',
@@ -41,10 +46,22 @@ const config: ExpoConfig = {
     ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 120, backgroundColor: '#FAF4F7', dark: { backgroundColor: '#16121A', image: './assets/splash-icon.png' } }],
     'expo-font',
     'expo-image',
-    ['expo-camera', { cameraPermission: 'Naya utilise l’appareil photo pour votre selfie et vos pièces justificatives, uniquement pendant la vérification.' }],
-    ['expo-image-picker', { photosPermission: 'Naya accède à vos photos seulement si vous choisissez d’importer une pièce justificative.' }],
+    // Photos only, never video: no microphone prompt or RECORD_AUDIO (DRV-15). image-picker's `false` also blocks
+    // RECORD_AUDIO for every other package. The camera string is repeated so the plugin order cannot fall back to English.
+    ['expo-camera', { cameraPermission: CAMERA_USAGE, microphonePermission: false, recordAudioAndroid: false }],
+    ['expo-image-picker', { photosPermission: PHOTOS_USAGE, cameraPermission: CAMERA_USAGE, microphonePermission: false }],
     ['expo-notifications', { color: '#6B3657' }],
-    ['expo-location', { locationWhenInUsePermission: 'Naya utilise votre position pour proposer votre point de départ. Vous pouvez aussi le choisir sur la carte.', locationAlwaysAndWhenInUsePermission: 'Naya n’utilise pas votre position en arrière-plan ; elle sert seulement pendant que l’app est ouverte.' }],
+    // The « Always » keys stay declared (expo-location links those APIs) but say the truth: never in the background.
+    // CoreMotion is linked too: French string instead of the English default.
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission: 'Naya utilise votre position pour proposer votre point de départ. Vous pouvez aussi le choisir sur la carte.',
+        locationAlwaysAndWhenInUsePermission: NO_BACKGROUND_USAGE,
+        locationAlwaysPermission: NO_BACKGROUND_USAGE,
+        motionUsagePermission: 'Naya n’utilise pas les données de mouvement de votre téléphone.',
+      },
+    ],
     'expo-apple-authentication',
   ],
 };
