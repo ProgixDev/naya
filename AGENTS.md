@@ -16,7 +16,8 @@ There is no production backend. Docs index: [docs/README.md](docs/README.md).
 - packages/ui        Shared RN primitives and feature screens, consumed as TS source.
 - packages/tokens    Colours (light/dark), spacing, motion, themedStyles. Tailwind preset: used by the admin
                      (the Expo apps load it only for NativeWind, which no mobile code uses).
-- packages/assets    Brand SVGs, 6 logo concepts, legacy PNGs (bundled, not displayed).
+- packages/assets    Brand SVGs, 6 logo concepts, onboarding photos, Naya Signature car PNGs (shown: VehicleImage,
+                     quote options, map marker), mock photos; legacy illustration/character PNGs (bundled, not displayed).
 - services/demo-api  Hono API on :4010 with a JSON store. Also runs in-process in native demo builds. Own AGENTS.md.
 - e2e/               Playwright against Expo web and the admin.
 - plugins/           Expo config plugins, used by both apps: with-scene-lifecycle (iOS 27 UIScene),
