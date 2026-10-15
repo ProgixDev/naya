@@ -1,26 +1,34 @@
-import { useTheme , Button, Header, IconDisc, ListGroup, ListRow, Screen, Text } from '@naya/ui';
+import { useTheme, Button, Header, Icon, ListGroup, ListRow, Screen, Text } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Baby, CreditCard, Droplets, FileText, MessageCircle, Route as RouteIcon, ShieldAlert, Wallet } from 'lucide-react-native';
+import { Inbox, Siren } from 'lucide-react-native';
 import { colors } from '@naya/tokens';
 import { HELP_TOPICS } from '@/features/help/topics';
 import { EMERGENCY_NUMBERS } from '@/features/help/emergency';
 
-const ICONS = { trip: RouteIcon, payment: CreditCard, wallet: Wallet, family: Baby, account: FileText, safety: ShieldAlert, 'car-wash': Droplets } as const;
-
+/**
+ * P15. Topics are text rows (P-45, A91): only the safety topic keeps a glyph, `Siren` in danger, so it
+ * stands out. « Mes demandes » is a list of requests (`Inbox`, A92).
+ */
 export default function Help() {
   useTheme();
   return (
-    <Screen testID="help" header={<Header title="Comment vous aider ?" onBack={() => router.back()} />} footer={<Button label="Créer une demande" full size="major" onPress={() => router.push('/support/new')} testID="help-new" />}>
-      <View style={{ gap: 12, marginTop: 4 }}>
+    <Screen testID="help" header={<Header title="Comment vous aider ?" onBack={() => router.back()} />} footer={<Button label="Créer une demande" full onPress={() => router.push('/support/new')} testID="help-new" />}>
+      <View style={{ gap: 24, marginTop: 4 }}>
         <ListGroup>
-          {HELP_TOPICS.map((t) => {
-            const Icon = ICONS[t.id as keyof typeof ICONS] ?? MessageCircle;
-            return <ListRow key={t.id} testID={`topic-${t.id}`} title={t.title} subtitle={t.subtitle} leading={<IconDisc tone={t.id === 'safety' ? 'danger' : 'plain'}><Icon size={18} color={t.id === 'safety' ? colors.danger : colors.accent} /></IconDisc>} onPress={() => router.push({ pathname: '/help/[topic]', params: { topic: t.id } })} />;
-          })}
+          {HELP_TOPICS.map((t) => (
+            <ListRow
+              key={t.id}
+              testID={`topic-${t.id}`}
+              title={t.title}
+              subtitle={t.subtitle}
+              leading={t.id === 'safety' ? <Icon icon={Siren} size={24} color={colors.danger} /> : undefined}
+              onPress={() => router.push({ pathname: '/help/[topic]', params: { topic: t.id } })}
+            />
+          ))}
         </ListGroup>
         <ListGroup>
-          <ListRow testID="my-tickets" title="Mes demandes" subtitle="Consulter les réponses" leading={<IconDisc><MessageCircle size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/support')} />
+          <ListRow testID="my-tickets" title="Mes demandes" subtitle="Consulter les réponses" leading={<Icon icon={Inbox} size={24} color={colors.ink} />} onPress={() => router.push('/support')} />
         </ListGroup>
         <Text variant="caption" tone="muted" style={{ paddingHorizontal: 4 }}>
           Une demande n’est pas un appel d’urgence. En cas de danger, appelez la police ({EMERGENCY_NUMBERS[0].number}) ou la Protection civile ({EMERGENCY_NUMBERS[1].number}).

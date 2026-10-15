@@ -1,4 +1,4 @@
-import { ThemePicker , Button, Header, ListGroup, ListRow, Screen, Sheet, StatusBanner, Text, TextButton, haptic, toast, useA11yPrefs, useGlassKind, useSingleFlight, Toggle } from '@naya/ui';
+import { ThemePicker, Button, Header, ListGroup, ListRow, Screen, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight, Toggle } from '@naya/ui';
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Linking, Platform, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
@@ -125,8 +125,6 @@ export default function Preferences() {
   const qc = useQueryClient();
   const a = useAccountId();
   const me = useMe();
-  const a11y = useA11yPrefs();
-  const glass = useGlassKind();
   const [deleting, setDeleting] = useState(false);
   const [perm, setPerm] = useState<'granted' | 'denied' | 'undetermined' | 'unsupported'>(Platform.OS === 'web' ? 'unsupported' : 'undetermined');
   useEffect(() => {
@@ -145,7 +143,7 @@ export default function Preferences() {
   const n = me.data?.user.notifications;
   return (
     <Screen testID="preferences" header={<Header title="Préférences" onBack={() => router.back()} />}>
-      <View style={{ gap: 14, marginTop: 4 }}>
+      <View style={{ gap: 16, marginTop: 4 }}>
         {perm === 'undetermined' ? <StatusBanner tone="neutral" title="Être prévenue à l’arrivée ?" message="Même si l’app est en arrière-plan." action={{ label: 'Autoriser les notifications', onPress: ask }} /> : null}
         {perm === 'denied' ? <StatusBanner tone="warning" title="Notifications désactivées" message="Activez-les dans les réglages du téléphone." action={{ label: 'Ouvrir les réglages', onPress: () => Linking.openSettings() }} /> : null}
         <ListGroup label="Notifications">
@@ -153,12 +151,8 @@ export default function Preferences() {
             <ListRow key={r.key} title={r.title} trailing={<Toggle value={!!n?.[r.key]} onValueChange={(v) => update.mutate({ [r.key]: v })} accessibilityLabel={r.title} testID={`pref-${r.key}`} />} />
           ))}
         </ListGroup>
-        <ThemePicker />
-        <ListGroup label="Affichage" footnote="Naya suit les réglages d’accessibilité du téléphone.">
-          <ListRow title="Réduire les animations" value={a11y.reduceMotion ? 'Activé' : 'Désactivé'} />
-          <ListRow title="Commandes flottantes" value={glass === 'opaque' ? 'Opaques' : glass === 'liquid' ? 'Verre natif' : 'Givrées'} />
-          <ListRow title="Taille du texte" value={`${Math.round(a11y.fontScale * 100)} %`} numericValue />
-        </ListGroup>
+        {/* The system settings are followed, not mirrored as read-only rows (P-36). */}
+        <ThemePicker footnote="Naya suit les réglages d’accessibilité de votre téléphone (taille du texte, animations, transparence)." />
         <Text variant="caption" tone="muted" style={{ paddingHorizontal: 4 }}>Vos pièces d’identité sont privées (équipe de vérification uniquement). La position sert seulement app ouverte, pour le départ.</Text>
         <ListGroup label="Compte" footnote="Définitif. Vos courses et paiements sont conservés, sans votre nom.">
           <ListRow title="Supprimer mon compte" destructive onPress={() => setDeleting(true)} accessibilityHint="Explique ce qui est effacé avant de vous demander confirmation" testID="delete-account" />

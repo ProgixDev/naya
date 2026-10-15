@@ -1,22 +1,23 @@
-import { useTheme , ProfileHero, Header, IconDisc, ListGroup, ListRow, Screen, StatusPill, TextButton, avatarFor, haptic } from '@naya/ui';
+import { useTheme, ProfileHero, Header, ListGroup, ListRow, Screen, avatarFor, haptic } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bell, CreditCard, LifeBuoy, MapPin } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { colors } from '@naya/tokens';
-import { useMe } from '@/lib/queries';
+import { useIdentityCase, useMe } from '@/lib/queries';
 import { useSession } from '@/lib/session';
 import { useDraft } from '@/lib/draft';
-import { useTabBarSpace } from '@/components/TabBar';
 
+/**
+ * P13. Text rows, no icon discs (A81–A84); the verified seal sits beside the name (A80). The logo
+ * board (/brand) is not a customer screen and has no row here (X-01, R4).
+ */
 export default function Account() {
   useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const me = useMe();
-  const space = useTabBarSpace();
+  const { identity } = useIdentityCase();
   const u = me.data?.user;
   const signOut = async () => {
     haptic.tap();
@@ -27,21 +28,23 @@ export default function Account() {
   };
   const saved = u?.savedPlaces.map((p) => p.label).join(' · ');
   return (
-    <Screen testID="account" header={<Header title="Mon compte" />} contentStyle={{ paddingBottom: space + 12 }}>
-      <View style={{ gap: 14, marginTop: 4 }}>
-        <ProfileHero name={u ? `${u.firstName} ${u.lastName}` : 'Votre compte'} detail={`${u?.phone ?? ''} · ${me.data?.city.name ?? ''}`} source={avatarFor(u?.firstName ?? '')} status={<StatusPill tone="success" label="Compte vérifié" />} />
+    <Screen testID="account" tabBar header={<Header title="Mon compte" />}>
+      <View style={{ gap: 24, marginTop: 4 }}>
+        <ProfileHero name={u ? `${u.firstName} ${u.lastName}` : 'Votre compte'} detail={`${u?.phone ?? ''} · ${me.data?.city.name ?? ''}`} source={avatarFor(u?.firstName ?? '')} verified={identity?.status === 'approved'} />
         <ListGroup label="Vos essentiels">
           <ListRow title="Portefeuille Naya" subtitle="Solde, recharges et paiements" onPress={() => router.push('/wallet')} testID="account-wallet" />
           <ListRow title="Naya Famille" subtitle="Abonnements et trajets enfants" onPress={() => router.push('/family')} testID="account-family" />
-          <ListRow title="Identité · 6 pistes" subtitle="Explorer les propositions de logo" onPress={() => router.push('/brand')} />
-          <ListRow testID="account-payments" title="Moyens de paiement" leading={<IconDisc><CreditCard size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/payments')} />
-          <ListRow testID="account-places" title="Adresses enregistrées" subtitle={saved || 'Maison, travail…'} leading={<IconDisc><MapPin size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/places')} />
-          <ListRow testID="account-preferences" title="Préférences" subtitle="Notifications, affichage, suppression du compte" leading={<IconDisc><Bell size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/preferences')} />
+          <ListRow testID="account-payments" title="Moyens de paiement" onPress={() => router.push('/payments')} />
+          <ListRow testID="account-places" title="Adresses enregistrées" subtitle={saved || 'Maison, travail…'} onPress={() => router.push('/places')} />
+          <ListRow testID="account-preferences" title="Préférences" subtitle="Notifications, apparence, suppression du compte" onPress={() => router.push('/preferences')} />
         </ListGroup>
         <ListGroup label="À vos côtés">
-          <ListRow testID="account-help" title="Aide et demandes" leading={<IconDisc><LifeBuoy size={18} color={colors.accent} /></IconDisc>} onPress={() => router.push('/help')} />
+          <ListRow testID="account-help" title="Aide et demandes" onPress={() => router.push('/help')} />
         </ListGroup>
-        <TextButton label="Se déconnecter" onPress={signOut} testID="sign-out" />
+        {/* Sign-out is the last row, in danger text, in both apps (§5.9). */}
+        <ListGroup>
+          <ListRow title="Se déconnecter" destructive chevron={false} onPress={signOut} testID="sign-out" />
+        </ListGroup>
       </View>
     </Screen>
   );

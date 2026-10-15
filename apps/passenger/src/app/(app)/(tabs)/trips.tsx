@@ -1,22 +1,25 @@
-import { useTheme , PressableScale, Illustration, Text, Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SegmentedControl, SkeletonList, StatusPill } from '@naya/ui';
+import { useTheme, Icon, Button, EmptyState, ErrorState, Header, ListGroup, ListRow, Screen, SegmentedControl, SkeletonList, paymentMethodIcon } from '@naya/ui';
 import { useState } from 'react';
 import { RefreshControl, View } from 'react-native';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { CalendarClock, ArrowUpRight } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatDateTime, formatMoney, formatShort, SCHEDULED_STATUS_LABELS } from '@naya/domain';
-import { aspect, cars, illustrations } from '@naya/assets';
+import { formatDateTime, formatMoney, formatShort } from '@naya/domain';
+import { aspect, illustrations } from '@naya/assets';
 import { colors } from '@naya/tokens';
 import { useAccountId, useScheduled } from '@/lib/queries';
-import { useTabBarSpace } from '@/components/TabBar';
 
+const routeOf = (stops: { label: string }[]) => `${stops[0]!.label} → ${stops[stops.length - 1]!.label}`;
+
+/**
+ * P12. Upcoming bookings and past rides as rows (P-26, P-27): one state glyph per row (C5), its
+ * sentence read aloud by the row; the word shows only for a problem (an expired booking, R1).
+ */
 export default function Trips() {
   useTheme();
   const api = useApi();
   const a = useAccountId();
-  const space = useTabBarSpace();
   const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
   const scheduled = useScheduled();
   const history = useInfiniteQuery({
@@ -29,15 +32,16 @@ export default function Trips() {
   const upcoming = (scheduled.data ?? []).filter((b) => b.status === 'scheduled');
   const past = (scheduled.data ?? []).filter((b) => b.status !== 'scheduled');
   const rides = history.data?.pages.flatMap((p) => p.items) ?? [];
+  const openBooking = (id: string) => router.push({ pathname: '/scheduled/[id]', params: { id } });
 
   return (
     <Screen
       testID="trips"
+      tabBar
       header={<Header title="Mes trajets" />}
-      contentStyle={{ paddingBottom: space + 12 }}
       refreshControl={<RefreshControl refreshing={scheduled.isRefetching || history.isRefetching} onRefresh={() => (tab === 'upcoming' ? scheduled.refetch() : history.refetch())} tintColor={colors.accent} />}
     >
-      <View style={{ gap: 12, marginTop: 4 }}>
+      <View style={{ gap: 16, marginTop: 4 }}>
         <SegmentedControl options={[{ value: 'upcoming', label: 'À venir' }, { value: 'history', label: 'Historique' }]} value={tab} onChange={setTab} testID="trips-tabs" />
         {tab === 'upcoming' ? (
           scheduled.isLoading ? (
@@ -47,34 +51,26 @@ export default function Trips() {
           ) : upcoming.length === 0 ? (
             <EmptyState testID="trips-empty" image={illustrations.passengerPlanning} imageAspect={aspect.illustration} title="Aucun trajet planifié" message="Planifiez un départ jusqu’à 7 jours à l’avance." action={{ label: 'Planifier un trajet', onPress: () => router.push({ pathname: '/route', params: { schedule: '1' } }) }} />
           ) : (
-            <>
-              <View style={{ gap: 14 }}>
-                {upcoming.map((b) => (
-                  <PressableScale key={b.id} testID={`scheduled-${b.id}`} accessibilityRole="button" accessibilityLabel={`${formatDateTime(b.pickupAt)}, ${b.route.stops[0]!.label}, ${b.route.stops[b.route.stops.length - 1]!.label}, ${formatMoney(b.terms.breakdown.total)}`} onPress={() => router.push({ pathname: '/scheduled/[id]', params: { id: b.id } })} style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 20, gap: 18 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <CalendarClock size={18} color={colors.accent} />
-                      <Text variant="caption" weight="semibold" style={{ flex: 1 }}>{formatDateTime(b.pickupAt)}</Text>
-                      <ArrowUpRight size={18} color={colors.muted} />
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={{ flex: 1, gap: 8 }}>
-                        <Text variant="heading">{b.route.stops[b.route.stops.length - 1]!.label}</Text>
-                        <Text variant="caption" tone="muted">Depuis {b.route.stops[0]!.label}</Text>
-                        <Text variant="label" numeric weight="semibold">{formatMoney(b.terms.breakdown.total)}</Text>
-                      </View>
-                      <Illustration source={cars.pearlSmall} aspect={aspect.carSmall} width={108} />
-                    </View>
-                    <View style={{ borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 12 }}><Text variant="micro" tone="muted">Réservation enregistrée · chauffeuse à confirmer</Text></View>
-                  </PressableScale>
-                ))}
-              </View>
-            </>
+            <ListGroup>
+              {upcoming.map((b) => (
+                <ListRow
+                  key={b.id}
+                  testID={`scheduled-${b.id}`}
+                  title={formatDateTime(b.pickupAt)}
+                  subtitle={routeOf(b.route.stops)}
+                  value={formatMoney(b.terms.breakdown.total)}
+                  numericValue
+                  status={{ kind: 'scheduled', state: b.status }}
+                  onPress={() => openBooking(b.id)}
+                />
+              ))}
+            </ListGroup>
           )
         ) : null}
         {tab === 'upcoming' && past.length ? (
           <ListGroup label="Réservations passées">
             {past.map((b) => (
-              <ListRow key={b.id} title={formatShort(b.pickupAt)} subtitle={`${b.route.stops[0]!.label} → ${b.route.stops[b.route.stops.length - 1]!.label}`} trailing={<StatusPill tone={b.status === 'cancelled' ? 'danger' : 'neutral'} label={SCHEDULED_STATUS_LABELS[b.status]} />} onPress={() => router.push({ pathname: '/scheduled/[id]', params: { id: b.id } })} />
+              <ListRow key={b.id} testID={`scheduled-${b.id}`} title={formatShort(b.pickupAt)} subtitle={routeOf(b.route.stops)} status={{ kind: 'scheduled', state: b.status }} onPress={() => openBooking(b.id)} />
             ))}
           </ListGroup>
         ) : null}
@@ -92,7 +88,9 @@ export default function Trips() {
                   <ListRow
                     key={r.id}
                     testID={`history-${r.id}`}
-                    title={`${r.route.stops[0]!.label} → ${r.route.stops[r.route.stops.length - 1]!.label}`}
+                    // The method glyph is the one cue the title lacks (P-27); the word « Annulée » stays.
+                    leading={<Icon icon={paymentMethodIcon(r.paymentMethod)} size={24} color={colors.muted} />}
+                    title={routeOf(r.route.stops)}
                     subtitle={`${r.id} · ${formatShort(r.completedAt ?? r.cancellation?.at ?? r.requestedAt)}`}
                     value={r.status === 'cancelled' ? 'Annulée' : formatMoney(r.terms.breakdown.total)}
                     numericValue

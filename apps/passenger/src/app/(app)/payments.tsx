@@ -1,17 +1,14 @@
-import { useTheme , Button, ConfirmDialog, ErrorState, Header, IconButton, ListGroup, ListRow, Screen, SkeletonList, StatusPill, toast } from '@naya/ui';
+import { useTheme, Button, ErrorState, Header, Icon, IconButton, ListGroup, ListRow, Screen, Sheet, SkeletonList, TextButton, paymentIcon, toast } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CreditCard, Smartphone, Trash2, Wallet as WalletIcon } from 'lucide-react-native';
-import { paymentMethodPresentation, type PaymentIconName } from '@naya/domain';
-import { errorMessage, qk } from '@naya/api';
+import { Ellipsis } from 'lucide-react-native';
+import { paymentMethodPresentation } from '@naya/domain';
+import { errorMessage, qk, type ClientPaymentMethod } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';
 import { useAccountId, useMe, usePaymentMethods } from '@/lib/queries';
-
-/** Lucide icon per payment kind (names from paymentMethodPresentation, @naya/domain). */
-const PAY_ICONS: Record<PaymentIconName, typeof Banknote> = { banknote: Banknote, 'credit-card': CreditCard, wallet: WalletIcon, smartphone: Smartphone };
 
 /** The card's brand from its label (« Visa •••• 4242 » → « Visa »). A generic « Carte … » label adds nothing to the title. */
 const cardBrand = (label: string) => {
@@ -19,7 +16,11 @@ const cardBrand = (label: string) => {
   return brand && !/^carte\b/i.test(brand) ? brand : null;
 };
 
-/** P14: methods available in the city, default choice, removal, add a tokenised card. */
+/**
+ * P14: methods available in the city, the preferred one, removal, add a tokenised card.
+ * The list is a choice (P-38, A86): the preferred method carries the check and a tap sets it. Removal
+ * sits behind one « ⋯ » per card instead of a red trash on every row.
+ */
 export default function Payments() {
   useTheme();
   const api = useApi();
@@ -27,44 +28,71 @@ export default function Payments() {
   const a = useAccountId();
   const me = useMe();
   const methods = usePaymentMethods();
-  const [removing, setRemoving] = useState<string | null>(null);
+  const [menu, setMenu] = useState<ClientPaymentMethod | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: qk.paymentMethods(a) });
-  const setDefault = useMutation({ mutationFn: (id: string) => api.paymentMethods.setDefault(id), onSuccess: () => { toast('Moyen préféré mis à jour'); refresh(); }, onError: (e) => toast(errorMessage(e), 'danger') });
-  const remove = useMutation({ mutationFn: (id: string) => api.paymentMethods.remove(id), onSuccess: () => { setRemoving(null); toast('Carte supprimée'); refresh(); }, onError: (e) => { setRemoving(null); toast(errorMessage(e), 'danger'); } });
-  const target = methods.data?.find((m) => m.id === removing);
+  const setDefault = useMutation({ mutationFn: (id: string) => api.paymentMethods.setDefault(id), onSuccess: () => { toast('Moyen préféré mis à jour', 'success'); refresh(); }, onError: (e) => toast(errorMessage(e), 'danger') });
+  const closeMenu = () => {
+    if (remove.isPending) return;
+    setMenu(null);
+    setConfirming(false);
+  };
+  const remove = useMutation({
+    mutationFn: (id: string) => api.paymentMethods.remove(id),
+    onSuccess: () => { setMenu(null); setConfirming(false); toast('Carte supprimée', 'success'); refresh(); },
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  });
   return (
-    <Screen testID="payments" header={<Header title="Moyens de paiement" onBack={() => router.back()} />} footer={<Button label="Ajouter une carte" full size="major" onPress={() => router.push('/card/new')} testID="add-card" />}>
+    <Screen testID="payments" header={<Header title="Moyens de paiement" onBack={() => router.back()} />} footer={<Button label="Ajouter une carte" full onPress={() => router.push('/card/new')} testID="add-card" />}>
       <View style={{ gap: 12, marginTop: 4 }}>
         {methods.isLoading ? <SkeletonList rows={3} /> : null}
         {methods.isError ? <ErrorState onRetry={() => methods.refetch()} /> : null}
         {methods.data ? (
-          <ListGroup footnote="Touchez un moyen pour le définir comme préféré. Naya ne conserve qu’un jeton et les 4 derniers chiffres.">
+          <ListGroup label="Moyen préféré" footnote="Naya ne conserve qu’un jeton et les 4 derniers chiffres de vos cartes.">
             {methods.data.map((m) => {
               // P14: same name, icon and timing as the quote and the receipt.
               const p = paymentMethodPresentation(m);
-              const Icon = PAY_ICONS[p.icon];
+              const available = m.availableInCity;
+              const card = m.kind === 'card';
               return (
-              <ListRow
-                key={m.id}
-                testID={`method-${m.last4 ?? m.kind}`}
-                title={p.label}
-                subtitle={[m.kind === 'card' ? cardBrand(m.label) : null, m.isDefault ? 'Moyen préféré' : !m.availableInCity ? `Indisponible à ${me.data?.city.name ?? 'votre ville'}` : m.kind === 'card' ? `Expire ${String(m.expMonth).padStart(2, '0')}/${m.expYear}` : p.timing].filter(Boolean).join(' · ')}
-                leading={<Icon size={20} color={m.availableInCity ? colors.ink : colors.disabledText} />}
-                trailing={
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    {m.isDefault ? <StatusPill tone="success" label="Préféré" /> : null}
-                    {m.kind === 'card' ? <IconButton variant="plain" size={36} icon={<Trash2 size={18} color={colors.danger} />} accessibilityLabel={`Supprimer la carte •••• ${m.last4}`} onPress={() => setRemoving(m.id)} /> : null}
-                  </View>
-                }
-                onPress={m.isDefault || !m.availableInCity ? undefined : () => setDefault.mutate(m.id)}
-                chevron={false}
-              />
+                <ListRow
+                  key={m.id}
+                  testID={`method-${m.last4 ?? m.kind}`}
+                  title={p.label}
+                  subtitle={[card ? cardBrand(m.label) : null, !available ? `Indisponible à ${me.data?.city.name ?? 'votre ville'}` : card ? `Expire ${String(m.expMonth).padStart(2, '0')}/${m.expYear}` : p.timing].filter(Boolean).join(' · ')}
+                  leading={<Icon icon={paymentIcon(p.icon)} size={24} color={available ? colors.ink : colors.disabledText} />}
+                  selected={m.isDefault}
+                  onPress={available ? () => { if (!m.isDefault) setDefault.mutate(m.id); } : undefined}
+                  trailing={card ? <IconButton variant="plain" size={44} icon={<Ellipsis size={20} color={colors.muted} />} accessibilityLabel={`Options de la carte •••• ${m.last4}`} onPress={() => setMenu(m)} testID={`method-${m.last4}-options`} /> : undefined}
+                />
               );
             })}
           </ListGroup>
         ) : null}
       </View>
-      <ConfirmDialog visible={!!target} title="Supprimer cette carte ?" message={target ? `Carte •••• ${target.last4}` : undefined} confirmLabel="Supprimer la carte" destructive loading={remove.isPending} onConfirm={() => target && remove.mutate(target.id)} onCancel={() => setRemoving(null)} />
+      {/* One modal for both steps: a second modal opened while the sheet closes is dropped on iOS. */}
+      <Sheet
+        visible={!!menu}
+        onClose={closeMenu}
+        dismissible={!remove.isPending}
+        title={menu ? paymentMethodPresentation(menu).label : ''}
+        subtitle={confirming ? 'Elle ne pourra plus servir à payer vos courses.' : undefined}
+        testID="method-options"
+        footer={
+          confirming ? (
+            <>
+              <Button label="Supprimer la carte" variant="danger" full loading={remove.isPending} onPress={() => menu && remove.mutate(menu.id)} testID="method-remove-confirm" />
+              <TextButton label="Garder la carte" tone="muted" onPress={closeMenu} testID="method-remove-keep" />
+            </>
+          ) : undefined
+        }
+      >
+        {confirming ? null : (
+          <ListGroup>
+            <ListRow title="Supprimer la carte" destructive chevron={false} onPress={() => setConfirming(true)} testID="method-remove" />
+          </ListGroup>
+        )}
+      </Sheet>
     </Screen>
   );
 }
