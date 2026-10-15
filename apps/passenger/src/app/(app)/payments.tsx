@@ -3,11 +3,15 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CreditCard, Trash2 } from 'lucide-react-native';
+import { Banknote, CreditCard, Smartphone, Trash2, Wallet as WalletIcon } from 'lucide-react-native';
+import { paymentMethodPresentation, type PaymentIconName } from '@naya/domain';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors } from '@naya/tokens';
 import { useAccountId, useMe, usePaymentMethods } from '@/lib/queries';
+
+/** Lucide icon per payment kind (names from paymentMethodPresentation, @naya/domain). */
+const PAY_ICONS: Record<PaymentIconName, typeof Banknote> = { banknote: Banknote, 'credit-card': CreditCard, wallet: WalletIcon, smartphone: Smartphone };
 
 /** The card's brand from its label (« Visa •••• 4242 » → « Visa »). A generic « Carte … » label adds nothing to the title. */
 const cardBrand = (label: string) => {
@@ -35,13 +39,17 @@ export default function Payments() {
         {methods.isError ? <ErrorState onRetry={() => methods.refetch()} /> : null}
         {methods.data ? (
           <ListGroup footnote="Touchez un moyen pour le définir comme préféré. Naya ne conserve qu’un jeton et les 4 derniers chiffres.">
-            {methods.data.map((m) => (
+            {methods.data.map((m) => {
+              // P14: same name, icon and timing as the quote and the receipt.
+              const p = paymentMethodPresentation(m);
+              const Icon = PAY_ICONS[p.icon];
+              return (
               <ListRow
                 key={m.id}
-                testID={`method-${m.last4 ?? 'cash'}`}
-                title={m.kind === 'card' ? `Carte •••• ${m.last4}` : m.label}
-                subtitle={[m.kind === 'card' ? cardBrand(m.label) : null, m.isDefault ? 'Moyen préféré' : !m.availableInCity ? `Indisponible à ${me.data?.city.name ?? 'votre ville'}` : m.kind === 'card' ? `Expire ${String(m.expMonth).padStart(2, '0')}/${m.expYear}` : m.kind === 'cash' ? 'Réglé à la chauffeuse en fin de trajet' : m.kind === 'wallet' ? 'Payé avec votre solde Naya' : 'Paiement mobile, débité à l’arrivée'].filter(Boolean).join(' · ')}
-                leading={m.kind === 'card' ? <CreditCard size={20} color={colors.ink} /> : <Banknote size={20} color={colors.ink} />}
+                testID={`method-${m.last4 ?? m.kind}`}
+                title={p.label}
+                subtitle={[m.kind === 'card' ? cardBrand(m.label) : null, m.isDefault ? 'Moyen préféré' : !m.availableInCity ? `Indisponible à ${me.data?.city.name ?? 'votre ville'}` : m.kind === 'card' ? `Expire ${String(m.expMonth).padStart(2, '0')}/${m.expYear}` : p.timing].filter(Boolean).join(' · ')}
+                leading={<Icon size={20} color={m.availableInCity ? colors.ink : colors.disabledText} />}
                 trailing={
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     {m.isDefault ? <StatusPill tone="success" label="Préféré" /> : null}
@@ -51,7 +59,8 @@ export default function Payments() {
                 onPress={m.isDefault || !m.availableInCity ? undefined : () => setDefault.mutate(m.id)}
                 chevron={false}
               />
-            ))}
+              );
+            })}
           </ListGroup>
         ) : null}
       </View>

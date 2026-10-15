@@ -3,14 +3,17 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, CreditCard, Route as RouteIcon } from 'lucide-react-native';
+import { Banknote, CalendarClock, CreditCard, Route as RouteIcon, Smartphone, Wallet as WalletIcon } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { casablancaLocalToUtc, formatDateTime, formatMoney, formatShort, SCHEDULED_STATUS_LABELS, toCasablancaParts } from '@naya/domain';
+import { casablancaLocalToUtc, formatDateTime, formatMoney, formatShort, paymentMethodPresentation, SCHEDULED_STATUS_LABELS, toCasablancaParts, type PaymentIconName } from '@naya/domain';
 import { colors } from '@naya/tokens';
 import { useAccountId } from '@/lib/queries';
 import { SchedulePicker, useCityScheduling } from '@/features/schedule/SchedulePicker';
 import { formatLeadTime } from '@/features/schedule/slots';
+
+/** Lucide icon per payment kind (names from paymentMethodPresentation, @naya/domain). */
+const PAY_ICONS: Record<PaymentIconName, typeof Banknote> = { banknote: Banknote, 'credit-card': CreditCard, wallet: WalletIcon, smartphone: Smartphone };
 
 /** P12-detail: recorded booking, modify time (price unchanged), cancel (free). */
 export default function ScheduledDetail() {
@@ -59,6 +62,9 @@ export default function ScheduledDetail() {
   if (q.isLoading) return <Screen header={<Header title="Réservation" onBack={() => router.back()} />}><SkeletonList rows={3} /></Screen>;
   if (q.isError || !b) return <Screen header={<Header title="Réservation" onBack={() => router.back()} />}><ErrorState onRetry={() => q.refetch()} /></Screen>;
   const open = b.status === 'scheduled';
+  // P14: the method as it really works; a wallet booking already holds the frozen total on the balance.
+  const pay = paymentMethodPresentation(b.paymentMethod);
+  const PayIcon = PAY_ICONS[pay.icon];
   const cutoffPassed = Date.parse(b.pickupAt) - now < scheduling.modifyCutoffMinutes * 60_000;
 
   return (
@@ -82,7 +88,7 @@ export default function ScheduledDetail() {
         <ListGroup>
           <ListRow title={formatDateTime(b.pickupAt)} subtitle="Heure du Maroc" leading={<IconDisc><CalendarClock size={18} color={colors.accent} /></IconDisc>} />
           <ListRow title={b.route.stops.map((s) => s.label).join(' → ')} subtitle={b.route.stops[0]!.address} leading={<IconDisc><RouteIcon size={18} color={colors.accent} /></IconDisc>} />
-          <ListRow title={b.paymentMethod.label} subtitle={`Prix gelé · ${formatMoney(b.terms.breakdown.total)}`} leading={<IconDisc><CreditCard size={18} color={colors.accent} /></IconDisc>} onPress={() => setFareOpen(true)} testID="scheduled-fare" />
+          <ListRow title={pay.label} subtitle={`Prix gelé · ${formatMoney(b.terms.breakdown.total)}${pay.heldAtBooking && open ? ' · réservé sur votre solde' : ''}`} leading={<IconDisc><PayIcon size={18} color={colors.accent} /></IconDisc>} onPress={() => setFareOpen(true)} testID="scheduled-fare" />
         </ListGroup>
         <ListGroup label="Historique">
           {b.history.map((h, i) => (

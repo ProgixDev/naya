@@ -1,27 +1,17 @@
-import { useTheme } from '@naya/ui';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, CreditCard, MessageCircle, Route as RouteIcon, Star } from 'lucide-react-native';
+import { Banknote, ChevronDown, ChevronUp, CreditCard, MessageCircle, Route as RouteIcon, Smartphone, Star, Wallet as WalletIcon } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatDateTime, formatMoney, PAYMENT_STATUS_LABELS, type Payment, type Ride } from '@naya/domain';
+import { formatDateTime, formatMoney, PAYMENT_STATUS_LABELS, paymentMethodPresentation, paymentReceiptState, type PaymentIconName } from '@naya/domain';
 import { colors } from '@naya/tokens';
-import { Button, Card, ErrorState, FareBreakdown, FormField, Header, IconDisc, ListGroup, ListRow, Money, PressableScale, Screen, Sheet, SkeletonList, StatusBanner, StatusPill, Text, haptic, toast, useSingleFlight, type BannerTone } from '@naya/ui';
+import { Button, Card, ErrorState, FareBreakdown, FormField, Header, IconDisc, ListGroup, ListRow, Money, PressableScale, Screen, Sheet, SkeletonList, StatusBanner, StatusPill, Text, haptic, toast, useSingleFlight, useTheme } from '@naya/ui';
 import { useAccountId, usePaymentMethods, useRide } from '@/lib/queries';
 
-function paymentState(ride: Ride, p: Payment | undefined): { tone: BannerTone; title: string; message: string } {
-  if (!p) return ride.status === 'cancelled' ? { tone: 'success', title: 'Aucun paiement', message: 'Course annulée sans frais.' } : { tone: 'info', title: 'Paiement en préparation', message: 'Le paiement est créé à l’arrivée.' };
-  if (p.method === 'cash') {
-    return p.status === 'confirmed'
-      ? { tone: 'success', title: 'Espèces · paiement confirmé', message: `${formatMoney(p.amount)} remis à la chauffeuse.` }
-      : { tone: 'info', title: p.purpose === 'cancellation_fee' ? 'Frais à régler' : 'Espèces · à remettre à la chauffeuse', message: p.purpose === 'cancellation_fee' ? `${formatMoney(p.amount)} à régler avec votre prochaine course.` : `${formatMoney(p.amount)} à régler en fin de trajet.` };
-  }
-  if (p.status === 'confirmed') return { tone: 'success', title: 'Carte · paiement confirmé', message: `${formatMoney(p.amount)} débités sur ${ride.paymentMethod.label}.` };
-  if (p.status === 'failed') return { tone: 'danger', title: 'Paiement refusé', message: `${p.failureReason ?? 'La banque a refusé le paiement.'} Réglez avec une autre carte.` };
-  return { tone: 'warning', title: 'Paiement en attente de confirmation', message: 'Le prestataire n’a pas encore confirmé le débit. Rien n’est débité deux fois ; cette page se met à jour.' };
-}
+/** Lucide icon per payment kind (names from paymentMethodPresentation, @naya/domain). */
+const PAY_ICONS: Record<PaymentIconName, typeof Banknote> = { banknote: Banknote, 'credit-card': CreditCard, wallet: WalletIcon, smartphone: Smartphone };
 
 export default function Receipt() {
   useTheme();
@@ -63,7 +53,10 @@ export default function Receipt() {
   const main = payments.filter((p) => p.purpose === 'ride').sort((x, y) => y.createdAt.localeCompare(x.createdAt))[0];
   const fee = payments.find((p) => p.purpose === 'cancellation_fee');
   const cancelled = ride.status === 'cancelled';
-  const state = paymentState(ride, cancelled ? fee : main);
+  // P14: one presentation per method, so wallet and mobile payments never read « Carte ».
+  const method = paymentMethodPresentation(ride.paymentMethod);
+  const MethodIcon = PAY_ICONS[method.icon];
+  const state = paymentReceiptState(ride.paymentMethod, cancelled ? fee : main, cancelled);
   const when = ride.completedAt ?? ride.cancellation?.at ?? ride.requestedAt;
   const back = () => (router.canGoBack() ? router.back() : router.dismissTo('/'));
 
@@ -77,7 +70,14 @@ export default function Receipt() {
               {(cancelled ? fee : main) ? <StatusPill tone={state.tone} label={PAYMENT_STATUS_LABELS[(cancelled ? fee : main)!.status]} /> : null}
             </View>
             <View testID="receipt-amount"><Money amount={cancelled ? (fee?.amount ?? 0) : ride.terms.breakdown.total} variant="hero" /></View>
-            <Text variant="caption" tone="muted">{cancelled ? (ride.cancellation?.fee ? 'Frais d’annulation' : 'Aucun frais') : ride.paymentMethod.label}</Text>
+            {cancelled && !ride.cancellation?.fee ? (
+              <Text variant="caption" tone="muted">Aucun frais</Text>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} testID="receipt-method">
+                <MethodIcon size={14} color={colors.muted} />
+                <Text variant="caption" tone="muted">{cancelled ? `Frais d’annulation · ${method.label}` : method.label}</Text>
+              </View>
+            )}
           </View>
           {!cancelled ? (
             <>
@@ -134,7 +134,7 @@ export default function Receipt() {
         <View style={{ gap: 12 }}>
           <ListGroup>
             {(methods.data ?? []).filter((m) => m.kind === 'card').map((m) => (
-              <ListRow key={m.id} title={m.label} leading={<CreditCard size={20} color={colors.ink} />} onPress={() => retry.run(m.id)} testID={`retry-${m.last4}`} />
+              <ListRow key={m.id} title={paymentMethodPresentation(m).label} leading={<CreditCard size={20} color={colors.ink} />} onPress={() => retry.run(m.id)} testID={`retry-${m.last4}`} />
             ))}
           </ListGroup>
           {retry.isPending ? <Text variant="caption" tone="muted">Envoi au prestataire…</Text> : null}

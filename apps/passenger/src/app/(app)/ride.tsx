@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import { ArrowLeft, CheckCircle2, Clock, MapPinned, Phone, Signal } from 'lucide-react-native';
-import { formatDuration, formatMoney, haversineMeters, RIDE_STATUS_LABELS, secondsBetween, type Ride } from '@naya/domain';
+import { formatDuration, formatMoney, haversineMeters, paymentMethodPresentation, RIDE_STATUS_LABELS, secondsBetween, type Ride } from '@naya/domain';
 import { errorMessage, newIdempotencyKey, qk, serverClock } from '@naya/api';
 import { useApi } from '@naya/api/react';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
@@ -134,7 +134,7 @@ export default function RideScreen() {
           ) : null}
           {etaMin ? <Text variant="label" tone="accent" weight="semibold" numeric>Arrivée estimée : {etaMin} min</Text> : null}
           {ride.status === 'driver_arrived' ? <Text variant="label" tone="muted">Vérifiez la plaque avant de monter.</Text> : null}
-          {ride.status === 'in_progress' ? <Text variant="label" tone="muted" numeric>{formatDuration(ride.route.durationSeconds)} de trajet · {formatMoney(ride.terms.breakdown.total)} · {ride.paymentMethod.label}</Text> : null}
+          {ride.status === 'in_progress' ? <Text variant="label" tone="muted" numeric>{formatDuration(ride.route.durationSeconds)} de trajet · {formatMoney(ride.terms.breakdown.total)} · {paymentMethodPresentation(ride.paymentMethod).label}</Text> : null}
         </View>
 
         {recovered ? <StatusBanner compact tone="warning" title="Chauffeuse désistée" message={`${ride.driverCancellations[ride.driverCancellations.length - 1]!.reasonText} · annulation sans frais`} testID="driver-cancelled" /> : null}

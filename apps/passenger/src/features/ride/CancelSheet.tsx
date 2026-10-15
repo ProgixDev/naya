@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, isApiError, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatMoney, PASSENGER_CANCEL_REASONS, type Ride } from '@naya/domain';
+import { formatMoney, PASSENGER_CANCEL_REASONS, paymentMethodPresentation, type Ride } from '@naya/domain';
 import { Button, Pill, Sheet, Skeleton, StatusBanner, Text, haptic, toast, useSingleFlight } from '@naya/ui';
 import { useAccountId } from '@/lib/queries';
 
@@ -21,6 +21,8 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
     onSuccess: (r) => {
       haptic.success();
       qc.invalidateQueries({ queryKey: qk.activeRide(a) });
+      // A wallet ride releases its hold and may debit the fee: the balance changed on the server.
+      if (ride.paymentMethod.kind === 'wallet') qc.invalidateQueries({ queryKey: ['naya', a, 'passenger-wallet'] });
       onCancelled(r);
     },
     onError: (e) => {
@@ -56,8 +58,9 @@ export function CancelSheet({ ride, visible, onClose, onCancelled }: { ride: Rid
           testID="confirm-cancel"
         />
         <Button label="Garder ma course" variant="secondary" full onPress={onClose} disabled={cancel.isPending} />
-        <Text variant="micro" tone="muted" align="center">
-          {ride.paymentMethod.kind === 'card' ? 'Les frais éventuels sont débités sur la carte de la course.' : 'Les frais éventuels sont à régler avec votre prochaine course.'}
+        {/* P14, PAX-16: where the fee goes, per method, as the server charges it (rides.ts chargeFee). */}
+        <Text variant="micro" tone="muted" align="center" testID="cancel-fee-method">
+          {paymentMethodPresentation(ride.paymentMethod).cancellationFee}
         </Text>
       </View>
     </Sheet>

@@ -19,17 +19,20 @@ import { useTheme ,
   useSingleFlight,
 } from '@naya/ui';
 import { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Check, ChevronRight, CreditCard, TrendingUp , ArrowLeft } from 'lucide-react-native';
+import { Banknote, Check, ChevronRight, CreditCard, Smartphone, TrendingUp, ArrowLeft, Wallet as WalletIcon } from 'lucide-react-native';
 import {
   casablancaLocalToUtc,
   formatDistance,
   formatDuration,
   formatMoney,
   formatMultiplier,
+  paymentMethodPresentation,
+  walletAvailable,
+  type PaymentIconName,
   type Quote,
 } from '@naya/domain';
 import { errorMessage, isApiError, qk } from '@naya/api';
@@ -41,12 +44,8 @@ import { useAccountId, usePaymentMethods } from '@/lib/queries';
 import { useCityId } from '@/lib/prefs';
 import { SchedulePicker, firstDay } from '@/features/schedule/SchedulePicker';
 
-/** Cards read « Visa •••• 4242 » (« Carte •••• 4242 » when the label names no brand); other methods keep their label. */
-const methodTitle = (m: { kind: string; label: string; last4: string | null }) => {
-  if (m.kind !== 'card' || !m.last4) return m.label;
-  const brand = m.label.replace(/\s*•••• \d{4}$/, '').trim();
-  return `${brand && !/^carte\b/i.test(brand) ? brand : 'Carte'} •••• ${m.last4}`;
-};
+/** Lucide icon per payment kind (names from paymentMethodPresentation, @naya/domain). */
+const PAY_ICONS: Record<PaymentIconName, typeof Banknote> = { banknote: Banknote, 'credit-card': CreditCard, wallet: WalletIcon, smartphone: Smartphone };
 
 export default function QuoteScreen() {
   useTheme();
@@ -55,6 +54,8 @@ export default function QuoteScreen() {
   const qc = useQueryClient();
   const a = useAccountId();
   const insets = useSafeAreaInsets();
+  // Large text grows the pinned footer: give it the map's height so Confirm stays on screen (VIS-03).
+  const { fontScale } = useWindowDimensions();
   const draft = useDraft();
   const cityId = useCityId(); // the server's user.cityId (ADR-0054, PAX-05)
   const stops = draftStops(draft);
@@ -92,6 +93,13 @@ export default function QuoteScreen() {
   }, [deadline.expired]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pm = methods.data?.find((m) => m.id === pmId && m.availableInCity) ?? methods.data?.find(m => m.isDefault && m.availableInCity) ?? methods.data?.find(m => m.availableInCity);
+  // The wallet holds the frozen total at booking (and at scheduling): show what it can still pay.
+  // Same key as the Portefeuille Naya screen (packages/ui PassengerWalletScreen), so both share the cache.
+  const hasWallet = !!methods.data?.some((m) => m.kind === 'wallet' && m.availableInCity);
+  const wallet = useQuery({ queryKey: ['naya', a, 'passenger-wallet'], queryFn: api.prototype.wallet, enabled: hasWallet });
+  const available = wallet.data ? walletAvailable(wallet.data) : null;
+  const pres = pm ? paymentMethodPresentation(pm) : null;
+  const walletShort = !!q && pm?.kind === 'wallet' && available !== null && available < q.breakdown.total;
   const book = useSingleFlight(
     async (_v: void, key: string) => {
       if (!q || !pm) throw new Error('Choisissez un moyen de paiement.');
@@ -108,6 +116,8 @@ export default function QuoteScreen() {
         qc.removeQueries({ queryKey: ['naya', a, 'quote'] });
         qc.invalidateQueries({ queryKey: qk.activeRide(a) });
         qc.invalidateQueries({ queryKey: qk.scheduled(a) });
+        // A wallet booking puts a hold on the balance: the next quote must not read the old figure.
+        qc.invalidateQueries({ queryKey: ['naya', a, 'passenger-wallet'] });
         if (r.kind === 'ride') router.replace('/ride');
         else {
           toast('Réservation enregistrée');
@@ -137,7 +147,7 @@ export default function QuoteScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }} testID="quote">
-      <View style={{ height: '36%' }}>
+      <View style={{ height: fontScale > 1.3 ? '22%' : '32%' }}>
         <NayaMap center={center} markers={markers} route={q?.route.polyline} fitTo={q?.route.polyline ?? stops.map((s) => s.location)} topInset={insets.top + 8} bottomInset={36} />
         <View style={{ position: 'absolute', top: insets.top + 8, left: gutter }}>
           <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Modifier l’itinéraire" onPress={() => router.back()} testID="quote-back" />
@@ -181,7 +191,9 @@ export default function QuoteScreen() {
               testID="dynamic-banner"
             />
           ) : null}
-
+        </ScrollView>
+        {/* P14, VIS-03: when, how to pay and the commitment stay pinned above the fold, whatever the categories or text size. */}
+        <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + 10, paddingTop: 12, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line }} testID="quote-footer">
           <SegmentedControl
             options={[
               { value: 'now', label: 'Maintenant' },
@@ -193,17 +205,31 @@ export default function QuoteScreen() {
           />
           {mode === 'schedule' ? <SchedulePicker day={day} time={time} onDay={setDay} onTime={setTime} /> : null}
 
-          <PressableScale onPress={() => setShowPay(true)} accessibilityRole="button" accessibilityLabel={`Paiement : ${pm ? methodTitle(pm) : 'à choisir'}. Changer`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 52, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.background }} testID="payment-row" pressedScale={0.98}>
-            {pm?.kind === 'card' ? <CreditCard size={20} color={colors.ink} /> : <Banknote size={20} color={colors.ink} />}
-            <View style={{ flex: 1 }}>
-              <Text variant="label" weight="semibold" numberOfLines={1}>{pm ? methodTitle(pm) : 'Moyen de paiement'}</Text>
-              <Text variant="micro" tone="muted" numberOfLines={1}>{pm ? (pm.kind === 'cash' ? 'À régler à la fin du trajet' : pm.kind === 'wallet' ? 'Réservé sur votre solde, débité à l’arrivée' : 'Débité à l’arrivée') : 'À choisir'}</Text>
-            </View>
-            <ChevronRight size={18} color={colors.muted} />
-          </PressableScale>
-        </ScrollView>
-        <View style={{ paddingHorizontal: gutter, paddingBottom: insets.bottom + 10, paddingTop: 6, gap: 6 }}>
-          <Button label={confirmLabel} size="major" full loading={book.isPending} loadingLabel={mode === 'schedule' ? 'Enregistrement…' : 'Envoi de la demande…'} disabled={!q || !pm || (mode === 'schedule' && !time)} disabledReason={!pm ? 'Choisissez un moyen de paiement.' : undefined} onPress={() => book.run()} testID="confirm-booking" />
+          <PaymentRow
+            title={pres?.label ?? 'Moyen de paiement'}
+            subtitle={pres ? (pres.usesBalance && available !== null ? `${formatMoney(available)} disponibles · ${pres.timing}` : pres.timing) : 'À choisir'}
+            icon={pres?.icon ?? 'banknote'}
+            warn={walletShort}
+            onPress={() => setShowPay(true)}
+          />
+          {walletShort && q && available !== null ? (
+            <PressableScale onPress={() => router.push('/wallet')} accessibilityRole="button" accessibilityLabel={`Solde insuffisant : ${formatMoney(available)} disponibles pour ${formatMoney(q.breakdown.total)}. Recharger le portefeuille`} pressedScale={0.98} testID="wallet-short">
+              <StatusBanner compact tone="warning" title="Solde insuffisant" message={`il manque ${formatMoney(q.breakdown.total - available)} · Recharger ›`} />
+            </PressableScale>
+          ) : null}
+
+          <Button
+            label={confirmLabel}
+            size="major"
+            full
+            loading={book.isPending}
+            loadingLabel={mode === 'schedule' ? 'Enregistrement…' : 'Envoi de la demande…'}
+            disabled={!q || !pm || (mode === 'schedule' && !time) || walletShort}
+            disabledReason={!pm ? 'Choisissez un moyen de paiement.' : undefined}
+            accessibilityHint={walletShort ? 'Solde insuffisant. Rechargez ou choisissez un autre moyen.' : undefined}
+            onPress={() => book.run()}
+            testID="confirm-booking"
+          />
           <Text variant="micro" tone="muted" align="center">
             {mode === 'schedule' ? 'Recherche d’une chauffeuse 15 min avant le départ.' : q ? `Annulation gratuite ${Math.round(q.conditions.cancellation.graceSeconds / 60)} min après l’attribution, puis ${formatMoney(q.conditions.cancellation.feeAfterGrace)}.` : 'Le prix reste visible avant confirmation.'}
           </Text>
@@ -216,22 +242,45 @@ export default function QuoteScreen() {
       <Sheet visible={showPay} onClose={() => setShowPay(false)} title="Paiement" subtitle="Les moyens proposés dépendent de votre ville." testID="payment-sheet">
         <View style={{ gap: 12 }}>
           <ListGroup>
-            {(methods.data ?? []).map((m) => (
-              <ListRow
-                key={m.id}
-                testID={`pm-${m.last4 ?? m.kind}`}
-                title={methodTitle(m)}
-                subtitle={!m.availableInCity ? 'Indisponible dans cette ville' : m.id === pmId ? 'Sélectionné' : undefined}
-                leading={m.kind === 'card' ? <CreditCard size={20} color={m.availableInCity ? colors.ink : colors.disabledText} /> : <Banknote size={20} color={colors.ink} />}
-                onPress={m.availableInCity ? () => { setPmId(m.id); setShowPay(false); haptic.select(); } : undefined}
-                trailing={m.id === pmId ? <Check size={20} color={colors.accent} /> : undefined}
-              />
-            ))}
+            {(methods.data ?? []).map((m) => {
+              const p = paymentMethodPresentation(m);
+              const Icon = PAY_ICONS[p.icon];
+              const selected = m.id === pm?.id;
+              return (
+                <ListRow
+                  key={m.id}
+                  testID={`pm-${m.last4 ?? m.kind}`}
+                  title={p.label}
+                  subtitle={!m.availableInCity ? 'Indisponible dans cette ville' : p.usesBalance && available !== null ? `${formatMoney(available)} disponibles · ${p.timing}` : p.timing}
+                  leading={<Icon size={20} color={m.availableInCity ? colors.ink : colors.disabledText} />}
+                  onPress={m.availableInCity ? () => { setPmId(m.id); setShowPay(false); haptic.select(); } : undefined}
+                  trailing={selected ? <Check size={20} color={colors.accent} /> : undefined}
+                  accessibilityHint={selected ? 'Moyen sélectionné' : undefined}
+                />
+              );
+            })}
           </ListGroup>
+          {hasWallet ? <Button label="Recharger mon portefeuille" variant="secondary" full onPress={() => { setShowPay(false); router.push('/wallet'); }} testID="pay-sheet-topup" /> : null}
           <Button label="Gérer mes moyens de paiement" variant="ghost" full onPress={() => { setShowPay(false); router.push('/payments'); }} />
         </View>
       </Sheet>
     </View>
+  );
+}
+
+/** The chosen method, pinned next to Confirm. Grows with large text instead of clipping. */
+function PaymentRow({ title, subtitle, icon, warn, onPress }: { title: string; subtitle: string; icon: PaymentIconName; warn: boolean; onPress: () => void }) {
+  useTheme();
+  const Icon = PAY_ICONS[icon];
+  return (
+    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={`Paiement : ${title}, ${subtitle}. Changer`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 8, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.background, borderWidth: warn ? 1 : 0, borderColor: colors.warning }} testID="payment-row" pressedScale={0.98}>
+      <Icon size={20} color={colors.ink} />
+      <View style={{ flex: 1 }}>
+        <Text variant="label" weight="semibold" numberOfLines={1}>{title}</Text>
+        <Text variant="micro" tone="muted" numberOfLines={2}>{subtitle}</Text>
+      </View>
+      <ChevronRight size={18} color={colors.muted} />
+    </PressableScale>
   );
 }
 
