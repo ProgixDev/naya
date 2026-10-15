@@ -1,12 +1,10 @@
-import { useTheme , Button, EmptyState, ErrorState, Header, IconDisc, ListGroup, ListRow, Screen, SkeletonList } from '@naya/ui';
+import { useTheme, Button, EmptyState, ErrorState, Header, Icon, ListGroup, ListRow, Screen, SkeletonList, paymentMethodIcon } from '@naya/ui';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Banknote, CreditCard, XCircle } from 'lucide-react-native';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatMoney, formatShort, splitFare } from '@naya/domain';
-import { colors } from '@naya/tokens';
+import { formatMoney, formatShort, paymentMethodPresentation, splitFare } from '@naya/domain';
 import { useAccountId } from '@/lib/queries';
 
 /** D16 · D16-empty */
@@ -27,12 +25,18 @@ export default function RideHistory() {
             {rides.map((r) => {
               const net = splitFare(r.terms.breakdown.total, r.terms.commissionBp).net;
               const cancelled = r.status === 'cancelled';
+              const stops = r.route.stops;
+              // A120, D-28: the payment method leads (bare glyph), the ride's state is one trailing glyph
+              // (CircleSlash for a cancellation, never a red cross); the net amount sits on the right.
               return (
                 <ListRow
                   key={r.id}
-                  title={`${r.id} · ${r.route.stops[r.route.stops.length - 1]!.label}`}
-                  subtitle={`${formatShort(r.completedAt ?? r.cancellation?.at ?? r.requestedAt)} · ${cancelled ? 'Annulée' : `${r.paymentMethod.kind === 'cash' ? 'Espèces' : 'Carte'} · net ${formatMoney(net)}`}`}
-                  leading={<IconDisc size={36} tone={cancelled ? 'danger' : 'plain'}>{cancelled ? <XCircle size={17} color={colors.danger} /> : r.paymentMethod.kind === 'cash' ? <Banknote size={17} color={colors.accent} /> : <CreditCard size={17} color={colors.accent} />}</IconDisc>}
+                  title={`${stops[0]!.label} → ${stops[stops.length - 1]!.label}`}
+                  subtitle={`${formatShort(r.completedAt ?? r.cancellation?.at ?? r.requestedAt)} · ${r.id} · ${paymentMethodPresentation(r.paymentMethod).shortLabel}`}
+                  leading={<Icon icon={paymentMethodIcon(r.paymentMethod)} size={24} />}
+                  value={cancelled ? undefined : formatMoney(net)}
+                  numericValue
+                  status={{ kind: 'ride', state: r.status }}
                   onPress={() => router.push({ pathname: '/rides/[id]', params: { id: r.id } })}
                   testID={`ride-row-${r.id}`}
                 />

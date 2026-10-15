@@ -3,13 +3,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { formatBp, formatDateTime, formatMoney, formatTime, PAYMENT_STATUS_LABELS, RIDE_STATUS_LABELS, splitFare } from '@naya/domain';
-import { Card, ErrorState, Header, RouteStopRow, Screen, SkeletonList, StatusBanner, StatusPill, Text, TextButton } from '@naya/ui';
+import { formatBp, formatDateTime, formatMoney, formatTime, paymentMethodPresentation, PAYMENT_STATUS_LABELS, splitFare } from '@naya/domain';
+import { Card, ErrorState, Header, Icon, RouteStopRow, Screen, SkeletonList, StatusBanner, StatusIcon, Text, TextButton, paymentMethodIcon, useTheme } from '@naya/ui';
 import { FigureLine } from '@/components/Kit';
 import { useAccountId } from '@/lib/queries';
 
 /** D16 detail: route, money split, payment status, timeline. */
 export default function RideDetail() {
+  useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const api = useApi();
   const a = useAccountId();
@@ -23,12 +24,12 @@ export default function RideDetail() {
         const r = d.ride;
         const split = splitFare(r.terms.breakdown.total, r.terms.commissionBp);
         const payment = d.payments.find((p) => p.id === r.paymentId);
+        const pay = paymentMethodPresentation(r.paymentMethod);
         const mine = !!r.driver;
         return (
           <View style={{ gap: 12, marginTop: 4 }}>
-            <View style={{ flexDirection: 'row' }}>
-              <StatusPill tone={r.status === 'completed' ? 'success' : r.status === 'cancelled' ? 'danger' : 'info'} label={RIDE_STATUS_LABELS[r.status]} />
-            </View>
+            {/* C1: the detail hero says the state once, glyph and word (cancelled is neutral, R3). */}
+            <StatusIcon kind="ride" state={r.status} showLabel testID="ride-detail-status" />
             <Card style={{ paddingVertical: 10 }}>
               {r.route.stops.map((s, i) => (
                 <RouteStopRow key={i} place={s} role={i === 0 ? 'pickup' : i === r.route.stops.length - 1 ? 'destination' : 'stop'} isLast={i === r.route.stops.length - 1} />
@@ -39,10 +40,24 @@ export default function RideDetail() {
                 <FigureLine label="Tarif payé" value={formatMoney(split.gross)} />
                 <FigureLine label={`Commission Naya · ${formatBp(r.terms.commissionBp)}`} value={formatMoney(-split.commission)} />
                 <FigureLine label="Votre revenu net" value={formatMoney(split.net)} strong />
-                <FigureLine label="Paiement" sub={r.paymentMethod.kind === 'cash' ? 'Espèces encaissées par vous' : 'Carte via Naya'} value={payment ? PAYMENT_STATUS_LABELS[payment.status] : '—'} />
+                {/* C19, A136: the method glyph with the payment state as its badge. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 }} accessible accessibilityLabel={`Paiement, ${pay.kind === 'cash' ? 'espèces encaissées par vous' : `${pay.label} via Naya`}, ${payment ? PAYMENT_STATUS_LABELS[payment.status] : 'aucun paiement'}`} testID="ride-detail-payment">
+                  {payment ? <StatusIcon kind="payment" state={payment.status} accessible={false} badgeOn={<Icon icon={paymentMethodIcon(r.paymentMethod)} size={24} />} /> : <Icon icon={paymentMethodIcon(r.paymentMethod)} size={24} />}
+                  <View style={{ flex: 1 }}>
+                    <Text variant="label" weight="medium">
+                      Paiement
+                    </Text>
+                    <Text variant="micro" tone="muted">
+                      {pay.kind === 'cash' ? 'Espèces encaissées par vous' : `${pay.label} · via Naya`}
+                    </Text>
+                  </View>
+                  <Text variant="label" weight="semibold">
+                    {payment ? PAYMENT_STATUS_LABELS[payment.status] : '—'}
+                  </Text>
+                </View>
               </Card>
             ) : null}
-            {r.cancellation ? <StatusBanner compact tone="danger" title={r.cancellation.by === 'passenger' ? 'Annulée par la passagère' : 'Annulée'} message={r.cancellation.reasonText} /> : null}
+            {r.cancellation ? <StatusBanner compact kind="ride" state="cancelled" title={r.cancellation.by === 'passenger' ? 'Annulée par la passagère' : 'Motif d’annulation'} message={r.cancellation.reasonText} /> : null}
             {!mine ? <StatusBanner compact tone="neutral" title="Vous avez annulé cette course" message="elle a été réattribuée" /> : null}
             {r.timeline.length ? (
               <View style={{ gap: 6, paddingHorizontal: 4 }}>

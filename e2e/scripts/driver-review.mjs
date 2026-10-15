@@ -99,8 +99,9 @@ await shot('D07-offer');
 await tid('accept-offer').click();
 await page.waitForTimeout(2500);
 await shot('D08-pickup');
-await tid('contact-passenger').click();
-await shot('D08-contact');
+// R8: no contact sheet while telephony is not live; the safety disc holds the 19 call.
+await tid('sos').click();
+await shot('D08-safety');
 await page.keyboard.press('Escape');
 await page.goto(`${APP}/ride`);
 await page.waitForTimeout(2500);

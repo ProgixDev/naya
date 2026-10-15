@@ -144,7 +144,8 @@ test.describe('driver app', () => {
     await signInMobile(page, URLS.driver, 'driver', PHONES.leila);
     await expect(byTestId(page, 'reason-debt_limit')).toBeVisible();
     await expect(byTestId(page, 'home-wallet')).toContainText(MAD(-150));
-    await byTestId(page, 'reason-debt_limit').getByText('Recharger').click();
+    // R12: the action that lifts the block replaces a disabled « Passer en ligne ».
+    await byTestId(page, 'unblock-action').click();
     await expect(byTestId(page, 'recharge-debt')).toBeVisible();
     await byTestId(page, 'provider-card').click();
     await byTestId(page, 'recharge-continue').click();

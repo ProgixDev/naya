@@ -1,16 +1,18 @@
-import { useTheme , SafetyButton , Button, Glass, IconButton, IconDisc, NayaMap, Pill, Sheet, StatusBanner, Text, TextButton, haptic, toast, useSingleFlight } from '@naya/ui';
+import { useTheme, Button, Icon, IconButton, ListGroup, ListRow, NayaMap, OtherEmergencyNumbers, SafetyDisc, Sheet, StatusBanner, StatusIcon, Text, TextButton, haptic, paymentMethodIcon, toast, useSingleFlight } from '@naya/ui';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, Platform, View } from 'react-native';
+import { Linking, Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
+import * as Location from 'expo-location';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, MapPin, Navigation, Phone, Route as RouteIcon, UserRound } from 'lucide-react-native';
+import { ArrowLeft, Navigation, Star } from 'lucide-react-native';
 import { errorMessage, qk } from '@naya/api';
 import { useApi } from '@naya/api/react';
-import { DRIVER_CANCEL_REASONS, formatMoney, formatTime, type LatLng, type Ride } from '@naya/domain';
+import { DRIVER_CANCEL_REASONS, formatMoney, formatTime, haversineMeters, paymentMethodPresentation, type LatLng, type Ride } from '@naya/domain';
 import { colors, gutter, radius, shadow } from '@naya/tokens';
 import { useAccountId, useDriverStatus } from '@/lib/queries';
+import { BackgroundLocationExplainer } from '@/components/BackgroundLocationExplainer';
 
 function openNavigation(to: LatLng, label: string) {
   const q = `${to.lat},${to.lng}`;
@@ -18,20 +20,78 @@ function openNavigation(to: LatLng, label: string) {
   Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => toast('Aucune application de navigation disponible.', 'danger')));
 }
 
-/** D08 · D08-arrived · D08-contact · D08-cancel · D08-cancelled · D09 · D09-stop · D09-stale */
+/** A stop closer than this names the place in the safety sheet (« près de Gare Rabat Ville »). */
+const NEAR_M = 800;
+
+/**
+ * The phone's own position for an SOS, read only when location access was already granted:
+ * an alert never waits on a permission prompt. Null when unknown.
+ */
+function usePhonePosition(): LatLng | null {
+  const [pos, setPos] = useState<LatLng | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const read = async () => {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (!perm.granted) return;
+        const p = (await Location.getLastKnownPositionAsync({ maxAge: 120_000 })) ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        if (alive && p) setPos({ lat: p.coords.latitude, lng: p.coords.longitude });
+      } catch {
+        // No position: the last known one of the car, or the pickup, is sent, and the sheet says which.
+      }
+    };
+    read();
+    const t = setInterval(read, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  return pos;
+}
+
+/**
+ * The position sent with an SOS and where it is, in words (never raw coordinates). The chauffeuse is
+ * in her car: its fresh signal is her position, then the phone's own fix, then the last signal of the
+ * car, and only then the pickup, named as the pickup.
+ */
+function sosPosition(ride: Ride, phone: LatLng | null): { location: LatLng; label: string } {
+  const stops = ride.route.stops;
+  const near = (p: LatLng) => {
+    const closest = stops.map((s) => ({ s, d: haversineMeters(p, s.location) })).sort((x, y) => x.d - y.d)[0];
+    return closest && closest.d <= NEAR_M ? `près de ${closest.s.label}` : null;
+  };
+  const car = ride.driverLocation;
+  if (car && !car.stale) {
+    const n = near(car.location);
+    return { location: car.location, label: n ? `Votre position, ${n}` : 'Votre position actuelle' };
+  }
+  if (phone) {
+    const n = near(phone);
+    return { location: phone, label: n ? `Votre position, ${n}` : 'Votre position actuelle' };
+  }
+  if (car) return { location: car.location, label: 'Dernière position connue de votre voiture' };
+  return { location: stops[0]!.location, label: `Point de prise en charge : ${stops[0]!.label} (votre position n’est pas disponible)` };
+}
+
+/** D08 · D08-arrived · D08-cancel · D08-cancelled · D09 · D09-stop · D09-stale */
 export default function RideScreen() {
   useTheme();
   const api = useApi();
   const qc = useQueryClient();
   const a = useAccountId();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const status = useDriverStatus();
+  const phone = usePhonePosition();
   const [lastRideId, setLastRideId] = useState<string | null>(status.data?.activeRide?.id ?? null);
-  const [contactOpen, setContactOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [reason, setReason] = useState<string>('passenger_unreachable');
+  // D-16: no reason is chosen for her.
+  const [reason, setReason] = useState<string | null>(null);
   const [cancelledByMe, setCancelledByMe] = useState<Ride | null>(null);
   const [offline, setOffline] = useState(false);
+  const [cardHeight, setCardHeight] = useState(400);
 
   const ride = status.data?.activeRide ?? null;
   if (ride && ride.id !== lastRideId) setLastRideId(ride.id);
@@ -73,7 +133,7 @@ export default function RideScreen() {
     },
   });
   const cancel = useMutation({
-    mutationFn: () => api.driver.cancelRide(ride!.id, reason),
+    mutationFn: (code: string) => api.driver.cancelRide(ride!.id, code),
     onSuccess: (r) => {
       haptic.warning();
       setCancelOpen(false);
@@ -89,13 +149,13 @@ export default function RideScreen() {
 
   if (cancelledByMe) {
     return (
-      <Ended testID="ride-cancelled-by-driver" top={insets.top} title="Course annulée" message={`Motif enregistré : ${cancelledByMe.driverCancellations.at(-1)?.reasonText ?? ''}. La passagère est reprise en charge par une autre chauffeuse.`} onHome={home} />
+      <Ended testID="ride-cancelled-by-driver" top={insets.top} state="cancelled" title="Course annulée" message={`Motif enregistré : ${cancelledByMe.driverCancellations.at(-1)?.reasonText ?? ''}. La passagère est reprise en charge par une autre chauffeuse.`} onHome={home} />
     );
   }
   if (!ride) {
     const r = ended.data?.ride;
-    if (r?.status === 'cancelled') return <Ended testID="ride-cancelled-by-passenger" top={insets.top} title="Course annulée par la passagère" message={r.cancellation?.fee ? `Des frais d’annulation de ${formatMoney(r.cancellation.fee)} s’appliquent ; votre part nette est créditée après paiement.` : 'Aucun frais ne s’applique. Vous restez en ligne.'} onHome={home} />;
-    if (r?.status === 'completed') return <Ended top={insets.top} title="Course terminée" message="Retrouvez le détail dans votre historique." onHome={() => router.replace({ pathname: '/ride-end/[id]', params: { id: r.id } })} cta="Voir le récapitulatif" />;
+    if (r?.status === 'cancelled') return <Ended testID="ride-cancelled-by-passenger" top={insets.top} state="cancelled" title="Course annulée par la passagère" message={r.cancellation?.fee ? `Des frais d’annulation de ${formatMoney(r.cancellation.fee)} s’appliquent ; votre part nette est créditée après paiement.` : 'Aucun frais ne s’applique. Vous restez en ligne.'} onHome={home} />;
+    if (r?.status === 'completed') return <Ended top={insets.top} state="completed" title="Course terminée" message="Retrouvez le détail dans votre historique." onHome={() => router.replace({ pathname: '/ride-end/[id]', params: { id: r.id } })} cta="Voir le récapitulatif" />;
     return <Ended top={insets.top} title="Aucune course en cours" message="Les courses acceptées apparaissent ici." onHome={home} />;
   }
 
@@ -107,9 +167,18 @@ export default function RideScreen() {
   const destination = stops[stops.length - 1]!;
   const car = ride.driverLocation?.location ?? null;
   const approaching = ride.status === 'driver_assigned';
-  const target = approaching || ride.status === 'driver_arrived' ? pickup : (pendingStop ?? destination);
+  const atPickup = approaching || ride.status === 'driver_arrived';
+  const target = atPickup ? pickup : (pendingStop ?? destination);
   const stale = offline || !!ride.driverLocation?.stale;
-  const title = approaching ? `Rejoindre ${ride.passenger.firstName}` : ride.status === 'driver_arrived' ? `${ride.passenger.firstName} est prévenue` : 'Trajet en cours';
+  const name = ride.passenger.firstName;
+  // D-13: the state's word is the card title; the header shows its glyph only.
+  const title = approaching ? `Rejoindre ${name}` : ride.status === 'driver_arrived' ? `${name} est prévenue` : 'Trajet en cours';
+  const pay = paymentMethodPresentation(ride.paymentMethod);
+  const sos = sosPosition(ride, phone);
+  const topBar = insets.top + 8 + 64;
+  const cardBottom = Math.max(insets.bottom, 12);
+  // DRV-14: with the largest text the card scrolls under its title, never over the header; the step stays pinned.
+  const cardMax = windowHeight - topBar - 8 - cardBottom;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.map }} testID={`ride-${ride.status}`}>
@@ -121,120 +190,158 @@ export default function RideScreen() {
           ...stops.map((s, i) => ({ id: `s${i}`, kind: (i === 0 ? 'pickup' : i === stops.length - 1 ? 'destination' : 'stop') as 'pickup', coordinate: s.location, label: s.label })),
           ...(car ? [{ id: 'car', kind: 'driver' as const, coordinate: car, label: 'Votre voiture' }] : []),
         ]}
-        bottomInset={440}
-        topInset={insets.top + 56}
+        bottomInset={Math.min(cardHeight, cardMax) + 12}
+        topInset={topBar}
       />
-      <View style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <IconButton icon={<ArrowLeft size={22} color={colors.ink} />} accessibilityLabel="Retour à l’accueil (la course continue)" onPress={home} />
-        <Glass radius={999} style={{ flex: 1 }} contentStyle={{ height: 44, paddingHorizontal: 16, justifyContent: 'flex-start', gap: 8 }}>
-          <Text variant="label" numberOfLines={1} style={{ flex: 1 }}>
+      <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 8, left: gutter, right: gutter, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <IconButton icon={<ArrowLeft size={22} color={colors.ink} strokeWidth={2} />} accessibilityLabel="Retour à l’accueil (la course continue)" onPress={home} testID="ride-back" />
+          {/* D-13, C1: the ride's glyph, announced when it changes. */}
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.elevated, alignItems: 'center', justifyContent: 'center', ...shadow.card }}>
+            <StatusIcon kind="ride" state={ride.status} showLabel={false} announce testID="ride-status" />
+          </View>
+        </View>
+        {/* X-02, D-14: pinned on the map's right edge, outside the card's scroll, never covered. */}
+        <SafetyDisc rideId={ride.id} location={sos.location} locationLabel={sos.label} extra={<OtherEmergencyNumbers />} />
+      </View>
+
+      <View
+        onLayout={(e) => setCardHeight(Math.round(e.nativeEvent.layout.height))}
+        style={{ position: 'absolute', left: 12, right: 12, bottom: cardBottom, maxHeight: cardMax, backgroundColor: colors.surface, borderRadius: radius.sheet, ...shadow.float, overflow: 'hidden' }}
+      >
+        <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 8, gap: 14 }} bounces={false} overScrollMode="never" showsVerticalScrollIndicator={false}>
+          <Text variant="title" accessibilityRole="header" accessibilityLiveRegion="polite" testID="ride-title">
             {title}
           </Text>
-        </Glass>
-      </View>
+          {stale ? <StatusBanner compact tone="warning" title="Connexion instable" message="actions envoyées au retour du réseau" testID="stale-banner" /> : null}
 
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface, borderRadius: radius.sheet, padding: 16, gap: 12, ...shadow.float }}>
-        {stale ? <StatusBanner compact tone="warning" title="Connexion instable" message="actions envoyées au retour du réseau" testID="stale-banner" /> : null}
-
-        {approaching || ride.status === 'driver_arrived' ? (
-          <View style={{ gap: 4 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <RouteIcon size={18} color={colors.accent} />
-              <Text variant="caption" tone="muted" weight="semibold">
+          {atPickup ? (
+            <View style={{ gap: 2 }}>
+              <Text variant="caption" tone="muted" weight="semibold" numeric>
                 {approaching ? 'Prise en charge' : `Arrivée à ${ride.arrivedAt ? formatTime(ride.arrivedAt) : ''}`}
               </Text>
-            </View>
-            <Text variant="heading">{pickup.label}</Text>
-            <Text variant="caption" tone="muted">
-              {pickup.address}
-            </Text>
-          </View>
-        ) : (
-          <View style={{ gap: 10 }}>
-            <View style={{ gap: 4 }}>
-              <Text variant="caption" tone="muted" weight="semibold">
-                {pendingStop ? 'Prochain arrêt' : 'Destination'}
-              </Text>
-              <Text variant="heading" testID="next-target">
-                {pendingStop ? `Arrêt : ${pendingStop.label}` : destination.label}
-              </Text>
+              <Text variant="heading">{pickup.label}</Text>
               <Text variant="caption" tone="muted">
-                {pendingStop ? `Puis ${destination.label} · ${destination.address}` : destination.address}
+                {pickup.address}
               </Text>
             </View>
-            {intermediate > 0 ? (
-              <View style={{ gap: 6 }}>
-                {stops.slice(1, -1).map((s, i) => (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {i < ride.completedStops ? <CheckCircle2 size={16} color={colors.success} /> : <View style={{ width: 12, height: 12, borderRadius: 3, borderWidth: 2, borderColor: colors.accent, marginHorizontal: 2 }} />}
-                    <Text variant="caption" tone={i < ride.completedStops ? 'muted' : 'ink'}>
-                      {s.label}
-                      {i < ride.completedStops ? ' · effectué' : ''}
-                    </Text>
-                  </View>
-                ))}
+          ) : (
+            <View style={{ gap: 10 }}>
+              <View style={{ gap: 2 }}>
+                <Text variant="caption" tone="muted" weight="semibold">
+                  {pendingStop ? 'Prochain arrêt' : 'Destination'}
+                </Text>
+                <Text variant="heading" testID="next-target">
+                  {pendingStop ? `Arrêt : ${pendingStop.label}` : destination.label}
+                </Text>
+                <Text variant="caption" tone="muted">
+                  {pendingStop ? `Puis ${destination.label} · ${destination.address}` : destination.address}
+                </Text>
               </View>
-            ) : null}
-          </View>
-        )}
+              {intermediate > 0 ? (
+                <View style={{ gap: 6 }}>
+                  {stops.slice(1, -1).map((s, i) => {
+                    const done = i < ride.completedStops;
+                    // A130: a done stop is a check; « effectué » is read, not written.
+                    return (
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} accessible accessibilityLabel={done ? `${s.label}, effectué` : s.label} testID={`ride-via-${i + 1}${done ? '-done' : ''}`}>
+                        {done ? <Icon name="circle-check" tone="success" size={16} /> : <View style={{ width: 12, height: 12, borderRadius: 3, borderWidth: 2, borderColor: colors.accent, marginHorizontal: 2 }} />}
+                        <Text variant="caption" tone={done ? 'muted' : 'ink'}>
+                          {s.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+          )}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.background, borderRadius: 20, paddingVertical: 10, paddingLeft: 12, paddingRight: 10 }}>
-          <IconDisc size={40}>
-            <UserRound size={20} color={colors.accent} />
-          </IconDisc>
-          <View style={{ flex: 1 }}>
-            <Text variant="label">{ride.passenger.firstName}</Text>
-            <Text variant="caption" tone="muted" numeric>
-              {ride.passenger.ratingAverage ? `${String(ride.passenger.ratingAverage).replace('.', ',')} · ` : ''}
-              {ride.paymentMethod.kind === 'cash' ? `Espèces · ${formatMoney(ride.terms.breakdown.total)}` : `${ride.paymentMethod.label} · via Naya`}
-            </Text>
+          {/* A131: no avatar disc. R8: no call or message while they are not live; the 19 is in the safety sheet. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 12 }}>
+            <View style={{ flex: 1, gap: 2 }} accessible accessibilityLabel={`${name}${ride.passenger.ratingAverage ? `, note ${String(ride.passenger.ratingAverage).replace('.', ',')}` : ''}, ${pay.label}${pay.kind === 'cash' ? `, ${formatMoney(ride.terms.breakdown.total)} à encaisser` : ', payé via Naya'}`} testID="ride-passenger">
+              <Text variant="label" weight="semibold">
+                {name}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {ride.passenger.ratingAverage ? (
+                  <>
+                    <Icon icon={Star} size={16} color={colors.muted} />
+                    <Text variant="caption" tone="muted" numeric style={{ flexShrink: 0 }}>
+                      {String(ride.passenger.ratingAverage).replace('.', ',')} ·
+                    </Text>
+                  </>
+                ) : null}
+                <Icon icon={paymentMethodIcon(ride.paymentMethod)} size={16} color={colors.muted} />
+                <Text variant="caption" tone="muted" numeric numberOfLines={2} style={{ flexShrink: 1 }}>
+                  {pay.kind === 'cash' ? `Espèces · ${formatMoney(ride.terms.breakdown.total)}` : `${pay.shortLabel} · via Naya`}
+                </Text>
+              </View>
+            </View>
+            {/* D-12: navigation is a labelled 36 pill, not an ambiguous icon-only arrow. */}
+            <Button label="Naviguer" variant="secondary" size="compact" icon={<Navigation size={16} color={colors.accent} strokeWidth={2} />} accessibilityHint={`Ouvre l’itinéraire vers ${target.label}`} onPress={() => openNavigation(target.location, target.label)} testID="open-navigation" />
           </View>
-          <IconButton variant="solid" icon={<Phone size={18} color={colors.accent} />} accessibilityLabel={`Contacter ${ride.passenger.firstName}`} onPress={() => setContactOpen(true)} testID="contact-passenger" />
-          <IconButton variant="solid" icon={<Navigation size={18} color={colors.accent} />} accessibilityLabel="Ouvrir la navigation" onPress={() => openNavigation(target.location, target.label)} testID="open-navigation" />
+        </ScrollView>
+
+        {/* R17: single taps, no slide-to-confirm. */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 4 }}>
+          {ride.status === 'driver_assigned' ? <Button label="Signaler mon arrivée" size="major" full loading={step.isPending} onPress={() => step.run('arrive')} testID="ride-arrive" /> : null}
+          {ride.status === 'driver_arrived' ? <Button label="Commencer la course" size="major" full loading={step.isPending} onPress={() => step.run('start')} testID="ride-start" /> : null}
+          {ride.status === 'in_progress' && pendingStop ? <Button label={`Arrêt effectué · ${pendingStop.label}`} size="major" full loading={step.isPending} onPress={() => step.run('stop')} testID="ride-stop" /> : null}
+          {ride.status === 'in_progress' && !pendingStop ? <Button label="Terminer la course" size="major" full loading={step.isPending} onPress={() => step.run('complete')} testID="ride-complete" /> : null}
+          {ride.status !== 'in_progress' ? (
+            <TextButton
+              label="Annuler avec un motif"
+              onPress={() => {
+                setReason(null);
+                setCancelOpen(true);
+              }}
+              testID="ride-cancel"
+            />
+          ) : (
+            <TextButton label="Contacter le support" onPress={() => router.push({ pathname: '/support/new', params: { rideId: ride.id } })} testID="ride-contact-support" />
+          )}
         </View>
-
-        <SafetyButton rideId={ride.id} location={ride.driverLocation?.location ?? ride.route.stops[0]!.location} />
-        {ride.status === 'driver_assigned' ? <Button label="Signaler mon arrivée" size="major" full loading={step.isPending} onPress={() => step.run('arrive')} testID="ride-arrive" /> : null}
-        {ride.status === 'driver_arrived' ? <Button label="Commencer la course" size="major" full loading={step.isPending} onPress={() => step.run('start')} testID="ride-start" /> : null}
-        {ride.status === 'in_progress' && pendingStop ? <Button label={`Arrêt effectué · ${pendingStop.label}`} size="major" full loading={step.isPending} onPress={() => step.run('stop')} testID="ride-stop" /> : null}
-        {ride.status === 'in_progress' && !pendingStop ? <Button label="Terminer la course" size="major" full loading={step.isPending} onPress={() => step.run('complete')} testID="ride-complete" /> : null}
-        {ride.status !== 'in_progress' ? <TextButton label="Annuler avec un motif" onPress={() => setCancelOpen(true)} testID="ride-cancel" /> : <TextButton label="Contacter le support" onPress={() => router.push({ pathname: '/support/new', params: { rideId: ride.id } })} />}
       </View>
 
-      <Sheet visible={contactOpen} onClose={() => setContactOpen(false)} title={`Contacter ${ride.passenger.firstName}`} subtitle="L’appel et le message via Naya ne sont pas encore disponibles." testID="contact-sheet">
+      <Sheet
+        visible={cancelOpen}
+        onClose={() => !cancel.isPending && setCancelOpen(false)}
+        dismissible={!cancel.isPending}
+        title="Annuler la course"
+        subtitle="La passagère sera reprise en charge par une autre chauffeuse."
+        testID="cancel-sheet"
+        footer={<Button label="Annuler la course" variant="danger" full disabled={!reason} disabledReason={reason ? undefined : 'Choisissez un motif.'} loading={cancel.isPending} onPress={() => reason && cancel.mutate(reason)} testID="confirm-driver-cancel" />}
+      >
         <View style={{ gap: 12 }}>
-          <Text variant="caption" tone="muted">
-            En cas d’urgence, composez le 19 (police).
-          </Text>
-          <Button label="Appeler le 19 (police)" variant="danger" full onPress={() => Linking.openURL('tel:19').catch(() => Alert.alert('Appel impossible depuis cet appareil', 'Composez le 19 depuis un téléphone.'))} testID="call-police" />
-          <Button label="Compris" variant="secondary" full onPress={() => setContactOpen(false)} />
-        </View>
-      </Sheet>
-
-      <Sheet visible={cancelOpen} onClose={() => !cancel.isPending && setCancelOpen(false)} dismissible={!cancel.isPending} title="Annuler la course" subtitle="La passagère sera reprise en charge par une autre chauffeuse." footer={<Button label="Annuler la course" variant="danger" full loading={cancel.isPending} onPress={() => cancel.mutate()} testID="confirm-driver-cancel" />}>
-        <View style={{ gap: 12 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <ListGroup>
             {DRIVER_CANCEL_REASONS.map((r) => (
-              <Pill key={r.code} label={r.label} selected={reason === r.code} onPress={() => setReason(r.code)} testID={`cancel-reason-${r.code}`} />
+              <ListRow key={r.code} title={r.label} selected={reason === r.code} onPress={() => setReason(r.code)} testID={`cancel-reason-${r.code}`} />
             ))}
-          </View>
+          </ListGroup>
           <Text variant="caption" tone="muted">
             Le motif est enregistré et visible par l’équipe Naya. Les annulations répétées sont suivies.
           </Text>
         </View>
       </Sheet>
+
+      {/* DRV-16: the prominent disclosure before the « Toujours » location prompt, once per ride. */}
+      <BackgroundLocationExplainer rideId={ride.id} />
     </View>
   );
 }
 
-function Ended({ title, message, onHome, top, testID, cta }: { title: string; message: string; onHome: () => void; top: number; testID?: string; cta?: string }) {
+function Ended({ title, message, onHome, top, testID, cta, state }: { title: string; message: string; onHome: () => void; top: number; testID?: string; cta?: string; state?: 'completed' | 'cancelled' }) {
   useTheme();
   return (
     <View testID={testID} style={{ flex: 1, backgroundColor: colors.background, paddingTop: top + 40, paddingHorizontal: gutter, gap: 16 }}>
-      <IconDisc size={56}>
-        <MapPin size={26} color={colors.accent} />
-      </IconDisc>
-      <Text variant="hero" accessibilityRole="header">
+      {/* A133: the ride's own end glyph (C1); the title carries the word. */}
+      {state ? (
+        <View style={{ alignItems: 'flex-start' }}>
+          <StatusIcon kind="ride" state={state} size="lg" variant="disc" showLabel={false} accessible={false} testID="ride-end-status" />
+        </View>
+      ) : null}
+      <Text variant="screen" accessibilityRole="header">
         {title}
       </Text>
       <Text variant="body" tone="muted">
@@ -242,7 +349,7 @@ function Ended({ title, message, onHome, top, testID, cta }: { title: string; me
       </Text>
       <View style={{ flex: 1 }} />
       <View style={{ paddingBottom: 40 }}>
-        <Button label={cta ?? 'Retour à l’accueil'} size="major" full onPress={onHome} testID="ride-home" />
+        <Button label={cta ?? 'Retour à l’accueil'} full onPress={onHome} testID="ride-home" />
       </View>
     </View>
   );
