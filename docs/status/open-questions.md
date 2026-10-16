@@ -11,7 +11,11 @@ Decisions waiting on Achraf. Owner: Achraf. Last updated: 2026-10-16.
 - **O1–O6** are smaller calls raised while building on 15 Oct 2026 (dark mode, account deletion, images); see
   [Smaller open calls](#smaller-open-calls-o1o6-15-october) at the end of this page.
 - **F1–F4** are the open questions of the founder's brief, [docs/tasks/2026-10-13.md](../tasks/2026-10-13.md#open-questions-for-the-founder-answered-above).
-  The founder answered them the same day ([Founder’s answers](../tasks/2026-10-13.md#founders-answers-13-october-2026)); no ADR or spec records the answers yet.
+  The founder answered them the same day ([Founder’s answers](../tasks/2026-10-13.md#founders-answers-13-october-2026)); no ADR records the answers yet
+  (F1 is described in [specs/car-wash.md](../specs/car-wash.md)).
+- **O7–O56** are calls raised in the two chats of 13–16 Oct 2026 and in the agent reports of those days that were never
+  put on this page. They are grouped by theme in [Open calls O7–O56](#open-calls-o7o56-1316-october). Questions that
+  were answered later in the chats are listed in [Answered in chat](#answered-in-chat-1316-october).
 
 **How to close one.** Write the answer into its ADR and mark it Accepted (for F-items, write a new ADR or spec when the
 answer sets a rule). Set the status here to `decided (ADR-NNNN, date)`. Then update the backlog rows marked
@@ -35,12 +39,12 @@ scope of task 5 now wait on an ADR or spec for each answer, and on D1, D3 and D1
 | [D8](#d8-which-backoffice) | Which backoffice is the real one, and what is apps/web for? | [0038](../adr/0038-canonical-backoffice.md) | P20 | open |
 | [D9](#d9-demo-runtime-and-hosting) | What do client demos run on, and is anything deployed? | [0012](../adr/0012-native-demo-builds-run-the-demo-api.md), [0044](../adr/0044-demo-gating-flag-defaults-and-the-production.md) | urgency of P9 | open |
 | [D10](#d10-production-path) | What is the production path? | [0045](../adr/0045-production-backend-and-live-integrations.md), [0039](../adr/0039-future-of-the-prototype-module.md), [0046](../adr/0046-production-map-tile-provider.md) | second half of P18 | open |
-| [D11](#d11-logo-and-media-policy) | Which logo, and which media policy? | [0048](../adr/0048-cross-surface-media-and-brand.md), [0025](../adr/0025-mobile-illustrations-are-vector-svg-and-avatars.md) | logo-gallery part of P9 | open |
+| [D11](#d11-logo-and-media-policy) | Which logo, and which media policy? | [0048](../adr/0048-cross-surface-media-and-brand.md), [0025](../adr/0025-mobile-illustrations-are-vector-svg-and-avatars.md) | logo-gallery part of P9 | open; partly answered 2026-10-15 (cars only) |
 | [D12](#d12-languages-and-public-claims) | Which languages, and which public claims stand? | none proposed; see [0020](../adr/0020-french-only-product-mad-africa-casablanca-business.md), [0031](../adr/0031-number-masking-is-the-only-planned-passenger.md) | copy fixes (DOC-07) | open |
 | [D13](#d13-branches-ci-and-build-numbers) | How do Achraf and Arselene work together? | [0057](../adr/0057-branch-review-and-ci-policy.md), [0049](../adr/0049-build-number-source-of-truth.md) | CI half of P18 | open |
-| [D14](#d14-source-of-truth-and-the-five-reversals) | What is the source of truth, and were the five reversals intended? | [0056](../adr/0056-source-of-truth-order-committing-the-handoff.md); confirm [0023](../adr/0023-mobile-styling-and-runtime-dark-mode.md), [0025](../adr/0025-mobile-illustrations-are-vector-svg-and-avatars.md), [0026](../adr/0026-service-categories-including-a-premium-naya-confort.md) | ADR half of P19 | open |
+| [D14](#d14-source-of-truth-and-the-five-reversals) | What is the source of truth, and were the five reversals intended? | [0056](../adr/0056-source-of-truth-order-committing-the-handoff.md); confirm [0023](../adr/0023-mobile-styling-and-runtime-dark-mode.md), [0025](../adr/0025-mobile-illustrations-are-vector-svg-and-avatars.md), [0026](../adr/0026-service-categories-including-a-premium-naya-confort.md) | ADR half of P19 | open; car art partly answered 2026-10-15 |
 | [D15](#d15-repo-path-and-screenshot-weight) | Move the repo off a path with spaces? Where do screenshots live? | [0050](../adr/0050-repo-path-with-spaces.md), [0052](../adr/0052-screenshot-storage.md) | QA-07, QA-10 | open |
-| [F1](#f1-car-wash-audience) | Car wash: who is it for? | none yet | brief task 5 | answered 2026-10-13 (brief), not yet in an ADR or spec |
+| [F1](#f1-car-wash-audience) | Car wash: who is it for? | none yet | brief task 5 | answered 2026-10-13 (brief); described in specs/car-wash.md, no ADR; who the washers are still open |
 | [F2](#f2-parent-at-pick-up) | Famille: must the parent be present at every pick-up? | none yet; related [0036](../adr/0036-naya-famille-operating-model.md) | brief task 4 | answered 2026-10-13 (brief), not yet in an ADR or spec |
 | [F3](#f3-criminal-record-extract-scope) | Driver documents: criminal-record extract for all drivers or only Famille? | none yet; related [0034](../adr/0034-women-only-eligibility-and-verification-policy.md) | brief tasks 2 and 4 | answered 2026-10-13 (brief), not yet in an ADR or spec |
 | [F4](#f4-video-call) | Video call: in-app, or a hand-off to WhatsApp or the phone? | none yet; related [0031](../adr/0031-number-masking-is-the-only-planned-passenger.md) | brief task 4 | answered 2026-10-13 (brief), not yet in an ADR or spec |
@@ -203,6 +207,12 @@ portraits as selfies.
   PNGs that are never shown and the unused web images.
 - Related: the founder's brief asks for new onboarding images and car illustrations
   ([tasks 1 and 6](../tasks/2026-10-13.md)); they should follow the policy chosen here.
+- Partly answered (15 Oct 2026, chat): the owner generated and installed photos and car renders. The apps now show the
+  cars as unbranded plum and pearl PNG renders (quote options, `VehicleImage`, map marker) and every onboarding slide is a
+  photo (0e62877, 39fb2d4; « Decision update » sections in ADR-0025 and ADR-0048, both still Proposed). The default
+  above ("vector illustration across the apps") no longer holds for cars and onboarding. Still open: the logo, avatars
+  and driver photos (PRD-33), people in product screens, the website and the admin fixtures, and renders of cars common
+  in Morocco (brief task 6).
 
 ### D12. Languages and public claims
 
@@ -242,6 +252,8 @@ vector art, the Confort tier, the category commission and the second backoffice.
   summary of the PDF. Precedence: ADRs > specs > handoff/Figma > feedback PDF. Accept dark mode and vector art as
   intended (ADR-0023, ADR-0025); settle Confort in D4, the commission in D6 and the backoffice in D8. Project docs in
   English; UI copy stays French.
+- Since 15 Oct 2026: the owner asked for the dark-mode work (ADR-0023 updated, still Proposed) and chose raster car
+  renders over vector art for cars (see D11). Neither ADR has been marked Accepted.
 
 ### D15. Repo path and screenshot weight
 
@@ -280,8 +292,11 @@ or washers as a new provider role with their own app or space? Is it women-only 
   `packages/domain/src/entities.ts:15`). A washer role means a new app or a new role with its own verification and
   payouts. Selling washes to passengers touches the category decision (D4) and the payment decisions (D5, D7).
 - Answer (founder, 13 Oct): both. Passengers order a wash for their own car, and drivers for theirs. Not answered:
-  who the washers are (a provider role with its own app or space), and whether washers must be women.
-- Status: answered 2026-10-13 (brief); not yet in an ADR or spec.
+  who the washers are (Naya staff or partner companies, and whether a washer app exists), and whether washers must be
+  women (spec R11).
+- Status: answered 2026-10-13 (brief); built on `feat/car-wash` (now on master) and described in
+  [specs/car-wash.md](../specs/car-wash.md); no ADR (ADR-0039 and ADR-0043 ask for one; backlog CW-16). The other
+  car-wash calls are O45–O48.
 
 ### F2. Parent at pick-up
 
@@ -325,6 +340,8 @@ phone's own call app?
 - Answer (founder, 13 Oct): a WhatsApp call with a confirmation from the parent, a police call one tap away, and the
   other parent may be invited to follow the trip. A WhatsApp hand-off exposes phone numbers, so it needs an ADR that
   supersedes ADR-0031 for Famille.
+- Also decide in that ADR (14 Oct verification, FS-08): the chauffeuse's personal number, or a Naya business or relay
+  number. In mock builds the WhatsApp action is not opened, because the seeded numbers could belong to real people (O32).
 - Status: answered 2026-10-13 (brief); not yet in an ADR or spec.
 
 ## Redesign decisions R1–R18 (15 October)
@@ -369,3 +386,111 @@ already in the code, so nothing is blocked; the default stays until Achraf answe
 | O5 | Regenerate two images? (a) a pearl top view so pearl drivers' cars are not plum on the map; (b) Famille pick-up with the rear door open and warm pearl paint | Current images kept | [media results](../design/media-prompts/2026-10-15-results.md) | open (optional) |
 | O6 | Terms of use and privacy policy texts: the sign-in consent line is ready for links but no page exists | Plain text, no link | backlog PAX-18; legal (CNDP law 09-08) | open (needs the texts) |
 
+## Open calls O7–O56 (13–16 October)
+
+Collected on 16 Oct 2026 from the two chats of 13–16 Oct (session 3853af2e and the « Project submission template
+(fork) » chat that built car wash, driver sign-up and Famille safety), from the agent reports of the 15 workflow runs
+of those days, and from section 5 of the [14 October verification](../audits/2026-10-14-verification.md#5-decisions-needed-from-achraf)
+(its « decision N » numbers are cited below). Questions already on this page (D1–D15, F1–F4, O1–O6) were not repeated;
+where a call extends one of them, the row says so. "Default" is what the code does today, or the recommendation when
+the code does nothing yet. Backlog IDs are in [backlog.md](backlog.md#16-october-items-found-in-the-1316-oct-agent-reports).
+Status `open` means nobody has answered.
+
+### Branch, release and team
+
+| # | Question | Options | Default (in the code?) and recommendation | Where | Source | Status |
+|---|---|---|---|---|---|---|
+| O7 | Land `feat/passenger-polish` (about 33 local commits up to 5dc002e, not pushed) on master and push? | (a) merge, push, then build; (b) build from the branch first | Recommended (a), so every build matches a commit on GitHub. Nothing is pushed | D13, [ADR-0057](../adr/0057-branch-review-and-ci-policy.md) | chat, 15 Oct (« Say go and I'll start with the merge ») and 16 Oct | open |
+| O8 | When to make the next native build, and with which numbers? The dark splash (DM-06), the permission changes (DRV-15, DRV-16) and the new images need prebuild, pod install and a new build | (a) right after O7: passenger 4 → 5, driver 5 → 6, logged in the build log; (b) later | Recommended (a). Today `buildNumber` is '4' (`apps/passenger/app.config.ts:24`) and '5' (`apps/driver/app.config.ts:26`); the build log is empty | [ADR-0049](../adr/0049-build-number-source-of-truth.md), [testflight-eas.md](../runbooks/testflight-eas.md#build-log), O10 | chat, 15 Oct | open |
+| O9 | What happens to abderraouf's `origin/feat/feedback-round-2` (88e9432, 57 commits, 9–12 Oct) now that master moved to the trial branch? Does he know which side won? Confirm the six merge choices master made by default (SOS desk `/sos` vs `/securite`, handover, ticket outcome model, Famille engine, sign-up flow, onboarding imagery). Is the driver-app rename « Naya Conductrice » intended? | (a) he merges master into his branch and makes it CI-green, then ideas come back as small PRs; (b) we cherry-pick his ideas; (c) close the branch | Recommended (a). It is not CI-green (passenger jest does not run, 3 lint errors) and merging it as it stands would silently undo safety fixes (QA-21) | QA-21, D13 | chat 14–15 Oct; agent report naya-round2-comparison, 14 Oct | open |
+| O10 | Did abderraouf upload builds passenger 5 / driver 6? His branch bumps to those numbers with no build-log row, the same numbers O8 plans | ask him; if uploaded, the next build is 6 / 7 | No default; ask before the next upload | QA-20, O8 | agent report naya-round2-comparison, 14 Oct | open (ask) |
+| O11 | Did the first CI run on GitHub Actions pass (push of 0a791ff to master, 15 Oct)? Then protect master and require CI? | (a) protect master once CI is green; (b) not yet | Recommended (a) (D13). Nobody has looked at the Actions tab yet | QA-02, D13, `.github/workflows/ci.yml` | chat, 15 Oct | open (owner action) |
+| O12 | Arselene's GitHub handle for CODEOWNERS, and confirm that `@Achref23illi` is right and has write access | send the handle | `.github/CODEOWNERS:5-7` still has the TODO. With a single owner nobody can approve that owner's PRs | D13, ADR-0057 | chat 13 Oct; agent reports foundation-and-fixes | open |
+| O13 | What are `achref-dev-skill-debt/` and `achref-dev-skill-debt-images.zip` at the repo root? They look like another project's assets (Apollo / moon images, about 26 MB) | (a) move them out of the repo and ignore `*.zip`; (b) keep them | Recommended (a). Still untracked; a `git add -A` would commit them | PH-6 | audit 13 Oct; verification 14 Oct decision 16; chat 15 Oct | open |
+| O14 | Commit `docs/tasks/` (the founder brief and two prompt files) and `docs/screens/ios/passenger-01-welcome.png` (3.7 MB)? | commit / keep untracked, for each | Recommended: commit `docs/tasks/` (small text, `packages/assets` docs link it); decide ADR-0052 (D15) before `docs/screens/ios/`. Both untracked | PH-6, D15, [ADR-0052](../adr/0052-screenshot-storage.md) | verification 14 Oct decision 16; chat 15 Oct | open |
+| O15 | Clean up the merged branches and worktrees: `chore/docs-foundation-and-fixes`, `integration/trial-2026-10-14`, `fix/demo-blockers-portable`, `feat/car-wash`, `feat/driver-signup`, `feat/famille-safety`, the worktrees in `../naya-worktrees/` (integration-trial, demo-blockers, car-wash, driver-signup, famille-safety), and the two stashes in the main folder | delete / keep | Recommended: delete the local branches and worktrees once O7 lands (all are in master); keep the pushed `chore/…` branch until its PR question is closed | — | chat, 15 Oct (task list item 4) | open (needs a go) |
+| O16 | Accept [ADR-0053](../adr/0053-idempotency-key-lifecycle.md) (idempotency key lifecycle), [ADR-0054](../adr/0054-source-of-truth-for-the-passenger-s.md) (the server's `cityId` is the source of truth) and [ADR-0055](../adr/0055-account-lifecycle.md) (account lifecycle)? | accept each / change | The client parts are built as recommended (6cf0a2e, 7df778c, 402c835, e07ef01); the server parts are not (API-07 for 0053, steps 3–4 for 0054, the 30-day queue, suspension and revocation for 0055, and API-27). Recommended: accept the designs, track the server parts as backlog rows | UI-03, PAX-05, PRD-35, API-27 | agent report passenger-polish, 15 Oct | open |
+| O17 | Test on a real iPhone, and build Android once? Nothing has run on a physical device: live document camera, background location, photos, native shadows, dark splash, SOS hold haptics, map marker rotation, real Dynamic Type | (a) one device pass after the O8 build, with the QA-22 checklist; (b) keep Expo web only | Recommended (a). Android has never been built | QA-22, PH-7, D10 | chat 13–15 Oct; verification 14 Oct decision 15; agent report redesign-implementation | open (owner action) |
+| O18 | Who owns the build log and the verification log? `docs/README.md` lists the owner of runbooks/ and quality/ as « name to be set » | name a person | No owner | `docs/README.md` | agent report foundation-and-fixes, 13 Oct | open |
+
+### Copy, onboarding and design sign-offs
+
+| # | Question | Options | Default (in the code?) and recommendation | Where | Source | Status |
+|---|---|---|---|---|---|---|
+| O19 | Passenger onboarding slide 3 shows the school-gate photo (a chauffeuse, a mother and her daughter) under the copy « Une communauté vérifiée. », which is about account review. Change the copy or the photo? | (a) Famille copy, for example « Vos enfants, accompagnés. »; (b) a photo with no child (the prompt pack has a variant); (c) keep both | In the code: the school-gate photo with the review copy (`apps/passenger/src/app/(auth)/welcome.tsx`). The owner chose to replace slide 3 (13 Oct) and to use this photo (15 Oct), but the copy was never answered. If Famille stays out of the launch (D3 default), (b) | PH-1, D3, [ADR-0048](../adr/0048-cross-surface-media-and-brand.md) | other chat 13 Oct (Q1); verification 14 Oct decision 1; agent report images, 15 Oct | open |
+| O20 | On on-device (standalone) builds an automatic reviewer approves dossiers, but the copy says « Une personne de l'équipe Naya examine vos documents ». Soften it there? | (a) copy per mode, for example « Vos documents sont en cours de vérification »; (b) keep | Recommended (a): ADR-0058 says copy stays true for the mode it runs in. The phrase is in both apps today | PRD-41, [ADR-0058](../adr/0058-present-the-mock-backed-apps-as-a-real-product.md) | chat 14 Oct and 15 Oct (task list item 25); agent report real-app-feel | open |
+| O21 | « Approuvée » or « Agréée Naya Famille » for an approved Famille application? | one wording everywhere | The integration chose « Approuvée »; the driver dossier still hard-codes « Agréée Naya Famille » (`apps/driver/src/components/Dossier.tsx:247`) | DRV-32 | verification 14 Oct decision 13 | open |
+| O22 | Sign off the status-system choices the redesign made on its own: neutral chip words drawn in ink (muted on mauve is 4.3:1), the short labels « GPS désactivé », « Signal perdu », « Accès aux courses bloqué », and the new kinds `city`, `selection`, `preference`, `progress` | keep / change | As built (`packages/domain/src/status.ts`); not recorded in ADR-0059 or R1–R18 | [ADR-0059](../adr/0059-status-is-an-icon-problems-keep-words.md) | agent report redesign-implementation B0, 15 Oct | open (sign-off) |
+| O23 | Sign off the light-mode side effects of the dark-mode work: field and OTP borders now use `outline` (a visible grey edge in light), the selected document tile is mauve, the ride pill is solid, the verification hero has a hairline | keep / revert in light | As built; partly superseded by the redesign | DM-03, DM-09 | agent reports foundation-and-fixes 13 Oct, dark-mode fixes 15 Oct | open (sign-off) |
+| O24 | Three small dark-mode design calls: the quote payment row has no border and is 1.13:1 against the sheet (`quote.tsx:276`; a border changes light too); the field focus ring is about 2.4:1 against the resting outline (3:1 needs a 2 px ring); the card at `packages/ui/src/List.tsx:102` still uses `line` | change each / keep | Unchanged in the code | DM-10, DM-03, DM-08 | chat and agent report dark-mode fixes, 15 Oct | open (design) |
+| O25 | Confirm the DateField message for an impossible date: « Cette date n’existe pas. Vérifiez le jour et le mois. » | keep / reword | In the code (`packages/ui/src/Form.tsx`) | DS-5 | agent report foundation-and-fixes, 13 Oct | open (low) |
+| O26 | Set `barcodeScannerEnabled: false` on expo-camera in both apps? No code scans barcodes, so the binary shrinks; it changes the native build | yes / no | Not set | `apps/*/app.config.ts` | agent report redesign-implementation, 15 Oct | open |
+| O27 | Should the admin console (and the web backoffice) get dark mode now that both apps have it? | yes / not for v1 | Audit default: no dark mode in admin or web for now. ADR-0023 lists it as a trigger to revisit | [ADR-0023](../adr/0023-mobile-styling-and-runtime-dark-mode.md) | audit 13 Oct (visual, web) | open |
+
+### Mock data and mock builds
+
+| # | Question | Options | Default (in the code?) and recommendation | Where | Source | Status |
+|---|---|---|---|---|---|---|
+| O28 | In mock builds a « Maintenant » car wash is never charged a cancellation fee: the mock team arrives in about 85 s, inside the 5-minute free window (a side effect of the CW-01 fix). Accept, or slow the mock team so testers can see a fee? | (a) accept; (b) slow the mock engine; (c) mention it in the demo script | (a) in the code | CW-01, [specs/car-wash.md](../specs/car-wash.md) R8 | chat 14 Oct; agent report portable-demo-blockers | open |
+| O29 | On the phone, a Naya Famille application is approved automatically 20–40 s after it is sent, although the flow offers an interview slot; seeded Khadija (vehicle) and Houda (Famille) are approved on their first request. Keep them « en cours » on the device instead? | (a) keep pending on device; (b) keep auto-approval | (b) in the code (`services/demo-api/src/embedded.ts:62-79`) | API-32 | agent report real-app-feel, 14 Oct | open |
+| O30 | Agency top-ups and recharges (Cash Plus, Wafacash, agency network) confirm on their own after 8 s, although the copy asks the person to pay at a counter. Leave them pending in mock builds? | auto-confirm / leave pending | Auto-confirm (the ADR-0058 rule « mock outcomes happen on their own ») | `services/demo-api/src/services/finance.ts`, `prototype.ts` | agent report real-app-feel, 14 Oct | open |
+| O31 | The mock payout accounts use real Moroccan bank names (Attijariwafa bank, CIH Bank, Banque Populaire). Swap them for invented names? | swap / keep | Real names (`services/demo-api/src/seed.ts:491-494`) | — | agent report real-app-feel, 14 Oct | open |
+| O32 | The seeded phone numbers (+2126…) could belong to real people. Move them to a reserved or obviously fictional range? | change the seed / keep | Kept; WhatsApp is not opened in mock builds for this reason, but a share sheet or a future SMS could reach a stranger | PRD-42 | agent report real-app-feel, 14 Oct | open |
+| O33 | The country picker offers France, Spain, Belgium and Senegal besides +212, and the server accepts any E.164 number. Morocco only at launch? | Morocco only / keep the list | The list in `packages/domain/src/phone.ts:12-18` | — | agent report real-app-feel, 14 Oct | open |
+| O34 | Old demo data: bump `schemaVersion` (wipes testers' phones) or keep « reset needed »? Restore Khadija « Famille en examen » and Samira « Famille refusée » with real dossiers? | bump / reset; restore / drop | Reset documented (AGENTS.md gotcha); the two states are gone since the 14 Oct integration | DS-M2 | verification 14 Oct decision 14 | open |
+| O35 | Should demo fares look realistic? Rabat shows 100 MAD for 10 km / 25 min and 127,60 MAD for 9,1 km in Confort | recalibrate / keep | The seeded `RABAT_RULES` | `services/demo-api/src/seed.ts` | audit 13 Oct (visual; §9 « Demo fares ») | open |
+| O36 | Dev-mode Famille controls on a shared demo: `/dev/family/play` cancels another parent's trip, and `/dev/family/trips/:id/demo` approves in the parent's name. Limit them to the caller's own demo trips, and set `NAYA_DEV=0` on any hosted demo? | limit / keep | Routes unchanged (`services/demo-api/src/services/famille.ts:805-817`); extends D9 | FS-01, D9 | verification 14 Oct decision 12 | open |
+
+### Naya Famille details (all depend on D3)
+
+| # | Question | Options | Default (in the code?) and recommendation | Where | Source | Status |
+|---|---|---|---|---|---|---|
+| O37 | Confirm the approval limits: the parent has 3 minutes to approve the start, at most 3 requests, then « appelez le parent ou annulez » | keep / change the numbers | 180 s and 3 requests (`packages/domain/src/famille.ts`); values invented by the build agent | F2, [specs/family.md](../specs/family.md) | other chat 13 Oct (Q5); verification 14 Oct decision 5 | open |
+| O38 | The other parent: follow only, or may she also approve the start? And the follow link: lifetime (per trip, day or subscription), does it show the home address and the position before pick-up, are new viewers announced, web URL or app link? | — | Follow only; the link never expires (only revocation ends it) and shows the full pick-up address and the live position. Recommended: follow only, expiry per subscription, no street address, position only while the child is on board | FS-06, F4 | other chat 13 Oct (Q4); verification 14 Oct decision 4 | open |
+| O39 | School drop-off proof: keep « photo within 300 m plus the handover code »? When GPS is lost, show « Signal perdu » instead of the ×20 simulation, and refuse the drop-off on a stale or simulated position? Is a photo of the gate enough when a school refuses photos? | — | 300 m; the simulation takes over 5 s after the last real fix in every build. Recommended: simulation in dev mode only, refuse stale positions | FS-03, FS-07 | other chat 13 Oct (Q6); verification 14 Oct decision 7 | open |
+| O40 | Handover: fixed codes set by the parent, or one-time codes per trip? Is a code mandatory? Preselect the first authorised adult? Who resolves a locked or failed handover (absent adult, lost code, closed school), and how does the trip end? | — | Fixed codes stored in plain text; no preselection after a reload; after 5 wrong codes the trip stays « en cours » with no exit | FS-04, FS-09, P1, DOM-17 | verification 14 Oct decision 6 | open |
+| O41 | Should « Police 19 » and Famille incidents raise an alert on the SOS desk? | yes / no | No alert today (`famille.ts:702-707` notes the call on the trip only). Recommended: yes | FS-10, D2 | verification 14 Oct decision 8 | open |
+| O42 | Child pick-up and drop-off photos: how long are they kept, and who may see them (parent plus a `family.ops` permission, or `config.edit` too)? | — | No retention rule; `config.edit` admins see photos and handover codes. Recommended: parent plus `family.ops`, codes stripped from the admin payload | FS-16, PRD-29, [ADR-0037](../adr/0037-admin-permission-model-for-the-new-features.md) | other chat 13 Oct (Q7); verification 14 Oct decision 9 | open |
+| O43 | Famille approval prerequisites: must person and vehicle be approved first? Must the reviewer record the interview and training outcomes? Where and when do interviews happen (the flow offers the next 6 days except Sunday, morning or afternoon), and is training mandatory before the first trip? | — | None is required; an admin can approve Famille while identity is « Complément demandé » | DS-7 | other chat 13 Oct (Q15); verification 14 Oct decision 10 | open |
+| O44 | In a Famille correction round that comes after the chosen interview day, the driver must pick a new day before she can resubmit. Intended? | keep / drop | Built that way in the app and the server (spec eligibility R21) | [specs/eligibility-and-verification.md](../specs/eligibility-and-verification.md) | agent report portable-demo-blockers, 14 Oct | open |
+
+### Car wash (the rest of F1)
+
+| # | Question | Options | Default (in the code?) and recommendation | Where | Source | Status |
+|---|---|---|---|---|---|---|
+| O45 | Should the wash price depend on the car's size (city car vs SUV)? | yes / one price per package | One price per package | `packages/domain/src/carWash.ts` (`CAR_WASH_DEMO_CONFIG`) | other chat 13 Oct (Q11) | open |
+| O46 | Can drivers pay a wash by card? Today they pay from their Naya wallet or in cash | yes / no | Wallet or cash | [specs/car-wash.md](../specs/car-wash.md) | other chat 13 Oct (Q12) | open |
+| O47 | The real packages, prices, durations, hours, commission and cancellation fees | provide the values | Placeholders: Rabat 60/110/180 MAD, Casablanca 70/125/200 MAD, 20 % commission, 08h00–20h00; free cancellation for 5 min after assignment or until 2 h before the slot, then 20 MAD (30 MAD en route) | `CAR_WASH_DEMO_CONFIG`, spec car-wash | other chat 13 Oct (Q10); verification 14 Oct decision 11 | open |
+| O48 | Car-wash governance: its own ADR and admin permission (today `rides.read`, with amounts visible to support)? May washes be paid with the Portefeuille Naya and the Wallet marocain (D5)? How are cash wash fees collected (D7)? Warn a driver who goes online while her car has an open wash? | — | No ADR; wallet and mobile wallet accepted; cash fees stay pending; no warning | CW-16, CW-03, CW-09, CW-14 | verification 14 Oct decision 11 | open |
+
+### Driver sign-up
+
+| # | Question | Options | Default (in the code?) and recommendation | Where | Source | Status |
+|---|---|---|---|---|---|---|
+| O49 | Minimum years of driving, and should licence categories other than B (A, C, D) be accepted? | — | Category B only; experience no more than the licence's age; no minimum | `packages/domain/src/signup.ts` | other chat 13 Oct (Q13) | open |
+| O50 | Famille references: may a family member be one? Is « casier judiciaire de moins de 3 mois » the right rule? | — | Any person; the extract's date is copy only and is not recorded | `apps/driver/src/components/signup/copy.ts`, DS-M1 | other chat 13 Oct (Q14) | open |
+| O51 | Criminal-record extract handling (F3 says Famille drivers only): amend ADR-0034 decision 5; consent and purpose notice; legal basis under law 09-08; retention (delete after the decision plus N days, and on reopening); who may read the extract and the references; its maximum age; the re-check cadence; keep it a specimen in tester builds meanwhile? | — | No notice; support (`people.read`) can read the references; the file is never deleted and reads are not audited; Famille approval never expires | DS-3, DS-M1, F3, D10, [ADR-0034](../adr/0034-women-only-eligibility-and-verification-policy.md) | verification 14 Oct decision 3 | open |
+
+### Money, legal and data
+
+| # | Question | Options | Default (in the code?) and recommendation | Where | Source | Status |
+|---|---|---|---|---|---|---|
+| O52 | A deleted account is stored as `status: 'suspended'` named « Compte supprimé », so the admin shows « Suspendue ». Add a real `deleted` status or a `deletedAt` field with its own admin label? | (a) new status or field; (b) keep | (b) in the code (`User.status` allows only active or suspended). Recommended (a) | API-36, ADR-0055 | agent report passenger-polish (account deletion), 15 Oct | open |
+| O53 | What is kept after an account is deleted, and for how long (law 09-08)? Identity documents and details are erased, but audit events keep her phone (`account.created`) and children's names (`family.*`), and ride and Famille addresses, car-wash plates and support messages stay | erase more / keep with a retention period | Erase documents, keep the append-only audit trail. Needs counsel's retention schedule (D10) | API-35, ADR-0055 | agent report passenger-polish, 15 Oct | open |
+| O54 | Driver debt limit: does a limit of 0 mean "prepaid commission" (every driver at a zero balance, new ones included, is blocked)? Should a pending withdrawal count against the limit (post the debit at request, count reserved funds, or refuse confirmation when the balance would go negative)? | — | A 0 limit blocks at zero; pending withdrawals are ignored, so a driver can go past the limit by the withdrawn amount. Recommended: count pending withdrawals as reserved | DOM-19 | audit 13 Oct (domain); agent report foundation-and-fixes | open |
+| O55 | Can a service category carry its own cancellation fees or dynamic multiplier? Today both come from the city | yes / city only | City only (`services/demo-api/src/services/rides.ts:82,94`); not in ADR-0033's questions | D6, [ADR-0033](../adr/0033-pricing-precedence-between-city-rules-and-service.md) | agent report foundation-and-fixes (money spec), 13 Oct | open |
+| O56 | What must exist before a new city goes live (a zone, a cash ride provider, an enabled card provider, place data, a readiness check on activation)? A new city can take recharges before it can take rides | define a checklist | No check | PRD-26, API-59 | agent report foundation-and-fixes (money spec), 13 Oct | open |
+
+## Answered in chat (13–16 October)
+
+Questions raised in the chats and answered later in them, recorded so they are not asked again.
+
+| Question | Answer | Date and source | Recorded in |
+|---|---|---|---|
+| Land `chore/docs-foundation-and-fixes` on master? | Yes: « Put everything on the master branch for now. » Master was fast-forwarded from 02ff3d3 to 0a791ff (the trial branch, 53 commits) and pushed; `feat/feedback-round-2` was kept out | owner, chat, 15 Oct | memory note `naya-branch-state.md`; O9 for round-2 |
+| Which sign-in code works in mock builds? | Any 6 digits, in mock builds only (dev API or on-device); a real backend checks the code | owner, chat, 14 Oct | ADR-0058 item 2 |
+| Where does the school pick-up photo go: a 4th passenger slide or slide 3? | « just replace slide 3 »; on 15 Oct the generated school-gate photo replaced it. The copy question stays open (O19) | owner, other chat 13 Oct; images 15 Oct | ADR-0048 decision update |
+| Cars: vector drawings or the generated renders? | The renders: plum and pearl PNGs in the quote, `VehicleImage` and the map marker; the owner did not object when asked | 15 Oct, chat | ADR-0025, ADR-0048 (decision updates); D11 |
+| Onboarding images: format and cast | 9:16, women only, Moroccan women with light-olive to caramel skin, with and without headscarf | owner, other chat 13 Oct | memory note on depicting Moroccan people; image prompts |
+| Remove the demo wording and let any phone number sign up? | Yes: a real-app feel with mock data behind it | owner, chat, 14 Oct | ADR-0058 |
+| Redesign decisions R1–R18 | Option (a) for all eighteen | owner, chat, 15 Oct | [R1–R18](#redesign-decisions-r1r18-15-october) |
