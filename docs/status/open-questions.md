@@ -1,6 +1,6 @@
 # Open questions
 
-Decisions waiting on Achraf. Owner: Achraf. Last updated: 2026-10-15.
+Decisions waiting on Achraf. Owner: Achraf. Last updated: 2026-10-16.
 
 - **D1–D15** come from section 9 of the [13 October audit](../audits/2026-10-13-full-audit.md#9-decisions-needed-from-achraf),
   which merged about 110 questions into 15 decisions. Each one except D12 maps to Proposed ADRs in [docs/adr/](../adr/).
@@ -8,6 +8,8 @@ Decisions waiting on Achraf. Owner: Achraf. Last updated: 2026-10-15.
 - **R1–R18** are the owner decisions of the [redesign audit of 15 October](../audits/2026-10-15-redesign-audit.md#7-owner-decisions).
   All eighteen were decided on 15 Oct 2026 (the recommended option each time); see
   [Redesign decisions](#redesign-decisions-r1r18-15-october) at the end of this page.
+- **O1–O6** are smaller calls raised while building on 15 Oct 2026 (dark mode, account deletion, images); see
+  [Smaller open calls](#smaller-open-calls-o1o6-15-october) at the end of this page.
 - **F1–F4** are the open questions of the founder's brief, [docs/tasks/2026-10-13.md](../tasks/2026-10-13.md#open-questions-for-the-founder-answered-above).
   The founder answered them the same day ([Founder’s answers](../tasks/2026-10-13.md#founders-answers-13-october-2026)); no ADR or spec records the answers yet.
 
@@ -352,3 +354,18 @@ Achraf accepted the recommended option (a) for every decision. R1, R3 and R5 are
 | R16 | OTP: auto-submit at the 6th digit | (a) Yes, no « Vérifier » button; « Réessayer » after a network or server error | 0c7bdd3; `packages/ui/src/__tests__/auth.test.tsx` | decided 2026-10-15, done |
 | R17 | Slide-to-confirm for « Commencer » / « Terminer » | (a) Not now | Nothing built (d50e2c7 keeps buttons) | decided 2026-10-15, done (no change) |
 | R18 | Earnings chart | (a) One 7- or 30-day bar chart, simple Views, no chart library | 8aa9451 | decided 2026-10-15, done |
+
+## Smaller open calls O1–O6 (15 October)
+
+Raised in the dark-mode, account and image work of 15 Oct 2026 on branch `feat/passenger-polish`. Each has a default
+already in the code, so nothing is blocked; the default stays until Achraf answers.
+
+| # | Question | Default in the code today | Where | Status |
+|---|---|---|---|---|
+| O1 | A passenger with money in her Naya wallet cannot delete her account, and nothing can refund a passenger wallet. Add an admin refund, or allow deletion and let support settle the balance? | Deletion refused with a message to contact support | [ADR-0055](../adr/0055-account-lifecycle.md), backlog PRD-35; tied to [D5](#d5-passenger-wallet) | open |
+| O2 | Toasts in dark mode: dark pill with a hairline edge (red / green tint for errors and successes), or the bright inverse pill? Same call for the map pin labels and the selected wallet top-up pill | Dark pill | backlog DM-15 | open (sign-off) |
+| O3 | Lift the dark card colours (surface about `#2A2330`, elevated about `#352C3B`) so cards stand out more? Changes every screen | Not lifted; shadows and hairline edges instead | backlog DM-07 | open |
+| O4 | Light mode: `muted` text on the `selected` fill is 4.21:1 (unselected segment labels, selected option subtitles). Darken light `muted` slightly to reach 4.5:1? | Unchanged (the wallet line was moved to ink) | backlog DM-21 | open |
+| O5 | Regenerate two images? (a) a pearl top view so pearl drivers' cars are not plum on the map; (b) Famille pick-up with the rear door open and warm pearl paint | Current images kept | [media results](../design/media-prompts/2026-10-15-results.md) | open (optional) |
+| O6 | Terms of use and privacy policy texts: the sign-in consent line is ready for links but no page exists | Plain text, no link | backlog PAX-18; legal (CNDP law 09-08) | open (needs the texts) |
+
