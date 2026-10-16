@@ -65,6 +65,21 @@ top. At each milestone (TestFlight upload, feature pass) walk this table and re-
 | [status/open-questions.md](status/open-questions.md) | Decisions waiting on Achraf (D1–D15, each linked to Proposed ADRs) and the founder brief's open questions (F1–F4) | 2026-10-13 | New |
 | [status/integrations.md](status/integrations.md) | Per capability: real, simulated or missing, and what live needs | 2026-10-13 | New; replaces docs/INTEGRATIONS.md (deleted on this branch) |
 | [adr/](adr/) | ADR-0001 to ADR-0059, one file each; status (Proposed / Accepted / Superseded) in each file's front matter. Template: [adr/0000-template.md](adr/0000-template.md). Index: [adr/README.md](adr/README.md) | 2026-10-13 | New |
+| [status/ideas.md](status/ideas.md) | Ideas, proposals and future improvements by theme, with their status, plus rejected alternatives | 2026-10-16 | New |
+| [status/round-2-merge-plan.md](status/round-2-merge-plan.md) | How to merge abderraouf's `feat/feedback-round-2`: Keep table, conflicts, Famille plan, order C, open questions | 2026-10-16 | New; the 14 Oct memo recovered from the session transcript, updated with 16 Oct git numbers |
+
+### History
+
+| Doc | Answers | Last verified | State |
+|---|---|---|---|
+| [history/README.md](history/README.md) | Index of the dated work logs | 2026-10-16 | New |
+| [history/2026-10-13-to-16.md](history/2026-10-13-to-16.md) | What was asked and done from 13 to 16 Oct, who decided what, commits, environment facts, state at the end | 2026-10-16 | New |
+
+### Design and media
+
+| Doc | Answers | Last verified | State |
+|---|---|---|---|
+| [design/media-prompts/](design/media-prompts/) | Image prompts and their results: [2026-10-14-image-prompts.md](design/media-prompts/2026-10-14-image-prompts.md) (cars, car wash, onboarding) and [2026-10-15-results.md](design/media-prompts/2026-10-15-results.md) (the 10 generated images and where they are used) | 2026-10-15 | New |
 
 ### Specs (feature rules)
 
